@@ -1,0 +1,22 @@
+project_id = "aiko-local"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "io.aiko.app://auth"
+additional_redirect_urls = ["io.aiko.app://auth/callback"]
+
+[storage]
+enabled = true

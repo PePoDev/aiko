@@ -92,11 +92,14 @@
 - **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
 - **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
 - **FR-005**: System MUST [behavior, e.g., "log all security events"]
+- **FR-006**: User-facing behavior MUST define loading, empty, error, and success states
+- **FR-007**: User-facing behavior MUST define accessibility expectations for labels, focus, contrast, and dynamic text
+- **FR-008**: Performance-sensitive behavior MUST define measurable response, frame, memory, network, or startup expectations
 
 *Example of marking unclear requirements:*
 
-- **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
-- **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
+- **FR-009**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
+- **FR-010**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
 
 ### Key Entities *(include if feature involves data)*
 
@@ -116,6 +119,8 @@
 - **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
 - **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
 - **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+- **SC-005**: [UX consistency metric, e.g., "All new screens use existing navigation, loading, empty, and error patterns"]
+- **SC-006**: [Performance metric, e.g., "Primary interaction completes within 200ms p95 or maintains 60 fps during animation"]
 
 ## Assumptions
 

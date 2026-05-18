@@ -1,6 +1,9 @@
 # Miscellaneous
 *.class
 *.log
+.env
+.env.*
+!.env.example
 *.pyc
 *.swp
 .DS_Store
@@ -17,6 +20,9 @@ migrate_working_dir/
 *.ipr
 *.iws
 .idea/
+.vscode/
+Thumbs.db
+*.tmp
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
@@ -32,6 +38,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+coverage/
 
 # Symbolication related
 app.*.symbols

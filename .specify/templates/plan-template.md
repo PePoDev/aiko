@@ -40,7 +40,20 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Document how the plan satisfies each active constitution principle:
+
+- **Code Quality & Maintainability**: ownership boundaries, reusable widgets,
+  state boundaries, dependency justification, and maintainability risks.
+- **Testing Standards & Regression Control**: unit/widget/integration coverage
+  planned for each user story, including failing-first expectations.
+- **User Experience Consistency**: existing navigation, layout, typography,
+  empty/loading/error states, copy tone, and accessibility patterns reused.
+- **Performance Requirements**: measurable budget or explicit N/A rationale for
+  frame rate, startup, memory, network, bundle size, and response time impact.
+- **Platform Reliability & Accessibility**: iOS/Android parity checks,
+  platform-specific behavior, semantics, focus order, contrast, and dynamic text.
+
+Any unmet gate MUST be listed in Complexity Tracking with a concrete mitigation.
 
 ## Project Structure
 
@@ -102,6 +115,16 @@ ios/ or android/
 
 **Structure Decision**: [Document the selected structure and reference the real
 directories captured above]
+
+## Quality Evidence
+
+**Test Plan**: [List unit, widget, and integration tests required by user story]
+
+**UX Consistency Review**: [Existing patterns reused or approved new pattern]
+
+**Accessibility Review**: [Semantics, focus order, dynamic text, contrast checks]
+
+**Performance Review**: [Budgets, measurement approach, or justified N/A]
 
 ## Complexity Tracking
 

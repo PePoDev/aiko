@@ -5,8 +5,7 @@
 - Flutter stable installed with Dart SDK.
 - Android Studio or Android command-line tooling for Android builds.
 - Xcode for iOS builds on macOS.
-- Docker-compatible container runtime for local Supabase.
-- Supabase CLI available through `npx`, local dev dependency, Homebrew, Scoop, or standalone binary.
+- Docker-compatible container runtime for self-hosted Supabase.
 
 ## 1. Install App Dependencies
 
@@ -14,29 +13,31 @@
 flutter pub get
 ```
 
-## 2. Start Local Supabase
+## 2. Start Self-Hosted Supabase
 
-Initialize Supabase if the `supabase/` directory does not exist yet:
-
-```bash
-npx supabase init
-```
-
-Start the local development stack:
+Create a local self-hosted environment file:
 
 ```bash
-npx supabase start
+cp supabase/self-hosted.env.example supabase/self-hosted.env
 ```
 
-Apply migrations and seed data once migrations exist:
+Start the Docker Compose stack:
 
 ```bash
-npx supabase db reset
+docker compose --env-file supabase/self-hosted.env up -d
 ```
 
-Use the API URL and anon key printed by `supabase start` for local app runs.
+Check service health:
 
-Android emulator usually needs the host machine URL mapped through `10.0.2.2`. iOS simulator can usually use the localhost URL printed by Supabase. Physical devices need a reachable HTTPS development endpoint or local network address.
+```bash
+docker compose --env-file supabase/self-hosted.env ps
+```
+
+The stack exposes Kong on `http://localhost:8000`, Postgres on local port `54322`, and Supabase Studio through `http://localhost:8000`.
+
+Use the `ANON_KEY` from `supabase/self-hosted.env` for local app runs. Never put `SERVICE_ROLE_KEY` in the mobile app.
+
+Android emulator usually needs the host machine URL mapped through `10.0.2.2`. iOS simulator can usually use localhost. Physical devices need a reachable local network address or HTTPS development tunnel.
 
 ## 3. Run The App
 
@@ -44,16 +45,18 @@ Android:
 
 ```bash
 flutter run -d android \
-  --dart-define=SUPABASE_URL=http://10.0.2.2:54321 \
-  --dart-define=SUPABASE_ANON_KEY=<local-anon-key>
+  --dart-define=SUPABASE_URL=http://<host-or-lan-ip>:8000 \
+  --dart-define=SUPABASE_ANON_KEY=<anon-key-from-supabase/self-hosted.env> \
+  --dart-define=APP_ENV=local
 ```
 
 iOS simulator:
 
 ```bash
 flutter run -d ios \
-  --dart-define=SUPABASE_URL=http://127.0.0.1:54321 \
-  --dart-define=SUPABASE_ANON_KEY=<local-anon-key>
+  --dart-define=SUPABASE_URL=http://127.0.0.1:8000 \
+  --dart-define=SUPABASE_ANON_KEY=<anon-key-from-supabase/self-hosted.env> \
+  --dart-define=APP_ENV=local
 ```
 
 Never pass or commit a Supabase service-role key to the mobile app.

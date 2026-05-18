@@ -20,19 +20,22 @@ Create a local environment from the sample values:
 cp .env.example .env
 ```
 
-Start local Supabase when the Supabase CLI and Docker runtime are available:
+Start the self-hosted Supabase Docker stack:
 
 ```bash
-npx supabase start
-npx supabase db reset
+cp supabase/self-hosted.env.example supabase/self-hosted.env
+docker compose --env-file supabase/self-hosted.env up -d
+docker compose --env-file supabase/self-hosted.env ps
 ```
 
-Run the app with dart defines. Android emulators usually need `10.0.2.2` for the host Supabase URL.
+Supabase Studio is available at `http://localhost:8000` through Kong. The default local dashboard credentials are in `supabase/self-hosted.env`; change them before sharing the stack.
+
+Run the app with dart defines. Android emulators usually need `10.0.2.2`; a wireless physical Android phone needs a LAN-reachable WSL/host IP instead.
 
 ```bash
 flutter run -d android \
-  --dart-define=SUPABASE_URL=http://10.0.2.2:54321 \
-  --dart-define=SUPABASE_ANON_KEY=<local-anon-key> \
+  --dart-define=SUPABASE_URL=http://<host-or-lan-ip>:8000 \
+  --dart-define=SUPABASE_ANON_KEY=<anon-key-from-supabase/self-hosted.env> \
   --dart-define=APP_ENV=local
 ```
 

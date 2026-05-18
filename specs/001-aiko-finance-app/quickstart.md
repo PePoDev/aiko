@@ -1,0 +1,140 @@
+# Quickstart: Aiko Personal Finance App
+
+## Prerequisites
+
+- Flutter stable installed with Dart SDK.
+- Android Studio or Android command-line tooling for Android builds.
+- Xcode for iOS builds on macOS.
+- Docker-compatible container runtime for local Supabase.
+- Supabase CLI available through `npx`, local dev dependency, Homebrew, Scoop, or standalone binary.
+
+## 1. Install App Dependencies
+
+```bash
+flutter pub get
+```
+
+## 2. Start Local Supabase
+
+Initialize Supabase if the `supabase/` directory does not exist yet:
+
+```bash
+npx supabase init
+```
+
+Start the local development stack:
+
+```bash
+npx supabase start
+```
+
+Apply migrations and seed data once migrations exist:
+
+```bash
+npx supabase db reset
+```
+
+Use the API URL and anon key printed by `supabase start` for local app runs.
+
+Android emulator usually needs the host machine URL mapped through `10.0.2.2`. iOS simulator can usually use the localhost URL printed by Supabase. Physical devices need a reachable HTTPS development endpoint or local network address.
+
+## 3. Run The App
+
+Android:
+
+```bash
+flutter run -d android \
+  --dart-define=SUPABASE_URL=http://10.0.2.2:54321 \
+  --dart-define=SUPABASE_ANON_KEY=<local-anon-key>
+```
+
+iOS simulator:
+
+```bash
+flutter run -d ios \
+  --dart-define=SUPABASE_URL=http://127.0.0.1:54321 \
+  --dart-define=SUPABASE_ANON_KEY=<local-anon-key>
+```
+
+Never pass or commit a Supabase service-role key to the mobile app.
+
+## 4. Quality Gates
+
+Run formatting:
+
+```bash
+dart format --set-exit-if-changed .
+```
+
+Run static analysis:
+
+```bash
+flutter analyze
+```
+
+Run unit and widget tests:
+
+```bash
+flutter test
+```
+
+Run integration tests after the local Supabase stack is available and seeded:
+
+```bash
+flutter test integration_test
+```
+
+Current local validation on 2026-05-18 in the WSL/Linux workspace:
+
+- `dart format --set-exit-if-changed .` passed.
+- `flutter analyze` passed with no issues.
+- `flutter test` passed with 34 unit/widget tests.
+- `flutter test integration_test` was attempted, but Flutter selected the Linux desktop target and failed before loading tests because CMake is not installed.
+- `flutter build apk --debug --dart-define=SUPABASE_URL=http://127.0.0.1:54321 --dart-define=SUPABASE_ANON_KEY=local-anon-key --dart-define=APP_ENV=local` was attempted and failed because no Android SDK/`ANDROID_HOME` is available.
+- iOS build validation must run on macOS with Xcode; this Linux toolchain exposes no iOS build subcommand.
+
+## 5. Manual Verification Checklist
+
+- First launch shows Aiko branding and onboarding.
+- User can sign up or sign in through local Supabase Auth.
+- User can complete onboarding with base currency, country, first account, AI consent, and security choice.
+- User can add a transaction and see dashboard totals update.
+- User can create a monthly budget and savings goal.
+- User can view Aiko Insights and source explanations.
+- User can run all six MVP calculators and save a scenario.
+- User can export transactions to CSV.
+- App lock behavior works after timeout or relaunch.
+- Light and dark themes remain readable.
+- Screen reader labels and dynamic text are usable on critical screens.
+
+## 6. Production Self-Hosted Supabase Notes
+
+Before production release:
+
+- Use the official self-hosted Docker Compose deployment path, not the local CLI stack.
+- Configure HTTPS, reverse proxy, secrets, SMTP, auth redirect URLs, and storage limits.
+- Enable and verify Row Level Security on all user-owned tables.
+- Confirm no service-role secret is present in mobile app bundles or logs.
+- Configure backups and perform restore drills.
+- Configure monitoring, logs, service restart policy, and update process.
+- Review database indexes for transaction search, dashboard summaries, and report generation.
+
+## 7. Build Commands
+
+Android release build:
+
+```bash
+flutter build apk --release \
+  --dart-define=SUPABASE_URL=<production-url> \
+  --dart-define=SUPABASE_ANON_KEY=<production-anon-key>
+```
+
+iOS release build:
+
+```bash
+flutter build ios --release \
+  --dart-define=SUPABASE_URL=<production-url> \
+  --dart-define=SUPABASE_ANON_KEY=<production-anon-key>
+```
+
+Signing, app identifiers, deep links, notification entitlements, and store metadata must be configured before store submission.

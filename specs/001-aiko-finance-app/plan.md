@@ -4,11 +4,11 @@
 
 **Input**: Feature specification from `/specs/001-aiko-finance-app/spec.md`
 
-**User Implementation Constraint**: Build the application as a Flutter mobile app for Android and iOS with self-hosted Supabase as the backend platform.
+**User Implementation Constraint**: Build the application as a Flutter mobile app for Android and iOS with Supabase Cloud as the backend platform.
 
 ## Summary
 
-Aiko is an Android and iOS personal finance mobile app centered on onboarding, secure access, manual accounts, transaction tracking, categories, transaction rules, monthly budgets, goals, saving plans, dashboard widgets, spending insights, Aiko AI guidance, reports, CSV export, and six first-release calculators. The implementation will use a Flutter app organized by feature modules, backed by self-hosted Supabase for authentication, Postgres-backed financial data, storage for attachments, realtime updates where useful, and row-level access controls for user-owned records.
+Aiko is an Android and iOS personal finance mobile app centered on onboarding, secure access, manual accounts, transaction tracking, categories, transaction rules, monthly budgets, goals, saving plans, dashboard widgets, spending insights, Aiko AI guidance, reports, CSV export, and six first-release calculators. The implementation will use a Flutter app organized by feature modules, backed by Supabase Cloud for authentication, Postgres-backed financial data, storage for attachments, realtime updates where useful, and row-level access controls for user-owned records.
 
 The first implementation slice should replace the starter counter app with the Aiko shell, theme, navigation, onboarding, authentication/session handling, and local test scaffolding before adding finance modules incrementally by user story priority.
 
@@ -20,11 +20,11 @@ The first implementation slice should replace the starter counter app with the A
 
 **Storage**: Self-hosted Supabase with Postgres as source of truth, Supabase Auth for identity, Supabase Storage for receipts/documents, RLS policies for user-owned data, and protected device storage for session/security state. Local cache is limited to session, settings, draft forms, and read-only display cache in the MVP; full offline sync is deferred.
 
-**Testing**: `flutter test` for unit and widget tests, `integration_test` for critical onboarding/transaction/dashboard flows, deterministic repository fakes for business logic, and local Supabase test data for contract/integration verification.
+**Testing**: `flutter test` for unit and widget tests, `integration_test` for critical onboarding/transaction/dashboard flows, deterministic repository fakes for business logic, and Supabase migration contract checks for schema/RLS/storage verification.
 
 **Target Platform**: Android and iOS mobile apps. Existing web, desktop, Linux, macOS, and Windows project folders are out of scope unless needed for development convenience.
 
-**Project Type**: Mobile app plus self-hosted backend data service.
+**Project Type**: Mobile app plus Supabase Cloud backend data service.
 
 **Performance Goals**: Primary navigation, quick add, dashboard updates, and calculator input complete in under 1 second for 95% of standard test actions; transaction search/filter results appear in under 2 seconds for up to 10,000 transactions; Aiko Review appears in under 10 seconds; scrolling and chart interactions target 60 fps on supported devices.
 
@@ -149,7 +149,7 @@ ios/
 
 ## Complexity Tracking
 
-No constitution violations identified. The Supabase self-hosted backend adds operational responsibility, but it is required by the user constraint and is addressed through research, contracts, migrations, RLS policies, backup expectations, and quickstart guidance.
+No constitution violations identified. Supabase Cloud reduces app-owned infrastructure operations while preserving migration, RLS, storage, and no-service-role constraints.
 
 ## Post-Design Constitution Check
 

@@ -1,11 +1,11 @@
 # Aiko
 
-Aiko is a Flutter personal finance mobile app for Android and iOS, backed by a self-hosted Supabase stack. The MVP includes secure onboarding, account and transaction tracking, budgets, goals, a Home dashboard, insights, reports, CSV export, Ask Aiko, and six finance calculators.
+Aiko is a Flutter personal finance mobile app for Android and iOS, backed by Supabase Cloud. The MVP includes secure onboarding, account and transaction tracking, budgets, goals, a Home dashboard, insights, reports, CSV export, Ask Aiko, and finance calculators.
 
 ## Stack
 
 - Flutter and Dart for the mobile app.
-- Supabase self-hosted/PostgreSQL for auth, user-owned financial data, storage, and RLS.
+- Supabase Cloud for auth, Postgres-backed user-owned financial data, storage, and RLS.
 - Riverpod, GoRouter, secure storage, local authentication, fl_chart, csv, and decimal-safe money logic.
 
 ## Setup
@@ -14,32 +14,52 @@ Aiko is a Flutter personal finance mobile app for Android and iOS, backed by a s
 flutter pub get
 ```
 
-Create a local environment from the sample values:
+Create a local environment file from the sample values:
 
 ```bash
 cp .env.example .env
 ```
 
-Start the self-hosted Supabase Docker stack:
+Fill in your Supabase Cloud project values later:
 
-```bash
-cp supabase/self-hosted.env.example supabase/self-hosted.env
-docker compose --env-file supabase/self-hosted.env up -d
-docker compose --env-file supabase/self-hosted.env ps
+```text
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-cloud-anon-key
+AIKO_ENV=development
 ```
 
-Supabase Studio is available at `http://localhost:8000` through Kong. The default local dashboard credentials are in `supabase/self-hosted.env`; change them before sharing the stack.
+Never put a Supabase service-role key in the mobile app, `.env`, Flutter dart-defines, or any client-visible config.
 
-Run the app with dart defines. Android emulators usually need `10.0.2.2`; a wireless physical Android phone needs a LAN-reachable WSL/host IP instead.
+## Supabase Cloud Schema
+
+The repository keeps portable Supabase migrations under `supabase/migrations/`. After you create the Supabase Cloud project and install/login to the Supabase CLI, link the repo and push migrations:
+
+```bash
+supabase login
+SUPABASE_PROJECT_REF=<your-project-ref> ./scripts/supabase_cloud_prepare.sh
+```
+
+You can also run the commands manually:
+
+```bash
+supabase link --project-ref <your-project-ref>
+supabase db push
+```
+
+Seed data is in `supabase/seed.sql`; apply it only to a demo/development cloud project.
+
+## Run The App
+
+Pass Supabase Cloud credentials with dart defines:
 
 ```bash
 flutter run -d android \
-  --dart-define=SUPABASE_URL=http://<host-or-lan-ip>:8000 \
-  --dart-define=SUPABASE_ANON_KEY=<anon-key-from-supabase/self-hosted.env> \
-  --dart-define=APP_ENV=local
+  --dart-define=SUPABASE_URL=https://your-project-ref.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=<your-cloud-anon-key> \
+  --dart-define=AIKO_ENV=development
 ```
 
-Never put a Supabase service-role key in the mobile app.
+Without both `SUPABASE_URL` and `SUPABASE_ANON_KEY`, the app skips Supabase initialization so tests and UI work can run before credentials are available.
 
 ## Quality Gates
 
@@ -50,13 +70,18 @@ flutter test
 flutter test integration_test
 ```
 
-Current local validation:
+Current local validation should use deterministic fakes and contract checks. Supabase Cloud credentialed smoke tests should be run after migrations are pushed to a non-production project.
 
-- `dart format --set-exit-if-changed .`: passed.
-- `flutter analyze`: passed.
-- `flutter test`: passed, 34 tests.
-- `flutter test integration_test`: blocked in this WSL environment because Flutter selected Linux desktop and CMake is not installed.
-- `flutter build apk --debug ...`: blocked because no Android SDK/`ANDROID_HOME` is available.
-- iOS build validation requires macOS/Xcode; this Linux Flutter toolchain does not expose an iOS build command.
+See `specs/001-aiko-finance-app/` and `specs/002-aiko-product-expansion/` for Spec Kit artifacts, evidence notes, and release checklists.
 
-See `specs/001-aiko-finance-app/` for the Spec Kit artifacts, evidence notes, and release checklists.
+## Product Expansion Roadmap
+
+The `specs/002-aiko-product-expansion/` roadmap expands the MVP into the fuller Aiko product vision while keeping advanced modules progressively disclosed. Implemented roadmap slices include:
+
+- Aiko character controls and data-first placement rules.
+- Import, export, backup, and sensitivity warnings.
+- Bills, subscriptions, notification scheduling, and lower-bill review surfaces.
+- Credit cards, debt payoff planning, assets, net worth, portfolio allocation, tax, accounting, learning, travel, devices, Aiko Optimize, and subscription-plan surfaces.
+- Supabase Cloud schema and RLS migrations for user-owned roadmap tables.
+
+Run the quality gates above before treating an expansion slice as releasable.

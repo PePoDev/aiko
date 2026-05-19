@@ -7,21 +7,18 @@ class AppConfig {
   });
 
   factory AppConfig.fromEnvironment() {
-    const url = String.fromEnvironment(
-      'SUPABASE_URL',
-      defaultValue: 'http://127.0.0.1:54321',
-    );
+    const url = String.fromEnvironment('SUPABASE_URL');
     const anonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
     const environment = String.fromEnvironment(
       'AIKO_ENV',
-      defaultValue: 'local',
+      defaultValue: 'development',
     );
 
     return AppConfig(
       supabaseUrl: url,
       supabaseAnonKey: anonKey,
       environment: environment,
-      enableSupabase: anonKey.isNotEmpty,
+      enableSupabase: url.isNotEmpty && anonKey.isNotEmpty,
     );
   }
 
@@ -31,4 +28,7 @@ class AppConfig {
   final bool enableSupabase;
 
   bool get isLocal => environment == 'local';
+
+  bool get isCloudConfigured =>
+      supabaseUrl.startsWith('https://') && supabaseAnonKey.isNotEmpty;
 }

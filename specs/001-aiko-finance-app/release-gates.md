@@ -9,7 +9,7 @@ This document defines how Aiko records release validation when required tooling 
 - `dart format --set-exit-if-changed .` must pass before release.
 - `flutter analyze` must pass before release.
 - `flutter test` must pass before release.
-- Critical integration journeys must pass with local Supabase seeded.
+- Critical integration journeys must pass with deterministic fakes and a Supabase Cloud development smoke test before release.
 - Profile-mode performance evidence must cover onboarding, transaction search, Home dashboard, Aiko Review, and calculators.
 - Android build evidence must be recorded with production dart-defines.
 - iOS build evidence must be recorded on macOS/Xcode with production dart-defines.
@@ -28,7 +28,7 @@ Exception notes do not count as a pass. They keep the blocker visible until the 
 
 ## Current Environment-Dependent Gates
 
-- T144: integration tests require a supported Flutter target and local Supabase readiness.
+- T144: integration tests require a supported Flutter target and Supabase Cloud development project readiness for credentialed smoke testing.
 - T147: profile-mode performance requires Android/iOS emulator or device tooling.
 - T148: Android build requires Android SDK and `ANDROID_HOME`.
 - T149: iOS build requires macOS, Xcode, and signing configuration.

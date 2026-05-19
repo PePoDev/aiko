@@ -13,13 +13,13 @@
 
 ## Decision: Self-Hosted Supabase As Backend Platform
 
-**Decision**: Use self-hosted Supabase for Auth, Postgres, Storage, Realtime, migrations, and local development. Use Supabase CLI for local development and Docker Compose based self-hosting for production-like deployments.
+**Decision**: Use Supabase Cloud for Auth, Postgres, Storage, Realtime, migrations, and local development. Use Supabase CLI for local development and managed Supabase Cloud operations for production-like deployments.
 
-**Rationale**: The user specified self-hosted Supabase. Official Supabase guidance distinguishes local CLI development from production self-hosting and identifies self-hosting as appropriate when the product needs control over data or isolated infrastructure. It also makes clear that self-hosting shifts responsibility for server provisioning, hardening, backups, maintenance, monitoring, uptime, and scaling to the application owner.
+**Rationale**: The user specified Supabase Cloud. Official Supabase guidance distinguishes Supabase CLI project linking from production Supabase Cloud operations and identifies Supabase Cloud operations as appropriate when the product needs control over data or isolated infrastructure. It also makes clear that Supabase Cloud operations shifts responsibility for server provisioning, hardening, backups, maintenance, monitoring, uptime, and scaling to the application owner.
 
 **Alternatives considered**:
-- Managed Supabase: rejected because the user specified self-hosted.
-- Firebase: rejected because it does not satisfy the self-hosted Supabase requirement.
+- Managed Supabase: rejected because the user specified Supabase Cloud.
+- Firebase: rejected because it does not satisfy the Supabase Cloud requirement.
 - Custom backend from scratch: rejected for MVP because Supabase provides Auth, Postgres, Storage, Realtime, and access-control building blocks.
 
 ## Decision: Supabase Auth With User-Owned Row Level Security
@@ -68,7 +68,7 @@
 
 ## Decision: Online-First MVP With Limited Local Persistence
 
-**Decision**: Build MVP as online-first against self-hosted Supabase while keeping protected local storage for session/security state, display settings, draft forms, and optional read-only cached summaries. Full offline write sync is deferred.
+**Decision**: Build MVP as online-first against Supabase Cloud while keeping protected local storage for session/security state, display settings, draft forms, and optional read-only cached summaries. Full offline write sync is deferred.
 
 **Rationale**: Offline sync for transactions, budgets, goals, attachments, conflicts, and reports is a significant product and data-consistency feature. The MVP can still provide clear offline/error states without blocking core manual tracking.
 
@@ -121,10 +121,10 @@
 
 ## Decision: Production Self-Hosting Needs Explicit Operations Scope
 
-**Decision**: Treat self-hosted Supabase operations as part of the plan: HTTPS, secrets, backups, restore drills, logs, monitoring, database maintenance, service upgrades, and RLS migration review are release responsibilities.
+**Decision**: Treat Supabase Cloud operations as part of the plan: HTTPS, secrets, backups, restore drills, logs, monitoring, database maintenance, service upgrades, and RLS migration review are release responsibilities.
 
 **Rationale**: Self-hosting is not only a development dependency. It changes reliability and security responsibilities for a finance app. The MVP should document local development separately from production deployment to avoid accidentally treating the CLI stack as production.
 
 **Alternatives considered**:
 - Ignore operations until launch: rejected because backup/security choices affect schema, secrets, and release readiness.
-- Use only local Supabase CLI for all environments: rejected because local CLI development is not the same as production self-hosting.
+- Use only Supabase Cloud development project CLI for all environments: rejected because Supabase CLI project linking is not the same as production Supabase Cloud operations.

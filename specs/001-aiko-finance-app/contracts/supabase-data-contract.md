@@ -2,12 +2,12 @@
 
 ## Purpose
 
-Define the backend contract the Flutter app expects from self-hosted Supabase.
+Define the backend contract the Flutter app expects from Supabase Cloud.
 
 ## Environments
 
 - **Local development**: Supabase CLI stack for development and automated contract checks.
-- **Production-like self-hosted**: Docker Compose based Supabase deployment with HTTPS, stable public API URL, managed secrets, backups, logs, and monitoring.
+- **Supabase Cloud project**: Managed Supabase deployment with HTTPS, stable public API URL, managed secrets, backups, logs, and monitoring.
 
 The local CLI stack must not be treated as production hosting.
 

@@ -10,6 +10,8 @@ class CreditCardDetail {
     this.creditLimit,
     this.aprPercent,
     this.rewardsSummary,
+    this.minimumPayment,
+    this.annualFee,
   });
 
   final String id;
@@ -20,6 +22,17 @@ class CreditCardDetail {
   final Money? creditLimit;
   final double? aprPercent;
   final String? rewardsSummary;
+  final Money? minimumPayment;
+  final Money? annualFee;
 
   bool get hasPaymentDue => statementBalance.isPositive;
+
+  double get utilizationPercent {
+    final limit = creditLimit;
+    if (limit == null || limit.amount.toDouble() <= 0) {
+      return 0;
+    }
+
+    return statementBalance.amount.toDouble() / limit.amount.toDouble() * 100;
+  }
 }

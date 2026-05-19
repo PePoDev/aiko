@@ -72,7 +72,7 @@
 - [ ] CHK023 Are performance measurement conditions defined for device class, data volume, network assumptions, and seeded-data shape? [Gap, Plan Performance Goals, Plan Performance Review]
 - [ ] CHK024 Are accessibility requirements specific for labels, focus order, touch targets, contrast, screen readers, dynamic text, and finance-chart alternatives? [Completeness, Spec FR-032, Spec SC-012]
 - [ ] CHK025 Are privacy and security requirements complete for local protected data, remote sign-out, device management, AI consent, data export, and account deletion? [Completeness, Spec FR-003, Spec FR-034]
-- [ ] CHK026 Are self-hosted Supabase ownership and no-service-role constraints traceable to user-visible privacy requirements? [Traceability, Plan Constraints, Spec FR-034]
+- [ ] CHK026 Are Supabase Cloud ownership and no-service-role constraints traceable to user-visible privacy requirements? [Traceability, Plan Constraints, Spec FR-034]
 - [ ] CHK027 Are offline, permission-denied, session-timeout, and recovery requirements specified per primary screen rather than only as global states? [Coverage, Spec FR-004, Spec FR-031, Spec Edge Cases]
 
 ## Acceptance Criteria Quality
@@ -85,7 +85,7 @@
 ## Dependency And Assumption Quality
 
 - [ ] CHK032 Are assumptions about manual entry, no bank sync, AI consent, and educational guidance reflected consistently across requirements and success criteria? [Consistency, Spec Assumptions, Spec FR-023, Spec FR-024]
-- [ ] CHK033 Are external dependency boundaries documented for local Supabase, storage, biometrics, notifications, file sharing, and platform permissions? [Completeness, Plan Technical Context, Plan Constraints]
+- [ ] CHK033 Are external dependency boundaries documented for Supabase Cloud development project, storage, biometrics, notifications, file sharing, and platform permissions? [Completeness, Plan Technical Context, Plan Constraints]
 - [x] CHK034 Are environment-dependent validation limitations represented as requirement exceptions or release gates rather than only task blockers? [Gap, Tasks Deferred Environment-Dependent Validation]
 
 ## Remediation Review

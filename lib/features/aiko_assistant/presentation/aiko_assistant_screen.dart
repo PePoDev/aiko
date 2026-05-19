@@ -37,6 +37,18 @@ class AikoAssistantScreen extends StatelessWidget {
             icon: const Icon(Icons.calculate_outlined),
             label: const Text('Open calculators'),
           ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: () => context.go('/learning-hub'),
+            icon: const Icon(Icons.school_outlined),
+            label: const Text('Open Learning Hub'),
+          ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: () => context.go('/aiko-optimize'),
+            icon: const Icon(Icons.tune_outlined),
+            label: const Text('Open Aiko Optimize'),
+          ),
         ],
       ),
     );

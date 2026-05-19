@@ -6,8 +6,8 @@ Command attempted:
 
 ```bash
 flutter build apk --debug \
-  --dart-define=SUPABASE_URL=http://127.0.0.1:54321 \
-  --dart-define=SUPABASE_ANON_KEY=local-anon-key \
+  --dart-define=SUPABASE_URL=https://your-project-ref.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=your-cloud-anon-key \
   --dart-define=APP_ENV=local
 ```
 

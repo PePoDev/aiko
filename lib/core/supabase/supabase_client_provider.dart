@@ -9,6 +9,11 @@ class AikoSupabase {
     if (!config.enableSupabase || Supabase.instance.isInitialized) {
       return;
     }
+    if (!config.supabaseUrl.startsWith('https://')) {
+      throw ArgumentError(
+        'SUPABASE_URL must be a Supabase Cloud HTTPS project URL.',
+      );
+    }
     await Supabase.initialize(
       url: config.supabaseUrl,
       anonKey: config.supabaseAnonKey,

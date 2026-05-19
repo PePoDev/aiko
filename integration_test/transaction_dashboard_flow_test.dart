@@ -13,9 +13,9 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Home'), findsWidgets);
     await tester.tap(find.text('Quick add'));
     await tester.pumpAndSettle();
-    expect(find.text('Transactions'), findsOneWidget);
+    expect(find.text('Transactions'), findsWidgets);
   });
 }

@@ -269,13 +269,13 @@
 
 **Purpose**: Final verification and hardening across all selected user stories.
 
-- [X] T138 [P] Update quickstart validation notes with actual local Supabase and Flutter commands in specs/001-aiko-finance-app/quickstart.md
+- [X] T138 [P] Update quickstart validation notes with actual Supabase Cloud development project and Flutter commands in specs/001-aiko-finance-app/quickstart.md
 - [X] T139 [P] Update README setup, platform, Supabase, test, and build guidance in README.md
-- [X] T140 [P] Add release security checklist for self-hosted Supabase backups, HTTPS, secrets, RLS, storage, and restore drills in specs/001-aiko-finance-app/security-release-checklist.md
+- [X] T140 [P] Add release security checklist for Supabase Cloud backups, HTTPS, secrets, RLS, storage, and restore drills in specs/001-aiko-finance-app/security-release-checklist.md
 - [X] T141 Run `dart format --set-exit-if-changed .` and fix formatting issues across lib/, test/, integration_test/, and supabase/
 - [X] T142 Run `flutter analyze` and fix all analyzer issues across lib/, test/, and integration_test/
 - [X] T143 Run `flutter test` and fix all unit/widget failures across test/
-- [ ] T144 Run `flutter test integration_test` with local Supabase seeded and fix all integration failures in integration_test/
+- [ ] T144 Run `flutter test integration_test` with Supabase Cloud development project seeded and fix all integration failures in integration_test/
 - [X] T145 Validate RLS and storage ownership behavior against supabase/migrations/ and document evidence in specs/001-aiko-finance-app/security-rls-evidence.md
 - [X] T146 Validate accessibility for onboarding, transactions, Home, budgets, insights, Aiko, and calculators and document evidence in specs/001-aiko-finance-app/accessibility-evidence.md
 - [ ] T147 Validate profile-mode performance for onboarding, transaction search, Home dashboard, Aiko Review, and calculators and document evidence in specs/001-aiko-finance-app/performance/final-profile-results.md

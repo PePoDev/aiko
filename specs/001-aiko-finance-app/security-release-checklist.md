@@ -1,7 +1,7 @@
 # Security Release Checklist
 
 - Use anon keys only in the Flutter app; never ship service-role keys.
-- Serve self-hosted Supabase only over HTTPS in production.
+- Use the Supabase Cloud HTTPS project URL in production.
 - Rotate JWT, anon, service-role, SMTP, storage, and database credentials before release.
 - Verify RLS is enabled on every user-owned table.
 - Verify storage policies restrict receipt, document, and export paths by authenticated user.

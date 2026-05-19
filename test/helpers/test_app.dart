@@ -5,7 +5,7 @@ import 'package:flutter/widgets.dart';
 Widget buildTestApp() {
   return const AikoApp(
     config: AppConfig(
-      supabaseUrl: 'http://127.0.0.1:54321',
+      supabaseUrl: '',
       supabaseAnonKey: '',
       environment: 'test',
       enableSupabase: false,

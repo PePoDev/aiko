@@ -15,6 +15,6 @@ Local result:
 
 Pending release evidence:
 
-- Run `npx supabase db reset` against a local Supabase stack.
+- Run `supabase db push` against a linked Supabase Cloud development project.
 - Attempt cross-user table reads/writes and cross-user storage path reads/writes.
 - Attach SQL/log evidence before production release.

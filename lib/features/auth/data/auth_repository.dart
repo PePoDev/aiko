@@ -14,7 +14,7 @@ class AuthRepository {
 
   bool hasActiveSession() {
     final client = AikoSupabase.tryClient();
-    return (client?.auth.currentSession != null) || _session != null;
+    return client?.auth.currentSession != null;
   }
 
   Future<AuthSession> signUp({

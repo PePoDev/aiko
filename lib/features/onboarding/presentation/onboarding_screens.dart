@@ -62,7 +62,7 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
         child: FilledButton(
           onPressed: () {
             if (_page == steps.length - 1) {
-              context.go('/home');
+              context.push('/signup');
             } else {
               _pageController.nextPage(
                 duration: const Duration(milliseconds: 250),
@@ -70,7 +70,9 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
               );
             }
           },
-          child: Text(_page == steps.length - 1 ? 'Open Aiko' : 'Continue'),
+          child: Text(
+            _page == steps.length - 1 ? 'Create account' : 'Continue',
+          ),
         ),
       ),
     );

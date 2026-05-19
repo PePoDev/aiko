@@ -5,8 +5,10 @@ import '../config/app_config.dart';
 class AikoSupabase {
   const AikoSupabase._();
 
+  static bool _initialized = false;
+
   static Future<void> initialize(AppConfig config) async {
-    if (!config.enableSupabase || Supabase.instance.isInitialized) {
+    if (!config.enableSupabase || _initialized) {
       return;
     }
     if (!config.supabaseUrl.startsWith('https://')) {
@@ -18,10 +20,11 @@ class AikoSupabase {
       url: config.supabaseUrl,
       anonKey: config.supabaseAnonKey,
     );
+    _initialized = true;
   }
 
   static SupabaseClient? tryClient() {
-    if (!Supabase.instance.isInitialized) {
+    if (!_initialized) {
       return null;
     }
     return Supabase.instance.client;

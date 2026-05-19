@@ -294,6 +294,33 @@ The remaining unchecked tasks require device/profile tooling or platform SDKs no
 
 ---
 
+## Phase 10: Requirements Remediation & Release Gates
+
+**Purpose**: Close task coverage gaps identified by the requirements checklist and analysis before final release.
+
+- [X] T151 [P] Clarify MVP, near-term, later, and planned-module scope boundaries for FR-028, FR-029, and FR-030 in specs/001-aiko-finance-app/spec.md
+- [X] T152 [P] Clarify whether US6 Aiko/calculators are first-release MVP scope or post-MVP scope in specs/001-aiko-finance-app/spec.md and specs/001-aiko-finance-app/plan.md
+- [X] T153 [P] Document release-gate exception policy for environment-dependent validation in specs/001-aiko-finance-app/release-gates.md
+- [X] T154 Add unit tests for bill/subscription and credit-card due-date dashboard source mapping in test/features/dashboard/dashboard_due_items_test.dart
+- [X] T155 Create BillSubscription and CreditCardDetail domain models and DTO mappings in lib/features/bills/domain/bill_subscription.dart, lib/features/bills/data/bill_subscription_dto.dart, lib/features/credit_cards/domain/credit_card_detail.dart, and lib/features/credit_cards/data/credit_card_detail_dto.dart
+- [X] T156 Implement due-item repository and dashboard adapter for upcoming bills and credit-card due dates in lib/features/dashboard/data/dashboard_due_item_repository.dart and lib/features/dashboard/application/dashboard_due_item_service.dart
+- [X] T157 Add Home dashboard due-item widgets, empty states, and deep-link placeholders in lib/features/dashboard/presentation/widgets/dashboard_due_items_widget.dart
+- [X] T158 Add widget tests for Home upcoming bills and credit-card due-date states in test/features/dashboard/dashboard_due_items_widget_test.dart
+- [X] T159 Add unit tests for transaction attachment metadata, validation, and export-scope behavior in test/features/transactions/transaction_attachment_test.dart
+- [X] T160 Implement transaction attachment model, DTO mapping, and repository methods in lib/features/transactions/domain/transaction_attachment.dart, lib/features/transactions/data/transaction_attachment_dto.dart, and lib/features/transactions/data/transaction_attachment_repository.dart
+- [X] T161 Add transaction attachment picker and attachment list components to transaction forms in lib/features/transactions/presentation/transaction_attachment_section.dart
+- [X] T162 Add unit tests for manual exchange-rate and base-currency conversion behavior in test/core/money/exchange_rate_test.dart
+- [X] T163 Implement manual exchange-rate value object and conversion service in lib/core/money/exchange_rate.dart and lib/core/money/currency_conversion_service.dart
+- [X] T164 Wire base-currency conversion into dashboard/report summary calculations in lib/features/dashboard/application/dashboard_summary_service.dart and lib/features/reports/application/report_service.dart
+- [X] T165 Add notification preference source-module mapping tests in test/features/settings/notification_preferences_test.dart
+- [X] T166 Implement notification preference source-module model and repository mapping in lib/features/settings/domain/notification_preference.dart and lib/features/settings/data/notification_preference_repository.dart
+- [X] T167 Update quickstart release validation instructions for integration tests, Android build, iOS build, and profile-mode performance evidence in specs/001-aiko-finance-app/quickstart.md
+- [X] T168 Run requirements remediation checklist review and document resolved or deferred items in specs/001-aiko-finance-app/checklists/requirements.md
+
+**Checkpoint**: Release-gate gaps are either implemented, verified, or explicitly deferred with documented rationale.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -307,6 +334,7 @@ The remaining unchecked tasks require device/profile tooling or platform SDKs no
 - **Phase 7 US5**: Depends on Phase 2 and needs transaction/budget/goal data for meaningful reports.
 - **Phase 8 US6**: Depends on Phase 2 and integrates best after dashboard, insights, and calculators have source data.
 - **Phase 9 Polish**: Depends on all selected user stories for the release scope.
+- **Phase 10 Requirements Remediation & Release Gates**: Depends on Phase 9 evidence and the requirements checklist findings.
 
 ### User Story Dependencies
 
@@ -334,6 +362,7 @@ The remaining unchecked tasks require device/profile tooling or platform SDKs no
 - Each story's unit and widget tests marked [P] can be written in parallel before implementation.
 - Domain/DTO tasks marked [P] can run in parallel within each user story.
 - US2, US3, US4, US5, and US6 can be developed in parallel after Phase 2 if each uses fake repositories and seeded data until integration.
+- Phase 10 documentation tasks T151, T152, T153, and T167 can run in parallel with implementation remediation tasks T154-T166.
 
 ## Parallel Example: User Story 1
 

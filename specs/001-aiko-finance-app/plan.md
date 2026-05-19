@@ -30,7 +30,7 @@ The first implementation slice should replace the starter counter app with the A
 
 **Constraints**: No service-role secrets in the mobile app; all user-owned records require ownership enforcement; sensitive AI, finance, tax, and investment features require disclaimers and consent; protected screens require app lock after timeout; first release remains manual-entry-first; no production dependency on managed Supabase platform features.
 
-**Scale/Scope**: First release covers the 25-screen recommended MVP list with priority on P1 and P2 user stories. Data design targets at least 10,000 transactions per user, multiple accounts/categories/budgets/goals per user, and future expansion for credit cards, debt, portfolio, tax, accounting, travel, and sync.
+**Scale/Scope**: First release covers the 25-screen recommended MVP list with priority on P1 and P2 user stories, plus the US6 MVP decision-support slice for Aiko and the six calculators. Data design targets at least 10,000 transactions per user, multiple accounts/categories/budgets/goals per user, first-release due-item support for bills and credit cards, and future expansion for full credit card management, debt, portfolio, tax, accounting, travel, and sync.
 
 ## Constitution Check
 

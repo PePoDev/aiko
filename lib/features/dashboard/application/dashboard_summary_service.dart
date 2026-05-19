@@ -1,4 +1,5 @@
 import '../../../core/money/money.dart';
+import '../../../core/money/currency_conversion_service.dart';
 import '../../accounts/domain/account.dart';
 import '../../transactions/domain/transaction.dart';
 import '../domain/dashboard_summary.dart';
@@ -6,25 +7,38 @@ import '../domain/dashboard_summary.dart';
 class DashboardSummaryService {
   const DashboardSummaryService();
 
-  Money totalCash(List<Account> accounts, String currency) {
+  Money totalCash(
+    List<Account> accounts,
+    String currency, {
+    CurrencyConversionService? converter,
+  }) {
     return accounts
-        .where(
-          (account) =>
-              account.includeInNetWorth && account.currency == currency,
-        )
-        .fold(
-          Money.zero(currency),
-          (total, account) => total + account.currentBalance,
-        );
+        .where((account) => account.includeInNetWorth)
+        .map((account) {
+          if (account.currency == currency) {
+            return account.currentBalance;
+          }
+          return converter?.convert(account.currentBalance, currency);
+        })
+        .whereType<Money>()
+        .fold(Money.zero(currency), (total, balance) => total + balance);
   }
 
-  Money spending(List<FinanceTransaction> transactions, String currency) {
+  Money spending(
+    List<FinanceTransaction> transactions,
+    String currency, {
+    CurrencyConversionService? converter,
+  }) {
     return transactions
         .where((transaction) => transaction.type == TransactionType.expense)
-        .fold(
-          Money.zero(currency),
-          (total, transaction) => total + transaction.amount,
-        );
+        .map((transaction) {
+          if (transaction.amount.currency == currency) {
+            return transaction.amount;
+          }
+          return converter?.convert(transaction.amount, currency);
+        })
+        .whereType<Money>()
+        .fold(Money.zero(currency), (total, amount) => total + amount);
   }
 
   Money leftover({

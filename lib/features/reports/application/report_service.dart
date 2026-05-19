@@ -1,4 +1,5 @@
 import '../../../core/money/money.dart';
+import '../../../core/money/currency_conversion_service.dart';
 import '../../transactions/domain/transaction.dart';
 import '../domain/report.dart';
 
@@ -10,10 +11,19 @@ class ReportService {
     required DateTime periodStart,
     required DateTime periodEnd,
     required List<FinanceTransaction> transactions,
+    String baseCurrency = 'USD',
+    CurrencyConversionService? converter,
   }) {
     final spending = transactions
         .where((item) => item.type == TransactionType.expense)
-        .fold(Money.zero('USD'), (total, item) => total + item.amount);
+        .map((item) {
+          if (item.amount.currency == baseCurrency) {
+            return item.amount;
+          }
+          return converter?.convert(item.amount, baseCurrency);
+        })
+        .whereType<Money>()
+        .fold(Money.zero(baseCurrency), (total, item) => total + item);
     return Report(
       id: 'monthly-${periodStart.month}',
       userId: userId,

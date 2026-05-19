@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'transaction_attachment_section.dart';
+
 class TransactionFormScreen extends StatelessWidget {
   const TransactionFormScreen({super.key});
 
@@ -27,6 +29,8 @@ class TransactionFormScreen extends StatelessWidget {
           TextField(decoration: InputDecoration(labelText: 'Merchant')),
           SizedBox(height: 12),
           TextField(decoration: InputDecoration(labelText: 'Note')),
+          SizedBox(height: 12),
+          TransactionAttachmentSection(attachments: []),
         ],
       ),
     );

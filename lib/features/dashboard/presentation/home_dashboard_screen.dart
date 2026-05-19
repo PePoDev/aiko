@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/test_data/demo_data.dart';
 import '../../../shared/widgets/finance_card.dart';
 import 'widgets/calculator_shortcuts_widget.dart';
+import 'widgets/dashboard_due_items_widget.dart';
 
 class HomeDashboardScreen extends StatelessWidget {
   const HomeDashboardScreen({super.key});
@@ -51,6 +52,8 @@ class HomeDashboardScreen extends StatelessWidget {
             icon: Icons.speed,
             child: Text('On track. Keep flexible spending under 35 USD/day.'),
           ),
+          const SizedBox(height: 12),
+          const DashboardDueItemsWidget(items: []),
           const SizedBox(height: 12),
           const FinanceCard(
             title: 'Recent transactions',

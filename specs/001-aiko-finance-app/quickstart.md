@@ -124,6 +124,8 @@ Before production release:
 
 ## 7. Build Commands
 
+Before release, compare the commands below against [release-gates.md](release-gates.md). Environment-blocked gates must keep their task IDs open and include the attempted command, blocker, and next required tooling in the linked evidence file.
+
 Android release build:
 
 ```bash

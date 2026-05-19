@@ -155,9 +155,9 @@ A user can ask Aiko natural-language finance questions, receive explainable guid
 - **FR-025**: The calculator library MUST include compound interest, loan, credit card payoff, savings goal, ROI, and currency conversion calculators in the first release.
 - **FR-026**: Calculator results MUST be saveable as scenarios and convertible into draft goals, budgets, debt plans, or investment scenarios for user review.
 - **FR-027**: Users MUST be able to export transactions and reports in first-release supported formats, including at minimum CSV for transactions.
-- **FR-028**: The product MUST support bill and subscription tracking as a near-term extension, including renewal dates, reminders, annualized cost, and cancellation suggestions.
-- **FR-029**: The product MUST support credit card management as a later module, including balances, due dates, limits, utilization, rewards, APR, reminders, and payoff recommendations.
-- **FR-030**: The product MUST support debt, loan, portfolio, asset allocation, net worth, tax, accounting, travel, multi-device sync, and estate planning as planned modules without blocking the first-release MVP.
+- **FR-028**: The first release MUST model upcoming bill and subscription due items for Home dashboard and safe-to-spend calculations; full bill/subscription management with renewal dates, reminders, annualized cost, and cancellation suggestions is a near-term extension.
+- **FR-029**: The first release MUST model credit card due-date and payment-summary data for Home dashboard and calculator flows; full credit card management with limits, utilization, rewards, APR, reminders, and payoff recommendations is a later module.
+- **FR-030**: Planned modules for debt, loan, portfolio, asset allocation, net worth expansion, tax, accounting, travel, multi-device sync, and estate planning MUST be represented by data and navigation extension points only and MUST NOT block the first-release MVP.
 - **FR-031**: User-facing behavior MUST define loading, empty, error, offline, permission-denied, and success states for all primary screens.
 - **FR-032**: User-facing behavior MUST define accessibility expectations for labels, focus order, touch targets, contrast, screen reader support, and dynamic text.
 - **FR-033**: Performance-sensitive behavior MUST define user-facing response expectations for dashboard, transaction list, calculator input, quick add, scrolling, and chart interactions.
@@ -207,6 +207,7 @@ A user can ask Aiko natural-language finance questions, receive explainable guid
 ## Assumptions
 
 - The first release is an MVP centered on onboarding, authentication, security, manual accounts, manual transactions, categories, basic rules, monthly budgets, goals, saving plans, Home dashboard, pace, leftover, spending charts, monthly reports, basic Aiko insights, CSV export, and six core calculators.
+- US6 Aiko and calculator capabilities are included in the first release as an MVP decision-support slice, even though the user story is P3 relative to core tracking and planning flows.
 - Advanced portfolio analytics, double-entry accounting, advanced tax engine, estate planning, full retirement modeling, full bank sync, automated advisor behavior, and complex simulation are roadmap modules, not blockers for the first releasable app.
 - Users may add data manually at first; import, receipt capture, bank connectivity, and automated integrations can be added progressively.
 - Aiko's guidance is educational and decision-support oriented; it does not replace certified financial, tax, legal, or investment advice.

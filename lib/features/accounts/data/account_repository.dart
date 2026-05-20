@@ -64,8 +64,9 @@ class AccountRepository {
           _accounts[index] = accWithUser;
         }
         return accWithUser;
-      } catch (e) {
-        // Fallback
+      } catch (e, stackTrace) {
+        print('AccountRepository.save error: $e');
+        print(stackTrace);
       }
     }
 
@@ -134,8 +135,8 @@ class AccountRepository {
       'name': account.name,
       'type': account.type.name,
       'currency': account.currency,
-      'opening_balance': account.openingBalance.amount,
-      'current_balance': account.currentBalance.amount,
+      'opening_balance': account.openingBalance.amount.toDouble(),
+      'current_balance': account.currentBalance.amount.toDouble(),
       'institution': account.institution,
       'include_in_net_worth': account.includeInNetWorth,
       'is_active': account.isActive,

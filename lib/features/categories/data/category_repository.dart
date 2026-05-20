@@ -81,8 +81,9 @@ class CategoryRepository {
           _categories[index] = catWithUser;
         }
         return catWithUser;
-      } catch (e) {
-        // Fallback
+      } catch (e, stackTrace) {
+        print('CategoryRepository.save error: $e');
+        print(stackTrace);
       }
     }
 

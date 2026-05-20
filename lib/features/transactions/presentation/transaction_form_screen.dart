@@ -69,16 +69,26 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     }
 
     final accountsAsync = ref.read(accountsProvider);
-    final accountId = accountsAsync.value?.firstWhere((a) => a.isActive, orElse: () => accountsAsync.value!.first).id ??
-        (AikoSupabase.tryClient()?.auth.currentUser != null
-            ? '10000000-0000-0000-0000-000000000001'
-            : 'cash');
+    String? accountId;
+    if (accountsAsync.hasValue && accountsAsync.value!.isNotEmpty) {
+      final active = accountsAsync.value!.where((a) => a.isActive).toList();
+      accountId = active.isNotEmpty ? active.first.id : accountsAsync.value!.first.id;
+    }
+    accountId ??= (AikoSupabase.tryClient()?.auth.currentUser != null
+        ? '10000000-0000-0000-0000-000000000001'
+        : 'cash');
 
     final categoriesAsync = ref.read(categoriesProvider);
-    final categoryId = categoriesAsync.value?.firstWhere((c) => c.isActive, orElse: () => categoriesAsync.value!.first).id ??
-        (AikoSupabase.tryClient()?.auth.currentUser != null
-            ? '20000000-0000-0000-0000-000000000001'
-            : 'food');
+    String? categoryId;
+    if (categoriesAsync.hasValue && categoriesAsync.value!.isNotEmpty) {
+      final active = categoriesAsync.value!.where((c) => c.isActive).toList();
+      categoryId = active.isNotEmpty ? active.first.id : categoriesAsync.value!.first.id;
+    }
+    categoryId ??= (AikoSupabase.tryClient()?.auth.currentUser != null
+        ? '20000000-0000-0000-0000-000000000001'
+        : 'food');
+
+    print('TransactionFormScreen._submitForm: resolved accountId: $accountId, categoryId: $categoryId');
 
     final txType = switch (_type) {
       'income' => TransactionType.income,
@@ -91,7 +101,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       userId: AikoSupabase.tryClient()?.auth.currentUser?.id ?? 'demo-user',
       accountId: accountId,
       type: txType,
-      amount: Money(amount, 'USD'),
+      amount: Money.parse(amount.toString(), 'USD'),
       date: DateTime.now(),
       categoryId: categoryId,
       merchant: _merchantController.text.trim(),

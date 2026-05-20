@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:decimal/decimal.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
@@ -30,8 +31,8 @@ class HomeDashboardScreen extends ConsumerWidget {
       ).toList();
 
       if (currentMonthTransactions.isNotEmpty) {
-        double income = 0;
-        double spending = 0;
+        var income = Decimal.zero;
+        var spending = Decimal.zero;
         for (final tx in currentMonthTransactions) {
           if (tx.type == TransactionType.income) {
             income += tx.amount.amount;
@@ -43,14 +44,15 @@ class HomeDashboardScreen extends ConsumerWidget {
         monthlySpendingVal = spending;
 
         // Calculate safe to spend weekly: weekly balance of (income - spending)
-        final weeklyFlow = (income - spending) / 4.33;
-        safeToSpendVal = weeklyFlow > 0 ? weeklyFlow : DemoData.safeToSpend.amount;
+        final weeklyFlowDouble = (income.toDouble() - spending.toDouble()) / 4.33;
+        final weeklyFlow = Decimal.parse(weeklyFlowDouble.toStringAsFixed(2));
+        safeToSpendVal = weeklyFlow > Decimal.zero ? weeklyFlow : DemoData.safeToSpend.amount;
       }
     }
 
-    final monthlyIncome = Money(monthlyIncomeVal, 'USD');
-    final monthlySpending = Money(monthlySpendingVal, 'USD');
-    final safeToSpend = Money(safeToSpendVal, 'USD');
+    final monthlyIncome = Money(amount: monthlyIncomeVal, currency: 'USD');
+    final monthlySpending = Money(amount: monthlySpendingVal, currency: 'USD');
+    final safeToSpend = Money(amount: safeToSpendVal, currency: 'USD');
 
     return Scaffold(
       appBar: AppBar(

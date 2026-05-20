@@ -18,7 +18,7 @@ final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
   return CategoryRepository();
 });
 
-class TransactionsNotifier extends AutoDisposeAsyncNotifier<List<FinanceTransaction>> {
+class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
   @override
   Future<List<FinanceTransaction>> build() async {
     final repo = ref.watch(transactionRepositoryProvider);
@@ -35,11 +35,11 @@ class TransactionsNotifier extends AutoDisposeAsyncNotifier<List<FinanceTransact
   }
 }
 
-final transactionsProvider = AutoDisposeAsyncNotifierProvider<TransactionsNotifier, List<FinanceTransaction>>(() {
+final transactionsProvider = AsyncNotifierProvider.autoDispose<TransactionsNotifier, List<FinanceTransaction>>(() {
   return TransactionsNotifier();
 });
 
-class AccountsNotifier extends AutoDisposeAsyncNotifier<List<Account>> {
+class AccountsNotifier extends AsyncNotifier<List<Account>> {
   @override
   Future<List<Account>> build() async {
     final repo = ref.watch(accountRepositoryProvider);
@@ -56,11 +56,11 @@ class AccountsNotifier extends AutoDisposeAsyncNotifier<List<Account>> {
   }
 }
 
-final accountsProvider = AutoDisposeAsyncNotifierProvider<AccountsNotifier, List<Account>>(() {
+final accountsProvider = AsyncNotifierProvider.autoDispose<AccountsNotifier, List<Account>>(() {
   return AccountsNotifier();
 });
 
-class CategoriesNotifier extends AutoDisposeAsyncNotifier<List<Category>> {
+class CategoriesNotifier extends AsyncNotifier<List<Category>> {
   @override
   Future<List<Category>> build() async {
     final repo = ref.watch(categoryRepositoryProvider);
@@ -77,6 +77,6 @@ class CategoriesNotifier extends AutoDisposeAsyncNotifier<List<Category>> {
   }
 }
 
-final categoriesProvider = AutoDisposeAsyncNotifierProvider<CategoriesNotifier, List<Category>>(() {
+final categoriesProvider = AsyncNotifierProvider.autoDispose<CategoriesNotifier, List<Category>>(() {
   return CategoriesNotifier();
 });

@@ -47,6 +47,10 @@ class TransactionRepository {
 
     final client = AikoSupabase.tryClient();
     final user = client?.auth.currentUser;
+    print('TransactionRepository.save: Saving transaction ${transaction.id}. '
+        'Supabase client: ${client != null}, Auth user: ${user?.id ?? "null"}, '
+        'Account ID: ${transaction.accountId}, Category ID: ${transaction.categoryId}');
+
     if (client != null && user != null) {
       try {
         final txWithUser = FinanceTransaction(
@@ -63,7 +67,10 @@ class TransactionRepository {
           splits: transaction.splits,
           status: transaction.status,
         );
-        await client.from('transactions').upsert(_toRow(txWithUser));
+        final row = _toRow(txWithUser);
+        print('TransactionRepository.save: Upserting row to Supabase: $row');
+        await client.from('transactions').upsert(row);
+        print('TransactionRepository.save: Upsert successful!');
         
         final index = _transactions.indexWhere((item) => item.id == txWithUser.id);
         if (index == -1) {
@@ -72,9 +79,12 @@ class TransactionRepository {
           _transactions[index] = txWithUser;
         }
         return txWithUser;
-      } catch (e) {
-        // Fallback
+      } catch (e, stackTrace) {
+        print('TransactionRepository.save error during Supabase write: $e');
+        print(stackTrace);
       }
+    } else {
+      print('TransactionRepository.save: Bypassing Supabase save (either client or user is null).');
     }
 
     final index = _transactions.indexWhere((item) => item.id == transaction.id);
@@ -182,7 +192,7 @@ class TransactionRepository {
       'user_id': transaction.userId,
       'account_id': transaction.accountId,
       'type': transaction.type.name,
-      'amount': transaction.amount.amount,
+      'amount': transaction.amount.amount.toDouble(),
       'currency': transaction.amount.currency,
       'category_id': transaction.categoryId,
       'date': transaction.date.toIso8601String().substring(0, 10),

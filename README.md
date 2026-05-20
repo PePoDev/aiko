@@ -72,11 +72,7 @@ flutter test integration_test
 
 Current local validation should use deterministic fakes and contract checks. Supabase Cloud credentialed smoke tests should be run after migrations are pushed to a non-production project.
 
-See `specs/001-aiko-finance-app/` and `specs/002-aiko-product-expansion/` for Spec Kit artifacts, evidence notes, and release checklists.
-
 ## Product Expansion Roadmap
-
-The `specs/002-aiko-product-expansion/` roadmap expands the MVP into the fuller Aiko product vision while keeping advanced modules progressively disclosed. Implemented roadmap slices include:
 
 - Aiko character controls and data-first placement rules.
 - Import, export, backup, and sensitivity warnings.

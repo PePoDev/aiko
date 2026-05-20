@@ -123,7 +123,10 @@ class AuthRepository {
     return _session;
   }
 
-  Future<void> _ensureProfileAndDefaultsExist(String userId, String email) async {
+  Future<void> _ensureProfileAndDefaultsExist(
+    String userId,
+    String email,
+  ) async {
     final client = AikoSupabase.tryClient();
     if (client != null) {
       try {
@@ -144,7 +147,10 @@ class AuthRepository {
         });
 
         // 2. Ensure Default Categories
-        final categories = await client.from('categories').select().eq('user_id', userId);
+        final categories = await client
+            .from('categories')
+            .select()
+            .eq('user_id', userId);
         if ((categories as List).isEmpty) {
           await client.from('categories').insert([
             {
@@ -160,12 +166,15 @@ class AuthRepository {
               'name': 'Salary',
               'type': 'income',
               'group': 'custom',
-            }
+            },
           ]);
         }
 
         // 3. Ensure Default Account
-        final accounts = await client.from('accounts').select().eq('user_id', userId);
+        final accounts = await client
+            .from('accounts')
+            .select()
+            .eq('user_id', userId);
         if ((accounts as List).isEmpty) {
           await client.from('accounts').insert({
             'id': '10000000-0000-0000-0000-000000000001',

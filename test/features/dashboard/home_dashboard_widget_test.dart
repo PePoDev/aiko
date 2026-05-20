@@ -11,7 +11,10 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
-        child: MaterialApp(theme: AikoTheme.light(), home: const HomeDashboardScreen()),
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const HomeDashboardScreen(),
+        ),
       ),
     );
 

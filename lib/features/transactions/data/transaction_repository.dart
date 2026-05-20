@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../../../core/money/money.dart';
 import '../domain/transaction.dart';
@@ -32,9 +34,7 @@ class TransactionRepository {
             .select()
             .eq('user_id', user.id)
             .order('date', ascending: false);
-        return (response as List)
-            .map((row) => _fromRow(row))
-            .toList();
+        return (response as List).map((row) => _fromRow(row)).toList();
       } catch (e) {
         // Fallback on error
       }
@@ -47,9 +47,11 @@ class TransactionRepository {
 
     final client = AikoSupabase.tryClient();
     final user = client?.auth.currentUser;
-    print('TransactionRepository.save: Saving transaction ${transaction.id}. '
-        'Supabase client: ${client != null}, Auth user: ${user?.id ?? "null"}, '
-        'Account ID: ${transaction.accountId}, Category ID: ${transaction.categoryId}');
+    developer.log(
+      'TransactionRepository.save: Saving transaction ${transaction.id}. '
+      'Supabase client: ${client != null}, Auth user: ${user?.id ?? "null"}, '
+      'Account ID: ${transaction.accountId}, Category ID: ${transaction.categoryId}',
+    );
 
     if (client != null && user != null) {
       try {
@@ -68,11 +70,15 @@ class TransactionRepository {
           status: transaction.status,
         );
         final row = _toRow(txWithUser);
-        print('TransactionRepository.save: Upserting row to Supabase: $row');
+        developer.log(
+          'TransactionRepository.save: Upserting row to Supabase: $row',
+        );
         await client.from('transactions').upsert(row);
-        print('TransactionRepository.save: Upsert successful!');
-        
-        final index = _transactions.indexWhere((item) => item.id == txWithUser.id);
+        developer.log('TransactionRepository.save: Upsert successful!');
+
+        final index = _transactions.indexWhere(
+          (item) => item.id == txWithUser.id,
+        );
         if (index == -1) {
           _transactions.add(txWithUser);
         } else {
@@ -80,11 +86,16 @@ class TransactionRepository {
         }
         return txWithUser;
       } catch (e, stackTrace) {
-        print('TransactionRepository.save error during Supabase write: $e');
-        print(stackTrace);
+        developer.log(
+          'TransactionRepository.save error during Supabase write',
+          error: e,
+          stackTrace: stackTrace,
+        );
       }
     } else {
-      print('TransactionRepository.save: Bypassing Supabase save (either client or user is null).');
+      developer.log(
+        'TransactionRepository.save: Bypassing Supabase save (either client or user is null).',
+      );
     }
 
     final index = _transactions.indexWhere((item) => item.id == transaction.id);
@@ -169,7 +180,8 @@ class TransactionRepository {
       date = DateTime.now();
     }
 
-    final tagsList = (row['tags'] as List?)?.map((e) => e.toString()).toList() ?? [];
+    final tagsList =
+        (row['tags'] as List?)?.map((e) => e.toString()).toList() ?? [];
 
     return FinanceTransaction(
       id: row['id'] as String,

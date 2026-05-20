@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../domain/category.dart';
 
@@ -34,9 +36,7 @@ class CategoryRepository {
             .from('categories')
             .select()
             .eq('user_id', user.id);
-        return (response as List)
-            .map((row) => _fromRow(row))
-            .toList();
+        return (response as List).map((row) => _fromRow(row)).toList();
       } catch (e) {
         // Fallback on error
       }
@@ -73,8 +73,10 @@ class CategoryRepository {
           isActive: category.isActive,
         );
         await client.from('categories').upsert(_toRow(catWithUser));
-        
-        final index = _categories.indexWhere((item) => item.id == catWithUser.id);
+
+        final index = _categories.indexWhere(
+          (item) => item.id == catWithUser.id,
+        );
         if (index == -1) {
           _categories.add(catWithUser);
         } else {
@@ -82,8 +84,11 @@ class CategoryRepository {
         }
         return catWithUser;
       } catch (e, stackTrace) {
-        print('CategoryRepository.save error: $e');
-        print(stackTrace);
+        developer.log(
+          'CategoryRepository.save error',
+          error: e,
+          stackTrace: stackTrace,
+        );
       }
     }
 

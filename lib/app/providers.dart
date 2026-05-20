@@ -35,9 +35,13 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
   }
 }
 
-final transactionsProvider = AsyncNotifierProvider.autoDispose<TransactionsNotifier, List<FinanceTransaction>>(() {
-  return TransactionsNotifier();
-});
+final transactionsProvider =
+    AsyncNotifierProvider.autoDispose<
+      TransactionsNotifier,
+      List<FinanceTransaction>
+    >(() {
+      return TransactionsNotifier();
+    });
 
 class AccountsNotifier extends AsyncNotifier<List<Account>> {
   @override
@@ -56,9 +60,10 @@ class AccountsNotifier extends AsyncNotifier<List<Account>> {
   }
 }
 
-final accountsProvider = AsyncNotifierProvider.autoDispose<AccountsNotifier, List<Account>>(() {
-  return AccountsNotifier();
-});
+final accountsProvider =
+    AsyncNotifierProvider.autoDispose<AccountsNotifier, List<Account>>(() {
+      return AccountsNotifier();
+    });
 
 class CategoriesNotifier extends AsyncNotifier<List<Category>> {
   @override
@@ -77,6 +82,7 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
   }
 }
 
-final categoriesProvider = AsyncNotifierProvider.autoDispose<CategoriesNotifier, List<Category>>(() {
-  return CategoriesNotifier();
-});
+final categoriesProvider =
+    AsyncNotifierProvider.autoDispose<CategoriesNotifier, List<Category>>(() {
+      return CategoriesNotifier();
+    });

@@ -26,9 +26,9 @@ class HomeDashboardScreen extends ConsumerWidget {
     if (transactionsAsync.hasValue) {
       final transactions = transactionsAsync.value!;
       final now = DateTime.now();
-      final currentMonthTransactions = transactions.where((tx) =>
-        tx.date.year == now.year && tx.date.month == now.month
-      ).toList();
+      final currentMonthTransactions = transactions
+          .where((tx) => tx.date.year == now.year && tx.date.month == now.month)
+          .toList();
 
       if (currentMonthTransactions.isNotEmpty) {
         var income = Decimal.zero;
@@ -44,9 +44,12 @@ class HomeDashboardScreen extends ConsumerWidget {
         monthlySpendingVal = spending;
 
         // Calculate safe to spend weekly: weekly balance of (income - spending)
-        final weeklyFlowDouble = (income.toDouble() - spending.toDouble()) / 4.33;
+        final weeklyFlowDouble =
+            (income.toDouble() - spending.toDouble()) / 4.33;
         final weeklyFlow = Decimal.parse(weeklyFlowDouble.toStringAsFixed(2));
-        safeToSpendVal = weeklyFlow > Decimal.zero ? weeklyFlow : DemoData.safeToSpend.amount;
+        safeToSpendVal = weeklyFlow > Decimal.zero
+            ? weeklyFlow
+            : DemoData.safeToSpend.amount;
       }
     }
 

@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../../../core/money/money.dart';
 import '../domain/account.dart';
@@ -29,9 +31,7 @@ class AccountRepository {
             .from('accounts')
             .select()
             .eq('user_id', user.id);
-        return (response as List)
-            .map((row) => _fromRow(row))
-            .toList();
+        return (response as List).map((row) => _fromRow(row)).toList();
       } catch (e) {
         // Fallback on error
       }
@@ -56,7 +56,7 @@ class AccountRepository {
           isActive: account.isActive,
         );
         await client.from('accounts').upsert(_toRow(accWithUser));
-        
+
         final index = _accounts.indexWhere((item) => item.id == accWithUser.id);
         if (index == -1) {
           _accounts.add(accWithUser);
@@ -65,8 +65,11 @@ class AccountRepository {
         }
         return accWithUser;
       } catch (e, stackTrace) {
-        print('AccountRepository.save error: $e');
-        print(stackTrace);
+        developer.log(
+          'AccountRepository.save error',
+          error: e,
+          stackTrace: stackTrace,
+        );
       }
     }
 

@@ -12,7 +12,8 @@ class TransactionFormScreen extends ConsumerStatefulWidget {
   const TransactionFormScreen({super.key});
 
   @override
-  ConsumerState<TransactionFormScreen> createState() => _TransactionFormScreenState();
+  ConsumerState<TransactionFormScreen> createState() =>
+      _TransactionFormScreenState();
 }
 
 class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
@@ -72,7 +73,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     String? accountId;
     if (accountsAsync.hasValue && accountsAsync.value!.isNotEmpty) {
       final active = accountsAsync.value!.where((a) => a.isActive).toList();
-      accountId = active.isNotEmpty ? active.first.id : accountsAsync.value!.first.id;
+      accountId = active.isNotEmpty
+          ? active.first.id
+          : accountsAsync.value!.first.id;
     }
     accountId ??= (AikoSupabase.tryClient()?.auth.currentUser != null
         ? '10000000-0000-0000-0000-000000000001'
@@ -82,13 +85,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     String? categoryId;
     if (categoriesAsync.hasValue && categoriesAsync.value!.isNotEmpty) {
       final active = categoriesAsync.value!.where((c) => c.isActive).toList();
-      categoryId = active.isNotEmpty ? active.first.id : categoriesAsync.value!.first.id;
+      categoryId = active.isNotEmpty
+          ? active.first.id
+          : categoriesAsync.value!.first.id;
     }
     categoryId ??= (AikoSupabase.tryClient()?.auth.currentUser != null
         ? '20000000-0000-0000-0000-000000000001'
         : 'food');
-
-    print('TransactionFormScreen._submitForm: resolved accountId: $accountId, categoryId: $categoryId');
 
     final txType = switch (_type) {
       'income' => TransactionType.income,
@@ -136,7 +139,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         actions: [
           TextButton(
             onPressed: _submitForm,
-            child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Save',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),

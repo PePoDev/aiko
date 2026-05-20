@@ -11,7 +11,8 @@ class TransactionListScreen extends ConsumerStatefulWidget {
   const TransactionListScreen({super.key});
 
   @override
-  ConsumerState<TransactionListScreen> createState() => _TransactionListScreenState();
+  ConsumerState<TransactionListScreen> createState() =>
+      _TransactionListScreenState();
 }
 
 class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
@@ -92,7 +93,8 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
                   itemBuilder: (context, index) {
                     final tx = filtered[index];
                     final sign = tx.type == TransactionType.income ? '+' : '-';
-                    final title = '${tx.merchant ?? tx.note ?? 'Transaction'} $sign\$${tx.amount.amount.toStringAsFixed(2)}';
+                    final title =
+                        '${tx.merchant ?? tx.note ?? 'Transaction'} $sign\$${tx.amount.amount.toStringAsFixed(2)}';
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12.0),

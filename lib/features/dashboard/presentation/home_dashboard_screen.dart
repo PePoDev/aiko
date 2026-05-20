@@ -8,7 +8,9 @@ import '../../../core/money/money.dart';
 import '../../../shared/test_data/demo_data.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../budgets/presentation/budget_form_screen.dart';
 import '../../transactions/domain/transaction.dart';
+import '../../transactions/presentation/transaction_form_screen.dart';
 import 'widgets/calculator_shortcuts_widget.dart';
 import 'widgets/dashboard_due_items_widget.dart';
 
@@ -141,11 +143,96 @@ class HomeDashboardScreen extends ConsumerWidget {
           const CalculatorShortcutsWidget(),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/transactions'),
-        icon: const Icon(Icons.add),
-        label: const Text('Quick add'),
-      ),
+      floatingActionButton: const _QuickAddMenu(),
+    );
+  }
+}
+
+class _QuickAddMenu extends StatefulWidget {
+  const _QuickAddMenu();
+
+  @override
+  State<_QuickAddMenu> createState() => _QuickAddMenuState();
+}
+
+class _QuickAddMenuState extends State<_QuickAddMenu> {
+  var _isOpen = false;
+
+  void _toggle() {
+    setState(() => _isOpen = !_isOpen);
+  }
+
+  void _openAddPage(Widget page) {
+    setState(() => _isOpen = false);
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          child: _isOpen
+              ? Column(
+                  key: const ValueKey('quick-add-options'),
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _QuickAddOption(
+                      heroTag: 'quick-add-transaction',
+                      icon: Icons.receipt_long_outlined,
+                      label: 'Transaction',
+                      onPressed: () =>
+                          _openAddPage(const TransactionFormScreen()),
+                    ),
+                    const SizedBox(height: 8),
+                    _QuickAddOption(
+                      heroTag: 'quick-add-budget',
+                      icon: Icons.pie_chart_outline,
+                      label: 'Budget',
+                      onPressed: () => _openAddPage(const BudgetFormScreen()),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                )
+              : const SizedBox.shrink(key: ValueKey('quick-add-empty')),
+        ),
+        FloatingActionButton.extended(
+          heroTag: 'quick-add-main',
+          onPressed: _toggle,
+          icon: Icon(_isOpen ? Icons.close : Icons.add),
+          label: Text(_isOpen ? 'Close' : 'Quick add'),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickAddOption extends StatelessWidget {
+  const _QuickAddOption({
+    required this.heroTag,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final String heroTag;
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingActionButton.extended(
+      heroTag: heroTag,
+      onPressed: onPressed,
+      icon: Icon(icon),
+      label: Text(label),
     );
   }
 }

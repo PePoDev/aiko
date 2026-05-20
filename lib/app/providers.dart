@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/transactions/data/transaction_repository.dart';
 import '../features/accounts/data/account_repository.dart';
+import '../features/budgets/data/budget_repository.dart';
 import '../features/categories/data/category_repository.dart';
 import '../features/transactions/domain/transaction.dart';
 import '../features/accounts/domain/account.dart';
+import '../features/budgets/domain/budget.dart';
 import '../features/categories/domain/category.dart';
 
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
@@ -16,6 +18,10 @@ final accountRepositoryProvider = Provider<AccountRepository>((ref) {
 
 final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
   return CategoryRepository();
+});
+
+final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
+  return BudgetRepository();
 });
 
 class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
@@ -85,4 +91,26 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
 final categoriesProvider =
     AsyncNotifierProvider.autoDispose<CategoriesNotifier, List<Category>>(() {
       return CategoriesNotifier();
+    });
+
+class BudgetsNotifier extends AsyncNotifier<List<Budget>> {
+  @override
+  Future<List<Budget>> build() async {
+    final repo = ref.watch(budgetRepositoryProvider);
+    return repo.list();
+  }
+
+  Future<void> addBudget(Budget budget) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(budgetRepositoryProvider);
+      await repo.save(budget);
+      return repo.list();
+    });
+  }
+}
+
+final budgetsProvider =
+    AsyncNotifierProvider.autoDispose<BudgetsNotifier, List<Budget>>(() {
+      return BudgetsNotifier();
     });

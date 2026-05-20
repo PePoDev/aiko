@@ -3,9 +3,37 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../auth/data/auth_repository.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  final _authRepository = AuthRepository();
+  var _isSigningOut = false;
+
+  Future<void> _handleLogout() async {
+    setState(() => _isSigningOut = true);
+    try {
+      await _authRepository.signOut();
+      if (!mounted) {
+        return;
+      }
+      context.go('/auth');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isSigningOut = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to log out right now.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +99,25 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => context.push('/subscription-plan'),
             ),
           ),
+          const SizedBox(height: 16),
+          FinanceCard(
+            title: 'Account',
+            icon: Icons.account_circle_outlined,
+            accentColor: AikoColors.dangerRed,
+            child: _SettingsRow(
+              icon: Icons.logout,
+              title: _isSigningOut ? 'Logging out...' : 'Log out',
+              subtitle: 'End this session on this device',
+              color: AikoColors.dangerRed,
+              trailing: _isSigningOut
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.chevron_right),
+              onTap: _isSigningOut ? null : _handleLogout,
+            ),
+          ),
         ],
       ),
     );
@@ -82,22 +129,31 @@ class _SettingsRow extends StatelessWidget {
     required this.icon,
     required this.title,
     this.subtitle,
+    this.color,
+    this.trailing,
     this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String? subtitle;
+  final Color? color;
+  final Widget? trailing;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final textStyle = color == null
+        ? null
+        : Theme.of(context).textTheme.titleSmall?.copyWith(color: color);
+
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(icon),
-      title: Text(title),
+      leading: Icon(icon, color: color),
+      title: Text(title, style: textStyle),
       subtitle: subtitle == null ? null : Text(subtitle!),
-      trailing: onTap == null ? null : const Icon(Icons.chevron_right),
+      trailing:
+          trailing ?? (onTap == null ? null : const Icon(Icons.chevron_right)),
       onTap: onTap,
     );
   }

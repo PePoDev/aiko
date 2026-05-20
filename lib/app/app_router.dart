@@ -40,10 +40,6 @@ GoRouter createAikoRouter() {
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/auth', builder: (context, state) => const LoginScreen()),
       GoRoute(
-        path: '/signup',
-        builder: (context, state) => const SignUpScreen(),
-      ),
-      GoRoute(
         path: '/locked',
         builder: (context, state) => const LockedScreen(),
       ),

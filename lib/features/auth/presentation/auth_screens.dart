@@ -6,8 +6,42 @@ import '../data/auth_repository.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  final _authRepository = AuthRepository();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _routeReturningUser();
+    });
+  }
+
+  Future<void> _routeReturningUser() async {
+    await _authRepository.restoreSession();
+    if (!mounted) {
+      return;
+    }
+
+    if (_authRepository.hasActiveSession()) {
+      context.go('/home');
+      return;
+    }
+
+    if (await _authRepository.hasKnownAccount()) {
+      if (!mounted) {
+        return;
+      }
+      context.go('/auth');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,10 +75,6 @@ class SplashScreen extends StatelessWidget {
               PrimaryActionButton(
                 label: 'Get started',
                 onPressed: () => context.push('/onboarding'),
-              ),
-              TextButton(
-                onPressed: () => context.push('/auth'),
-                child: const Text('I already have an account'),
               ),
             ],
           ),
@@ -131,6 +161,72 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    setState(() => _isSubmitting = true);
+    try {
+      await _authRepository.signInWithGoogle();
+      if (!mounted) {
+        return;
+      }
+
+      await _authRepository.restoreSession();
+      if (!mounted) {
+        return;
+      }
+      if (_authRepository.hasActiveSession()) {
+        context.go('/home');
+      } else {
+        _showMessage(
+          'Continue Google sign-in in browser, then return to Aiko.',
+        );
+      }
+    } on AuthException catch (error) {
+      _showMessage(error.message);
+    } on StateError catch (error) {
+      _showMessage(error.message);
+    } catch (_) {
+      _showMessage('Unable to sign in with Google right now.');
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  Future<void> _handleSignUp() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('Enter your email and password.');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      await _authRepository.signUp(email: email, password: password);
+      if (!mounted) {
+        return;
+      }
+
+      if (_authRepository.hasActiveSession()) {
+        context.go('/home');
+      } else {
+        _showMessage('Account created. Check your email, then sign in.');
+      }
+    } on AuthException catch (error) {
+      _showMessage(error.message);
+    } on StateError catch (error) {
+      _showMessage(error.message);
+    } catch (_) {
+      _showMessage('Unable to create account right now.');
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -163,115 +259,21 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: _isSubmitting ? null : () => context.push('/signup'),
+              onPressed: _isSubmitting ? null : _handleSignUp,
               icon: const Icon(Icons.person_add_alt_1),
-              label: const Text('Sign up'),
+              label: Text(
+                _isSubmitting ? 'Creating account...' : 'Create account',
+              ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _isSubmitting ? null : _handleGoogleSignIn,
+              icon: const Icon(Icons.login),
+              label: const Text('Continue with Google'),
             ),
             TextButton(
               onPressed: _isSubmitting ? null : _handleResetPassword,
               child: const Text('Reset password'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({super.key});
-
-  @override
-  State<SignUpScreen> createState() => _SignUpScreenState();
-}
-
-class _SignUpScreenState extends State<SignUpScreen> {
-  final _authRepository = AuthRepository();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  var _isSubmitting = false;
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Future<void> _handleSignUp() async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-
-    if (email.isEmpty || password.isEmpty) {
-      _showMessage('Enter your email and password.');
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-    try {
-      await _authRepository.signUp(email: email, password: password);
-      if (!mounted) {
-        return;
-      }
-
-      if (_authRepository.hasActiveSession()) {
-        context.go('/home');
-      } else {
-        _showMessage('Account created. Check your email, then sign in.');
-        context.go('/auth');
-      }
-    } on AuthException catch (error) {
-      _showMessage(error.message);
-    } on StateError catch (error) {
-      _showMessage(error.message);
-    } catch (_) {
-      _showMessage('Unable to create account right now.');
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Create your Aiko account')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              enabled: !_isSubmitting,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
-              enabled: !_isSubmitting,
-              onSubmitted: (_) => _handleSignUp(),
-            ),
-            const SizedBox(height: 20),
-            PrimaryActionButton(
-              label: _isSubmitting ? 'Creating account...' : 'Create account',
-              icon: Icons.person_add_alt_1,
-              onPressed: _isSubmitting ? null : _handleSignUp,
-            ),
-            TextButton(
-              onPressed: _isSubmitting ? null : () => context.push('/auth'),
-              child: const Text('I already have an account'),
             ),
           ],
         ),

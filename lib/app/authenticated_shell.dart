@@ -15,7 +15,6 @@ class AuthenticatedShell extends StatelessWidget {
         selectedIndex: _indexFor(location),
         onDestinationSelected: (index) => context.go(_locationFor(index)),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
             label: 'Transactions',
@@ -24,6 +23,7 @@ class AuthenticatedShell extends StatelessWidget {
             icon: Icon(Icons.pie_chart_outline),
             label: 'Budget',
           ),
+          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
           NavigationDestination(
             icon: Icon(Icons.insights_outlined),
             label: 'Insights',
@@ -39,10 +39,10 @@ class AuthenticatedShell extends StatelessWidget {
 
   int _indexFor(String location) {
     if (location.startsWith('/transactions')) {
-      return 1;
+      return 0;
     }
     if (location.startsWith('/budget')) {
-      return 2;
+      return 1;
     }
     if (location.startsWith('/insights')) {
       return 3;
@@ -50,14 +50,14 @@ class AuthenticatedShell extends StatelessWidget {
     if (location.startsWith('/aiko')) {
       return 4;
     }
-    return 0;
+    return 2;
   }
 
   String _locationFor(int index) {
     return switch (index) {
-      0 => '/home',
-      1 => '/transactions',
-      2 => '/budget',
+      0 => '/transactions',
+      1 => '/budget',
+      2 => '/home',
       3 => '/insights',
       4 => '/aiko',
       _ => '/home',

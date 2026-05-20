@@ -16,15 +16,15 @@ class SettingsScreen extends StatelessWidget {
           const ListTile(title: Text('AI consent')),
           ListTile(
             title: const Text('Notifications'),
-            onTap: () => context.go('/notification-settings'),
+            onTap: () => context.push('/notification-settings'),
           ),
           ListTile(
             title: const Text('Import, export, and backup'),
-            onTap: () => context.go('/import-export-backup'),
+            onTap: () => context.push('/import-export-backup'),
           ),
           ListTile(
             title: const Text('Subscription plan'),
-            onTap: () => context.go('/subscription-plan'),
+            onTap: () => context.push('/subscription-plan'),
           ),
         ],
       ),

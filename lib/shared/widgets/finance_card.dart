@@ -10,6 +10,7 @@ class FinanceCard extends StatelessWidget {
     this.trailing,
     this.accentColor,
     this.prominent = false,
+    this.onTap,
     super.key,
   });
 
@@ -19,6 +20,7 @@ class FinanceCard extends StatelessWidget {
   final Widget? trailing;
   final Color? accentColor;
   final bool prominent;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -26,39 +28,44 @@ class FinanceCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final accent = accentColor ?? colorScheme.primary;
 
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(prominent ? 20 : 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                if (icon != null) ...[
-                  _CardIcon(icon: icon!, color: accent),
-                  const SizedBox(width: 12),
-                ],
-                Expanded(
-                  child: Text(
-                    title,
-                    style: theme.textTheme.titleMedium,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (trailing != null) ...[
-                  const SizedBox(width: 12),
-                  Flexible(child: trailing!),
-                ],
+    final content = Padding(
+      padding: EdgeInsets.all(prominent ? 20 : 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (icon != null) ...[
+                _CardIcon(icon: icon!, color: accent),
+                const SizedBox(width: 12),
               ],
-            ),
-            SizedBox(height: prominent ? 16 : 12),
-            DefaultTextStyle.merge(
-              style: theme.textTheme.bodyMedium,
-              child: child,
-            ),
-          ],
-        ),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleMedium,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: 12),
+                Flexible(child: trailing!),
+              ],
+            ],
+          ),
+          SizedBox(height: prominent ? 16 : 12),
+          DefaultTextStyle.merge(
+            style: theme.textTheme.bodyMedium,
+            child: child,
+          ),
+        ],
+      ),
+    );
+
+    return Semantics(
+      button: onTap != null,
+      child: Card(
+        child: onTap == null ? content : InkWell(onTap: onTap, child: content),
       ),
     );
   }

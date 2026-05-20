@@ -6,6 +6,7 @@ import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/transaction.dart';
+import 'transaction_detail_screen.dart';
 import 'transaction_form_screen.dart';
 import 'transaction_rules_screen.dart';
 
@@ -111,6 +112,13 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
                             ? Icons.south_west
                             : Icons.north_east,
                         accentColor: accent,
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                TransactionDetailScreen(transaction: tx),
+                          ),
+                        ),
                         child: Text(
                           '${tx.type.name.toUpperCase()} - ${tx.date.toString().substring(0, 10)}',
                         ),

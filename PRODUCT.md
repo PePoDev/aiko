@@ -1,12 +1,14 @@
-# Aiko — Personal Finance Management Mobile App Project Design Document
-
-**App name:** Aiko  
-**Product type:** AI-powered personal finance management mobile app  
-**Brand character:** Aiko, a cute anime-style AI girl with blue hair  
-**Primary brand color:** Blue  
-**Platform:** iOS and Android
-
 ---
+app_name: Aiko
+product_type: AI-powered personal finance management mobile app
+brand_character: Aiko, a cute anime-style AI girl with blue hair
+primary_brand_color: Blue
+platforms:
+  - iOS
+  - Android
+---
+
+# Aiko — Personal Finance Management Mobile App Project Design Document
 
 ## 1. Executive Summary
 

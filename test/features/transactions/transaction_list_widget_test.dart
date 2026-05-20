@@ -23,4 +23,23 @@ void main() {
     expect(find.text('Search transactions'), findsOneWidget);
     expect(find.textContaining('Coffee'), findsOneWidget);
   });
+
+  testWidgets('transaction item opens detail screen', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const TransactionListScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Coffee'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Transaction details'), findsOneWidget);
+    expect(find.text('Coffee Shop'), findsWidgets);
+    expect(find.text('-\$4.50'), findsOneWidget);
+  });
 }

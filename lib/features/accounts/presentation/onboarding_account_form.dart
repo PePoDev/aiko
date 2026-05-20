@@ -8,7 +8,7 @@ class OnboardingAccountForm extends StatelessWidget {
     return const Column(
       children: [
         TextField(decoration: InputDecoration(labelText: 'Account name')),
-        SizedBox(height: 12),
+        SizedBox(height: 16),
         TextField(decoration: InputDecoration(labelText: 'Opening balance')),
       ],
     );

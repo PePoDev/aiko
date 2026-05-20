@@ -8,7 +8,7 @@ class TransactionSplitEditor extends StatelessWidget {
     return const Column(
       children: [
         TextField(decoration: InputDecoration(labelText: 'Split category')),
-        SizedBox(height: 12),
+        SizedBox(height: 16),
         TextField(decoration: InputDecoration(labelText: 'Split amount')),
       ],
     );

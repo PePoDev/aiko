@@ -1,23 +1,29 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/feature_overview_screen.dart';
+import '../../../theme/aiko_colors.dart';
+
 class TravelModeScreen extends StatelessWidget {
   const TravelModeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Travel Mode')),
-    body: ListView(
-      padding: EdgeInsets.all(16),
-      children: const [
-        ListTile(
-          title: Text('Trip budget'),
-          subtitle: Text('Track local and home currency views.'),
+  Widget build(BuildContext context) {
+    return const AikoFeatureOverviewScreen(
+      title: 'Travel Mode',
+      items: [
+        AikoFeatureOverviewItem(
+          icon: Icons.flight_takeoff_outlined,
+          title: 'Trip budget',
+          subtitle: 'Track local and home currency views.',
+          accentColor: AikoColors.analyticsTeal,
         ),
-        ListTile(
-          title: Text('Foreign fees'),
-          subtitle: Text('Monitor exchange and card fee costs.'),
+        AikoFeatureOverviewItem(
+          icon: Icons.currency_exchange_outlined,
+          title: 'Foreign fees',
+          subtitle: 'Monitor exchange and card fee costs.',
+          accentColor: AikoColors.warningOrange,
         ),
       ],
-    ),
-  );
+    );
+  }
 }

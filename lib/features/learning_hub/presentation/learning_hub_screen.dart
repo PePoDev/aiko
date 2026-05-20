@@ -1,27 +1,35 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/feature_overview_screen.dart';
+import '../../../theme/aiko_colors.dart';
+
 class LearningHubScreen extends StatelessWidget {
   const LearningHubScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Learning Hub')),
-    body: ListView(
-      padding: EdgeInsets.all(16),
-      children: const [
-        ListTile(
-          title: Text('Recommended lessons'),
-          subtitle: Text('Aiko suggests personal finance topics.'),
+  Widget build(BuildContext context) {
+    return const AikoFeatureOverviewScreen(
+      title: 'Learning Hub',
+      items: [
+        AikoFeatureOverviewItem(
+          icon: Icons.school_outlined,
+          title: 'Recommended lessons',
+          subtitle: 'Aiko suggests personal finance topics.',
+          accentColor: AikoColors.premiumPurple,
         ),
-        ListTile(
-          title: Text('Quizzes'),
-          subtitle: Text('Track learning progress and scores.'),
+        AikoFeatureOverviewItem(
+          icon: Icons.quiz_outlined,
+          title: 'Quizzes',
+          subtitle: 'Track learning progress and scores.',
+          accentColor: AikoColors.deepBlue,
         ),
-        ListTile(
-          title: Text('Glossary'),
-          subtitle: Text('Look up financial terms quickly.'),
+        AikoFeatureOverviewItem(
+          icon: Icons.menu_book_outlined,
+          title: 'Glossary',
+          subtitle: 'Look up financial terms quickly.',
+          accentColor: AikoColors.analyticsTeal,
         ),
       ],
-    ),
-  );
+    );
+  }
 }

@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -5,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
+import '../../../theme/aiko_colors.dart';
 import '../domain/transaction.dart';
 import 'transaction_attachment_section.dart';
 
@@ -42,7 +44,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               Text('Please enter an amount.'),
             ],
           ),
-          backgroundColor: Colors.red.shade600,
+          backgroundColor: AikoColors.dangerRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -50,8 +52,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
-    final double? amount = double.tryParse(amountText);
-    if (amount == null || amount <= 0) {
+    final Decimal amount;
+    try {
+      amount = Decimal.parse(amountText);
+    } on FormatException {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(
@@ -61,7 +65,25 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               Text('Please enter a valid positive amount.'),
             ],
           ),
-          backgroundColor: Colors.red.shade600,
+          backgroundColor: AikoColors.dangerRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+      return;
+    }
+
+    if (amount <= Decimal.zero) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 8),
+              Text('Please enter a valid positive amount.'),
+            ],
+          ),
+          backgroundColor: AikoColors.dangerRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -104,7 +126,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       userId: AikoSupabase.tryClient()?.auth.currentUser?.id ?? 'demo-user',
       accountId: accountId,
       type: txType,
-      amount: Money.parse(amount.toString(), 'USD'),
+      amount: Money(amount: amount, currency: 'USD'),
       date: DateTime.now(),
       categoryId: categoryId,
       merchant: _merchantController.text.trim(),
@@ -122,7 +144,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             Text('Transaction saved successfully!'),
           ],
         ),
-        backgroundColor: Colors.green.shade600,
+        backgroundColor: AikoColors.successGreen,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
@@ -147,7 +169,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           TextField(
             controller: _amountController,

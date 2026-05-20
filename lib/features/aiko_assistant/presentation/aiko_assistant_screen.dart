@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/widgets/finance_card.dart';
+import '../../../theme/aiko_colors.dart';
 
 class AikoAssistantScreen extends StatelessWidget {
   const AikoAssistantScreen({super.key});
@@ -11,16 +12,18 @@ class AikoAssistantScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Aiko')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         children: [
           const FinanceCard(
             title: 'Ask Aiko',
             icon: Icons.auto_awesome,
+            accentColor: AikoColors.premiumPurple,
+            prominent: true,
             child: Text(
               'You have 245 USD safe to spend this week. This is an estimate based on your Aiko data.',
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           TextField(
             decoration: InputDecoration(
               labelText: 'Ask about your money',
@@ -31,7 +34,7 @@ class AikoAssistantScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: () => context.go('/calculators'),
             icon: const Icon(Icons.calculate_outlined),

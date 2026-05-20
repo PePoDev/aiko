@@ -1,23 +1,29 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/feature_overview_screen.dart';
+import '../../../theme/aiko_colors.dart';
+
 class AikoOptimizeScreen extends StatelessWidget {
   const AikoOptimizeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Aiko Optimize')),
-    body: ListView(
-      padding: EdgeInsets.all(16),
-      children: const [
-        ListTile(
-          title: Text('Optimization suggestions'),
-          subtitle: Text('Ranked, explainable next steps.'),
+  Widget build(BuildContext context) {
+    return const AikoFeatureOverviewScreen(
+      title: 'Aiko Optimize',
+      items: [
+        AikoFeatureOverviewItem(
+          icon: Icons.tune_outlined,
+          title: 'Optimization suggestions',
+          subtitle: 'Ranked, explainable next steps.',
+          accentColor: AikoColors.premiumPurple,
         ),
-        ListTile(
-          title: Text('Prediction scenarios'),
-          subtitle: Text('Expected range with freshness checks.'),
+        AikoFeatureOverviewItem(
+          icon: Icons.timeline_outlined,
+          title: 'Prediction scenarios',
+          subtitle: 'Expected range with freshness checks.',
+          accentColor: AikoColors.analyticsTeal,
         ),
       ],
-    ),
-  );
+    );
+  }
 }

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/aiko_colors.dart';
+
 class FinanceCard extends StatelessWidget {
   const FinanceCard({
     required this.title,
     required this.child,
     this.icon,
     this.trailing,
+    this.accentColor,
+    this.prominent = false,
     super.key,
   });
 
@@ -13,35 +17,69 @@ class FinanceCard extends StatelessWidget {
   final Widget child;
   final IconData? icon;
   final Widget? trailing;
+  final Color? accentColor;
+  final bool prominent;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final accent = accentColor ?? colorScheme.primary;
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(prominent ? 20 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 if (icon != null) ...[
-                  Icon(icon, color: Theme.of(context).colorScheme.primary),
-                  const SizedBox(width: 8),
+                  _CardIcon(icon: icon!, color: accent),
+                  const SizedBox(width: 12),
                 ],
                 Expanded(
                   child: Text(
                     title,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: theme.textTheme.titleMedium,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                ?trailing,
+                if (trailing != null) ...[
+                  const SizedBox(width: 12),
+                  Flexible(child: trailing!),
+                ],
               ],
             ),
-            const SizedBox(height: 12),
-            child,
+            SizedBox(height: prominent ? 16 : 12),
+            DefaultTextStyle.merge(
+              style: theme.textTheme.bodyMedium,
+              child: child,
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CardIcon extends StatelessWidget {
+  const _CardIcon({required this.icon, required this.color});
+
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(icon, color: color, size: 22),
     );
   }
 }
@@ -63,7 +101,7 @@ class PrimaryActionButton extends StatelessWidget {
     return FilledButton.icon(
       onPressed: onPressed,
       icon: Icon(icon ?? Icons.arrow_forward),
-      label: Text(label),
+      label: Text(label, overflow: TextOverflow.ellipsis),
     );
   }
 }
@@ -77,7 +115,7 @@ class AmountText extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       value,
-      style: Theme.of(context).textTheme.headlineMedium,
+      style: Theme.of(context).textTheme.headlineLarge,
       overflow: TextOverflow.visible,
       softWrap: true,
     );
@@ -98,14 +136,25 @@ class IconTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Semantics(
       button: onTap != null,
       label: label,
       child: ListTile(
-        leading: CircleAvatar(
-          child: Icon(icon, color: Theme.of(context).colorScheme.primary),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: colorScheme.primary.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: colorScheme.primary),
         ),
         title: Text(label),
+        trailing: onTap == null
+            ? null
+            : const Icon(Icons.chevron_right, color: AikoColors.mutedText),
         onTap: onTap,
       ),
     );

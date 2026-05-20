@@ -1,13 +1,14 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:decimal/decimal.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
-import '../../transactions/domain/transaction.dart';
 import '../../../shared/test_data/demo_data.dart';
 import '../../../shared/widgets/finance_card.dart';
+import '../../../theme/aiko_colors.dart';
+import '../../transactions/domain/transaction.dart';
 import 'widgets/calculator_shortcuts_widget.dart';
 import 'widgets/dashboard_due_items_widget.dart';
 
@@ -18,7 +19,6 @@ class HomeDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final transactionsAsync = ref.watch(transactionsProvider);
 
-    // Dynamic calculations from live transactions
     var monthlyIncomeVal = DemoData.monthlyIncome.amount;
     var monthlySpendingVal = DemoData.monthlySpending.amount;
     var safeToSpendVal = DemoData.safeToSpend.amount;
@@ -43,10 +43,9 @@ class HomeDashboardScreen extends ConsumerWidget {
         monthlyIncomeVal = income;
         monthlySpendingVal = spending;
 
-        // Calculate safe to spend weekly: weekly balance of (income - spending)
-        final weeklyFlowDouble =
-            (income.toDouble() - spending.toDouble()) / 4.33;
-        final weeklyFlow = Decimal.parse(weeklyFlowDouble.toStringAsFixed(2));
+        // Weekly balance of income minus spending, kept in Decimal.
+        final weeklyFlow = ((income - spending) / Decimal.parse('4.33'))
+            .toDecimal(scaleOnInfinitePrecision: 2);
         safeToSpendVal = weeklyFlow > Decimal.zero
             ? weeklyFlow
             : DemoData.safeToSpend.amount;
@@ -69,44 +68,76 @@ class HomeDashboardScreen extends ConsumerWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         children: [
           FinanceCard(
             title: 'Hi, I am Aiko',
             icon: Icons.auto_awesome,
+            accentColor: AikoColors.premiumPurple,
+            prominent: true,
             child: Text(
-              'You still have ${safeToSpend.format()} safe to spend this week.',
+              'You still have ${safeToSpend.format()} safe to spend this week. This is an estimate, so keep bills and planned purchases in view.',
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           FinanceCard(
             title: 'Safe to spend',
             icon: Icons.savings_outlined,
-            child: AmountText(safeToSpend.format()),
+            prominent: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AmountText(safeToSpend.format()),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: const LinearProgressIndicator(value: 0.68),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Weekly cushion after recurring commitments.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           FinanceCard(
             title: 'Monthly cash flow',
             icon: Icons.trending_up,
-            child: Text(
-              'Income ${monthlyIncome.format()} • Spending ${monthlySpending.format()}',
+            accentColor: AikoColors.analyticsTeal,
+            child: Column(
+              children: [
+                _MetricLine(
+                  label: 'Income',
+                  value: monthlyIncome.format(),
+                  color: AikoColors.successGreen,
+                ),
+                const SizedBox(height: 8),
+                _MetricLine(
+                  label: 'Spending',
+                  value: monthlySpending.format(),
+                  color: AikoColors.warningOrange,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           const FinanceCard(
             title: 'Pace',
             icon: Icons.speed,
+            accentColor: AikoColors.deepBlue,
             child: Text('On track. Keep flexible spending under 35 USD/day.'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           const DashboardDueItemsWidget(items: []),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           const FinanceCard(
             title: 'Recent transactions',
             icon: Icons.receipt_long,
             child: Text('Coffee, Groceries, Salary, Transit'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           const CalculatorShortcutsWidget(),
         ],
       ),
@@ -115,6 +146,36 @@ class HomeDashboardScreen extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('Quick add'),
       ),
+    );
+  }
+}
+
+class _MetricLine extends StatelessWidget {
+  const _MetricLine({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
+        Text(value, style: theme.textTheme.titleSmall),
+      ],
     );
   }
 }

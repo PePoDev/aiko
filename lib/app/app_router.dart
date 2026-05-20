@@ -31,6 +31,7 @@ import '../features/tax_center/presentation/tax_center_screen.dart';
 import '../features/transactions/presentation/transaction_list_screen.dart';
 import '../features/transactions/presentation/transaction_rules_screen.dart';
 import '../features/travel_mode/presentation/travel_mode_screen.dart';
+import '../shared/widgets/screen_states.dart';
 import 'authenticated_shell.dart';
 
 GoRouter createAikoRouter() {
@@ -167,7 +168,10 @@ GoRouter createAikoRouter() {
     ],
     errorBuilder: (context, state) => Scaffold(
       appBar: AppBar(title: const Text('Aiko')),
-      body: Center(child: Text('Route not found: ${state.uri}')),
+      body: AikoScreenState.error(
+        title: 'Route not found',
+        message: 'Aiko could not open ${state.uri}.',
+      ),
     ),
   );
 }

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/auth_repository.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
+import '../../../theme/aiko_colors.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -67,6 +68,8 @@ class _SplashScreenState extends State<SplashScreen> {
               const FinanceCard(
                 title: 'Meet your AI financial companion',
                 icon: Icons.auto_awesome,
+                accentColor: AikoColors.premiumPurple,
+                prominent: true,
                 child: Text(
                   'Track money, plan goals, and get friendly guidance without judgment.',
                 ),
@@ -231,52 +234,55 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Aiko sign in')),
-      body: Padding(
+      body: ListView(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              enabled: !_isSubmitting,
+        children: [
+          const FinanceCard(
+            title: 'Welcome back',
+            icon: Icons.lock_outline,
+            child: Text('Sign in to sync your private financial workspace.'),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _emailController,
+            decoration: const InputDecoration(labelText: 'Email'),
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            enabled: !_isSubmitting,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _passwordController,
+            decoration: const InputDecoration(labelText: 'Password'),
+            obscureText: true,
+            enabled: !_isSubmitting,
+            onSubmitted: (_) => _handleSignIn(),
+          ),
+          const SizedBox(height: 20),
+          PrimaryActionButton(
+            label: _isSubmitting ? 'Signing in...' : 'Continue securely',
+            icon: Icons.lock_open,
+            onPressed: _isSubmitting ? null : _handleSignIn,
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _isSubmitting ? null : _handleSignUp,
+            icon: const Icon(Icons.person_add_alt_1),
+            label: Text(
+              _isSubmitting ? 'Creating account...' : 'Create account',
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
-              enabled: !_isSubmitting,
-              onSubmitted: (_) => _handleSignIn(),
-            ),
-            const SizedBox(height: 20),
-            PrimaryActionButton(
-              label: _isSubmitting ? 'Signing in...' : 'Continue securely',
-              icon: Icons.lock_open,
-              onPressed: _isSubmitting ? null : _handleSignIn,
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _isSubmitting ? null : _handleSignUp,
-              icon: const Icon(Icons.person_add_alt_1),
-              label: Text(
-                _isSubmitting ? 'Creating account...' : 'Create account',
-              ),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _isSubmitting ? null : _handleGoogleSignIn,
-              icon: const Icon(Icons.login),
-              label: const Text('Continue with Google'),
-            ),
-            TextButton(
-              onPressed: _isSubmitting ? null : _handleResetPassword,
-              child: const Text('Reset password'),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _isSubmitting ? null : _handleGoogleSignIn,
+            icon: const Icon(Icons.login),
+            label: const Text('Continue with Google'),
+          ),
+          TextButton(
+            onPressed: _isSubmitting ? null : _handleResetPassword,
+            child: const Text('Reset password'),
+          ),
+        ],
       ),
     );
   }

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../../../shared/widgets/finance_card.dart';
+import '../../../shared/widgets/screen_states.dart';
+import '../../../theme/aiko_colors.dart';
 import '../domain/transaction.dart';
 import 'transaction_form_screen.dart';
 import 'transaction_rules_screen.dart';
@@ -57,7 +59,7 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
               controller: _searchController,
               decoration: const InputDecoration(
@@ -68,8 +70,11 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
           ),
           Expanded(
             child: transactionsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, stack) => Center(child: Text('Error: $err')),
+              loading: () => const AikoScreenState.loading(),
+              error: (err, stack) => AikoScreenState.error(
+                title: 'Transactions are unavailable',
+                message: 'Aiko could not load this list right now. $err',
+              ),
               data: (transactions) {
                 final filtered = transactions.where((tx) {
                   if (_searchQuery.isEmpty) return true;
@@ -79,29 +84,35 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
                 }).toList();
 
                 if (filtered.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Text('No transactions found.'),
-                    ),
+                  return const AikoScreenState.empty(
+                    title: 'No transactions found',
+                    message:
+                        'Try another search, or add your first money move.',
                   );
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
                   itemCount: filtered.length,
                   itemBuilder: (context, index) {
                     final tx = filtered[index];
                     final sign = tx.type == TransactionType.income ? '+' : '-';
+                    final accent = tx.type == TransactionType.income
+                        ? AikoColors.successGreen
+                        : AikoColors.deepBlue;
                     final title =
                         '${tx.merchant ?? tx.note ?? 'Transaction'} $sign\$${tx.amount.amount.toStringAsFixed(2)}';
 
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
+                      padding: const EdgeInsets.only(bottom: 12),
                       child: FinanceCard(
                         title: title,
+                        icon: tx.type == TransactionType.income
+                            ? Icons.south_west
+                            : Icons.north_east,
+                        accentColor: accent,
                         child: Text(
-                          '${tx.type.name.toUpperCase()} • ${tx.date.toString().substring(0, 10)}',
+                          '${tx.type.name.toUpperCase()} - ${tx.date.toString().substring(0, 10)}',
                         ),
                       ),
                     );

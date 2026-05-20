@@ -9,17 +9,15 @@ class CalculatorDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(title)),
-      body: const Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(decoration: InputDecoration(labelText: 'Amount')),
-            SizedBox(height: 12),
-            TextField(decoration: InputDecoration(labelText: 'Rate')),
-            SizedBox(height: 12),
-            Text('Results are estimates, not guarantees.'),
-          ],
-        ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: [
+          TextField(decoration: InputDecoration(labelText: 'Amount')),
+          SizedBox(height: 16),
+          TextField(decoration: InputDecoration(labelText: 'Rate')),
+          SizedBox(height: 16),
+          Text('Results are estimates, not guarantees.'),
+        ],
       ),
     );
   }

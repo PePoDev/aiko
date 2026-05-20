@@ -20,7 +20,7 @@ class CalculatorLibraryScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Calculators')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         children: [
           const TextField(
             decoration: InputDecoration(
@@ -28,17 +28,22 @@ class CalculatorLibraryScreen extends StatelessWidget {
               labelText: 'Search calculator',
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           for (final calculator in calculators)
-            FinanceCard(
-              title: calculator,
-              child: FilledButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => CalculatorDetailScreen(title: calculator),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: FinanceCard(
+                title: calculator,
+                icon: Icons.calculate_outlined,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => CalculatorDetailScreen(title: calculator),
+                    ),
                   ),
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text('Open'),
                 ),
-                child: const Text('Open'),
               ),
             ),
         ],

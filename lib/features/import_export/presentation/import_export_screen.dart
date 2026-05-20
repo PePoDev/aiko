@@ -1,34 +1,35 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/feature_overview_screen.dart';
+import '../../../theme/aiko_colors.dart';
+
 class ImportExportScreen extends StatelessWidget {
   const ImportExportScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Import, Export, and Backup')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: const [
-          ListTile(
-            leading: Icon(Icons.upload_file_outlined),
-            title: Text('Preview import'),
-            subtitle: Text(
-              'Validate mappings, missing fields, and duplicates.',
-            ),
-          ),
-          ListTile(
-            leading: Icon(Icons.file_download_outlined),
-            title: Text('Export package'),
-            subtitle: Text('Choose scope and acknowledge sensitive data.'),
-          ),
-          ListTile(
-            leading: Icon(Icons.cloud_sync_outlined),
-            title: Text('Backup status'),
-            subtitle: Text('Review snapshots before restore.'),
-          ),
-        ],
-      ),
+    return const AikoFeatureOverviewScreen(
+      title: 'Import, Export, and Backup',
+      items: [
+        AikoFeatureOverviewItem(
+          icon: Icons.upload_file_outlined,
+          title: 'Preview import',
+          subtitle: 'Validate mappings, missing fields, and duplicates.',
+          accentColor: AikoColors.deepBlue,
+        ),
+        AikoFeatureOverviewItem(
+          icon: Icons.file_download_outlined,
+          title: 'Export package',
+          subtitle: 'Choose scope and acknowledge sensitive data.',
+          accentColor: AikoColors.analyticsTeal,
+        ),
+        AikoFeatureOverviewItem(
+          icon: Icons.cloud_sync_outlined,
+          title: 'Backup status',
+          subtitle: 'Review snapshots before restore.',
+          accentColor: AikoColors.premiumPurple,
+        ),
+      ],
     );
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/aiko_colors.dart';
+
 class AikoScreenState extends StatelessWidget {
   const AikoScreenState({
     required this.title,
@@ -54,29 +56,60 @@ class AikoScreenState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Center(
       child: Semantics(
         label: '$title. $message',
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 48,
-                color: Theme.of(context).colorScheme.primary,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: colorScheme.outlineVariant),
               ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, size: 28, color: colorScheme.primary),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.brightness == Brightness.dark
+                            ? AikoColors.border
+                            : AikoColors.mutedText,
+                      ),
+                    ),
+                    if (action != null) ...[
+                      const SizedBox(height: 16),
+                      action!,
+                    ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 8),
-              Text(message, textAlign: TextAlign.center),
-              if (action != null) ...[const SizedBox(height: 16), action!],
-            ],
+            ),
           ),
         ),
       ),

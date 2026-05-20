@@ -5,16 +5,15 @@ class BudgetFormScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(decoration: InputDecoration(labelText: 'Category')),
-            SizedBox(height: 12),
-            TextField(decoration: InputDecoration(labelText: 'Monthly amount')),
-          ],
-        ),
+    return Scaffold(
+      appBar: AppBar(title: const Text('New budget')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: [
+          TextField(decoration: InputDecoration(labelText: 'Category')),
+          SizedBox(height: 16),
+          TextField(decoration: InputDecoration(labelText: 'Monthly amount')),
+        ],
       ),
     );
   }

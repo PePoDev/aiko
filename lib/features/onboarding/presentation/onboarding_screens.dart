@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/widgets/finance_card.dart';
+import '../../../theme/aiko_colors.dart';
 
 class OnboardingFlowScreen extends StatefulWidget {
   const OnboardingFlowScreen({super.key});
@@ -57,22 +58,35 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
         onPageChanged: (value) => setState(() => _page = value),
         children: steps,
       ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16),
-        child: FilledButton(
-          onPressed: () {
-            if (_page == steps.length - 1) {
-              context.push('/auth');
-            } else {
-              _pageController.nextPage(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOut,
-              );
-            }
-          },
-          child: Text(
-            _page == steps.length - 1 ? 'Continue to sign in' : 'Continue',
-          ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: (_page + 1) / steps.length,
+                color: AikoColors.premiumPurple,
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () {
+                if (_page == steps.length - 1) {
+                  context.push('/auth');
+                } else {
+                  _pageController.nextPage(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOut,
+                  );
+                }
+              },
+              child: Text(
+                _page == steps.length - 1 ? 'Continue to sign in' : 'Continue',
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -95,7 +109,13 @@ class _OnboardingStep extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Center(
-        child: FinanceCard(title: title, icon: icon, child: Text(message)),
+        child: FinanceCard(
+          title: title,
+          icon: icon,
+          accentColor: AikoColors.premiumPurple,
+          prominent: true,
+          child: Text(message),
+        ),
       ),
     );
   }

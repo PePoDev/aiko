@@ -1,27 +1,35 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/feature_overview_screen.dart';
+import '../../../theme/aiko_colors.dart';
+
 class PlanMatrixScreen extends StatelessWidget {
   const PlanMatrixScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Subscription Plan')),
-    body: ListView(
-      padding: EdgeInsets.all(16),
-      children: const [
-        ListTile(
-          title: Text('Free'),
-          subtitle: Text('Manual tracking and basic insights.'),
+  Widget build(BuildContext context) {
+    return const AikoFeatureOverviewScreen(
+      title: 'Subscription Plan',
+      items: [
+        AikoFeatureOverviewItem(
+          icon: Icons.spa_outlined,
+          title: 'Free',
+          subtitle: 'Manual tracking and basic insights.',
+          accentColor: AikoColors.deepBlue,
         ),
-        ListTile(
-          title: Text('Premium'),
-          subtitle: Text('Forecasting, reports, sync, and advanced insights.'),
+        AikoFeatureOverviewItem(
+          icon: Icons.auto_awesome_outlined,
+          title: 'Premium',
+          subtitle: 'Forecasting, reports, sync, and advanced insights.',
+          accentColor: AikoColors.premiumPurple,
         ),
-        ListTile(
-          title: Text('Pro'),
-          subtitle: Text('Accounting, tax, business, and advanced planning.'),
+        AikoFeatureOverviewItem(
+          icon: Icons.business_center_outlined,
+          title: 'Pro',
+          subtitle: 'Accounting, tax, business, and advanced planning.',
+          accentColor: AikoColors.neutralInk,
         ),
       ],
-    ),
-  );
+    );
+  }
 }

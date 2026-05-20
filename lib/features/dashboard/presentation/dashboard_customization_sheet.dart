@@ -5,21 +5,17 @@ class DashboardCustomizationSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: const [
-        SwitchListTile(
-          value: true,
-          onChanged: null,
-          title: Text('Safe to spend'),
-        ),
-        SwitchListTile(value: true, onChanged: null, title: Text('Pace')),
-        SwitchListTile(
-          value: true,
-          onChanged: null,
-          title: Text('Recent transactions'),
-        ),
-      ],
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      itemCount: _items.length,
+      separatorBuilder: (context, index) => const Divider(),
+      itemBuilder: (context, index) => SwitchListTile(
+        value: true,
+        onChanged: null,
+        title: Text(_items[index]),
+      ),
     );
   }
+
+  static const _items = ['Safe to spend', 'Pace', 'Recent transactions'];
 }

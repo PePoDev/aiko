@@ -1,47 +1,19 @@
-import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 import '../test/helpers/test_app.dart';
 
-Widget buildIntegrationTestApp() {
+/// Ensures the integration test binding is ready and clears any persisted
+/// secure-storage state so every test starts from a clean splash screen.
+///
+/// Usage in each test file:
+/// ```dart
+/// await bootstrapIntegrationTest(tester);
+/// ```
+Future<void> bootstrapIntegrationTest(WidgetTester tester) async {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  return const IntegrationTestStateResetWrapper();
+  await const FlutterSecureStorage().deleteAll();
+  await tester.pumpWidget(buildTestApp());
+  await tester.pumpAndSettle();
 }
-
-class IntegrationTestStateResetWrapper extends StatefulWidget {
-  const IntegrationTestStateResetWrapper({super.key});
-
-  @override
-  State<IntegrationTestStateResetWrapper> createState() =>
-      _IntegrationTestStateResetWrapperState();
-}
-
-class _IntegrationTestStateResetWrapperState
-    extends State<IntegrationTestStateResetWrapper> {
-  bool _cleared = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _clearStorage();
-  }
-
-  Future<void> _clearStorage() async {
-    await const FlutterSecureStorage().deleteAll();
-    if (mounted) {
-      setState(() {
-        _cleared = true;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_cleared) {
-      return const SizedBox.shrink();
-    }
-    return buildTestApp();
-  }
-}
-

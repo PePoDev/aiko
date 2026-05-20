@@ -5,8 +5,7 @@ import 'app_test_bootstrap.dart';
 
 void main() {
   testWidgets('Aiko tab opens calculator library', (tester) async {
-    await tester.pumpWidget(buildIntegrationTestApp());
-    await tester.pumpAndSettle();
+    await bootstrapIntegrationTest(tester);
     await tester.tap(find.text('Get started'));
     await tester.pumpAndSettle();
     for (var index = 0; index < 5; index++) {
@@ -27,4 +26,3 @@ void main() {
     expect(find.text('Compound interest'), findsOneWidget);
   });
 }
-

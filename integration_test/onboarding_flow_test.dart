@@ -4,8 +4,7 @@ import 'app_test_bootstrap.dart';
 
 void main() {
   testWidgets('first launch can reach onboarding', (tester) async {
-    await tester.pumpWidget(buildIntegrationTestApp());
-    await tester.pumpAndSettle();
+    await bootstrapIntegrationTest(tester);
     await tester.tap(find.text('Get started'));
     await tester.pumpAndSettle();
 

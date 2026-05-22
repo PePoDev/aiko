@@ -48,6 +48,12 @@ class _CalculatorDetailScreenState extends State<CalculatorDetailScreen> {
         _CalculatorKind.savingsGoal => _savingsGoal(),
         _CalculatorKind.roi => _roi(),
         _CalculatorKind.currencyConverter => _currencyConverter(),
+        _CalculatorKind.ruleOf72 => _ruleOf72(),
+        _CalculatorKind.inflation => _inflation(),
+        _CalculatorKind.salaryToHourly => _salaryToHourly(),
+        _CalculatorKind.taxEquivalentYield => _taxEquivalentYield(),
+        _CalculatorKind.irrNpv => _irrNpv(),
+        _CalculatorKind.tipPercentage => _tipPercentage(),
       };
 
       setState(() => _result = result);
@@ -188,6 +194,122 @@ class _CalculatorDetailScreenState extends State<CalculatorDetailScreen> {
     );
   }
 
+  _CalculationResult _ruleOf72() {
+    final annualRate = _percentage('annualRate');
+    final years = _service.ruleOf72(annualRate: annualRate);
+
+    return _CalculationResult(
+      title: 'Years to double',
+      value: '${_formatNumber(years)} years',
+      detail: 'Estimated time to double your investment at a constant ${_controllers['annualRate']!.text}% annual rate.',
+      icon: Icons.timer_outlined,
+      color: AikoColors.successGreen,
+    );
+  }
+
+  _CalculationResult _inflation() {
+    final amount = _positiveNumber('amount');
+    final annualInflationRate = _percentage('annualInflationRate');
+    final years = _positiveInt('years');
+
+    final adjusted = _service.inflationAdjustedValue(
+      amount: amount,
+      annualInflationRate: annualInflationRate,
+      years: years,
+    );
+
+    return _CalculationResult(
+      title: 'Inflation-adjusted value',
+      value: _formatCurrency(adjusted),
+      detail: 'Purchasing power of ${_formatCurrency(amount)} in $years years at a constant ${_controllers['annualInflationRate']!.text}% inflation.',
+      icon: Icons.money_off_csred_outlined,
+      color: AikoColors.dangerRed,
+    );
+  }
+
+  _CalculationResult _salaryToHourly() {
+    final annualSalary = _positiveNumber('annualSalary');
+    final hoursPerWeek = _positiveNumber('hoursPerWeek');
+    final weeksPerYear = _positiveInt('weeksPerYear');
+
+    final hourly = _service.salaryToHourly(
+      annualSalary: annualSalary,
+      hoursPerWeek: hoursPerWeek,
+      weeksPerYear: weeksPerYear.toDouble(),
+    );
+
+    return _CalculationResult(
+      title: 'Equivalent hourly pay',
+      value: '${_formatCurrency(hourly)}/hr',
+      detail: 'Based on working $hoursPerWeek hours per week for $weeksPerYear weeks per year.',
+      icon: Icons.work_outline,
+      color: AikoColors.deepBlue,
+    );
+  }
+
+  _CalculationResult _taxEquivalentYield() {
+    final taxFreeYield = _percentage('taxFreeYield');
+    final marginalTaxRate = _percentage('marginalTaxRate');
+
+    final equivalent = _service.taxEquivalentYield(
+      taxFreeYield: taxFreeYield,
+      marginalTaxRate: marginalTaxRate,
+    );
+
+    return _CalculationResult(
+      title: 'Tax-equivalent yield',
+      value: _formatPercent(equivalent),
+      detail: 'Pre-tax return needed to equal a tax-free yield of ${_controllers['taxFreeYield']!.text}% at a ${_controllers['marginalTaxRate']!.text}% marginal tax bracket.',
+      icon: Icons.account_balance_wallet_outlined,
+      color: AikoColors.warningOrange,
+    );
+  }
+
+  _CalculationResult _irrNpv() {
+    final discountRate = _percentage('discountRate');
+    final cashFlowsText = _controllers['cashFlows']!.text.trim();
+    if (cashFlowsText.isEmpty) {
+      throw const _CalculatorInputException('Enter a valid list of cash flows.');
+    }
+    final List<double> cashFlows;
+    try {
+      cashFlows = cashFlowsText.split(',').map((s) => double.parse(s.trim())).toList();
+    } catch (_) {
+      throw const _CalculatorInputException('Cash flows must be a list of numbers separated by commas.');
+    }
+
+    final npv = _service.netPresentValue(
+      discountRate: discountRate,
+      cashFlows: cashFlows,
+    );
+
+    return _CalculationResult(
+      title: 'Net present value (NPV)',
+      value: _formatCurrency(npv),
+      detail: 'NPV of cash flows discounted at ${_controllers['discountRate']!.text}% per period.',
+      icon: Icons.analytics_outlined,
+      color: AikoColors.analyticsTeal,
+    );
+  }
+
+  _CalculationResult _tipPercentage() {
+    final bill = _positiveNumber('bill');
+    final tipRate = _percentage('tipRate');
+    final splitCount = _positiveInt('splitCount');
+
+    final tip = _service.tipAmount(bill: bill, tipRate: tipRate);
+    final total = bill + tip;
+    final perPerson = total / splitCount;
+
+    return _CalculationResult(
+      title: 'Total split summary',
+      value: '${_formatCurrency(perPerson)} each',
+      detail: 'Tip is ${_formatCurrency(tip)} (total ${_formatCurrency(total)}) split between $splitCount people.',
+      icon: Icons.restaurant_outlined,
+      color: AikoColors.successGreen,
+    );
+  }
+
   double _positiveNumber(String id) => _number(id);
 
   double _number(String id, {bool allowZero = false}) {
@@ -317,9 +439,11 @@ class _CalculatorDetailScreenState extends State<CalculatorDetailScreen> {
                       prefixText: field.prefixText,
                       suffixText: field.suffixText,
                     ),
-                    keyboardType: TextInputType.numberWithOptions(
-                      decimal: field.allowsDecimal,
-                    ),
+                    keyboardType: field.id == 'cashFlows'
+                        ? TextInputType.text
+                        : TextInputType.numberWithOptions(
+                            decimal: field.allowsDecimal,
+                          ),
                     textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 16),
@@ -367,6 +491,12 @@ enum _CalculatorKind {
   savingsGoal,
   roi,
   currencyConverter,
+  ruleOf72,
+  inflation,
+  salaryToHourly,
+  taxEquivalentYield,
+  irrNpv,
+  tipPercentage,
 }
 
 class _CalculatorConfig {
@@ -471,6 +601,136 @@ class _CalculatorConfig {
             label: 'Income',
             prefixText: r'$ ',
             initialValue: '0',
+          ),
+        ],
+      ),
+      'Rule of 72' => const _CalculatorConfig(
+        kind: _CalculatorKind.ruleOf72,
+        title: 'Rule of 72',
+        icon: Icons.timer_outlined,
+        color: AikoColors.successGreen,
+        fields: [
+          _CalculatorField(
+            id: 'annualRate',
+            label: 'Annual rate',
+            suffixText: '%',
+            initialValue: '8',
+          ),
+        ],
+      ),
+      'Inflation' => const _CalculatorConfig(
+        kind: _CalculatorKind.inflation,
+        title: 'Inflation adjusted value',
+        icon: Icons.money_off_csred_outlined,
+        color: AikoColors.dangerRed,
+        fields: [
+          _CalculatorField(
+            id: 'amount',
+            label: 'Current amount',
+            prefixText: r'$ ',
+            initialValue: '1000',
+          ),
+          _CalculatorField(
+            id: 'annualInflationRate',
+            label: 'Annual inflation rate',
+            suffixText: '%',
+            initialValue: '3',
+          ),
+          _CalculatorField(
+            id: 'years',
+            label: 'Years',
+            allowsDecimal: false,
+            initialValue: '10',
+          ),
+        ],
+      ),
+      'Salary to hourly' => const _CalculatorConfig(
+        kind: _CalculatorKind.salaryToHourly,
+        title: 'Salary to hourly',
+        icon: Icons.work_outline,
+        color: AikoColors.deepBlue,
+        fields: [
+          _CalculatorField(
+            id: 'annualSalary',
+            label: 'Annual salary',
+            prefixText: r'$ ',
+            initialValue: '50000',
+          ),
+          _CalculatorField(
+            id: 'hoursPerWeek',
+            label: 'Hours per week',
+            initialValue: '40',
+          ),
+          _CalculatorField(
+            id: 'weeksPerYear',
+            label: 'Weeks per year',
+            allowsDecimal: false,
+            initialValue: '52',
+          ),
+        ],
+      ),
+      'Tax equivalent yield' => const _CalculatorConfig(
+        kind: _CalculatorKind.taxEquivalentYield,
+        title: 'Tax equivalent yield',
+        icon: Icons.account_balance_wallet_outlined,
+        color: AikoColors.warningOrange,
+        fields: [
+          _CalculatorField(
+            id: 'taxFreeYield',
+            label: 'Tax-free yield',
+            suffixText: '%',
+            initialValue: '3.5',
+          ),
+          _CalculatorField(
+            id: 'marginalTaxRate',
+            label: 'Marginal tax rate',
+            suffixText: '%',
+            initialValue: '24',
+          ),
+        ],
+      ),
+      'IRR / NPV' => const _CalculatorConfig(
+        kind: _CalculatorKind.irrNpv,
+        title: 'Net present value',
+        icon: Icons.analytics_outlined,
+        color: AikoColors.analyticsTeal,
+        fields: [
+          _CalculatorField(
+            id: 'discountRate',
+            label: 'Discount rate (Annual)',
+            suffixText: '%',
+            initialValue: '8',
+          ),
+          _CalculatorField(
+            id: 'cashFlows',
+            label: 'Cash flows (comma-separated, e.g. -1000, 300, 450, 600)',
+            initialValue: '-1000, 300, 450, 600',
+          ),
+        ],
+      ),
+      'Tip and percentage' => const _CalculatorConfig(
+        kind: _CalculatorKind.tipPercentage,
+        title: 'Tip and split bill',
+        icon: Icons.restaurant_outlined,
+        color: AikoColors.successGreen,
+        fields: [
+          _CalculatorField(
+            id: 'bill',
+            label: 'Bill amount',
+            prefixText: r'$ ',
+            initialValue: '50',
+          ),
+          _CalculatorField(
+            id: 'tipRate',
+            label: 'Tip rate',
+            suffixText: '%',
+            initialValue: '15',
+          ),
+          _CalculatorField(
+            id: 'splitCount',
+            label: 'Split between (people)',
+            allowsDecimal: false,
+            initialValue: '1',
           ),
         ],
       ),

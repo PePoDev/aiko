@@ -28,6 +28,11 @@ class HomeDashboardScreen extends ConsumerWidget {
         title: const Text('Home'),
         actions: [
           IconButton(
+            tooltip: 'More',
+            onPressed: () => context.push('/more'),
+            icon: const Icon(Icons.grid_view_outlined),
+          ),
+          IconButton(
             tooltip: 'Settings',
             onPressed: () => context.push('/settings'),
             icon: const Icon(Icons.settings_outlined),
@@ -52,6 +57,16 @@ class HomeDashboardScreen extends ConsumerWidget {
               prominent: true,
               child: Text(
                 'You have ${summary.safeToSpend.format()} estimated safe to spend this week. This is an estimate, so keep bills and planned purchases in view.',
+              ),
+            ),
+            const SizedBox(height: 16),
+            FinanceCard(
+              title: 'Explore Aiko',
+              icon: Icons.apps_outlined,
+              accentColor: AikoColors.deepBlue,
+              onTap: () => context.go('/more'),
+              child: const Text(
+                'Open accounts, bills, goals, reports, portfolio, tax, learning, settings, and more.',
               ),
             ),
             const SizedBox(height: 16),

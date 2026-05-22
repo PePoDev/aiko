@@ -34,10 +34,10 @@ class AuthenticatedShell extends StatelessWidget {
       selectedIcon: Icons.insights,
     ),
     _AikoNavItem(
-      label: 'Aiko',
-      path: '/aiko',
-      icon: Icons.auto_awesome_outlined,
-      selectedIcon: Icons.auto_awesome,
+      label: 'More',
+      path: '/more',
+      icon: Icons.grid_view_outlined,
+      selectedIcon: Icons.grid_view_rounded,
     ),
   ];
 
@@ -69,10 +69,37 @@ class AuthenticatedShell extends StatelessWidget {
     if (location.startsWith('/insights')) {
       return 3;
     }
-    if (location.startsWith('/aiko')) {
+    if (location.startsWith('/more') || _isSecondaryRoute(location)) {
       return 4;
     }
     return 2;
+  }
+
+  bool _isSecondaryRoute(String location) {
+    return location.startsWith('/accounts') ||
+        location.startsWith('/transaction-rules') ||
+        location.startsWith('/categories') ||
+        location.startsWith('/goals') ||
+        location.startsWith('/aiko-review') ||
+        location.startsWith('/reports') ||
+        location.startsWith('/export') ||
+        location.startsWith('/aiko') ||
+        location.startsWith('/calculators') ||
+        location.startsWith('/settings') ||
+        location.startsWith('/aiko-character') ||
+        location.startsWith('/import-export-backup') ||
+        location.startsWith('/bills') ||
+        location.startsWith('/notification-settings') ||
+        location.startsWith('/credit-cards') ||
+        location.startsWith('/debt-loans') ||
+        location.startsWith('/portfolio') ||
+        location.startsWith('/assets') ||
+        location.startsWith('/tax-center') ||
+        location.startsWith('/accounting') ||
+        location.startsWith('/learning-hub') ||
+        location.startsWith('/travel-mode') ||
+        location.startsWith('/devices') ||
+        location.startsWith('/subscription-plan');
   }
 }
 

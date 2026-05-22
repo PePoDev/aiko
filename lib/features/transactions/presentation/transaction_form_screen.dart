@@ -1,12 +1,15 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/transaction.dart';
+import '../application/receipt_ocr_service.dart';
+import '../application/voice_transaction_parser.dart';
 import 'transaction_attachment_section.dart';
 
 class TransactionFormScreen extends ConsumerStatefulWidget {
@@ -22,6 +25,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _merchantController = TextEditingController();
   final _noteController = TextEditingController();
   String _type = 'expense';
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void dispose() {
@@ -29,6 +33,220 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _merchantController.dispose();
     _noteController.dispose();
     super.dispose();
+  }
+
+  void _autofillForm({
+    required double amount,
+    required String merchant,
+    required String note,
+    required String type,
+    required DateTime date,
+  }) {
+    setState(() {
+      _amountController.text = amount.toStringAsFixed(2);
+      _merchantController.text = merchant;
+      _noteController.text = note;
+      _type = type;
+      _selectedDate = date;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.auto_awesome, color: Colors.white),
+            const SizedBox(width: 8),
+            Text('Aiko Autofilled: $merchant | \$${amount.toStringAsFixed(2)}'),
+          ],
+        ),
+        backgroundColor: AikoColors.premiumPurple,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  void _showOcrScannerDialog() {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Simulate AI Receipt Scan',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AikoColors.premiumPurple,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Select a mock transaction receipt to simulate scanning and autofill:',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const Icon(Icons.coffee, color: AikoColors.warningOrange),
+                title: const Text('Starbucks Receipt'),
+                subtitle: const Text('Total: \$12.45 | Today'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _runMockOcrProgress(
+                    text: 'STARBUCKS\n12/3/2026\nCOFFEE & TEA\nTOTAL: 12.45\nPAID WITH VISA',
+                    merchant: 'Starbucks',
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.shopping_bag_outlined, color: AikoColors.deepBlue),
+                title: const Text('Amazon Order invoice'),
+                subtitle: const Text('Total: \$89.99 | Yesterday'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _runMockOcrProgress(
+                    text: 'AMAZON.COM\n12/2/2026\nTEXTBOOKS\nAMOUNT DUE: 89.99\nDELIVERED',
+                    merchant: 'Amazon',
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.local_gas_station_outlined, color: AikoColors.successGreen),
+                title: const Text('Chevron Gas Station'),
+                subtitle: const Text('Total: \$45.50 | 2 Days Ago'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _runMockOcrProgress(
+                    text: 'CHEVRON PUMP 04\n12/1/2026\nREGULAR UNLEADED\nPAID: 45.50\nTHANK YOU',
+                    merchant: 'Chevron Gas',
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _runMockOcrProgress({required String text, required String merchant}) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 20),
+              Text('Aiko OCR recognizing text...'),
+            ],
+          ),
+        );
+      },
+    );
+
+    await Future<void>.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
+    Navigator.of(context).pop(); // Close spinner
+
+    const ocrService = ReceiptOcrService();
+    final autofill = ocrService.parseRecognizedText(text);
+
+    _autofillForm(
+      amount: autofill.total?.amount.toDouble() ?? 0.0,
+      merchant: autofill.merchant ?? merchant,
+      note: 'Simulated OCR Receipt: ${autofill.merchant}',
+      type: 'expense',
+      date: autofill.date ?? DateTime.now(),
+    );
+  }
+
+  void _showVoiceCommandDialog() {
+    final voiceTextController = TextEditingController(
+      text: 'spent 15.50 at Starbucks yesterday for coffee',
+    );
+
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.mic_none_outlined, color: AikoColors.premiumPurple),
+              const SizedBox(width: 8),
+              Text(
+                'AI Voice Input Command',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Type or speak a transaction description:',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: voiceTextController,
+                decoration: const InputDecoration(
+                  labelText: 'Command',
+                  hintText: 'spent \$X at [merchant] yesterday...',
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final txt = voiceTextController.text.trim();
+                Navigator.of(context).pop();
+                _parseVoiceCommand(txt);
+              },
+              child: const Text('Parse Command'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _parseVoiceCommand(String command) {
+    try {
+      const parser = VoiceTransactionParser();
+      final draft = parser.parse(command, now: DateTime.now());
+
+      _autofillForm(
+        amount: draft.amount.amount.toDouble(),
+        merchant: draft.merchant ?? 'Unknown',
+        note: draft.note ?? 'Voice command parser',
+        type: draft.type == TransactionType.income ? 'income' : 'expense',
+        date: draft.date,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not parse voice command: $e'),
+          backgroundColor: AikoColors.dangerRed,
+        ),
+      );
+    }
   }
 
   Future<void> _submitForm() async {
@@ -91,9 +309,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     }
 
     final accounts = await ref.read(accountsProvider.future);
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     String? accountId;
     if (accounts.isNotEmpty) {
       final active = accounts.where((account) => account.isActive).toList();
@@ -113,9 +329,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     }
 
     final categories = await ref.read(categoriesProvider.future);
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     String? categoryId;
     if (categories.isNotEmpty) {
       final active = categories.where((category) => category.isActive).toList();
@@ -134,7 +348,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       accountId: accountId,
       type: txType,
       amount: Money(amount: amount, currency: 'USD'),
-      date: DateTime.now(),
+      date: _selectedDate,
       categoryId: categoryId,
       merchant: _merchantController.text.trim(),
       note: _noteController.text.trim(),
@@ -142,9 +356,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     await ref.read(transactionsProvider.notifier).addTransaction(newTx);
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     final state = ref.read(transactionsProvider);
     if (state.hasError) {
@@ -195,6 +407,80 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
+          // Smart Entry Dashboard Card
+          Card(
+            clipBehavior: Clip.antiAlias,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: AikoColors.premiumPurple.withOpacity(0.3)),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AikoColors.premiumPurple.withOpacity(0.05),
+                    AikoColors.deepBlue.withOpacity(0.05),
+                  ],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.auto_awesome, color: AikoColors.premiumPurple, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Aiko Smart Entry Tools',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AikoColors.premiumPurple,
+                            ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Autofill this transaction instantly using scanned receipt OCR or voice text patterns.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _showOcrScannerDialog,
+                          icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                          label: const Text('Scan Receipt', style: TextStyle(fontSize: 12)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AikoColors.premiumPurple,
+                            side: const BorderSide(color: AikoColors.premiumPurple),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _showVoiceCommandDialog,
+                          icon: const Icon(Icons.mic_none_outlined, size: 18),
+                          label: const Text('Voice Entry', style: TextStyle(fontSize: 12)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AikoColors.deepBlue,
+                            side: const BorderSide(color: AikoColors.deepBlue),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Standard Entry Fields
           TextField(
             controller: _amountController,
             decoration: const InputDecoration(
@@ -230,6 +516,29 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             decoration: const InputDecoration(labelText: 'Note'),
           ),
           const SizedBox(height: 16),
+          
+          // Date selection tile
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.calendar_month_outlined),
+            title: const Text('Transaction Date'),
+            subtitle: Text(DateFormat('yyyy-MM-dd').format(_selectedDate)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final now = DateTime.now();
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _selectedDate,
+                firstDate: DateTime(now.year - 5),
+                lastDate: DateTime(now.year + 5),
+              );
+              if (picked != null) {
+                setState(() => _selectedDate = picked);
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          
           const TransactionAttachmentSection(attachments: []),
           const SizedBox(height: 24),
           FilledButton.icon(

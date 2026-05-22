@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/accounting/presentation/accounting_screen.dart';
+import '../features/accounts/presentation/accounts_screen.dart';
 import '../features/aiko_assistant/presentation/aiko_assistant_screen.dart';
 import '../features/aiko_character/presentation/aiko_character_settings_screen.dart';
 import '../features/aiko_optimize/presentation/aiko_optimize_screen.dart';
@@ -21,6 +22,7 @@ import '../features/import_export/presentation/import_export_screen.dart';
 import '../features/insights/presentation/insights_screen.dart';
 import '../features/learning_hub/presentation/learning_hub_screen.dart';
 import '../features/monetization/presentation/plan_matrix_screen.dart';
+import '../features/navigation/presentation/more_screen.dart';
 import '../features/onboarding/presentation/onboarding_screens.dart';
 import '../features/portfolio/presentation/portfolio_screen.dart';
 import '../features/reports/presentation/aiko_review_screen.dart';
@@ -114,6 +116,15 @@ GoRouter createAikoRouter() {
                 _fadePage(context, state, const AikoAssistantScreen()),
           ),
           GoRoute(
+            path: '/more',
+            pageBuilder: (context, state) =>
+                _fadePage(context, state, const MoreScreen()),
+          ),
+          GoRoute(
+            path: '/accounts',
+            builder: (context, state) => const AccountsScreen(),
+          ),
+          GoRoute(
             path: '/calculators',
             builder: (context, state) => const CalculatorLibraryScreen(),
           ),
@@ -134,6 +145,10 @@ GoRouter createAikoRouter() {
             builder: (context, state) => const BillsScreen(),
           ),
           GoRoute(
+            path: '/bills',
+            redirect: (context, state) => '/bills-subscriptions',
+          ),
+          GoRoute(
             path: '/notification-settings',
             builder: (context, state) => const NotificationSettingsScreen(),
           ),
@@ -152,6 +167,10 @@ GoRouter createAikoRouter() {
           GoRoute(
             path: '/assets-net-worth',
             builder: (context, state) => const AssetsNetWorthScreen(),
+          ),
+          GoRoute(
+            path: '/assets',
+            redirect: (context, state) => '/assets-net-worth',
           ),
           GoRoute(
             path: '/tax-center',

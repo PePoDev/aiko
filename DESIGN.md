@@ -23,6 +23,7 @@ The screenshot uses a blue-led palette with purple AI accents, a deep neutral in
 | Neutral | `#0F172A` | Main text, inverted surfaces, high-emphasis icons |
 | Surface | `#EEF2FF` | Cards, panels, input backgrounds on light screens |
 | App background | `#D8E0F5` | Design reference background, empty space between panels |
+| App background light | `#F6F8FF` | Alternative lighter app background for specific panels |
 | White | `#FFFFFF` | High-contrast text on colored surfaces |
 
 Existing Dart mappings:
@@ -111,7 +112,7 @@ Core surfaces from the screenshot:
 Flutter guidance:
 
 ```dart
-scaffoldBackgroundColor: Color(0xFFF8FAFC); // current app default
+scaffoldBackgroundColor: Color(0xFFD8E0F5); // matches App background token
 CardThemeData(
   elevation: 0,
   margin: EdgeInsets.zero,
@@ -185,6 +186,16 @@ Use compact square or circular icon buttons for quick actions:
 - Size: `40-48px`.
 - Tap target: at least `48px`.
 
+### Interactive States
+
+| State | Treatment |
+|---|---|
+| Pressed / splash | Primary color at 12 % opacity |
+| Hover (web/desktop) | Surface tint at 8 % opacity |
+| Focused | 2 px primary outline offset by 2 px |
+| Disabled | 40 % opacity, no interaction |
+| Dragging | Slight scale (1.02) with subtle shadow |
+
 ### Cards
 
 Cards are for financial objects and repeated content:
@@ -202,6 +213,27 @@ Cards should include a clear hierarchy:
 3. One clear action or status.
 
 Avoid decorative cards that do not hold a real object, metric, or action.
+
+## Iconography
+
+Use Material Icons as the primary icon set. Custom SVG icons are acceptable for brand moments (Aiko logo, onboarding illustrations) but should not replace standard icons for common actions.
+
+Sizes:
+
+| Context | Size |
+|---|---:|
+| Inline with body text | 16 |
+| List tile leading | 20 |
+| Action bar / toolbar | 24 |
+| Empty state / hero | 48 |
+
+Icon color rules:
+
+- Default: `onSurface`.
+- Active / selected: `primary`.
+- Destructive: `danger`.
+- AI / premium: `tertiary`.
+- Muted / disabled: `mutedText`.
 
 ## Aiko Character Usage
 
@@ -229,6 +261,46 @@ Tone examples:
 - Support dynamic text without clipping.
 - Make charts readable with labels, legends, and numeric summaries.
 - Support light and dark themes.
+
+## Dark Theme
+
+Dark mode uses deep navy surfaces and lighter text. Semantic colors shift brighter to maintain contrast.
+
+| Token | Light | Dark | Notes |
+|---|---:|---:|---|
+| Primary | `#3B82F6` | `#93C5FD` | Softer blue on dark backgrounds |
+| Secondary | `#1D4ED8` | `#3B82F6` | Promoted from primary |
+| Tertiary | `#7C3AED` | `#B894F5` | Lighter purple for visibility |
+| Surface | `#EEF2FF` | `#121C31` | Deep navy panel |
+| Surface strong | `#E3E9FF` | `#1B2740` | Slightly lighter panel |
+| On-surface | `#0F172A` | `#FFFFFF` | White text on dark |
+| Outline | `#BAC3D6` | `#414B60` | Muted border |
+| Outline variant | `#DCE4F8` | `#293348` | Subtle divider |
+| Scaffold | `#D8E0F5` | `#0F172A` | Deep navy background |
+| Success | `#16A34A` | `#4ADE80` | Brighter green |
+| Warning | `#F59E0B` | `#FBBF24` | Brighter amber |
+| Danger | `#DC2626` | `#F87171` | Softer red |
+| Analytics | `#0D9488` | `#2DD4BF` | Brighter teal |
+
+Aiko character artwork should be tested on both dark and light backgrounds. Use a subtle glow or border if the character art has transparent regions that blend into dark surfaces.
+
+## Motion
+
+Keep animations calm and purposeful. Avoid bouncy or playful easing for financial data.
+
+| Animation | Duration | Curve |
+|---|---:|---|
+| Page transition | 300 ms | `Curves.easeInOut` |
+| Widget appear / fade | 200 ms | `Curves.easeOut` |
+| Progress bar fill | 400 ms | `Curves.easeInOut` |
+| Modal slide up | 300 ms | `Curves.easeOut` |
+| Emphasis (celebrate, alert) | 600 ms | `Curves.elasticOut` |
+
+Rules:
+
+- Never animate numbers while they are being read. Settle within 300 ms.
+- Use `AnimatedSwitcher` for state transitions (loading to loaded, empty to populated).
+- Avoid continuous looping animations except for progress indicators.
 
 ## Flutter Implementation Notes
 

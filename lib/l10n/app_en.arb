@@ -1,0 +1,14 @@
+{
+  "@@locale": "en",
+  "appTitle": "Aiko",
+  "homeTab": "Home",
+  "transactionsTab": "Transactions",
+  "budgetTab": "Budget",
+  "insightsTab": "Insights",
+  "aikoTab": "Aiko",
+  "settingsTitle": "Settings",
+  "learningHubTitle": "Learning Hub",
+  "exportTitle": "Export",
+  "privacyTitle": "Profile and privacy",
+  "aiDisclaimer": "Aiko provides estimates, not certified financial advice."
+}

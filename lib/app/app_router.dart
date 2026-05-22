@@ -34,6 +34,19 @@ import '../features/travel_mode/presentation/travel_mode_screen.dart';
 import '../shared/widgets/screen_states.dart';
 import 'authenticated_shell.dart';
 
+Page<void> _fadePage(BuildContext context, GoRouterState state, Widget child) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        child: child,
+      );
+    },
+  );
+}
+
 GoRouter createAikoRouter() {
   return GoRouter(
     initialLocation: '/',
@@ -53,11 +66,13 @@ GoRouter createAikoRouter() {
         routes: [
           GoRoute(
             path: '/home',
-            builder: (context, state) => const HomeDashboardScreen(),
+            pageBuilder: (context, state) =>
+                _fadePage(context, state, const HomeDashboardScreen()),
           ),
           GoRoute(
             path: '/transactions',
-            builder: (context, state) => const TransactionListScreen(),
+            pageBuilder: (context, state) =>
+                _fadePage(context, state, const TransactionListScreen()),
           ),
           GoRoute(
             path: '/transaction-rules',
@@ -69,7 +84,8 @@ GoRouter createAikoRouter() {
           ),
           GoRoute(
             path: '/budget',
-            builder: (context, state) => const BudgetOverviewScreen(),
+            pageBuilder: (context, state) =>
+                _fadePage(context, state, const BudgetOverviewScreen()),
           ),
           GoRoute(
             path: '/goals',
@@ -77,7 +93,8 @@ GoRouter createAikoRouter() {
           ),
           GoRoute(
             path: '/insights',
-            builder: (context, state) => const InsightsScreen(),
+            pageBuilder: (context, state) =>
+                _fadePage(context, state, const InsightsScreen()),
           ),
           GoRoute(
             path: '/aiko-review',
@@ -93,7 +110,8 @@ GoRouter createAikoRouter() {
           ),
           GoRoute(
             path: '/aiko',
-            builder: (context, state) => const AikoAssistantScreen(),
+            pageBuilder: (context, state) =>
+                _fadePage(context, state, const AikoAssistantScreen()),
           ),
           GoRoute(
             path: '/calculators',

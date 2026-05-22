@@ -10,12 +10,6 @@ class AuthenticatedShell extends StatelessWidget {
 
   static const _items = [
     _AikoNavItem(
-      label: 'Home',
-      path: '/home',
-      icon: Icons.home_outlined,
-      selectedIcon: Icons.home_rounded,
-    ),
-    _AikoNavItem(
       label: 'Transactions',
       path: '/transactions',
       icon: Icons.receipt_long_outlined,
@@ -26,6 +20,12 @@ class AuthenticatedShell extends StatelessWidget {
       path: '/budget',
       icon: Icons.pie_chart_outline,
       selectedIcon: Icons.pie_chart,
+    ),
+    _AikoNavItem(
+      label: 'Home',
+      path: '/home',
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home_rounded,
     ),
     _AikoNavItem(
       label: 'Insights',
@@ -58,9 +58,12 @@ class AuthenticatedShell extends StatelessWidget {
 
   int _indexFor(String location) {
     if (location.startsWith('/transactions')) {
-      return 1;
+      return 0;
     }
     if (location.startsWith('/budget')) {
+      return 1;
+    }
+    if (location.startsWith('/home')) {
       return 2;
     }
     if (location.startsWith('/insights')) {
@@ -69,7 +72,7 @@ class AuthenticatedShell extends StatelessWidget {
     if (location.startsWith('/aiko')) {
       return 4;
     }
-    return 0;
+    return 2;
   }
 }
 

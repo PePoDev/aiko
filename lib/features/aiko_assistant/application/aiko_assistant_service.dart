@@ -1,4 +1,5 @@
 import '../../../core/money/money.dart';
+import '../../insights/domain/aiko_insight.dart';
 import '../domain/aiko_response.dart';
 
 class AikoAssistantService {
@@ -36,6 +37,51 @@ class AikoAssistantService {
       ],
       recommendation: 'Keep flexible spending steady to stay on track.',
       disclaimer: 'This is an estimate based on the data in Aiko.',
+    );
+  }
+
+  AikoResponse answerQuestion({
+    required String question,
+    required bool aiConsentEnabled,
+    Money? safeToSpendAmount,
+    List<AikoInsight> insights = const [],
+  }) {
+    final normalized = question.toLowerCase();
+    if (normalized.contains('safe') || normalized.contains('spend')) {
+      return safeToSpend(
+        aiConsentEnabled: aiConsentEnabled,
+        safeToSpendAmount: safeToSpendAmount,
+      );
+    }
+    if (!aiConsentEnabled) {
+      return const AikoResponse(
+        type: AikoResponseType.missingData,
+        answer: 'Turn on AI consent before I analyze personal finance data.',
+        missingData: ['ai_consent'],
+      );
+    }
+    if (normalized.contains('optimize') ||
+        normalized.contains('improve') ||
+        normalized.contains('recommend')) {
+      final topInsight = insights.isEmpty ? null : insights.first;
+      return AikoResponse(
+        type: AikoResponseType.answer,
+        answer:
+            topInsight?.recommendation ??
+            'Start with the largest recurring bill, then review budget categories that are above pace.',
+        explanation:
+            'Aiko prioritizes actions that are recurring, high-confidence, and easy to verify.',
+        sourceSummary: const ['aiko_insights', 'budgets', 'subscriptions'],
+        recommendation:
+            topInsight?.title ?? 'Open Aiko Optimize for ranked next steps.',
+        disclaimer: 'Aiko provides estimates, not certified financial advice.',
+      );
+    }
+    return const AikoResponse(
+      type: AikoResponseType.disclaimer,
+      answer:
+          'I can help with safe-to-spend, budgets, subscriptions, goals, calculators, and optimization questions.',
+      disclaimer: 'Aiko provides estimates, not certified financial advice.',
     );
   }
 }

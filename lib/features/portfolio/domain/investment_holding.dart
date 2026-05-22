@@ -1,4 +1,5 @@
 import '../../../core/money/money.dart';
+import 'package:decimal/decimal.dart';
 
 class InvestmentHolding {
   const InvestmentHolding({
@@ -15,14 +16,8 @@ class InvestmentHolding {
   final Money averageCost;
   final Money currentPrice;
 
-  Money get marketValue => currentPrice.times(
-    // Quantity is intentionally decimal-friendly for fractional shares.
-    decimalFromDouble(quantity),
-  );
+  Money get marketValue => currentPrice.times(Decimal.parse('$quantity'));
 
   Money get unrealizedGainLoss =>
-      marketValue - averageCost.times(decimalFromDouble(quantity));
+      marketValue - averageCost.times(Decimal.parse('$quantity'));
 }
-
-dynamic decimalFromDouble(double value) =>
-    throw UnsupportedError('Use PortfolioAllocationService.marketValue.');

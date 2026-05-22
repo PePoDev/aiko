@@ -30,6 +30,7 @@ class AikoFeatureOverviewScreen extends StatelessWidget {
             title: item.title,
             icon: item.icon,
             accentColor: item.accentColor,
+            onTap: item.onTap,
             child: Text(item.subtitle),
           );
         },
@@ -44,10 +45,12 @@ class AikoFeatureOverviewItem {
     required this.subtitle,
     this.icon = Icons.auto_awesome_outlined,
     this.accentColor = AikoColors.primaryBlue,
+    this.onTap,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
   final Color accentColor;
+  final VoidCallback? onTap;
 }

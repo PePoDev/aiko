@@ -15,8 +15,22 @@ class ExportScreen extends StatelessWidget {
           icon: Icons.file_download_outlined,
           title: 'Export CSV',
           subtitle:
-              'Choose date range and confirm sensitive financial data export before sharing the file.',
+              'Choose a date range and confirm sensitive financial data export before sharing.',
           accentColor: AikoColors.analyticsTeal,
+        ),
+        AikoFeatureOverviewItem(
+          icon: Icons.picture_as_pdf_outlined,
+          title: 'PDF statements',
+          subtitle:
+              'Generate a styled HTML statement that can be printed or shared as PDF.',
+          accentColor: AikoColors.dangerRed,
+        ),
+        AikoFeatureOverviewItem(
+          icon: Icons.table_chart_outlined,
+          title: 'Excel export',
+          subtitle:
+              'Create Excel-compatible CSV with a UTF-8 BOM for spreadsheet apps.',
+          accentColor: AikoColors.successGreen,
         ),
       ],
     );

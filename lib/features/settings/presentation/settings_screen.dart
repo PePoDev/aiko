@@ -15,6 +15,8 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _authRepository = AuthRepository();
   var _isSigningOut = false;
+  var _aiAnalysisEnabled = true;
+  var _localOnlyMode = false;
 
   Future<void> _handleLogout() async {
     setState(() => _isSigningOut = true);
@@ -42,18 +44,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         children: [
-          const FinanceCard(
+          FinanceCard(
             title: 'Profile and privacy',
             icon: Icons.privacy_tip_outlined,
             child: Column(
               children: [
-                _SettingsRow(icon: Icons.person_outline, title: 'Profile'),
-                Divider(),
-                _SettingsRow(icon: Icons.lock_outline, title: 'Security'),
-                Divider(),
+                const _SettingsRow(
+                  icon: Icons.person_outline,
+                  title: 'Profile',
+                ),
+                const Divider(),
+                const _SettingsRow(icon: Icons.lock_outline, title: 'Security'),
+                const Divider(),
                 _SettingsRow(
                   icon: Icons.psychology_alt_outlined,
                   title: 'AI consent',
+                  subtitle: 'Allow Aiko to analyze financial data',
+                  trailing: Switch(
+                    value: _aiAnalysisEnabled && !_localOnlyMode,
+                    onChanged: _localOnlyMode
+                        ? null
+                        : (value) => setState(() => _aiAnalysisEnabled = value),
+                  ),
+                ),
+                const Divider(),
+                _SettingsRow(
+                  icon: Icons.cloud_off_outlined,
+                  title: 'Local-only mode',
+                  subtitle: 'Disable cloud sync and AI analysis on this device',
+                  trailing: Switch(
+                    value: _localOnlyMode,
+                    onChanged: (value) => setState(() {
+                      _localOnlyMode = value;
+                      if (value) {
+                        _aiAnalysisEnabled = false;
+                      }
+                    }),
+                  ),
                 ),
               ],
             ),

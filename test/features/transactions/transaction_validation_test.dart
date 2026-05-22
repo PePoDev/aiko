@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('transaction repository rejects non-positive expense', () async {
-    final repository = TransactionRepository(transactions: []);
+    const repository = TransactionRepository();
 
     await expectLater(
       repository.save(
@@ -23,7 +23,7 @@ void main() {
   });
 
   test('split total must equal transaction amount', () async {
-    final repository = TransactionRepository(transactions: []);
+    const repository = TransactionRepository();
 
     await expectLater(
       repository.save(

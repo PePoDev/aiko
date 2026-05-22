@@ -5,7 +5,6 @@ import 'package:uuid/uuid.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
-import '../../../core/supabase/supabase_client_provider.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/budget.dart';
@@ -51,20 +50,29 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
       return;
     }
 
+    final categories = await ref.read(categoriesProvider.future);
+    final matchingCategories = categories
+        .where(
+          (item) =>
+              item.isActive &&
+              item.name.toLowerCase() == category.toLowerCase(),
+        )
+        .toList();
+    if (matchingCategories.isEmpty) {
+      _showMessage('Create this category before assigning a budget to it.');
+      return;
+    }
+
     setState(() => _isSubmitting = true);
     final now = DateTime.now();
     final periodStart = DateTime(now.year, now.month);
     final periodEnd = DateTime(now.year, now.month + 1, 0);
-    final categoryId = category
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
-        .replaceAll(RegExp(r'^-|-$'), '');
 
     final budget = Budget(
       id: const Uuid().v4(),
-      userId: AikoSupabase.tryClient()?.auth.currentUser?.id ?? 'demo-user',
+      userId: '',
       name: category,
-      categoryId: categoryId.isEmpty ? 'custom' : categoryId,
+      categoryId: matchingCategories.first.id,
       amount: Money(amount: amount, currency: 'USD'),
       periodStart: periodStart,
       periodEnd: periodEnd,

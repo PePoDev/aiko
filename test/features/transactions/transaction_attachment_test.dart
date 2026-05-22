@@ -19,8 +19,8 @@ void main() {
     expect(attachment.isExportable, isTrue);
   });
 
-  test('repository lists exportable attachments by transaction', () async {
-    final repository = TransactionAttachmentRepository();
+  test('repository requires Supabase for attachment persistence', () async {
+    const repository = TransactionAttachmentRepository();
     final attachment = TransactionAttachment(
       id: 'receipt',
       userId: 'user',
@@ -32,9 +32,11 @@ void main() {
       createdAt: DateTime(2026, 5, 19),
     );
 
-    await repository.save(attachment);
-
-    expect(await repository.listForTransaction('txn'), [attachment]);
-    expect(await repository.exportableForTransaction('txn'), [attachment]);
+    await expectLater(repository.save(attachment), throwsStateError);
+    await expectLater(repository.listForTransaction('txn'), throwsStateError);
+    await expectLater(
+      repository.exportableForTransaction('txn'),
+      throwsStateError,
+    );
   });
 }

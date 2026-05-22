@@ -4,19 +4,26 @@ import 'package:aiko/features/learning_hub/domain/course_lesson.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('recommends unfinished lesson and records progress', () {
+  test('recommends unfinished lesson', () {
     const lesson = CourseLesson(
       key: 'budgeting',
       title: 'Budgeting Basics',
       category: 'budgeting',
     );
-    final repo = CourseProgressRepository();
 
     expect(
       const LessonRecommendationService().recommend([lesson], 'budgeting').key,
       'budgeting',
     );
-    repo.saveProgress('budgeting', LessonProgress.completed);
-    expect(repo.progressFor('budgeting'), LessonProgress.completed);
+  });
+
+  test('course progress repository requires Supabase', () async {
+    const repo = CourseProgressRepository();
+
+    await expectLater(
+      repo.saveProgress('budgeting', LessonProgress.completed),
+      throwsStateError,
+    );
+    await expectLater(repo.progressFor('budgeting'), throwsStateError);
   });
 }

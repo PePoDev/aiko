@@ -1,47 +1,20 @@
-import 'dart:developer' as developer;
-
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../domain/category.dart';
 
 class CategoryRepository {
-  CategoryRepository({List<Category>? categories})
-    : _categories = List.from(
-        categories ??
-            const [
-              Category(
-                id: 'food',
-                userId: 'demo-user',
-                name: 'Food and Dining',
-                type: CategoryType.expense,
-                group: CategoryGroup.needs,
-              ),
-              Category(
-                id: 'salary',
-                userId: 'demo-user',
-                name: 'Salary',
-                type: CategoryType.income,
-                group: CategoryGroup.custom,
-              ),
-            ],
-      );
-
-  final List<Category> _categories;
+  const CategoryRepository();
 
   Future<List<Category>> list() async {
-    final client = AikoSupabase.tryClient();
-    final user = client?.auth.currentUser;
-    if (client != null && user != null) {
-      try {
-        final response = await client
-            .from('categories')
-            .select()
-            .eq('user_id', user.id);
-        return (response as List).map((row) => _fromRow(row)).toList();
-      } catch (e) {
-        // Fallback on error
-      }
-    }
-    return List.unmodifiable(_categories);
+    final session = AikoSupabase.requireSession();
+    final response = await session.client
+        .from('categories')
+        .select()
+        .eq('user_id', session.userId)
+        .order('name');
+
+    return response
+        .map((row) => _fromRow(Map<String, dynamic>.from(row)))
+        .toList(growable: false);
   }
 
   Future<Category> save(Category category) async {
@@ -56,61 +29,31 @@ class CategoryRepository {
       throw ArgumentError('Category name already exists.');
     }
 
-    final client = AikoSupabase.tryClient();
-    final user = client?.auth.currentUser;
-    if (client != null && user != null) {
-      try {
-        final catWithUser = Category(
-          id: category.id,
-          userId: user.id,
-          name: category.name,
-          type: category.type,
-          group: category.group,
-          parentId: category.parentId,
-          icon: category.icon,
-          color: category.color,
-          budgetEnabled: category.budgetEnabled,
-          isActive: category.isActive,
-        );
-        await client.from('categories').upsert(_toRow(catWithUser));
+    final session = AikoSupabase.requireSession();
+    final categoryWithUser = Category(
+      id: category.id,
+      userId: session.userId,
+      name: category.name,
+      type: category.type,
+      group: category.group,
+      parentId: category.parentId,
+      icon: category.icon,
+      color: category.color,
+      budgetEnabled: category.budgetEnabled,
+      isActive: category.isActive,
+    );
 
-        final index = _categories.indexWhere(
-          (item) => item.id == catWithUser.id,
-        );
-        if (index == -1) {
-          _categories.add(catWithUser);
-        } else {
-          _categories[index] = catWithUser;
-        }
-        return catWithUser;
-      } catch (e, stackTrace) {
-        developer.log(
-          'CategoryRepository.save error',
-          error: e,
-          stackTrace: stackTrace,
-        );
-      }
-    }
-
-    final index = _categories.indexWhere((item) => item.id == category.id);
-    if (index == -1) {
-      _categories.add(category);
-    } else {
-      _categories[index] = category;
-    }
-    return category;
+    await session.client.from('categories').upsert(_toRow(categoryWithUser));
+    return categoryWithUser;
   }
 
   static Category _fromRow(Map<String, dynamic> row) {
-    final typeStr = row['type'] as String;
     final type = CategoryType.values.firstWhere(
-      (e) => e.name == typeStr,
+      (item) => item.name == row['type'],
       orElse: () => CategoryType.expense,
     );
-
-    final groupStr = row['group'] as String? ?? 'custom';
     final group = CategoryGroup.values.firstWhere(
-      (e) => e.name == groupStr,
+      (item) => item.name == (row['group'] as String? ?? 'custom'),
       orElse: () => CategoryGroup.custom,
     );
 

@@ -1,16 +1,16 @@
-import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
-import '../../../shared/test_data/demo_data.dart';
 import '../../../shared/widgets/finance_card.dart';
+import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../budgets/presentation/budget_form_screen.dart';
 import '../../transactions/domain/transaction.dart';
 import '../../transactions/presentation/transaction_form_screen.dart';
+import '../domain/dashboard_summary.dart';
 import 'widgets/calculator_shortcuts_widget.dart';
 import 'widgets/dashboard_due_items_widget.dart';
 
@@ -19,44 +19,9 @@ class HomeDashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final summaryAsync = ref.watch(dashboardSummaryProvider);
     final transactionsAsync = ref.watch(transactionsProvider);
-
-    var monthlyIncomeVal = DemoData.monthlyIncome.amount;
-    var monthlySpendingVal = DemoData.monthlySpending.amount;
-    var safeToSpendVal = DemoData.safeToSpend.amount;
-
-    if (transactionsAsync.hasValue) {
-      final transactions = transactionsAsync.value!;
-      final now = DateTime.now();
-      final currentMonthTransactions = transactions
-          .where((tx) => tx.date.year == now.year && tx.date.month == now.month)
-          .toList();
-
-      if (currentMonthTransactions.isNotEmpty) {
-        var income = Decimal.zero;
-        var spending = Decimal.zero;
-        for (final tx in currentMonthTransactions) {
-          if (tx.type == TransactionType.income) {
-            income += tx.amount.amount;
-          } else if (tx.type == TransactionType.expense) {
-            spending += tx.amount.amount;
-          }
-        }
-        monthlyIncomeVal = income;
-        monthlySpendingVal = spending;
-
-        // Weekly balance of income minus spending, kept in Decimal.
-        final weeklyFlow = ((income - spending) / Decimal.parse('4.33'))
-            .toDecimal(scaleOnInfinitePrecision: 2);
-        safeToSpendVal = weeklyFlow > Decimal.zero
-            ? weeklyFlow
-            : DemoData.safeToSpend.amount;
-      }
-    }
-
-    final monthlyIncome = Money(amount: monthlyIncomeVal, currency: 'USD');
-    final monthlySpending = Money(amount: monthlySpendingVal, currency: 'USD');
-    final safeToSpend = Money(amount: safeToSpendVal, currency: 'USD');
+    final dueItemsAsync = ref.watch(dashboardDueItemsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -71,80 +36,167 @@ class HomeDashboardScreen extends ConsumerWidget {
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-        children: [
-          FinanceCard(
-            title: 'Hi, I am Aiko',
-            icon: Icons.auto_awesome,
-            accentColor: AikoColors.premiumPurple,
-            prominent: true,
-            child: Text(
-              'You still have ${safeToSpend.format()} safe to spend this week. This is an estimate, so keep bills and planned purchases in view.',
+        children: summaryAsync.when(
+          loading: () => [const AikoScreenState.loading()],
+          error: (error, stack) => [
+            AikoScreenState.error(
+              title: 'Dashboard is unavailable',
+              message: 'Aiko could not load your Supabase workspace.',
             ),
-          ),
-          const SizedBox(height: 16),
-          FinanceCard(
-            title: 'Safe to spend',
-            icon: Icons.savings_outlined,
-            prominent: true,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AmountText(safeToSpend.format()),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: const LinearProgressIndicator(value: 0.68),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Weekly cushion after recurring commitments.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+          ],
+          data: (summary) => [
+            FinanceCard(
+              title: 'Hi, I am Aiko',
+              icon: Icons.auto_awesome,
+              accentColor: AikoColors.premiumPurple,
+              prominent: true,
+              child: Text(
+                'You have ${summary.safeToSpend.format()} estimated safe to spend this week. This is an estimate, so keep bills and planned purchases in view.',
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          FinanceCard(
-            title: 'Monthly cash flow',
-            icon: Icons.trending_up,
-            accentColor: AikoColors.analyticsTeal,
-            child: Column(
-              children: [
-                _MetricLine(
-                  label: 'Income',
-                  value: monthlyIncome.format(),
-                  color: AikoColors.successGreen,
-                ),
-                const SizedBox(height: 8),
-                _MetricLine(
-                  label: 'Spending',
-                  value: monthlySpending.format(),
-                  color: AikoColors.warningOrange,
-                ),
-              ],
+            const SizedBox(height: 16),
+            FinanceCard(
+              title: 'Safe to spend',
+              icon: Icons.savings_outlined,
+              prominent: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AmountText(summary.safeToSpend.format()),
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(
+                      value: _safeToSpendProgress(summary),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Weekly cushion calculated from your posted transactions.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          const FinanceCard(
-            title: 'Pace',
-            icon: Icons.speed,
-            accentColor: AikoColors.deepBlue,
-            child: Text('On track. Keep flexible spending under 35 USD/day.'),
-          ),
-          const SizedBox(height: 16),
-          const DashboardDueItemsWidget(items: []),
-          const SizedBox(height: 16),
-          const FinanceCard(
-            title: 'Recent transactions',
-            icon: Icons.receipt_long,
-            child: Text('Coffee, Groceries, Salary, Transit'),
-          ),
-          const SizedBox(height: 16),
-          const CalculatorShortcutsWidget(),
-        ],
+            const SizedBox(height: 16),
+            FinanceCard(
+              title: 'Monthly cash flow',
+              icon: Icons.trending_up,
+              accentColor: AikoColors.analyticsTeal,
+              child: Column(
+                children: [
+                  _MetricLine(
+                    label: 'Income',
+                    value: summary.monthlyIncome.format(),
+                    color: AikoColors.successGreen,
+                  ),
+                  const SizedBox(height: 8),
+                  _MetricLine(
+                    label: 'Spending',
+                    value: summary.monthlySpending.format(),
+                    color: AikoColors.warningOrange,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            FinanceCard(
+              title: 'Pace',
+              icon: Icons.speed,
+              accentColor: AikoColors.deepBlue,
+              child: Text(
+                summary.paceStatus.isFast
+                    ? 'Spending is ahead of the current budget pace.'
+                    : 'Spending is on pace for the current budget period.',
+              ),
+            ),
+            const SizedBox(height: 16),
+            dueItemsAsync.when(
+              loading: () => const FinanceCard(
+                title: 'Upcoming due dates',
+                icon: Icons.event_available_outlined,
+                child: Text('Loading bills and card payments...'),
+              ),
+              error: (error, stack) => const FinanceCard(
+                title: 'Upcoming due dates',
+                icon: Icons.event_available_outlined,
+                child: Text('Unable to load due dates right now.'),
+              ),
+              data: (items) => DashboardDueItemsWidget(items: items),
+            ),
+            const SizedBox(height: 16),
+            _RecentTransactionsCard(transactionsAsync: transactionsAsync),
+            const SizedBox(height: 16),
+            const CalculatorShortcutsWidget(),
+          ],
+        ),
       ),
       floatingActionButton: const _QuickAddMenu(),
     );
+  }
+
+  double _safeToSpendProgress(DashboardSummary summary) {
+    if (summary.monthlyIncome.amount <=
+        Money.zero(summary.monthlyIncome.currency).amount) {
+      return 0;
+    }
+    final value =
+        summary.safeToSpend.amount.toDouble() /
+        summary.monthlyIncome.amount.toDouble();
+    return value.clamp(0.0, 1.0);
+  }
+}
+
+class _RecentTransactionsCard extends StatelessWidget {
+  const _RecentTransactionsCard({required this.transactionsAsync});
+
+  final AsyncValue<List<FinanceTransaction>> transactionsAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    return transactionsAsync.when(
+      loading: () => const FinanceCard(
+        title: 'Recent transactions',
+        icon: Icons.receipt_long,
+        child: Text('Loading transactions...'),
+      ),
+      error: (error, stack) => const FinanceCard(
+        title: 'Recent transactions',
+        icon: Icons.receipt_long,
+        child: Text('Unable to load transactions right now.'),
+      ),
+      data: (transactions) {
+        if (transactions.isEmpty) {
+          return const FinanceCard(
+            title: 'Recent transactions',
+            icon: Icons.receipt_long,
+            child: Text('No transactions yet. Add one to start tracking.'),
+          );
+        }
+
+        final recent = transactions.take(4).toList();
+        return FinanceCard(
+          title: 'Recent transactions',
+          icon: Icons.receipt_long,
+          child: Column(
+            children: [
+              for (final tx in recent)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(tx.merchant ?? tx.note ?? 'Transaction'),
+                  subtitle: Text(tx.date.toString().substring(0, 10)),
+                  trailing: Text(_signedAmount(tx)),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _signedAmount(FinanceTransaction transaction) {
+    final sign = transaction.type == TransactionType.income ? '+' : '-';
+    return '$sign${transaction.amount.format()}';
   }
 }
 

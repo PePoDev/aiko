@@ -1,4 +1,8 @@
+import 'package:aiko/app/providers.dart';
+import 'package:aiko/core/money/money.dart';
+import 'package:aiko/features/dashboard/domain/dashboard_summary.dart';
 import 'package:aiko/features/dashboard/presentation/home_dashboard_screen.dart';
+import 'package:aiko/features/transactions/domain/transaction.dart';
 import 'package:aiko/theme/aiko_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +14,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      ProviderScope(
+      _dashboardScope(
         child: MaterialApp(
           theme: AikoTheme.light(),
           home: const HomeDashboardScreen(),
@@ -26,7 +30,7 @@ void main() {
 
   testWidgets('quick add opens a floating add menu', (tester) async {
     await tester.pumpWidget(
-      ProviderScope(
+      _dashboardScope(
         child: MaterialApp(
           theme: AikoTheme.light(),
           home: const HomeDashboardScreen(),
@@ -46,7 +50,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      ProviderScope(
+      _dashboardScope(
         child: MaterialApp(
           theme: AikoTheme.light(),
           home: const HomeDashboardScreen(),
@@ -68,7 +72,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      ProviderScope(
+      _dashboardScope(
         child: MaterialApp(
           theme: AikoTheme.light(),
           home: const HomeDashboardScreen(),
@@ -85,4 +89,32 @@ void main() {
     expect(find.text('New budget'), findsOneWidget);
     expect(find.text('Save budget'), findsOneWidget);
   });
+}
+
+Widget _dashboardScope({required Widget child}) {
+  return ProviderScope(
+    overrides: [
+      dashboardSummaryProvider.overrideWith(
+        (ref) async => DashboardSummary(
+          netWorth: Money.parse('1000', 'USD'),
+          totalCash: Money.parse('1000', 'USD'),
+          monthlyIncome: Money.parse('5000', 'USD'),
+          monthlySpending: Money.parse('1200', 'USD'),
+          safeToSpend: Money.parse('300', 'USD'),
+          paceStatus: const PaceStatus(
+            percentOfBudgetUsed: 40,
+            daysElapsedRatio: 0.5,
+          ),
+        ),
+      ),
+      dashboardDueItemsProvider.overrideWith((ref) async => const []),
+      transactionsProvider.overrideWith(() => _EmptyTransactionsNotifier()),
+    ],
+    child: child,
+  );
+}
+
+class _EmptyTransactionsNotifier extends TransactionsNotifier {
+  @override
+  Future<List<FinanceTransaction>> build() async => const [];
 }

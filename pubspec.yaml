@@ -47,6 +47,7 @@ dependencies:
   uuid: ^4.5.3
   collection: ^1.19.1
   decimal: ^3.2.4
+  google_fonts: ^8.1.0
 
 dev_dependencies:
   flutter_test:
@@ -116,11 +117,5 @@ flutter_launcher_icons:
   adaptive_icon_foreground_inset: 0
   ios: true
   web:
-    generate: true
-    image_path: "assets/icons/app_icon.png"
-  windows:
-    generate: true
-    image_path: "assets/icons/app_icon.png"
-  macos:
     generate: true
     image_path: "assets/icons/app_icon.png"

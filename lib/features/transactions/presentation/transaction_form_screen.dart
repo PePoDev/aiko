@@ -5,7 +5,6 @@ import 'package:uuid/uuid.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
-import '../../../core/supabase/supabase_client_provider.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/transaction.dart';
 import 'transaction_attachment_section.dart';
@@ -32,7 +31,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     super.dispose();
   }
 
-  void _submitForm() {
+  Future<void> _submitForm() async {
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -91,29 +90,37 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
-    final accountsAsync = ref.read(accountsProvider);
+    final accounts = await ref.read(accountsProvider.future);
+    if (!mounted) {
+      return;
+    }
     String? accountId;
-    if (accountsAsync.hasValue && accountsAsync.value!.isNotEmpty) {
-      final active = accountsAsync.value!.where((a) => a.isActive).toList();
-      accountId = active.isNotEmpty
-          ? active.first.id
-          : accountsAsync.value!.first.id;
+    if (accounts.isNotEmpty) {
+      final active = accounts.where((account) => account.isActive).toList();
+      accountId = active.isNotEmpty ? active.first.id : accounts.first.id;
     }
-    accountId ??= (AikoSupabase.tryClient()?.auth.currentUser != null
-        ? '10000000-0000-0000-0000-000000000001'
-        : 'cash');
 
-    final categoriesAsync = ref.read(categoriesProvider);
-    String? categoryId;
-    if (categoriesAsync.hasValue && categoriesAsync.value!.isNotEmpty) {
-      final active = categoriesAsync.value!.where((c) => c.isActive).toList();
-      categoryId = active.isNotEmpty
-          ? active.first.id
-          : categoriesAsync.value!.first.id;
+    if (accountId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Create an account before adding transactions.'),
+          backgroundColor: AikoColors.warningOrange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+      return;
     }
-    categoryId ??= (AikoSupabase.tryClient()?.auth.currentUser != null
-        ? '20000000-0000-0000-0000-000000000001'
-        : 'food');
+
+    final categories = await ref.read(categoriesProvider.future);
+    if (!mounted) {
+      return;
+    }
+    String? categoryId;
+    if (categories.isNotEmpty) {
+      final active = categories.where((category) => category.isActive).toList();
+      categoryId = active.isNotEmpty ? active.first.id : categories.first.id;
+    }
 
     final txType = switch (_type) {
       'income' => TransactionType.income,
@@ -123,7 +130,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     final newTx = FinanceTransaction(
       id: const Uuid().v4(),
-      userId: AikoSupabase.tryClient()?.auth.currentUser?.id ?? 'demo-user',
+      userId: '',
       accountId: accountId,
       type: txType,
       amount: Money(amount: amount, currency: 'USD'),
@@ -133,7 +140,24 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       note: _noteController.text.trim(),
     );
 
-    ref.read(transactionsProvider.notifier).addTransaction(newTx);
+    await ref.read(transactionsProvider.notifier).addTransaction(newTx);
+
+    if (!mounted) {
+      return;
+    }
+
+    final state = ref.read(transactionsProvider);
+    if (state.hasError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Unable to save this transaction right now.'),
+          backgroundColor: AikoColors.dangerRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+      return;
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

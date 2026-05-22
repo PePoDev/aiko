@@ -4,19 +4,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'app_test_bootstrap.dart';
 
 void main() {
-  testWidgets('home dashboard displays safe-to-spend data', (tester) async {
-    await bootstrapIntegrationTest(tester);
-    await tester.tap(find.text('Get started'));
-    await tester.pumpAndSettle();
-    for (var index = 0; index < 5; index++) {
-      await tester.tap(find.text(index == 4 ? 'Continue to sign in' : 'Continue'));
+  testWidgets(
+    'home dashboard displays safe-to-spend data',
+    (tester) async {
+      await bootstrapIntegrationTest(tester);
+      await tester.tap(find.text('Get started'));
       await tester.pumpAndSettle();
-    }
-    await tester.enterText(find.byType(TextField).at(0), 'test@example.com');
-    await tester.enterText(find.byType(TextField).at(1), 'password123');
-    await tester.tap(find.text('Continue securely'));
-    await tester.pumpAndSettle();
+      for (var index = 0; index < 5; index++) {
+        await tester.tap(
+          find.text(index == 4 ? 'Continue to sign in' : 'Continue'),
+        );
+        await tester.pumpAndSettle();
+      }
+      await tester.enterText(
+        find.byType(TextField).at(0),
+        integrationTestEmail,
+      );
+      await tester.enterText(
+        find.byType(TextField).at(1),
+        integrationTestPassword,
+      );
+      await tester.tap(find.text('Continue securely'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Safe to spend'), findsOneWidget);
-  });
+      expect(find.text('Safe to spend'), findsOneWidget);
+    },
+    skip: !hasSupabaseIntegrationConfig,
+  );
 }

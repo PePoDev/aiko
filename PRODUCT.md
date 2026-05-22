@@ -121,8 +121,8 @@ Saved calculations store as `SavedCalculatorScenario` and can be converted into 
 
 ---
 
-## 8. MVP vs. Roadmap Milestones
-*   **MVP Must-Haves:** Blue design system & Aiko onboarding, basic accounts/transactions tracking, transaction rules, monthly budgets, goals/savings plans, basic dashboards with Pace/Leftover, CSV export, and 6 core calculators (Compound Interest, Loan, CC Payoff, Savings Goal, ROI, Currency).
+## 8. Product Milestones
+*   **Core Release Foundation:** Blue design system & Aiko onboarding, basic accounts/transactions tracking, transaction rules, monthly budgets, goals/savings plans, basic dashboards with Pace/Leftover, CSV export, and 6 core calculators (Compound Interest, Loan, CC Payoff, Savings Goal, ROI, Currency).
 *   **Phased Development:**
     *   *Phase 1-2:* Basic tracking, dashboards, budgeting, and recurring rules.
     *   *Phase 3-4:* Aiko Insights, forecasting, chat, credit cards, debt payoff, and net worth tracking.

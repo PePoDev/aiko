@@ -137,6 +137,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       createdAt: DateTime.now(),
     );
 
+    if (!mounted) return;
+
     showDialog<void>(
       context: context,
       barrierDismissible: false,

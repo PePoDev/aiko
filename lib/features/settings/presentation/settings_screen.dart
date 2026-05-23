@@ -163,8 +163,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: const Text('Disable PIN Lock'),
                       onTap: () async {
                         await _lockService.disablePin();
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        if (!mounted) return;
+                        Navigator.pop(this.context);
+                        ScaffoldMessenger.of(this.context).showSnackBar(
                           const SnackBar(
                             content: Text('PIN lock disabled.'),
                             backgroundColor: AikoColors.warningOrange,

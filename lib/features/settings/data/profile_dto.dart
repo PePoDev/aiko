@@ -10,8 +10,8 @@ class ProfileDto {
       id: json['id'] as String,
       displayName: json['display_name'] as String? ?? 'Aiko user',
       email: json['email'] as String? ?? '',
-      baseCurrency: json['base_currency'] as String? ?? 'USD',
-      country: json['country'] as String? ?? 'US',
+      baseCurrency: json['base_currency'] as String? ?? 'THB',
+      country: json['country'] as String? ?? 'TH',
       aiConsentEnabled: json['ai_consent_enabled'] as bool? ?? false,
       onboardingStatus: OnboardingStatus.values.byName(
         json['onboarding_status'] as String? ?? 'notStarted',

@@ -29,8 +29,8 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
   String _focus = 'save'; // 'track', 'save', 'debt', 'wealth'
 
   // Step 3 State: Basics
-  String _selectedCurrency = 'USD';
-  String _selectedCountry = 'United States';
+  String _selectedCurrency = 'THB';
+  String _selectedCountry = 'Thailand';
 
   // Step 4 State: First Account Form
   final _step4FormKey = GlobalKey<FormState>();
@@ -170,7 +170,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
         final currentProfile = await ref.read(profileProvider.future);
         final updatedProfile = currentProfile.copyWith(
           baseCurrency: _selectedCurrency,
-          country: _selectedCountry == 'United States' ? 'US' : 'UK',
+          country: _getCountryCode(_selectedCountry),
           onboardingStatus: OnboardingStatus.completed,
           securityStatus: _securityOption == 'pin'
               ? SecurityStatus.pinEnabled
@@ -192,6 +192,27 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOut,
     );
+  }
+
+  String _getCountryCode(String countryName) {
+    switch (countryName) {
+      case 'Thailand':
+        return 'TH';
+      case 'United States':
+        return 'US';
+      case 'United Kingdom':
+        return 'UK';
+      case 'European Union':
+        return 'EU';
+      case 'Japan':
+        return 'JP';
+      case 'Canada':
+        return 'CA';
+      case 'Australia':
+        return 'AU';
+      default:
+        return 'TH'; // Default to Thailand
+    }
   }
 
   @override
@@ -557,8 +578,9 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
 
   // STEP 3: MONEY BASICS (Currency & Country)
   Widget _buildStep3Basics() {
-    final currencies = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'SGD'];
+    final currencies = ['THB', 'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'SGD'];
     final countries = [
+      'Thailand',
       'United States',
       'United Kingdom',
       'European Union',

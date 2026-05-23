@@ -16,21 +16,51 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _displayNameController = TextEditingController();
   final _emailController = TextEditingController();
-  String _baseCurrency = 'USD';
-  String _country = 'US';
+  String _baseCurrency = 'THB';
+  String _country = 'TH';
   PreferredTheme _preferredTheme = PreferredTheme.system;
   bool _initialised = false;
   bool _saving = false;
 
   static const _currencies = [
-    'USD', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'CAD', 'CHF',
-    'HKD', 'SGD', 'SEK', 'KRW', 'NOK', 'NZD', 'INR', 'MXN',
-    'TWD', 'ZAR', 'BRL', 'DKK', 'PLN', 'THB', 'IDR', 'CZK',
-    'ILS', 'CLP', 'PHP', 'AED', 'COP', 'SAR', 'MYR', 'RON',
-    'VND', 'TRY',
+    'THB',
+    'USD',
+    'EUR',
+    'GBP',
+    'JPY',
+    'CNY',
+    'AUD',
+    'CAD',
+    'CHF',
+    'HKD',
+    'SGD',
+    'SEK',
+    'KRW',
+    'NOK',
+    'NZD',
+    'INR',
+    'MXN',
+    'TWD',
+    'ZAR',
+    'BRL',
+    'DKK',
+    'PLN',
+    'IDR',
+    'CZK',
+    'ILS',
+    'CLP',
+    'PHP',
+    'AED',
+    'COP',
+    'SAR',
+    'MYR',
+    'RON',
+    'VND',
+    'TRY',
   ];
 
   static const _countries = {
+    'TH': 'Thailand',
     'US': 'United States',
     'GB': 'United Kingdom',
     'JP': 'Japan',
@@ -43,7 +73,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     'KR': 'South Korea',
     'MX': 'Mexico',
     'SG': 'Singapore',
-    'TH': 'Thailand',
     'ID': 'Indonesia',
     'PH': 'Philippines',
     'VN': 'Vietnam',
@@ -118,7 +147,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.error_outline, size: 48, color: AikoColors.dangerRed),
+                const Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: AikoColors.dangerRed,
+                ),
                 const SizedBox(height: 12),
                 Text(
                   'Could not load your profile',
@@ -127,9 +160,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const SizedBox(height: 8),
                 Text(
                   '$error',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AikoColors.mutedText,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AikoColors.mutedText),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
@@ -154,10 +187,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   children: [
                     CircleAvatar(
                       radius: 44,
-                      backgroundColor: AikoColors.primaryBlue.withValues(alpha: 0.12),
+                      backgroundColor: AikoColors.primaryBlue.withValues(
+                        alpha: 0.12,
+                      ),
                       child: Text(
                         _initials(_displayNameController.text),
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(
                               color: AikoColors.primaryBlue,
                               fontWeight: FontWeight.bold,
                             ),
@@ -167,16 +203,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     Text(
                       profile.displayName,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     if (profile.email.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
                         profile.email,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AikoColors.mutedText,
-                            ),
+                          color: AikoColors.mutedText,
+                        ),
                       ),
                     ],
                   ],
@@ -222,22 +258,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: Column(
                   children: [
                     DropdownButtonFormField<String>(
-                      initialValue: _currencies.contains(_baseCurrency) ? _baseCurrency : 'USD',
+                      initialValue: _currencies.contains(_baseCurrency)
+                          ? _baseCurrency
+                          : 'THB',
                       decoration: const InputDecoration(
                         labelText: 'Base currency',
                         prefixIcon: Icon(Icons.attach_money),
                         border: OutlineInputBorder(),
                       ),
                       items: _currencies
-                          .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                          .map(
+                            (c) => DropdownMenuItem(value: c, child: Text(c)),
+                          )
                           .toList(),
                       onChanged: (value) {
-                        if (value != null) setState(() => _baseCurrency = value);
+                        if (value != null)
+                          setState(() => _baseCurrency = value);
                       },
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      initialValue: _countries.containsKey(_country) ? _country : 'US',
+                      initialValue: _countries.containsKey(_country)
+                          ? _country
+                          : 'TH',
                       decoration: const InputDecoration(
                         labelText: 'Country',
                         prefixIcon: Icon(Icons.flag_outlined),

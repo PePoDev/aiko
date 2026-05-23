@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:decimal/decimal.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -577,11 +577,26 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   Future<void> _pickAndAttachDocumentFromFiles() async {
-    FilePickerResult? result;
+    fs.XFile? selectedFile;
     try {
-      result = await FilePicker.platform.pickFiles(
-        allowMultiple: false,
-        withData: false,
+      selectedFile = await fs.openFile(
+        acceptedTypeGroups: const [
+          fs.XTypeGroup(
+            label: 'documents and images',
+            extensions: [
+              'pdf',
+              'jpg',
+              'jpeg',
+              'png',
+              'heic',
+              'webp',
+              'txt',
+              'csv',
+              'doc',
+              'docx',
+            ],
+          ),
+        ],
       );
     } catch (_) {
       if (!mounted) return;
@@ -596,15 +611,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
-    if (result == null || result.files.isEmpty) {
+    if (selectedFile == null) {
       return;
     }
 
-    final file = result.files.first;
-    final fileName = file.name;
-    final filePath = file.path ?? 'local/$fileName';
+    final fileName = selectedFile.name;
+    final filePath = selectedFile.path;
     final mimeType = _mimeTypeFromFileName(fileName);
-    final sizeBytes = file.size;
+    final sizeBytes = (await selectedFile.readAsBytes()).length;
 
     await _attachSelectedFile(
       fileName: fileName,

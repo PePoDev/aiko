@@ -40,7 +40,7 @@ Aiko is not just an expense tracker. It's a **personal financial operating syste
 ## Tech Stack
 
 | Component | Technology |
-|---|---|
+| --- | --- |
 | Mobile App | Flutter & Dart (SDK ^3.11.5) |
 | State Management | Riverpod |
 | Navigation | GoRouter |
@@ -286,33 +286,43 @@ Feature modules under `lib/features/<name>/` follow the current layered layout:
 ## Feature Highlights
 
 ### 🏠 Customizable Dashboard
+
 Drag-and-drop widget dashboard with Aiko welcome card, net worth, cash flow, budget status, pace indicator, safe-to-spend, upcoming bills, goal progress, portfolio snapshot, and quick-add transaction.
 
 ### 💰 Money Tracking
+
 13 transaction types (income, expense, transfer, refund, investment buy/sell, dividend, interest, loan payment, credit card payment, tax payment, fee, adjustment). Split transactions, receipt attachments, recurring entries, and duplicate detection.
 
 ### 📊 Smart Budgeting
+
 Monthly, weekly, yearly, and custom-period budgets. Category-level and account-level budgets. Envelope, zero-based, and 50/30/20 templates. Rollover support. Aiko alerts at 50%, 75%, 90%, and 100% usage.
 
 ### 🎯 Financial Goals
+
 SMART goals with target amount and date. Auto-calculated monthly contributions. Goal progress forecast and success probability via Monte Carlo simulations. Saving plans with milestone alerts.
 
 ### 📈 Insights & Predictions
+
 Spending trends, cash flow analysis with Sankey diagrams, pace monitoring, leftover/safe-to-spend calculation. End-of-month forecasts, budget overrun prediction, net worth projection, and retirement readiness estimates.
 
 ### 🤖 Aiko AI Assistant
+
 Natural-language chat for financial questions. Personalized spending insights, budget recommendations, debt payoff strategies, subscription cancellation suggestions, and monthly financial reviews.
 
 ### 💳 Credit Card & Debt Management
+
 Credit card tracking with utilization, rewards, and due dates. Debt payoff plans using snowball or avalanche methods. Extra payment simulation with interest savings estimates.
 
 ### 📱 Portfolio & Assets
+
 Investment holdings with performance charts, allocation analysis, dividends, and realized/unrealized gains. Asset allocation by class, currency, geography, and risk level. Net worth tracking with trend charts.
 
 ### 🧮 60+ Financial Calculators
+
 Covering finance & investment, loans & mortgages, retirement, stocks & portfolio, credit cards, auto loans, tax & salary, business & accounting, and everyday tools. Save scenarios, compare side-by-side, and convert results into goals or plans.
 
 ### 🌍 Travel Mode
+
 Multi-currency accounts, automatic exchange rate updates, travel budgets, foreign transaction fee tracking, and trip-based expense reports.
 
 ---
@@ -335,7 +345,7 @@ Multi-currency accounts, automatic exchange rate updates, travel budgets, foreig
 The Supabase backend uses 17 core tables, all protected by Row Level Security:
 
 | Table | Purpose |
-|---|---|
+| --- | --- |
 | `profiles` | User profile, preferences, base currency |
 | `accounts` | Financial accounts (cash, bank, e-wallet, credit card, loan, investment, asset) |
 | `transactions` | All financial transactions (13 types) |
@@ -373,7 +383,7 @@ All tables enforce `user_id = auth.uid()` via RLS policies — users can only ac
 ### Color Palette
 
 | Role | Color | Usage |
-|---|---|---|
+| --- | --- | --- |
 | Primary Blue | `#3B82F6` | Main buttons, active tabs, highlights |
 | Deep Blue | `#1D4ED8` | Header accents, important actions |
 | Soft Blue | `#93C5FD` | Secondary highlights, empty states |
@@ -433,7 +443,7 @@ flutter test integration_test
 ## Monetization
 
 | Plan | Includes |
-|---|---|
+| --- | --- |
 | **Free** | Manual tracking, basic categories & budgets, basic charts, limited calculators, CSV export, basic Aiko insights |
 | **Premium** | Unlimited accounts, advanced reports, AI recommendations, forecasting, receipt OCR, credit card optimization, portfolio analytics, tax reports, PDF/Excel export, multi-device sync |
 | **Pro** | Advanced accounting, business reports, invoices, multi-user access, advanced tax tools, estate planning, Monte Carlo simulations, API access |
@@ -443,24 +453,31 @@ flutter test integration_test
 ## Development Roadmap
 
 ### Phase 1 — Foundation ✅
+
 Aiko brand system, blue design system, authentication, onboarding, account and transaction tracking.
 
 ### Phase 2 — Core Finance ✅
+
 Budgets, goals, saving plans, categories, transaction rules, dashboard, spending charts, monthly reports, CSV export.
 
 ### Phase 3 — Intelligence ✅
+
 Aiko insights, spending analysis, cash flow, pace/leftover, prediction engine, Ask Aiko chat, Aiko Review.
 
 ### Phase 4 — Advanced Finance ✅
+
 Credit cards, debt/loan management, payoff plans, bills/subscriptions, cancellation/bill-lowering, calculators.
 
 ### Phase 5 — Wealth ✅
+
 Assets, net worth, portfolio, allocation, tax center, import/export, accounting, reports.
 
 ### Phase 6 — Platform ✅
+
 Multi-device sync, travel mode, learning hub, Aiko Optimize, monetization tiers, settings, devices.
 
 ### Future
+
 - Full bank sync via Open Banking APIs
 - Advanced retirement planning
 - Estate planning module

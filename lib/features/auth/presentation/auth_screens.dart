@@ -26,6 +26,15 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _routeReturningUser() async {
+    if (_authRepository.hasActiveSession()) {
+      _authRepository.restoreSessionInBackground();
+      if (!mounted) {
+        return;
+      }
+      context.go('/home');
+      return;
+    }
+
     await _authRepository.restoreSession();
     if (!mounted) {
       return;

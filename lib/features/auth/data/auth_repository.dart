@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_client_provider.dart';
@@ -30,6 +32,29 @@ class AuthRepository {
   bool hasActiveSession() {
     final client = AikoSupabase.tryClient();
     return client?.auth.currentSession != null;
+  }
+
+  AuthSession? cachedSession() {
+    final session = AikoSupabase.tryClient()?.auth.currentSession;
+    final user = session?.user;
+    if (user == null) {
+      return null;
+    }
+
+    _session = AuthSession(
+      userId: user.id,
+      email: user.email ?? _session?.email ?? '',
+    );
+    return _session;
+  }
+
+  void restoreSessionInBackground() {
+    final session = cachedSession();
+    if (session == null) {
+      return;
+    }
+
+    unawaited(_restoreSessionDefaults(session));
   }
 
   Future<AuthSession> signUp({
@@ -92,21 +117,25 @@ class AuthRepository {
   }
 
   Future<AuthSession?> restoreSession() async {
-    final user = AikoSupabase.tryClient()?.auth.currentUser;
-    if (user != null) {
-      try {
-        await _ensureProfileAndDefaultsExist(user.id, user.email ?? '');
-      } catch (_) {
-        // A cached Supabase session is enough to continue offline. Local data
-        // will be read from Brick and queued writes will sync when online.
-      }
-      await _markKnownAccount();
-      _session = AuthSession(
-        userId: user.id,
-        email: user.email ?? _session?.email ?? '',
-      );
+    final session = cachedSession();
+    if (session != null) {
+      await _restoreSessionDefaults(session);
     }
     return _session;
+  }
+
+  Future<void> _restoreSessionDefaults(AuthSession session) async {
+    try {
+      await _ensureProfileAndDefaultsExist(session.userId, session.email);
+    } catch (_) {
+      // A cached Supabase session is enough to continue offline. Local data
+      // will be read from Brick and queued writes will sync when online.
+    }
+    try {
+      await _markKnownAccount();
+    } catch (_) {
+      // Remembering a known account should not block startup.
+    }
   }
 
   Future<void> _ensureProfileAndDefaultsExist(

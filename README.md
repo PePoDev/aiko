@@ -5,6 +5,8 @@
   Track money · Budget · Save · Invest · Plan — with a friendly AI companion.
 </p>
 
+> This README is the canonical source of truth for both human contributors and coding agents.
+
 ---
 
 ## What Is Aiko?
@@ -48,6 +50,7 @@ Aiko is not just an expense tracker. It's a **personal financial operating syste
 | Money Arithmetic | `decimal` (no floating-point errors) |
 | Charts | `fl_chart` |
 | Security | `flutter_secure_storage`, `local_auth` (PIN + biometric) |
+| IDs | `uuid` |
 | Data Export | `csv`, `share_plus`, `path_provider` |
 | Formatting | `intl` (locale-aware) |
 
@@ -213,6 +216,73 @@ Aiko reads and writes core finance data locally first. The app uses [Brick](http
 
 ---
 
+## Architecture Conventions
+
+### Feature Module Pattern
+
+Feature modules under `lib/features/<name>/` follow the current layered layout:
+
+```
+<feature>/
+├── application/               # Feature services, orchestration, business workflows
+├── data/                      # Repositories, DTOs, persistence and sync adapters
+├── domain/                    # Immutable domain models and value objects
+└── presentation/              # Screens, widgets, controllers, UI-only state
+```
+
+- Screens compose UI and consume Riverpod providers with `ref.watch` / `ref.read`.
+- Application services hold feature-specific business logic and coordinate repositories.
+- Repositories handle persistence and sync. Screens should never call Supabase, Brick, or SQLite directly.
+- Domain models stay framework-light and use explicit mapping for persistence formats.
+- Brick models live under `lib/brick/models/` for offline-first entities. They store primitives only and map to domain models through `lib/brick/offline_model_mappers.dart`.
+
+### Offline-First Rules
+
+- Core finance entities (profiles, accounts, categories, transactions, budgets, goals) read and write the local Brick/SQLite store first.
+- When Supabase is configured and a user is authenticated, Brick queues writes through its HTTP client and syncs to Supabase in the background.
+- Repositories must gracefully handle offline/no-session states by returning local data, empty lists, or safe defaults instead of surfacing backend errors in normal UI flows.
+- Do not use `AikoSupabase.requireSession()` in user-facing repositories unless the operation truly cannot work offline. Prefer `tryClient()` plus an offline fallback.
+- After editing files in `lib/brick/models/`, run `dart run build_runner build` and commit generated adapters, schema, and migrations.
+
+### State Management Rules
+
+- Use Riverpod for all state. Avoid `setState` outside trivial local widget state such as focus, animation, or ephemeral text field UI.
+- Top-level providers live in `lib/app/providers.dart`.
+- Feature-specific providers and services live inside the relevant feature module.
+- Shared cross-feature state lives in `lib/shared/state/`.
+
+### Routing Rules
+
+- All routes are defined in `lib/app/app_router.dart` using GoRouter.
+- Bottom navigation uses the authenticated shell with 5 tabs: Home, Transactions, Budget, Insights, Aiko.
+- The "More" menu items route to feature screens as sub-routes.
+- Route paths use kebab-case, for example `/credit-cards`, `/debt-loans`, and `/tax-center`.
+
+### Money and Currency Rules
+
+- Never use `double` for money. Use `Money` from `lib/core/money/money.dart`, which wraps `Decimal`.
+- Currency formatting uses `lib/core/formatting/currency_formatter.dart` with locale-aware `intl`.
+- The user's base currency is stored in their profile. Multi-currency is supported for travel mode and portfolio features.
+
+### Naming Conventions
+
+- Files: `snake_case.dart`
+- Classes: `PascalCase`
+- Variables and functions: `camelCase`
+- Route paths: `/kebab-case`
+- Database tables and columns: `snake_case`
+- Feature directories: `snake_case`
+
+### Design and Aiko Rules
+
+- Primary color: Blue (`#3B82F6`). The full palette lives in `lib/theme/aiko_colors.dart`.
+- Light and dark themes live in `lib/theme/aiko_theme.dart`.
+- Semantic colors: green for success/savings, orange for warnings/bills, red for danger/overspending, purple for premium/AI, and teal for analytics/portfolio.
+- Aiko follows "Data first, Aiko enhanced": use the character purposefully for welcome, insights, goals, warnings, and reviews, never over numbers or charts.
+- Aiko's voice is warm, supportive, and non-judgmental. Never shame users about their finances.
+
+---
+
 ## Feature Highlights
 
 ### 🏠 Customizable Dashboard
@@ -247,6 +317,19 @@ Multi-currency accounts, automatic exchange rate updates, travel budgets, foreig
 
 ---
 
+## Prediction and AI System
+
+- Rule-based forecasting powers MVP predictions such as end-of-month balance, budget overrun risk, and goal completion.
+- Moving averages track recurring expense trends.
+- Seasonality detection identifies monthly spending patterns.
+- Monte Carlo simulations support advanced goal and retirement probability.
+- Scenario modeling supports optimistic, normal, and conservative outcomes.
+- Prediction logic lives in `lib/core/prediction/`.
+- AI suggestions are stored as `AikoInsight` records in Supabase.
+- AI features must include disclaimers: Aiko provides estimates, not certified financial advice.
+
+---
+
 ## Database Schema
 
 The Supabase backend uses 17 core tables, all protected by Row Level Security:
@@ -272,6 +355,16 @@ The Supabase backend uses 17 core tables, all protected by Row Level Security:
 | `devices` | Registered devices for sync |
 
 All tables enforce `user_id = auth.uid()` via RLS policies — users can only access their own data.
+
+---
+
+## Supabase Backend Rules
+
+- Migrations live in `supabase/migrations/`. Never edit existing migrations; create new ones.
+- All tables use Row Level Security. Users can only access rows where `user_id = auth.uid()`.
+- Never put the Supabase service-role key in the mobile app, `.env`, dart-defines, or any client-visible config.
+- Seed data in `supabase/seed.sql` is for development/demo only.
+- Push migrations to cloud with `supabase link --project-ref <ref>` followed by `supabase db push`.
 
 ---
 
@@ -377,9 +470,61 @@ Multi-device sync, travel mode, learning hub, Aiko Optimize, monetization tiers,
 
 ---
 
+## Common Tasks
+
+### Adding a New Feature Module
+
+1. Create `lib/features/<name>/` with `application/`, `data/`, `domain/`, and `presentation/` folders.
+2. Add routes in `lib/app/app_router.dart`.
+3. If the feature needs a Supabase table, create a new migration in `supabase/migrations/`.
+4. Add RLS policies to the migration. Always filter by `auth.uid()`.
+5. If the feature must work offline, add a Brick model under `lib/brick/models/` and regenerate code with `dart run build_runner build`.
+6. Register providers in `lib/app/providers.dart` only when they need app-wide access.
+7. Add unit tests in `test/` for the model, repository fallback behavior, and provider.
+8. Use `Money` for all monetary values. Never use `double` for amounts.
+9. Follow the existing feature module pattern.
+
+### Adding a New Calculator
+
+1. Create the calculator file in `lib/features/calculators/`.
+2. Register it in the calculator hub screen's category list.
+3. Calculator results should be saveable as `SavedCalculatorScenario`.
+4. Optionally allow converting results into goals, budgets, or plans.
+
+### Adding a New Aiko Insight Type
+
+1. Define the insight type in the `AikoInsight` model.
+2. Generate insights in the relevant provider or a background process.
+3. Store insights in the `aiko_insights` table.
+4. Display on dashboard and insights screen.
+5. Always include a `source_data` reference so users can inspect the underlying data.
+
+### Adding a New Supabase Migration
+
+```bash
+supabase migration new <descriptive_name>
+# Edit the generated SQL file
+supabase db push
+```
+
+---
+
+## Key Principles
+
+1. Clarity first: financial data must be easy to understand.
+2. Data first, Aiko enhanced: AI augments but never obscures financial data.
+3. Decimal-safe money: never use `double` for amounts.
+4. Privacy by design: RLS on everything, encrypted storage, user consent for AI.
+5. Offline first: core money workflows must read/write locally first and sync later.
+6. Actionable insights: every insight should lead to a useful next step.
+7. Warm, non-judgmental tone: Aiko encourages, never shames.
+8. Test before ship: run all quality gates before treating any change as releasable.
+
+---
+
 ## Contributing
 
-1. Follow the architecture conventions documented in [`AGENTS.md`](AGENTS.md).
+1. Follow the [architecture conventions](#architecture-conventions) in this README.
 2. Use the `Money` type for all monetary values — never `double`.
 3. Use repositories for persistence; screens should not call Supabase, Brick, or SQLite directly.
 4. Add Brick models and regenerate adapters when a feature needs offline-first storage.

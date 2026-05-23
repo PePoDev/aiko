@@ -1,19 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../core/config/app_config.dart';
+import '../features/auth/data/auth_repository.dart';
 import '../theme/aiko_theme.dart';
 import 'app_router.dart';
 
-class AikoApp extends StatelessWidget {
+class AikoApp extends StatefulWidget {
   const AikoApp({required this.config, super.key});
 
   final AppConfig config;
 
   @override
+  State<AikoApp> createState() => _AikoAppState();
+}
+
+class _AikoAppState extends State<AikoApp> {
+  late final GoRouter _router;
+  late final AuthRepository _authRepository;
+
+  @override
+  void initState() {
+    super.initState();
+    _authRepository = AuthRepository();
+    _router = createAikoRouter(
+      initialLocation: _authRepository.hasActiveSession() ? '/home' : '/',
+    );
+    _authRepository.restoreSessionInBackground();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final router = createAikoRouter();
     return ProviderScope(
       child: MaterialApp.router(
         title: 'Aiko',
@@ -25,7 +44,7 @@ class AikoApp extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         supportedLocales: const [Locale('en')],
-        routerConfig: router,
+        routerConfig: _router,
       ),
     );
   }

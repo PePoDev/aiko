@@ -50,9 +50,9 @@ Page<void> _fadePage(BuildContext context, GoRouterState state, Widget child) {
   );
 }
 
-GoRouter createAikoRouter() {
+GoRouter createAikoRouter({String initialLocation = '/'}) {
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: initialLocation,
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/auth', builder: (context, state) => const LoginScreen()),

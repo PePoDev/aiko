@@ -10,7 +10,6 @@ import '../../../theme/aiko_colors.dart';
 import '../../budgets/presentation/budget_form_screen.dart';
 import '../../transactions/presentation/transaction_form_screen.dart';
 import '../domain/dashboard_summary.dart';
-import 'widgets/calculator_shortcuts_widget.dart';
 import 'widgets/dashboard_due_items_widget.dart';
 
 class HomeDashboardScreen extends ConsumerWidget {
@@ -129,8 +128,6 @@ class HomeDashboardScreen extends ConsumerWidget {
               ),
               data: (items) => DashboardDueItemsWidget(items: items),
             ),
-            const SizedBox(height: 16),
-            const CalculatorShortcutsWidget(),
           ],
         ),
       ),

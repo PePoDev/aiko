@@ -1,0 +1,14 @@
+{
+  "@@locale": "th",
+  "appTitle": "Aiko",
+  "homeTab": "ภาพรวม",
+  "transactionsTab": "รายการ",
+  "budgetTab": "งบประมาณ",
+  "insightsTab": "ข้อมูลเชิงลึก",
+  "aikoTab": "Aiko",
+  "settingsTitle": "การตั้งค่า",
+  "learningHubTitle": "ศูนย์การเรียนรู้",
+  "exportTitle": "ส่งออก",
+  "privacyTitle": "โปรไฟล์และความเป็นส่วนตัว",
+  "aiDisclaimer": "Aiko ให้การประเมินเท่านั้น ไม่ใช่คำแนะนำทางการเงินที่ได้รับการรับรอง"
+}

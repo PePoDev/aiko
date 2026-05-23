@@ -272,8 +272,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           )
                           .toList(),
                       onChanged: (value) {
-                        if (value != null)
+                        if (value != null) {
                           setState(() => _baseCurrency = value);
+                        }
                       },
                     ),
                     const SizedBox(height: 16),

@@ -90,6 +90,7 @@ class AikoTheme {
       textTheme: textTheme,
       disabledColor: mutedColor.withValues(alpha: 0.6),
       visualDensity: VisualDensity.standard,
+      splashFactory: InkRipple.splashFactory,
       appBarTheme: AppBarTheme(
         elevation: 0,
         scrolledUnderElevation: 0,

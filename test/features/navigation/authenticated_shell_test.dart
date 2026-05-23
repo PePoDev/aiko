@@ -44,7 +44,12 @@ void main() {
   testWidgets('bottom navigation uses insights instead of budget', (
     tester,
   ) async {
-    await tester.pumpWidget(MaterialApp.router(routerConfig: buildRouter()));
+    await tester.pumpWidget(
+      MaterialApp.router(
+        theme: ThemeData(splashFactory: InkRipple.splashFactory),
+        routerConfig: buildRouter(),
+      ),
+    );
 
     expect(find.text('Insights'), findsOneWidget);
     expect(find.text('Budget'), findsNothing);

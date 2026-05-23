@@ -5,7 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   Widget buildScreen() {
-    return const MaterialApp(home: CalculatorLibraryScreen());
+    return MaterialApp(
+      theme: ThemeData(splashFactory: InkRipple.splashFactory),
+      home: const CalculatorLibraryScreen(),
+    );
   }
 
   testWidgets('calculator cards open without repeated open buttons', (

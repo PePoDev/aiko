@@ -43,6 +43,8 @@ Aiko is not just an expense tracker. It's a **personal financial operating syste
 | State Management | Riverpod |
 | Navigation | GoRouter |
 | Backend | Supabase Cloud (Auth, Postgres, Storage, RLS) |
+| Offline Store | Brick offline-first with SQLite (`sqflite`) |
+| Sync | Brick request queue to Supabase after local writes |
 | Money Arithmetic | `decimal` (no floating-point errors) |
 | Charts | `fl_chart` |
 | Security | `flutter_secure_storage`, `local_auth` (PIN + biometric) |
@@ -66,6 +68,12 @@ Aiko is not just an expense tracker. It's a **personal financial operating syste
 git clone <repository-url>
 cd aiko
 flutter pub get
+```
+
+Generate Brick adapters and SQLite migrations whenever offline models change:
+
+```bash
+dart run build_runner build
 ```
 
 ### 2. Configure Environment
@@ -121,7 +129,7 @@ flutter run -d ios \
   --dart-define=AIKO_ENV=development
 ```
 
-> Without `SUPABASE_URL` and `SUPABASE_ANON_KEY`, the app skips Supabase initialization, allowing tests and UI work to run without backend credentials.
+> Without `SUPABASE_URL` and `SUPABASE_ANON_KEY`, the app runs in local-only offline mode. Core finance data is stored in SQLite through Brick; cloud sync starts when Supabase is configured and the user is authenticated.
 
 ---
 
@@ -129,6 +137,7 @@ flutter run -d ios \
 
 ```
 lib/
+├── brick/                       # Brick offline models, adapters, SQLite schema
 ├── main.dart                    # Entry point
 ├── app/                         # App wiring (router, bootstrap, providers)
 ├── core/                        # Framework utilities (no UI)
@@ -139,6 +148,7 @@ lib/
 │   ├── monetization/            # Feature gating (Free/Premium/Pro)
 │   ├── money/                   # Decimal-safe Money type
 │   ├── notifications/           # Local notification scheduling
+│   ├── offline/                 # Offline user context and local-first store
 │   ├── prediction/              # Forecasting, Monte Carlo, seasonality
 │   ├── security/                # PIN, biometric, encryption
 │   ├── storage/                 # Local & secure storage
@@ -191,6 +201,18 @@ integration_test/                # Integration tests
 
 ---
 
+## Offline-First Data Architecture
+
+Aiko reads and writes core finance data locally first. The app uses [Brick](https://github.com/GetDutchie/brick) with SQLite for the local store and Supabase as the remote provider.
+
+- Local writes are optimistic: accounts, categories, transactions, budgets, goals, and profiles are persisted to SQLite immediately.
+- When Supabase is configured and the user is signed in, Brick queues HTTP writes and syncs them to Supabase in the background.
+- When Supabase is unavailable, repositories return local data or safe empty/default states instead of blocking the UI.
+- Domain models still use Aiko's `Money` type; Brick models store primitive fields and map back to domain objects through `lib/brick/offline_model_mappers.dart`.
+- Screens must continue to use Riverpod providers and feature repositories. They should not call Supabase, Brick, or SQLite directly.
+
+---
+
 ## Feature Highlights
 
 ### 🏠 Customizable Dashboard
@@ -231,7 +253,7 @@ The Supabase backend uses 17 core tables, all protected by Row Level Security:
 
 | Table | Purpose |
 |---|---|
-| `users_profile` | User profile, preferences, base currency |
+| `profiles` | User profile, preferences, base currency |
 | `accounts` | Financial accounts (cash, bank, e-wallet, credit card, loan, investment, asset) |
 | `transactions` | All financial transactions (13 types) |
 | `categories` | Hierarchical spending categories |
@@ -306,6 +328,7 @@ Covers: onboarding flow, transaction CRUD, budget creation, goal creation, dashb
 Run all of these before any release:
 
 ```bash
+dart run build_runner build       # Required after Brick model changes
 dart format --set-exit-if-changed .
 flutter analyze
 flutter test
@@ -358,10 +381,12 @@ Multi-device sync, travel mode, learning hub, Aiko Optimize, monetization tiers,
 
 1. Follow the architecture conventions documented in [`AGENTS.md`](AGENTS.md).
 2. Use the `Money` type for all monetary values — never `double`.
-3. Add RLS policies to all new Supabase tables.
-4. Write unit tests for new models and providers.
-5. Run all quality gates before submitting changes.
-6. Follow Aiko's brand voice: warm, supportive, non-judgmental.
+3. Use repositories for persistence; screens should not call Supabase, Brick, or SQLite directly.
+4. Add Brick models and regenerate adapters when a feature needs offline-first storage.
+5. Add RLS policies to all new Supabase tables.
+6. Write unit tests for new models and providers.
+7. Run all quality gates before submitting changes.
+8. Follow Aiko's brand voice: warm, supportive, non-judgmental.
 
 ---
 

@@ -18,6 +18,8 @@ Aiko is an AI-powered personal finance management mobile app built with Flutter 
 | State Management | Riverpod (`flutter_riverpod`) |
 | Routing | GoRouter (`go_router`) |
 | Backend | Supabase Cloud (Auth, Postgres, Storage, RLS) |
+| Offline Store | Brick offline-first with SQLite (`sqflite`) |
+| Sync | Brick queued writes to Supabase after local persistence |
 | Money Logic | `decimal` package for safe arithmetic, custom `Money` value type |
 | Charts | `fl_chart` |
 | Export | `csv`, `share_plus`, `path_provider` |
@@ -31,10 +33,11 @@ Aiko is an AI-powered personal finance management mobile app built with Flutter 
 
 ```
 lib/
+├── brick/                     # Brick offline models, adapters, SQLite schema
 ├── main.dart                  # Entry point
 ├── app/                       # App-level wiring
 │   ├── aiko_app.dart          # MaterialApp.router with Aiko theme
-│   ├── app_bootstrap.dart     # Init: Supabase, secure storage, env config
+│   ├── app_bootstrap.dart     # Init: Brick, Supabase, secure storage, env config
 │   ├── app_router.dart        # GoRouter — ALL routes defined here
 │   ├── authenticated_shell.dart # Bottom nav scaffold (5 tabs)
 │   └── providers.dart         # Top-level Riverpod providers
@@ -46,6 +49,7 @@ lib/
 │   ├── monetization/          # Feature gating (Free/Premium/Pro)
 │   ├── money/                 # Money value type, currency definitions
 │   ├── notifications/         # Local notification scheduling
+│   ├── offline/               # Offline user context and local-first store
 │   ├── prediction/            # Forecasting, moving avg, Monte Carlo
 │   ├── security/              # Biometric, PIN, encryption services
 │   ├── storage/               # Local + secure key-value storage
@@ -92,7 +96,7 @@ lib/
 supabase/
 ├── config.toml                # Supabase CLI project config
 ├── migrations/                # 18 Postgres migration files
-│                              # Tables: users_profile, accounts, transactions,
+│                              # Tables: profiles, accounts, transactions,
 │                              # categories, transaction_rules, budgets, goals,
 │                              # credit_cards, assets, liabilities,
 │                              # investment_holdings, tax_records, subscriptions,
@@ -131,15 +135,24 @@ Each feature under `lib/features/<name>/` follows a consistent structure:
 ├── <feature>_screen.dart       # Main screen widget
 ├── <feature>_model.dart        # Data model / entity
 ├── <feature>_provider.dart     # Riverpod providers (state + logic)
-├── <feature>_repository.dart   # Supabase data access layer
+├── <feature>_repository.dart   # Data access layer (offline-first where supported)
 ├── widgets/                    # Feature-specific widgets (optional)
 └── <sub_screen>.dart           # Additional screens (optional)
 ```
 
 - **Screens** are Flutter widgets that compose UI. They consume providers via `ref.watch` / `ref.read`.
 - **Providers** hold business logic. Use `StateNotifierProvider`, `FutureProvider`, or `NotifierProvider`.
-- **Repositories** handle Supabase CRUD. They are injected via providers. All DB calls go through repositories — screens never call Supabase directly.
-- **Models** are immutable Dart classes with `fromJson` / `toJson` for Supabase serialization.
+- **Repositories** handle persistence and sync. They are injected via providers. All DB calls go through repositories — screens never call Supabase, Brick, or SQLite directly.
+- **Brick models** live under `lib/brick/models/` for offline-first entities. They store primitives only and map to domain models through `lib/brick/offline_model_mappers.dart`.
+- **Models** are immutable Dart classes with `fromJson` / `toJson` or explicit mappers for serialization.
+
+### Offline-First Rules
+
+- Core finance entities (profiles, accounts, categories, transactions, budgets, goals) read and write the local Brick/SQLite store first.
+- When Supabase is configured and a user is authenticated, Brick queues writes through its HTTP client and syncs to Supabase in the background.
+- Repositories must gracefully handle offline/no-session states by returning local data, empty lists, or safe defaults instead of surfacing backend errors in normal UI flows.
+- Do not use `AikoSupabase.requireSession()` in user-facing repositories unless the operation truly cannot work offline. Prefer `tryClient()` plus an offline fallback.
+- After editing files in `lib/brick/models/`, run `dart run build_runner build` and commit generated adapters, schema, and migrations.
 
 ### State Management Rules
 
@@ -194,7 +207,7 @@ Key Supabase tables (all protected by RLS — users only access their own data):
 
 | Table | Purpose |
 |---|---|
-| `users_profile` | User profile, base currency, country, timezone, theme, Aiko settings |
+| `profiles` | User profile, base currency, country, timezone, theme, Aiko settings |
 | `accounts` | Financial accounts (cash, bank, e-wallet, credit card, loan, investment, asset) |
 | `transactions` | All money movement (13 types: income, expense, transfer, refund, etc.) |
 | `categories` | Hierarchical categories with icons, colors, budget links |
@@ -269,6 +282,7 @@ flutter test integration_test  # Integration tests
 ### Quality Gates (run before any PR or release)
 
 ```bash
+dart run build_runner build       # Required after Brick model changes
 dart format --set-exit-if-changed .
 flutter analyze
 flutter test
@@ -297,7 +311,7 @@ SUPABASE_ANON_KEY=your-cloud-anon-key
 AIKO_ENV=development
 ```
 
-Without `SUPABASE_URL` and `SUPABASE_ANON_KEY`, the app skips Supabase initialization — useful for tests and UI-only work.
+Without `SUPABASE_URL` and `SUPABASE_ANON_KEY`, the app skips Supabase initialization and runs in local-only offline mode. Core finance data remains available from SQLite; cloud sync starts when Supabase is configured and the user is authenticated.
 
 ---
 
@@ -309,10 +323,11 @@ Without `SUPABASE_URL` and `SUPABASE_ANON_KEY`, the app skips Supabase initializ
 2. Add routes in `lib/app/app_router.dart`.
 3. If the feature needs a Supabase table, create a new migration in `supabase/migrations/`.
 4. Add RLS policies to the migration. Always filter by `auth.uid()`.
-5. Register providers in `lib/app/providers.dart` if they need app-wide access.
-6. Add unit tests in `test/` for the model and provider.
-7. Use `Money` type for all monetary values — never `double`.
-8. Follow the existing feature module pattern.
+5. If the feature must work offline, add a Brick model under `lib/brick/models/` and regenerate code with `dart run build_runner build`.
+6. Register providers in `lib/app/providers.dart` if they need app-wide access.
+7. Add unit tests in `test/` for the model, repository fallback behavior, and provider.
+8. Use `Money` type for all monetary values — never `double`.
+9. Follow the existing feature module pattern.
 
 ### Adding a New Calculator
 
@@ -345,6 +360,7 @@ supabase db push
 2. **Data first, Aiko enhanced** — AI augments but never obscures financial data.
 3. **Decimal-safe money** — Never use `double` for amounts.
 4. **Privacy by design** — RLS on everything, encrypted storage, user consent for AI.
-5. **Actionable insights** — Every insight should lead to a useful next step.
-6. **Warm, non-judgmental tone** — Aiko encourages, never shames.
-7. **Test before ship** — Run all quality gates before treating any change as releasable.
+5. **Offline first** — Core money workflows must read/write locally first and sync later.
+6. **Actionable insights** — Every insight should lead to a useful next step.
+7. **Warm, non-judgmental tone** — Aiko encourages, never shames.
+8. **Test before ship** — Run all quality gates before treating any change as releasable.

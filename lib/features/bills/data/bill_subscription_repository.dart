@@ -39,6 +39,15 @@ class BillSubscriptionRepository {
     return billWithUser;
   }
 
+  Future<void> delete(String id) async {
+    final session = AikoSupabase.requireSession();
+    await session.client
+        .from('bill_subscriptions')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', session.userId);
+  }
+
   static BillSubscription _fromRow(Map<String, dynamic> row) {
     final cycle = BillingCycle.values.firstWhere(
       (item) => item.name == row['billing_cycle'],

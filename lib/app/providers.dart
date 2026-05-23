@@ -17,6 +17,9 @@ import '../features/transactions/domain/transaction.dart';
 import '../features/accounts/domain/account.dart';
 import '../features/budgets/domain/budget.dart';
 import '../features/categories/domain/category.dart';
+import '../features/bills/data/bill_subscription_repository.dart';
+import '../features/bills/domain/bill_subscription.dart';
+import '../core/money/money.dart';
 
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   return TransactionRepository();
@@ -36,6 +39,10 @@ final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
 
 final goalRepositoryProvider = Provider<GoalRepository>((ref) {
   return const GoalRepository();
+});
+
+final billSubscriptionRepositoryProvider = Provider<BillSubscriptionRepository>((ref) {
+  return const BillSubscriptionRepository();
 });
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
@@ -176,6 +183,78 @@ class GoalsNotifier extends AsyncNotifier<List<Goal>> {
 final goalsProvider =
     AsyncNotifierProvider.autoDispose<GoalsNotifier, List<Goal>>(() {
       return GoalsNotifier();
+    });
+
+class BillSubscriptionsNotifier extends AsyncNotifier<List<BillSubscription>> {
+  // In-memory fallback for offline/mock mode when no session exists
+  final List<BillSubscription> _localFallback = [
+    BillSubscription(
+      id: 'local-bill-1',
+      merchant: 'Streaming Plus',
+      amount: Money.parse('18', 'USD'),
+      billingCycle: BillingCycle.monthly,
+      nextBillingDate: DateTime(2026, 6, 1),
+    ),
+    BillSubscription(
+      id: 'local-bill-2',
+      merchant: 'Cloud Trial',
+      amount: Money.parse('29', 'USD'),
+      billingCycle: BillingCycle.monthly,
+      nextBillingDate: DateTime(2026, 5, 28),
+      categoryId: 'trial',
+    ),
+  ];
+
+  @override
+  Future<List<BillSubscription>> build() async {
+    final repo = ref.watch(billSubscriptionRepositoryProvider);
+    try {
+      return await repo.list();
+    } catch (_) {
+      // Offline/Mock fallback
+      return _localFallback;
+    }
+  }
+
+  Future<void> addBillSubscription(BillSubscription bill) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(billSubscriptionRepositoryProvider);
+      try {
+        await repo.save(bill);
+        return await repo.list();
+      } catch (_) {
+        // Fallback local update
+        final idx = _localFallback.indexWhere((b) => b.id == bill.id);
+        if (idx != -1) {
+          _localFallback[idx] = bill;
+        } else {
+          _localFallback.add(bill);
+        }
+        return [..._localFallback];
+      }
+    });
+  }
+
+  Future<void> deleteBillSubscription(String id) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(billSubscriptionRepositoryProvider);
+      try {
+        await repo.delete(id);
+        return await repo.list();
+      } catch (_) {
+        // Fallback local update
+        _localFallback.removeWhere((b) => b.id == id);
+        return [..._localFallback];
+      }
+    });
+  }
+}
+
+final billSubscriptionsProvider =
+    AsyncNotifierProvider.autoDispose<BillSubscriptionsNotifier, List<BillSubscription>>(() {
+      return BillSubscriptionsNotifier();
     });
 
 final profileProvider = FutureProvider.autoDispose<Profile>((ref) {

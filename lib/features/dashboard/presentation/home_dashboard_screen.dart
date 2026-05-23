@@ -25,10 +25,10 @@ class HomeDashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Home'),
+        title: const Text('Overview'),
         actions: [
           IconButton(
-            tooltip: 'More',
+            tooltip: 'Aiko Hub',
             onPressed: () => context.push('/more'),
             icon: const Icon(Icons.grid_view_outlined),
           ),

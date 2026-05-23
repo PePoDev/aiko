@@ -14,4 +14,20 @@ class Trip {
   final String localCurrency;
   final Money budget;
   final List<Money> foreignFees;
+
+  Trip copyWith({
+    String? name,
+    String? homeCurrency,
+    String? localCurrency,
+    Money? budget,
+    List<Money>? foreignFees,
+  }) {
+    return Trip(
+      name: name ?? this.name,
+      homeCurrency: homeCurrency ?? this.homeCurrency,
+      localCurrency: localCurrency ?? this.localCurrency,
+      budget: budget ?? this.budget,
+      foreignFees: foreignFees ?? this.foreignFees,
+    );
+  }
 }

@@ -69,6 +69,43 @@ class PortfolioNotifier extends Notifier<PortfolioState> {
       state = state.copyWith(isRefreshing: false);
     }
   }
+
+  void addHolding(InvestmentHolding holding) {
+    // If the holding symbol already exists, average it out or replace it
+    final existingIndex = state.holdings.indexWhere((h) => h.symbol.toUpperCase() == holding.symbol.toUpperCase());
+    if (existingIndex != -1) {
+      final existing = state.holdings[existingIndex];
+      final newQuantity = existing.quantity + holding.quantity;
+      if (newQuantity <= 0) {
+        deleteHolding(holding.symbol);
+        return;
+      }
+      // Weighted average cost: (Qty1 * Cost1 + Qty2 * Cost2) / TotalQty
+      final totalCostVal = (existing.quantity * existing.averageCost.amount.toDouble()) + 
+                           (holding.quantity * holding.averageCost.amount.toDouble());
+      final newAverageCost = Money.parse((totalCostVal / newQuantity).toStringAsFixed(2), holding.averageCost.currency);
+
+      final updated = InvestmentHolding(
+        symbol: existing.symbol,
+        assetClass: existing.assetClass,
+        quantity: newQuantity,
+        averageCost: newAverageCost,
+        currentPrice: holding.currentPrice,
+      );
+
+      final newHoldings = [...state.holdings];
+      newHoldings[existingIndex] = updated;
+      state = state.copyWith(holdings: newHoldings);
+    } else {
+      state = state.copyWith(holdings: [...state.holdings, holding]);
+    }
+  }
+
+  void deleteHolding(String symbol) {
+    state = state.copyWith(
+      holdings: state.holdings.where((h) => h.symbol.toUpperCase() != symbol.toUpperCase()).toList(),
+    );
+  }
 }
 
 final portfolioProvider =

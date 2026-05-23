@@ -233,7 +233,7 @@ class InsightsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   FilledButton(
-                    onPressed: () => context.go('/aiko-review'),
+                    onPressed: () => context.push('/aiko-review'),
                     child: const Text('Open monthly review'),
                   ),
                 ],

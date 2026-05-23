@@ -12,7 +12,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appTitle => 'Aiko';
 
   @override
-  String get homeTab => 'Home';
+  String get homeTab => 'Overview';
 
   @override
   String get transactionsTab => 'Transactions';

@@ -10,12 +10,12 @@ class MoreScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('More')),
+      appBar: AppBar(title: const Text('Aiko Hub')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         children: [
           const FinanceCard(
-            title: 'Aiko workspace',
+            title: 'Aiko Hub',
             icon: Icons.apps_outlined,
             prominent: true,
             child: Text(
@@ -60,7 +60,7 @@ class _MoreTile extends StatelessWidget {
         title: Text(item.label),
         subtitle: item.description.isEmpty ? null : Text(item.description),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => context.go(item.path),
+        onTap: () => context.push(item.path),
       ),
     );
   }

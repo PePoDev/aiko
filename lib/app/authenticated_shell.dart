@@ -22,7 +22,7 @@ class AuthenticatedShell extends StatelessWidget {
       selectedIcon: Icons.pie_chart,
     ),
     _AikoNavItem(
-      label: 'Home',
+      label: 'Overview',
       path: '/home',
       icon: Icons.home_outlined,
       selectedIcon: Icons.home_rounded,
@@ -34,7 +34,7 @@ class AuthenticatedShell extends StatelessWidget {
       selectedIcon: Icons.insights,
     ),
     _AikoNavItem(
-      label: 'More',
+      label: 'Aiko Hub',
       path: '/more',
       icon: Icons.grid_view_outlined,
       selectedIcon: Icons.grid_view_rounded,

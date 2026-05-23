@@ -16,15 +16,15 @@ class CalculatorShortcutsWidget extends StatelessWidget {
         children: [
           ActionChip(
             label: const Text('Savings goal'),
-            onPressed: () => context.go('/calculators'),
+            onPressed: () => context.push('/calculators'),
           ),
           ActionChip(
             label: const Text('Loan'),
-            onPressed: () => context.go('/calculators'),
+            onPressed: () => context.push('/calculators'),
           ),
           ActionChip(
             label: const Text('ROI'),
-            onPressed: () => context.go('/calculators'),
+            onPressed: () => context.push('/calculators'),
           ),
         ],
       ),

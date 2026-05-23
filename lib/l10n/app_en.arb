@@ -1,7 +1,7 @@
 {
   "@@locale": "en",
   "appTitle": "Aiko",
-  "homeTab": "Home",
+  "homeTab": "Overview",
   "transactionsTab": "Transactions",
   "budgetTab": "Budget",
   "insightsTab": "Insights",

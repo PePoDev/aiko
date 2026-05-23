@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/aiko_colors.dart';
 
 class AuthenticatedShell extends StatelessWidget {
@@ -8,50 +9,54 @@ class AuthenticatedShell extends StatelessWidget {
 
   final Widget child;
 
-  static const _items = [
-    _AikoNavItem(
-      label: 'Home',
-      path: '/home',
-      icon: Icons.home_outlined,
-      selectedIcon: Icons.home_rounded,
-    ),
-    _AikoNavItem(
-      label: 'Transactions',
-      path: '/transactions',
-      icon: Icons.receipt_long_outlined,
-      selectedIcon: Icons.receipt_long,
-    ),
-    _AikoNavItem(
-      label: 'Ask Aiko',
-      path: '/aiko',
-      icon: Icons.face_retouching_natural_outlined,
-      selectedIcon: Icons.face_retouching_natural,
-    ),
-    _AikoNavItem(
-      label: 'Insights',
-      path: '/insights',
-      icon: Icons.insights_outlined,
-      selectedIcon: Icons.insights,
-    ),
-    _AikoNavItem(
-      label: 'Aiko Hub',
-      path: '/more',
-      icon: Icons.grid_view_outlined,
-      selectedIcon: Icons.grid_view_rounded,
-    ),
-  ];
+  List<_AikoNavItem> _getNavItems(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return [
+      _AikoNavItem(
+        label: l10n.homeTab,
+        path: '/home',
+        icon: Icons.home_outlined,
+        selectedIcon: Icons.home_rounded,
+      ),
+      _AikoNavItem(
+        label: l10n.transactionsTab,
+        path: '/transactions',
+        icon: Icons.receipt_long_outlined,
+        selectedIcon: Icons.receipt_long,
+      ),
+      _AikoNavItem(
+        label: l10n.aikoTab,
+        path: '/aiko',
+        icon: Icons.face_retouching_natural_outlined,
+        selectedIcon: Icons.face_retouching_natural,
+      ),
+      _AikoNavItem(
+        label: l10n.insightsTab,
+        path: '/insights',
+        icon: Icons.insights_outlined,
+        selectedIcon: Icons.insights,
+      ),
+      _AikoNavItem(
+        label: l10n.aikoHub,
+        path: '/more',
+        icon: Icons.grid_view_outlined,
+        selectedIcon: Icons.grid_view_rounded,
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
+    final items = _getNavItems(context);
     final selectedIndex = _indexFor(location);
 
     return Scaffold(
       body: SafeArea(bottom: false, child: child),
       bottomNavigationBar: _AikoBottomNavigation(
         selectedIndex: selectedIndex,
-        onSelected: (index) => context.go(_items[index].path),
-        items: _items,
+        onSelected: (index) => context.go(items[index].path),
+        items: items,
       ),
     );
   }

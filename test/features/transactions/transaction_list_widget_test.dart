@@ -2,6 +2,7 @@ import 'package:aiko/app/providers.dart';
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/transactions/data/transaction_repository.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
+import 'package:aiko/theme/aiko_colors.dart';
 import 'package:aiko/theme/aiko_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:aiko/features/transactions/presentation/transaction_list_screen.dart';
 
 void main() {
-  testWidgets('transaction list shows search and real transaction rows', (
+  testWidgets('transaction list opens search from the app bar icon', (
     tester,
   ) async {
     final now = DateTime.now();
@@ -29,6 +30,15 @@ void main() {
                 date: DateTime(now.year, now.month, 18),
                 merchant: 'Coffee Shop',
               ),
+              FinanceTransaction(
+                id: 'grocery',
+                userId: 'user',
+                accountId: 'cash',
+                type: TransactionType.expense,
+                amount: Money.parse('22.00', 'USD'),
+                date: DateTime(now.year, now.month, 19),
+                merchant: 'Grocery Market',
+              ),
             ]),
           ),
         ],
@@ -41,12 +51,28 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Search transactions'), findsOneWidget);
+    expect(find.text('Search transactions'), findsNothing);
+    expect(find.byTooltip('Search'), findsOneWidget);
     expect(
       find.text(_monthLabel(DateTime(now.year, now.month))),
       findsOneWidget,
     );
     expect(find.textContaining('Coffee'), findsOneWidget);
+    expect(find.textContaining('Grocery'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('-\$4.50')).style?.color,
+      AikoColors.dangerRed,
+    );
+
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Search transactions'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'coffee');
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Coffee'), findsOneWidget);
+    expect(find.textContaining('Grocery'), findsNothing);
   });
 
   testWidgets('transaction item opens detail screen', (tester) async {

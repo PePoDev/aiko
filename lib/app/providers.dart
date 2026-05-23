@@ -41,9 +41,11 @@ final goalRepositoryProvider = Provider<GoalRepository>((ref) {
   return const GoalRepository();
 });
 
-final billSubscriptionRepositoryProvider = Provider<BillSubscriptionRepository>((ref) {
-  return const BillSubscriptionRepository();
-});
+final billSubscriptionRepositoryProvider = Provider<BillSubscriptionRepository>(
+  (ref) {
+    return const BillSubscriptionRepository();
+  },
+);
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
   return const ProfileRepository();
@@ -70,13 +72,24 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
     return repo.list();
   }
 
-  Future<void> addTransaction(FinanceTransaction transaction) async {
+  Future<FinanceTransaction> saveTransaction(
+    FinanceTransaction transaction,
+  ) async {
+    late final FinanceTransaction saved;
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(transactionRepositoryProvider);
-      await repo.save(transaction);
+      saved = await repo.save(transaction);
       return repo.list();
     });
+    if (state.hasError) {
+      Error.throwWithStackTrace(state.error!, state.stackTrace!);
+    }
+    return saved;
+  }
+
+  Future<void> addTransaction(FinanceTransaction transaction) async {
+    await saveTransaction(transaction);
   }
 }
 
@@ -253,7 +266,10 @@ class BillSubscriptionsNotifier extends AsyncNotifier<List<BillSubscription>> {
 }
 
 final billSubscriptionsProvider =
-    AsyncNotifierProvider.autoDispose<BillSubscriptionsNotifier, List<BillSubscription>>(() {
+    AsyncNotifierProvider.autoDispose<
+      BillSubscriptionsNotifier,
+      List<BillSubscription>
+    >(() {
       return BillSubscriptionsNotifier();
     });
 

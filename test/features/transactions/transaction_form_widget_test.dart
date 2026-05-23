@@ -45,9 +45,7 @@ void main() {
     expect(find.widgetWithText(TextField, 'Amount'), findsOneWidget);
   });
 
-  testWidgets('smart entry tools are behind a top-right icon menu', (
-    tester,
-  ) async {
+  testWidgets('smart entry tools are app bar actions', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -70,16 +68,10 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Aiko Smart Entry Tools'), findsOneWidget);
-    expect(find.text('Scan Receipt'), findsNothing);
-    expect(find.text('Voice Entry'), findsNothing);
-    expect(find.byTooltip('Smart entry tools'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Smart entry tools'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Scan receipt'), findsOneWidget);
-    expect(find.text('Voice entry'), findsOneWidget);
+    expect(find.text('Aiko Smart Entry Tools'), findsNothing);
+    expect(find.byTooltip('Smart entry tools'), findsNothing);
+    expect(find.byTooltip('Scan receipt'), findsOneWidget);
+    expect(find.byTooltip('Voice entry'), findsOneWidget);
   });
 
   testWidgets('amount currency can convert to selected account currency', (

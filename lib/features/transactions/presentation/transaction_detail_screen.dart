@@ -6,14 +6,42 @@ import '../../../app/providers.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/transaction.dart';
+import 'transaction_form_screen.dart';
 
-class TransactionDetailScreen extends ConsumerWidget {
+class TransactionDetailScreen extends ConsumerStatefulWidget {
   const TransactionDetailScreen({required this.transaction, super.key});
 
   final FinanceTransaction transaction;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TransactionDetailScreen> createState() =>
+      _TransactionDetailScreenState();
+}
+
+class _TransactionDetailScreenState
+    extends ConsumerState<TransactionDetailScreen> {
+  late FinanceTransaction _transaction;
+
+  @override
+  void initState() {
+    super.initState();
+    _transaction = widget.transaction;
+  }
+
+  Future<void> _editTransaction() async {
+    final updated = await Navigator.of(context).push<FinanceTransaction>(
+      MaterialPageRoute(
+        builder: (_) => TransactionFormScreen(initialTransaction: _transaction),
+      ),
+    );
+
+    if (updated == null || !mounted) return;
+    setState(() => _transaction = updated);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final transaction = _transaction;
     final title = transaction.merchant ?? transaction.note ?? 'Transaction';
     final accent = transaction.type == TransactionType.income
         ? AikoColors.successGreen
@@ -53,9 +81,48 @@ class TransactionDetailScreen extends ConsumerWidget {
               ) ??
               transaction.categoryId
         : null;
+    final categoryIcon = transaction.categoryId != null
+        ? categoriesAsync.whenOrNull(
+                data: (categories) {
+                  try {
+                    final category = categories.firstWhere(
+                      (c) => c.id == transaction.categoryId,
+                    );
+                    return _categoryIconFor(category.icon);
+                  } catch (_) {
+                    return Icons.category_outlined;
+                  }
+                },
+              ) ??
+              Icons.category_outlined
+        : null;
+    final categoryColor = transaction.categoryId != null
+        ? categoriesAsync.whenOrNull(
+                data: (categories) {
+                  try {
+                    final category = categories.firstWhere(
+                      (c) => c.id == transaction.categoryId,
+                    );
+                    return _parseHexColor(category.color);
+                  } catch (_) {
+                    return AikoColors.primaryBlue;
+                  }
+                },
+              ) ??
+              AikoColors.primaryBlue
+        : null;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Transaction details')),
+      appBar: AppBar(
+        title: const Text('Transaction details'),
+        actions: [
+          IconButton(
+            tooltip: 'Edit transaction',
+            onPressed: _editTransaction,
+            icon: const Icon(Icons.edit_outlined),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
@@ -75,45 +142,16 @@ class TransactionDetailScreen extends ConsumerWidget {
                   '${_labelFor(transaction.type.name)} - $dateTime',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          FinanceCard(
-            title: 'Details',
-            icon: Icons.receipt_long_outlined,
-            child: Column(
-              children: [
-                _DetailRow(label: 'Transaction ID', value: transaction.id),
-                const Divider(),
-                _DetailRow(
-                  label: 'Status',
-                  value: _labelFor(transaction.status.name),
-                ),
-                const Divider(),
-                _DetailRow(
-                  label: 'Type',
-                  value: _labelFor(transaction.type.name),
-                ),
-                const Divider(),
+                const SizedBox(height: 12),
                 _DetailRow(label: 'Account', value: accountName),
                 if (categoryName != null) ...[
                   const Divider(),
-                  _DetailRow(label: 'Category', value: categoryName),
-                ],
-                const Divider(),
-                _DetailRow(label: 'Amount', value: transaction.amount.format()),
-                const Divider(),
-                _DetailRow(
-                  label: 'Currency',
-                  value: transaction.amount.currency,
-                ),
-                const Divider(),
-                _DetailRow(label: 'Date & Time', value: dateTime),
-                if (transaction.merchant != null &&
-                    transaction.merchant!.isNotEmpty) ...[
-                  const Divider(),
-                  _DetailRow(label: 'Title', value: transaction.merchant!),
+                  _DetailRow(
+                    label: 'Category',
+                    value: categoryName,
+                    valueIcon: categoryIcon,
+                    valueIconColor: categoryColor,
+                  ),
                 ],
                 if (transaction.note != null &&
                     transaction.note!.isNotEmpty) ...[
@@ -164,13 +202,56 @@ class TransactionDetailScreen extends ConsumerWidget {
     }
     return buffer.toString();
   }
+
+  IconData _categoryIconFor(String iconName) {
+    switch (iconName) {
+      case 'food':
+        return Icons.restaurant_outlined;
+      case 'housing':
+        return Icons.home_outlined;
+      case 'travel':
+        return Icons.flight_outlined;
+      case 'coffee':
+        return Icons.coffee_outlined;
+      case 'shopping':
+        return Icons.shopping_bag_outlined;
+      case 'savings':
+        return Icons.savings_outlined;
+      case 'investing':
+        return Icons.trending_up_outlined;
+      case 'gym':
+        return Icons.fitness_center_outlined;
+      case 'salary':
+        return Icons.attach_money_outlined;
+      case 'entertainment':
+        return Icons.movie_outlined;
+      default:
+        return Icons.category_outlined;
+    }
+  }
+
+  Color _parseHexColor(String hexStr) {
+    try {
+      final hexColor = hexStr.replaceAll('#', '');
+      return Color(int.parse('FF$hexColor', radix: 16));
+    } catch (_) {
+      return AikoColors.primaryBlue;
+    }
+  }
 }
 
 class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    this.valueIcon,
+    this.valueIconColor,
+  });
 
   final String label;
   final String value;
+  final IconData? valueIcon;
+  final Color? valueIconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -192,10 +273,27 @@ class _DetailRow extends StatelessWidget {
           const SizedBox(width: 16),
           Expanded(
             flex: 2,
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: theme.textTheme.bodyMedium,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (valueIcon != null) ...[
+                  Icon(
+                    valueIcon,
+                    key: const Key('transaction-category-icon'),
+                    size: 18,
+                    color: valueIconColor ?? AikoColors.primaryBlue,
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Flexible(
+                  child: Text(
+                    value,
+                    textAlign: TextAlign.end,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -212,19 +310,21 @@ class _SplitRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final categoryName = (categoriesAsync.whenOrNull(
-          data: (categories) {
-            try {
-              final category = categories.firstWhere(
-                (c) => c.id == split.categoryId,
-              );
-              return category.name;
-            } catch (_) {
-              return split.categoryId;
-            }
-          },
-        ) ??
-        split.categoryId) as String;
+    final categoryName =
+        (categoriesAsync.whenOrNull(
+                  data: (categories) {
+                    try {
+                      final category = categories.firstWhere(
+                        (c) => c.id == split.categoryId,
+                      );
+                      return category.name;
+                    } catch (_) {
+                      return split.categoryId;
+                    }
+                  },
+                ) ??
+                split.categoryId)
+            as String;
 
     return _DetailRow(label: categoryName, value: split.amount.format());
   }

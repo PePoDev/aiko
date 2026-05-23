@@ -20,6 +20,7 @@ class TransactionListScreen extends ConsumerStatefulWidget {
 class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _isSearching = false;
 
   @override
   void initState() {
@@ -37,14 +38,51 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
     super.dispose();
   }
 
+  void _startSearch() {
+    setState(() => _isSearching = true);
+  }
+
+  void _stopSearch() {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _isSearching = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final transactionsAsync = ref.watch(transactionsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Transactions'),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Search transactions',
+                  prefixIcon: Icon(Icons.search),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              )
+            : const Text('Transactions'),
         actions: [
+          if (_isSearching)
+            IconButton(
+              tooltip: 'Close search',
+              onPressed: _stopSearch,
+              icon: const Icon(Icons.close),
+            )
+          else
+            IconButton(
+              tooltip: 'Search',
+              onPressed: _startSearch,
+              icon: const Icon(Icons.search),
+            ),
           IconButton(
             tooltip: 'Rules',
             onPressed: () => Navigator.of(context).push(
@@ -56,34 +94,18 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: TextField(
-              controller: _searchController,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                labelText: 'Search transactions',
-              ),
-            ),
-          ),
-          Expanded(
-            child: transactionsAsync.when(
-              loading: () => const AikoScreenState.loading(),
-              error: (err, stack) => AikoScreenState.error(
-                title: 'Transactions are unavailable',
-                message: 'Aiko could not load this list right now. $err',
-              ),
-              data: (transactions) {
-                return _MonthlyTransactionTabs(
-                  transactions: transactions,
-                  searchQuery: _searchQuery,
-                );
-              },
-            ),
-          ),
-        ],
+      body: transactionsAsync.when(
+        loading: () => const AikoScreenState.loading(),
+        error: (err, stack) => AikoScreenState.error(
+          title: 'Transactions are unavailable',
+          message: 'Aiko could not load this list right now. $err',
+        ),
+        data: (transactions) {
+          return _MonthlyTransactionTabs(
+            transactions: transactions,
+            searchQuery: _searchQuery,
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.of(context).push(
@@ -217,7 +239,7 @@ class _TransactionMonthPage extends StatelessWidget {
         final sign = tx.type == TransactionType.income ? '+' : '-';
         final accent = tx.type == TransactionType.income
             ? AikoColors.successGreen
-            : AikoColors.deepBlue;
+            : AikoColors.dangerRed;
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),

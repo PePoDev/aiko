@@ -20,8 +20,6 @@ import '../application/voice_transaction_parser.dart';
 import '../application/voice_transcription_service.dart';
 import 'transaction_attachment_section.dart';
 
-enum _SmartEntryAction { scanReceipt, voiceEntry }
-
 const _supportedCurrencies = [
   'THB',
   'USD',
@@ -36,7 +34,9 @@ const _supportedCurrencies = [
 ];
 
 class TransactionFormScreen extends ConsumerStatefulWidget {
-  const TransactionFormScreen({super.key});
+  const TransactionFormScreen({this.initialTransaction, super.key});
+
+  final FinanceTransaction? initialTransaction;
 
   @override
   ConsumerState<TransactionFormScreen> createState() =>
@@ -64,6 +64,26 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _exchangeRateController.dispose();
     _noteController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final transaction = widget.initialTransaction;
+    if (transaction == null) return;
+
+    _titleController.text = transaction.merchant ?? '';
+    _amountController.text = transaction.amount.amount.toString();
+    _selectedCurrency = _normalizeCurrency(transaction.amount.currency);
+    _noteController.text = transaction.note ?? '';
+    _type = switch (transaction.type) {
+      TransactionType.income => 'income',
+      TransactionType.transfer => 'transfer',
+      _ => 'expense',
+    };
+    _selectedDate = transaction.date;
+    _selectedCategoryId = transaction.categoryId;
+    _selectedAccountId = transaction.accountId;
   }
 
   void _autofillForm({
@@ -906,10 +926,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _ => TransactionType.expense,
     };
 
-    final txId = const Uuid().v4();
-    final newTx = FinanceTransaction(
+    final existingTransaction = widget.initialTransaction;
+    final txId = existingTransaction?.id ?? const Uuid().v4();
+    final savedTx = FinanceTransaction(
       id: txId,
-      userId: '',
+      userId: existingTransaction?.userId ?? '',
       accountId: _selectedAccountId!,
       type: txType,
       amount: Money(amount: amount, currency: _selectedCurrency),
@@ -919,9 +940,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           ? null
           : _titleController.text.trim(),
       note: _noteController.text.trim(),
+      tags: existingTransaction?.tags ?? const [],
+      splits: existingTransaction?.splits ?? const [],
+      status: existingTransaction?.status ?? TransactionStatus.posted,
     );
 
-    await ref.read(transactionsProvider.notifier).addTransaction(newTx);
+    final saved = await ref
+        .read(transactionsProvider.notifier)
+        .saveTransaction(savedTx);
 
     // Save attachments if any exist
     if (_attachments.isNotEmpty) {
@@ -979,7 +1005,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       ),
     );
 
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(saved);
   }
 
   @override
@@ -999,93 +1025,28 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         selectedAccountCurrency != _selectedCurrency;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Add transaction')),
+      appBar: AppBar(
+        title: Text(
+          widget.initialTransaction == null
+              ? 'Add transaction'
+              : 'Edit transaction',
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Scan receipt',
+            onPressed: _scanReceiptWithCamera,
+            icon: const Icon(Icons.receipt_long_outlined),
+          ),
+          IconButton(
+            tooltip: 'Voice entry',
+            onPressed: _showVoiceCommandDialog,
+            icon: const Icon(Icons.mic_none_outlined),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          // Smart Entry Dashboard Card
-          Card(
-            clipBehavior: Clip.antiAlias,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: AikoColors.premiumPurple.withValues(alpha: 0.3),
-              ),
-            ),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AikoColors.premiumPurple.withValues(alpha: 0.05),
-                    AikoColors.deepBlue.withValues(alpha: 0.05),
-                  ],
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Aiko Smart Entry Tools',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: AikoColors.premiumPurple,
-                              ),
-                        ),
-                      ),
-                      PopupMenuButton<_SmartEntryAction>(
-                        tooltip: 'Smart entry tools',
-                        icon: const Icon(Icons.auto_awesome),
-                        color: Theme.of(context).colorScheme.surface,
-                        iconColor: AikoColors.premiumPurple,
-                        onSelected: (action) {
-                          switch (action) {
-                            case _SmartEntryAction.scanReceipt:
-                              _scanReceiptWithCamera();
-                              break;
-                            case _SmartEntryAction.voiceEntry:
-                              _showVoiceCommandDialog();
-                              break;
-                          }
-                        },
-                        itemBuilder: (context) => const [
-                          PopupMenuItem(
-                            value: _SmartEntryAction.scanReceipt,
-                            child: ListTile(
-                              leading: Icon(Icons.receipt_long_outlined),
-                              title: Text('Scan receipt'),
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: _SmartEntryAction.voiceEntry,
-                            child: ListTile(
-                              leading: Icon(Icons.mic_none_outlined),
-                              title: Text('Voice entry'),
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Autofill this transaction instantly using scanned receipt OCR or voice text patterns.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-
           // Standard Entry Fields
           TextField(
             controller: _titleController,
@@ -1316,7 +1277,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           FilledButton.icon(
             onPressed: _submitForm,
             icon: const Icon(Icons.check),
-            label: const Text('Save Transaction'),
+            label: Text(
+              widget.initialTransaction == null
+                  ? 'Save Transaction'
+                  : 'Save Changes',
+            ),
           ),
         ],
       ),

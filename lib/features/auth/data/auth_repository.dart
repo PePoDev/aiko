@@ -116,6 +116,12 @@ class AuthRepository {
     await client.auth.resetPasswordForEmail(email);
   }
 
+  Future<void> deleteAccount() async {
+    final client = AikoSupabase.requireClient();
+    await client.auth.deleteUser();
+    _session = null;
+  }
+
   Future<AuthSession?> restoreSession() async {
     final session = cachedSession();
     if (session != null) {

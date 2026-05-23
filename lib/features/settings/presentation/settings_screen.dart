@@ -19,6 +19,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _authRepository = AuthRepository();
   var _isSigningOut = false;
+  var _isDeleting = false;
   var _aiAnalysisEnabled = true;
   var _localOnlyMode = false;
 
@@ -185,6 +186,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _handleDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Account?'),
+        content: const Text(
+          'This will permanently delete your account and all associated data. '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: AikoColors.dangerRed),
+            child: const Text('Delete Account'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isDeleting = true);
+    try {
+      await _authRepository.deleteAccount();
+      if (!mounted) return;
+      context.go('/auth');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isDeleting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to delete account right now.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -284,18 +324,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: 'Account',
             icon: Icons.account_circle_outlined,
             accentColor: AikoColors.dangerRed,
-            child: _SettingsRow(
-              icon: Icons.logout,
-              title: _isSigningOut ? 'Logging out...' : 'Log out',
-              subtitle: 'End this session on this device',
-              color: AikoColors.dangerRed,
-              trailing: _isSigningOut
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.chevron_right),
-              onTap: _isSigningOut ? null : _handleLogout,
+            child: Column(
+              children: [
+                _SettingsRow(
+                  icon: Icons.logout,
+                  title: _isSigningOut ? 'Logging out...' : 'Log out',
+                  subtitle: 'End this session on this device',
+                  color: AikoColors.dangerRed,
+                  trailing: _isSigningOut
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.chevron_right),
+                  onTap: _isSigningOut ? null : _handleLogout,
+                ),
+                const Divider(),
+                _SettingsRow(
+                  icon: Icons.delete_forever,
+                  title: _isDeleting ? 'Deleting...' : 'Delete account',
+                  subtitle: 'Permanently delete your account and all data',
+                  color: AikoColors.dangerRed,
+                  trailing: _isDeleting
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.chevron_right),
+                  onTap: _isDeleting ? null : _handleDeleteAccount,
+                ),
+              ],
             ),
           ),
         ],

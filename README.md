@@ -462,7 +462,6 @@ Multi-device sync, travel mode, learning hub, Aiko Optimize, monetization tiers,
 
 ### Future
 - Full bank sync via Open Banking APIs
-- Receipt OCR with camera capture
 - Advanced retirement planning
 - Estate planning module
 - Fully automated AI advisor

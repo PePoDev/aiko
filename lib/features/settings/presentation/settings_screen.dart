@@ -124,8 +124,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             final success = await _bioAdapter.authenticate(
                               reason: 'Authenticate with device hardware',
                             );
+                            if (!mounted) return;
                             if (success) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              ScaffoldMessenger.of(this.context).showSnackBar(
                                 const SnackBar(
                                   content: Text(
                                     'Hardware biometrics verified successfully!',

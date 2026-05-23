@@ -701,7 +701,7 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
               const SizedBox(height: 16),
               // Home Currency
               DropdownButtonFormField<String>(
-                value: _selectedHomeCurrency,
+                initialValue: _selectedHomeCurrency,
                 decoration: const InputDecoration(
                   labelText: 'Home Currency',
                   border: OutlineInputBorder(),

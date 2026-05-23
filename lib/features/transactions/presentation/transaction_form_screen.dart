@@ -29,31 +29,30 @@ class TransactionFormScreen extends ConsumerStatefulWidget {
 
 class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _amountController = TextEditingController();
-  final _merchantController = TextEditingController();
   final _noteController = TextEditingController();
   final _imagePicker = ImagePicker();
   String _type = 'expense';
   DateTime _selectedDate = DateTime.now();
+  String? _selectedCategoryId;
+  String? _selectedAccountId;
+  String? _selectedToAccountId; // For transfer type
   final List<TransactionAttachment> _attachments = [];
 
   @override
   void dispose() {
     _amountController.dispose();
-    _merchantController.dispose();
     _noteController.dispose();
     super.dispose();
   }
 
   void _autofillForm({
     required double amount,
-    required String merchant,
     required String note,
     required String type,
     required DateTime date,
   }) {
     setState(() {
       _amountController.text = amount.toStringAsFixed(2);
-      _merchantController.text = merchant;
       _noteController.text = note;
       _type = type;
       _selectedDate = date;
@@ -65,7 +64,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           children: [
             const Icon(Icons.auto_awesome, color: Colors.white),
             const SizedBox(width: 8),
-            Text('Aiko Autofilled: $merchant | \$${amount.toStringAsFixed(2)}'),
+            Text('Aiko Autofilled: \$${amount.toStringAsFixed(2)}'),
           ],
         ),
         backgroundColor: AikoColors.premiumPurple,
@@ -200,7 +199,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     _autofillForm(
       amount: autofill.total?.amount.toDouble() ?? 0.0,
-      merchant: autofill.merchant ?? 'Receipt Merchant',
       note: 'Scanned receipt: ${autofill.merchant ?? captured.name}',
       type: 'expense',
       date: autofill.date ?? DateTime.now(),
@@ -502,7 +500,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
       _autofillForm(
         amount: draft.amount.amount.toDouble(),
-        merchant: draft.merchant ?? 'Unknown',
         note: draft.note ?? 'Voice command parser',
         type: draft.type == TransactionType.income ? 'income' : 'expense',
         date: draft.date,
@@ -792,18 +789,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
-    final accounts = await ref.read(accountsProvider.future);
-    if (!mounted) return;
-    String? accountId;
-    if (accounts.isNotEmpty) {
-      final active = accounts.where((account) => account.isActive).toList();
-      accountId = active.isNotEmpty ? active.first.id : accounts.first.id;
-    }
-
-    if (accountId == null) {
+    if (_selectedAccountId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Create an account before adding transactions.'),
+          content: const Text('Please select an account.'),
           backgroundColor: AikoColors.warningOrange,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -812,12 +801,18 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
-    final categories = await ref.read(categoriesProvider.future);
-    if (!mounted) return;
-    String? categoryId;
-    if (categories.isNotEmpty) {
-      final active = categories.where((category) => category.isActive).toList();
-      categoryId = active.isNotEmpty ? active.first.id : categories.first.id;
+    if (_type == 'transfer' && _selectedToAccountId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Please select a destination account for transfer.',
+          ),
+          backgroundColor: AikoColors.warningOrange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+      return;
     }
 
     final txType = switch (_type) {
@@ -830,12 +825,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     final newTx = FinanceTransaction(
       id: txId,
       userId: '',
-      accountId: accountId,
+      accountId: _selectedAccountId!,
       type: txType,
       amount: Money(amount: amount, currency: 'THB'),
       date: _selectedDate,
-      categoryId: categoryId,
-      merchant: _merchantController.text.trim(),
+      categoryId: _selectedCategoryId,
+      merchant: null,
       note: _noteController.text.trim(),
     );
 
@@ -902,6 +897,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final accountsAsync = ref.watch(accountsProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Add transaction')),
       body: ListView(
@@ -1023,35 +1021,154 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             },
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _merchantController,
-            decoration: const InputDecoration(labelText: 'Merchant'),
+
+          // Category dropdown
+          categoriesAsync.when(
+            loading: () => const CircularProgressIndicator(),
+            error: (_, _) => const Text('Error loading categories'),
+            data: (categories) {
+              final activeCategories = categories
+                  .where((c) => c.isActive)
+                  .toList();
+              if (activeCategories.isEmpty) {
+                return const Text('No categories available');
+              }
+              return DropdownMenu<String>(
+                initialSelection: _selectedCategoryId,
+                expandedInsets: EdgeInsets.zero,
+                label: const Text('Category'),
+                dropdownMenuEntries: activeCategories
+                    .map(
+                      (category) => DropdownMenuEntry(
+                        value: category.id,
+                        label: category.name,
+                      ),
+                    )
+                    .toList(),
+                onSelected: (value) {
+                  setState(() => _selectedCategoryId = value);
+                },
+              );
+            },
           ),
           const SizedBox(height: 16),
+
+          // Account dropdown(s)
+          accountsAsync.when(
+            loading: () => const CircularProgressIndicator(),
+            error: (_, _) => const Text('Error loading accounts'),
+            data: (accounts) {
+              final activeAccounts = accounts.where((a) => a.isActive).toList();
+              if (activeAccounts.isEmpty) {
+                return const Text(
+                  'No accounts available. Create an account first.',
+                );
+              }
+
+              if (_type == 'transfer') {
+                // Show two account dropdowns for transfer
+                return Column(
+                  children: [
+                    DropdownMenu<String>(
+                      initialSelection: _selectedAccountId,
+                      expandedInsets: EdgeInsets.zero,
+                      label: const Text('From Account'),
+                      dropdownMenuEntries: activeAccounts
+                          .map(
+                            (account) => DropdownMenuEntry(
+                              value: account.id,
+                              label: account.name,
+                            ),
+                          )
+                          .toList(),
+                      onSelected: (value) {
+                        setState(() => _selectedAccountId = value);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownMenu<String>(
+                      initialSelection: _selectedToAccountId,
+                      expandedInsets: EdgeInsets.zero,
+                      label: const Text('To Account'),
+                      dropdownMenuEntries: activeAccounts
+                          .map(
+                            (account) => DropdownMenuEntry(
+                              value: account.id,
+                              label: account.name,
+                            ),
+                          )
+                          .toList(),
+                      onSelected: (value) {
+                        setState(() => _selectedToAccountId = value);
+                      },
+                    ),
+                  ],
+                );
+              } else {
+                // Show single account dropdown
+                return DropdownMenu<String>(
+                  initialSelection: _selectedAccountId,
+                  expandedInsets: EdgeInsets.zero,
+                  label: const Text('Account'),
+                  dropdownMenuEntries: activeAccounts
+                      .map(
+                        (account) => DropdownMenuEntry(
+                          value: account.id,
+                          label: account.name,
+                        ),
+                      )
+                      .toList(),
+                  onSelected: (value) {
+                    setState(() => _selectedAccountId = value);
+                  },
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+
           TextField(
             controller: _noteController,
             decoration: const InputDecoration(labelText: 'Note'),
           ),
           const SizedBox(height: 16),
 
-          // Date selection tile
+          // Date and time selection tile
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.calendar_month_outlined),
-            title: const Text('Transaction Date'),
-            subtitle: Text(DateFormat('yyyy-MM-dd').format(_selectedDate)),
+            title: const Text('Transaction Date & Time'),
+            subtitle: Text(
+              DateFormat('yyyy-MM-dd HH:mm').format(_selectedDate),
+            ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () async {
               final now = DateTime.now();
-              final picked = await showDatePicker(
+              final pickedDate = await showDatePicker(
                 context: context,
                 initialDate: _selectedDate,
                 firstDate: DateTime(now.year - 5),
                 lastDate: DateTime(now.year + 5),
               );
-              if (picked != null) {
-                setState(() => _selectedDate = picked);
-              }
+              if (pickedDate == null) return;
+              if (!mounted) return;
+
+              final pickedTime = await showTimePicker(
+                context: context,
+                initialTime: TimeOfDay.fromDateTime(_selectedDate),
+              );
+              if (pickedTime == null) return;
+              if (!mounted) return;
+
+              setState(() {
+                _selectedDate = DateTime(
+                  pickedDate.year,
+                  pickedDate.month,
+                  pickedDate.day,
+                  pickedTime.hour,
+                  pickedTime.minute,
+                );
+              });
             },
           ),
           const SizedBox(height: 16),

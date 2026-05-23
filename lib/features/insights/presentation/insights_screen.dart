@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/prediction/monte_carlo_engine.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
@@ -15,18 +16,19 @@ class InsightsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final textTheme = Theme.of(context).textTheme;
     final insightsAsync = ref.watch(aikoInsightsProvider);
     final summaryAsync = ref.watch(dashboardSummaryProvider);
     final goalsAsync = ref.watch(goalsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Insights')),
+      appBar: AppBar(title: Text(l10n.insights)),
       body: insightsAsync.when(
         loading: () => const AikoScreenState.loading(),
         error: (error, stack) => AikoScreenState.error(
-          title: 'Insights are unavailable',
-          message: 'Aiko could not load your insights right now.',
+          title: l10n.insights,
+          message: l10n.dashboardUnavailableMessage,
         ),
         data: (insights) => ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
@@ -82,7 +84,7 @@ class InsightsScreen extends ConsumerWidget {
                                   color: AikoColors.successGreen,
                                 ),
                                 const SizedBox(height: 6),
-                                Text('Income', style: textTheme.bodySmall),
+                                Text(l10n.income, style: textTheme.bodySmall),
                                 Text(
                                   currencyFormat.format(totalIncome),
                                   style: textTheme.titleMedium?.copyWith(
@@ -201,10 +203,9 @@ class InsightsScreen extends ConsumerWidget {
 
             // 3. Companion AI Insights
             if (insights.isEmpty)
-              const AikoScreenState.empty(
-                title: 'No insights yet',
-                message:
-                    'Aiko will show insights after enough real transaction data is available.',
+              AikoScreenState.empty(
+                title: l10n.noTransactions,
+                message: l10n.dashboardUnavailableMessage,
               )
             else
               for (final insight in insights) ...[

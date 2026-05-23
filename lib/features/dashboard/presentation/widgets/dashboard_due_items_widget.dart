@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/finance_card.dart';
 import '../../domain/dashboard_due_item.dart';
 
@@ -10,16 +11,18 @@ class DashboardDueItemsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     if (items.isEmpty) {
-      return const FinanceCard(
-        title: 'Upcoming due dates',
+      return FinanceCard(
+        title: l10n.upcomingDueDates,
         icon: Icons.event_available_outlined,
-        child: Text('No bills or card payments due soon.'),
+        child: Text(l10n.noDueDates),
       );
     }
 
     return FinanceCard(
-      title: 'Upcoming due dates',
+      title: l10n.upcomingDueDates,
       icon: Icons.event_note_outlined,
       child: Column(
         children: [

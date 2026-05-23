@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/aiko_navigation.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/finance_card.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -9,18 +10,18 @@ class MoreScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Aiko Hub')),
+      appBar: AppBar(title: Text(l10n.aikoHub)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         children: [
-          const FinanceCard(
-            title: 'Aiko Hub',
+          FinanceCard(
+            title: l10n.aikoHub,
             icon: Icons.apps_outlined,
             prominent: true,
-            child: Text(
-              'Every feature area is grouped here so secondary pages stay reachable without crowding the main tabs.',
-            ),
+            child: Text(l10n.aikoHubDescription),
           ),
           const SizedBox(height: 16),
           for (final group in aikoNavigationGroups) ...[

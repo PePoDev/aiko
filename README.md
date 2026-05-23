@@ -89,7 +89,7 @@ cp .env.example .env
 
 Edit `.env`:
 
-```
+```sh
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_ANON_KEY=your-cloud-anon-key
 AIKO_ENV=development
@@ -138,7 +138,7 @@ flutter run -d ios \
 
 ## Project Structure
 
-```
+```sh
 lib/
 ├── brick/                       # Brick offline models, adapters, SQLite schema
 ├── main.dart                    # Entry point
@@ -222,7 +222,7 @@ Aiko reads and writes core finance data locally first. The app uses [Brick](http
 
 Feature modules under `lib/features/<name>/` follow the current layered layout:
 
-```
+```sh
 <feature>/
 ├── application/               # Feature services, orchestration, business workflows
 ├── data/                      # Repositories, DTOs, persistence and sync adapters

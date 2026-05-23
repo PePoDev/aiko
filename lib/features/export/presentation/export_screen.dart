@@ -19,7 +19,8 @@ class ExportScreen extends ConsumerStatefulWidget {
 }
 
 class _ExportScreenState extends ConsumerState<ExportScreen> {
-  String _dateRange = 'current_month'; // 'current_month', 'last_month', 'all_time'
+  String _dateRange =
+      'current_month'; // 'current_month', 'last_month', 'all_time'
   String _format = 'csv'; // 'csv', 'excel', 'pdf'
   bool _isExporting = false;
 
@@ -29,14 +30,15 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     try {
       final transactions = await ref.read(transactionsProvider.future);
       final categories = await ref.read(categoriesProvider.future);
-      
+
       final now = DateTime.now();
       final filtered = transactions.where((tx) {
         if (_dateRange == 'current_month') {
           return tx.date.year == now.year && tx.date.month == now.month;
         } else if (_dateRange == 'last_month') {
           final lastMonthDate = DateTime(now.year, now.month - 1);
-          return tx.date.year == lastMonthDate.year && tx.date.month == lastMonthDate.month;
+          return tx.date.year == lastMonthDate.year &&
+              tx.date.month == lastMonthDate.month;
         }
         return true; // all_time
       }).toList();
@@ -49,21 +51,24 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
 
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-      
+
       if (_format == 'csv' || _format == 'excel') {
         final List<List<dynamic>> rows = [
-          ['Date', 'Merchant', 'Category', 'Type', 'Amount', 'Note']
+          ['Date', 'Merchant', 'Category', 'Type', 'Amount', 'Note'],
         ];
 
         for (final tx in filtered) {
-          final cat = categories.firstWhere((c) => c.id == tx.categoryId, orElse: () => categories.first);
+          final cat = categories.firstWhere(
+            (c) => c.id == tx.categoryId,
+            orElse: () => categories.first,
+          );
           rows.add([
             DateFormat('yyyy-MM-dd HH:mm').format(tx.date),
             tx.merchant ?? '',
             cat.name,
             tx.type.name,
             tx.amount.amount.toDouble(),
-            tx.note ?? ''
+            tx.note ?? '',
           ]);
         }
 
@@ -77,8 +82,9 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
           await file.writeAsString(csvContent);
         }
 
-        await Share.shareXFiles([XFile(file.path)], text: 'Aiko Financial Export');
-
+        await SharePlus.instance.share(
+          ShareParams(files: [XFile(file.path)], text: 'Aiko Financial Export'),
+        );
       } else if (_format == 'pdf') {
         // Generate beautiful HTML layout
         final double incomeVal = filtered
@@ -93,9 +99,14 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
 
         final StringBuffer rowsBuffer = StringBuffer();
         for (final tx in filtered) {
-          final cat = categories.firstWhere((c) => c.id == tx.categoryId, orElse: () => categories.first);
+          final cat = categories.firstWhere(
+            (c) => c.id == tx.categoryId,
+            orElse: () => categories.first,
+          );
           final dateStr = DateFormat('yyyy-MM-dd HH:mm').format(tx.date);
-          final amountClass = tx.type == TransactionType.income ? 'amount-income' : 'amount-expense';
+          final amountClass = tx.type == TransactionType.income
+              ? 'amount-income'
+              : 'amount-expense';
           final amountSign = tx.type == TransactionType.income ? '+' : '-';
 
           rowsBuffer.write('''
@@ -109,7 +120,8 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
           ''');
         }
 
-        final htmlContent = '''
+        final htmlContent =
+            '''
 <!DOCTYPE html>
 <html>
 <head>
@@ -178,7 +190,12 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
         final file = File('${tempDir.path}/aiko_statement_$timestamp.html');
         await file.writeAsString(htmlContent);
 
-        await Share.shareXFiles([XFile(file.path)], text: 'Aiko PDF / HTML Statement');
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(file.path)],
+            text: 'Aiko PDF / HTML Statement',
+          ),
+        );
       }
 
       _showMessage('Export generated successfully!');
@@ -190,7 +207,9 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -205,36 +224,32 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
             title: '1. Choose Date Range',
             icon: Icons.calendar_today_outlined,
             accentColor: AikoColors.deepBlue,
-            child: Column(
-              children: [
-                RadioListTile<String>(
-                  title: const Text('Current Month'),
-                  subtitle: const Text('Only transactions posted this month'),
-                  value: 'current_month',
-                  groupValue: _dateRange,
-                  onChanged: (val) {
-                    if (val != null) setState(() => _dateRange = val);
-                  },
-                ),
-                RadioListTile<String>(
-                  title: const Text('Last Month'),
-                  subtitle: const Text('Only transactions posted last month'),
-                  value: 'last_month',
-                  groupValue: _dateRange,
-                  onChanged: (val) {
-                    if (val != null) setState(() => _dateRange = val);
-                  },
-                ),
-                RadioListTile<String>(
-                  title: const Text('All Time'),
-                  subtitle: const Text('Export full historical ledger'),
-                  value: 'all_time',
-                  groupValue: _dateRange,
-                  onChanged: (val) {
-                    if (val != null) setState(() => _dateRange = val);
-                  },
-                ),
-              ],
+            child: RadioGroup<String>(
+              groupValue: _dateRange,
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _dateRange = value);
+                }
+              },
+              child: Column(
+                children: [
+                  RadioListTile<String>(
+                    title: const Text('Current Month'),
+                    subtitle: const Text('Only transactions posted this month'),
+                    value: 'current_month',
+                  ),
+                  RadioListTile<String>(
+                    title: const Text('Last Month'),
+                    subtitle: const Text('Only transactions posted last month'),
+                    value: 'last_month',
+                  ),
+                  RadioListTile<String>(
+                    title: const Text('All Time'),
+                    subtitle: const Text('Export full historical ledger'),
+                    value: 'all_time',
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -244,36 +259,36 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
             title: '2. Select Format',
             icon: Icons.article_outlined,
             accentColor: AikoColors.warningOrange,
-            child: Column(
-              children: [
-                RadioListTile<String>(
-                  title: const Text('Export CSV'),
-                  subtitle: const Text('Raw comma-separated data values'),
-                  value: 'csv',
-                  groupValue: _format,
-                  onChanged: (val) {
-                    if (val != null) setState(() => _format = val);
-                  },
-                ),
-                RadioListTile<String>(
-                  title: const Text('Excel Spreadsheet'),
-                  subtitle: const Text('CSV format with forced UTF-8 BOM encoding'),
-                  value: 'excel',
-                  groupValue: _format,
-                  onChanged: (val) {
-                    if (val != null) setState(() => _format = val);
-                  },
-                ),
-                RadioListTile<String>(
-                  title: const Text('PDF / HTML Statement'),
-                  subtitle: const Text('Styled offline report invoice summary'),
-                  value: 'pdf',
-                  groupValue: _format,
-                  onChanged: (val) {
-                    if (val != null) setState(() => _format = val);
-                  },
-                ),
-              ],
+            child: RadioGroup<String>(
+              groupValue: _format,
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _format = value);
+                }
+              },
+              child: Column(
+                children: [
+                  RadioListTile<String>(
+                    title: const Text('Export CSV'),
+                    subtitle: const Text('Raw comma-separated data values'),
+                    value: 'csv',
+                  ),
+                  RadioListTile<String>(
+                    title: const Text('Excel Spreadsheet'),
+                    subtitle: const Text(
+                      'CSV format with forced UTF-8 BOM encoding',
+                    ),
+                    value: 'excel',
+                  ),
+                  RadioListTile<String>(
+                    title: const Text('PDF / HTML Statement'),
+                    subtitle: const Text(
+                      'Styled offline report invoice summary',
+                    ),
+                    value: 'pdf',
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -284,10 +299,15 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
             icon: _isExporting
                 ? const SizedBox.square(
                     dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.share_outlined),
-            label: Text(_isExporting ? 'Generating Report...' : 'Share Export Document'),
+            label: Text(
+              _isExporting ? 'Generating Report...' : 'Share Export Document',
+            ),
           ),
           const SizedBox(height: 16),
           Text(

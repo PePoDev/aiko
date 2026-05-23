@@ -113,12 +113,12 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                 color: AikoColors.white,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: AikoColors.primaryBlue.withOpacity(0.4),
+                  color: AikoColors.primaryBlue.withValues(alpha: 0.4),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AikoColors.border.withOpacity(0.08),
+                    color: AikoColors.border.withValues(alpha: 0.08),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -253,8 +253,8 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: spentPercent > 0.8
-                    ? AikoColors.dangerRed.withOpacity(0.5)
-                    : AikoColors.successGreen.withOpacity(0.5),
+                    ? AikoColors.dangerRed.withValues(alpha: 0.5)
+                    : AikoColors.successGreen.withValues(alpha: 0.5),
                 width: 1.5,
               ),
             ),
@@ -277,7 +277,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                   child: Text(
                     spentPercent > 0.8
                         ? "Aiko Warning: Trip budget is almost depleted! Let's watch out for those high airport currency exchanges!"
-                        : "Enjoy your travels! Aiko is tracking exchange surcharges automatically. Keep a look out for fees!",
+                        : 'Enjoy your travels! Aiko is tracking exchange surcharges automatically. Keep a look out for fees!',
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -536,7 +536,7 @@ class AikoFeatureItem extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AikoColors.border.withOpacity(0.5)),
+        side: BorderSide(color: AikoColors.border.withValues(alpha: 0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -546,7 +546,7 @@ class AikoFeatureItem extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.08),
+                color: accentColor.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: accentColor),

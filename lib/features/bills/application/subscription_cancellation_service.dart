@@ -13,8 +13,9 @@ class SubscriptionCancellationService {
     required String cancellationReason,
   }) {
     final today = DateTime.now();
-    final dateStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    
+    final dateStr =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+
     return '''
 Date: $dateStr
 
@@ -59,9 +60,11 @@ $subscriberEmail
       cancellationReason: cancellationReason,
     );
 
-    await Share.share(
-      body,
-      subject: 'Subscription Cancellation Request - $subscriberName',
+    await SharePlus.instance.share(
+      ShareParams(
+        text: body,
+        subject: 'Subscription Cancellation Request - $subscriberName',
+      ),
     );
   }
 }

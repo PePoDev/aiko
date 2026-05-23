@@ -314,7 +314,7 @@ class InsightsScreen extends ConsumerWidget {
               CircularProgressIndicator(
                 value: result.successProbabilityPercent / 100,
                 color: _getProbabilityColor(result.successProbabilityPercent),
-                backgroundColor: Colors.grey.withOpacity(0.2),
+                backgroundColor: Colors.grey.withValues(alpha: 0.2),
               ),
             ],
           ),
@@ -538,7 +538,10 @@ class SankeyPainter extends CustomPainter {
   }) {
     final paint = Paint()
       ..shader = LinearGradient(
-        colors: [fromColor.withOpacity(0.35), toColor.withOpacity(0.35)],
+        colors: [
+          fromColor.withValues(alpha: 0.35),
+          toColor.withValues(alpha: 0.35),
+        ],
       ).createShader(Rect.fromLTRB(0, 0, w, 0))
       ..style = PaintingStyle.fill;
 

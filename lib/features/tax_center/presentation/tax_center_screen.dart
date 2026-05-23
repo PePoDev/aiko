@@ -365,12 +365,12 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
               color: AikoColors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: AikoColors.analyticsTeal.withOpacity(0.5),
+                color: AikoColors.analyticsTeal.withValues(alpha: 0.5),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AikoColors.border.withOpacity(0.1),
+                  color: AikoColors.border.withValues(alpha: 0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),

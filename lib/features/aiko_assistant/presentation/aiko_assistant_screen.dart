@@ -201,7 +201,9 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
             decoration: BoxDecoration(
               color: AikoColors.white,
               border: Border(
-                bottom: BorderSide(color: AikoColors.border.withOpacity(0.5)),
+                bottom: BorderSide(
+                  color: AikoColors.border.withValues(alpha: 0.5),
+                ),
               ),
             ),
             child: Row(
@@ -279,7 +281,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
             topRight: Radius.circular(16),
             bottomRight: Radius.circular(16),
           ),
-          border: Border.all(color: AikoColors.border.withOpacity(0.5)),
+          border: Border.all(color: AikoColors.border.withValues(alpha: 0.5)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -360,10 +362,12 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
                     topRight: Radius.circular(16),
                     bottomRight: Radius.circular(16),
                   ),
-                  border: Border.all(color: AikoColors.border.withOpacity(0.5)),
+                  border: Border.all(
+                    color: AikoColors.border.withValues(alpha: 0.5),
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: AikoColors.border.withOpacity(0.1),
+                      color: AikoColors.border.withValues(alpha: 0.1),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -395,7 +399,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AikoColors.softBlue.withOpacity(0.3),
+                          color: AikoColors.softBlue.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -464,7 +468,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
             padding: const EdgeInsets.only(right: 8),
             child: ActionChip(
               backgroundColor: AikoColors.white,
-              side: BorderSide(color: AikoColors.border.withOpacity(0.5)),
+              side: BorderSide(color: AikoColors.border.withValues(alpha: 0.5)),
               label: Text(
                 title,
                 style: const TextStyle(
@@ -487,7 +491,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
       decoration: BoxDecoration(
         color: AikoColors.white,
         border: Border(
-          top: BorderSide(color: AikoColors.border.withOpacity(0.5)),
+          top: BorderSide(color: AikoColors.border.withValues(alpha: 0.5)),
         ),
       ),
       child: SafeArea(

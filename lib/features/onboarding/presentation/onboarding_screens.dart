@@ -63,10 +63,12 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
   // Resolves Aiko asset based on step and selected options
   String _getAikoExpression() {
     if (_page == 0) {
-      if (_personality == 'professional')
+      if (_personality == 'professional') {
         return 'assets/images/aiko/aiko_thinking.png';
-      if (_personality == 'playful')
+      }
+      if (_personality == 'playful') {
         return 'assets/images/aiko/aiko_celebrating.png';
+      }
       return 'assets/images/aiko/aiko_welcome.png';
     }
     if (_page == 1) {
@@ -762,8 +764,9 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                     label: const Center(child: Text('Biometrics Only')),
                     selected: _securityOption == 'biometric',
                     onSelected: (selected) {
-                      if (selected)
+                      if (selected) {
                         setState(() => _securityOption = 'biometric');
+                      }
                     },
                     selectedColor: AikoColors.primaryBlue,
                     labelStyle: TextStyle(

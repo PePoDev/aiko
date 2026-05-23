@@ -58,9 +58,9 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                   Text(
                     'Link Bank via Plaid',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AikoColors.premiumPurple,
-                        ),
+                      fontWeight: FontWeight.bold,
+                      color: AikoColors.premiumPurple,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
@@ -136,29 +136,34 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                           );
 
                           for (final acc in accounts) {
-                            await ref.read(accountsProvider.notifier).addAccount(acc);
+                            await ref
+                                .read(accountsProvider.notifier)
+                                .addAccount(acc);
                           }
 
                           if (!mounted) return;
-                          Navigator.pop(context); // Close sheet
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Row(
-                                  children: [
-                                    const Icon(Icons.check_circle, color: Colors.white),
-                                    const SizedBox(width: 8),
-                                    Text('Successfully linked ${accounts.length} bank feed accounts!'),
-                                  ],
-                                ),
-                                backgroundColor: AikoColors.successGreen,
-                                behavior: SnackBarBehavior.floating,
+                          Navigator.of(this.context).pop(); // Close sheet
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Successfully linked ${accounts.length} bank feed accounts!',
+                                  ),
+                                ],
                               ),
-                            );
-                          }
+                              backgroundColor: AikoColors.successGreen,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
                         } catch (e) {
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            ScaffoldMessenger.of(this.context).showSnackBar(
                               SnackBar(
                                 content: Text('API Integration Error: $e'),
                                 backgroundColor: AikoColors.dangerRed,
@@ -229,7 +234,11 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
               children: [
                 const Text(
                   'Automate your money tracking by connecting to Chase, Bank of America, or credit cards in real-time.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey, height: 1.4),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    height: 1.4,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
@@ -275,7 +284,9 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                         leading: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: _colorForAccount(acc.type).withOpacity(0.1),
+                            color: _colorForAccount(
+                              acc.type,
+                            ).withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -286,10 +297,16 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                         ),
                         title: Text(
                           acc.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                         subtitle: Text(
-                          acc.institution ?? (acc.type == AccountType.cash ? 'Cash wallet' : 'Manual Entry'),
+                          acc.institution ??
+                              (acc.type == AccountType.cash
+                                  ? 'Cash wallet'
+                                  : 'Manual Entry'),
                           style: const TextStyle(fontSize: 11),
                         ),
                         trailing: Text(
@@ -314,7 +331,10 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
               error: (err, _) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
-                  child: Text('Error loading accounts: $err', style: const TextStyle(color: AikoColors.dangerRed)),
+                  child: Text(
+                    'Error loading accounts: $err',
+                    style: const TextStyle(color: AikoColors.dangerRed),
+                  ),
                 ),
               ),
             ),

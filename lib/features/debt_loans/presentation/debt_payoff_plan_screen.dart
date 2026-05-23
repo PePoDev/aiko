@@ -58,15 +58,17 @@ class DebtStrategyNotifier extends Notifier<DebtPayoffStrategy> {
   }
 }
 
-final debtStrategyProvider = NotifierProvider<DebtStrategyNotifier, DebtPayoffStrategy>(() {
-  return DebtStrategyNotifier();
-});
+final debtStrategyProvider =
+    NotifierProvider<DebtStrategyNotifier, DebtPayoffStrategy>(() {
+      return DebtStrategyNotifier();
+    });
 
 class DebtPayoffPlanScreen extends ConsumerStatefulWidget {
   const DebtPayoffPlanScreen({super.key});
 
   @override
-  ConsumerState<DebtPayoffPlanScreen> createState() => _DebtPayoffPlanScreenState();
+  ConsumerState<DebtPayoffPlanScreen> createState() =>
+      _DebtPayoffPlanScreenState();
 }
 
 class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
@@ -100,7 +102,10 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
         backgroundColor: AikoColors.white,
         title: const Text(
           'Add Debt or Loan',
-          style: TextStyle(color: AikoColors.darkNavy, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: AikoColors.darkNavy,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         content: SingleChildScrollView(
           child: Column(
@@ -108,21 +113,29 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
             children: [
               TextField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Debt Name (e.g. Student Loan)'),
+                decoration: const InputDecoration(
+                  labelText: 'Debt Name (e.g. Student Loan)',
+                ),
               ),
               TextField(
                 controller: _balanceController,
-                decoration: const InputDecoration(labelText: 'Current Balance (\$)'),
+                decoration: const InputDecoration(
+                  labelText: 'Current Balance (\$)',
+                ),
                 keyboardType: TextInputType.number,
               ),
               TextField(
                 controller: _aprController,
-                decoration: const InputDecoration(labelText: 'Interest Rate % (APR)'),
+                decoration: const InputDecoration(
+                  labelText: 'Interest Rate % (APR)',
+                ),
                 keyboardType: TextInputType.number,
               ),
               TextField(
                 controller: _minPayController,
-                decoration: const InputDecoration(labelText: 'Minimum Monthly Payment (\$)'),
+                decoration: const InputDecoration(
+                  labelText: 'Minimum Monthly Payment (\$)',
+                ),
                 keyboardType: TextInputType.number,
               ),
             ],
@@ -131,10 +144,15 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: AikoColors.mutedText)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AikoColors.mutedText),
+            ),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AikoColors.primaryBlue),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AikoColors.primaryBlue,
+            ),
             onPressed: () {
               if (_nameController.text.isEmpty) return;
               final balance = double.tryParse(_balanceController.text) ?? 0.0;
@@ -179,10 +197,10 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
 
     final int baseMonths = baseline['months'];
     final double baseInterest = baseline['interest'];
-    
+
     final int accMonths = accelerated['months'];
     final double accInterest = accelerated['interest'];
-    
+
     final double savedInterest = max(0.0, baseInterest - accInterest);
     final int savedMonths = max(0, baseMonths - accMonths);
 
@@ -208,15 +226,18 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
 
     if (debts.isEmpty) {
       aikoExpression = 'assets/images/aiko/aiko_happy.png';
-      aikoSpeech = "Aiko says: Amazing! You have no recorded debts. You are completely free to invest and grow your assets! Keep it up!";
+      aikoSpeech =
+          'Aiko says: Amazing! You have no recorded debts. You are completely free to invest and grow your assets! Keep it up!';
       aikoBubbleBorder = AikoColors.successGreen;
     } else if (highestApr > 15.0) {
       aikoExpression = 'assets/images/aiko/aiko_warning.png';
-      aikoSpeech = "Aiko warning: You have high-interest debt at ${highestApr.toStringAsFixed(1)}% APR! I strongly recommend the Avalanche strategy to wipe out high APRs first.";
+      aikoSpeech =
+          'Aiko warning: You have high-interest debt at ${highestApr.toStringAsFixed(1)}% APR! I strongly recommend the Avalanche strategy to wipe out high APRs first.';
       aikoBubbleBorder = AikoColors.dangerRed;
     } else {
       aikoExpression = 'assets/images/aiko/aiko_thinking.png';
-      aikoSpeech = "Aiko guide: Snowball builds psychological momentum by clearing small debts first. Avalanche saves you the most money. Let's run the numbers!";
+      aikoSpeech =
+          "Aiko guide: Snowball builds psychological momentum by clearing small debts first. Avalanche saves you the most money. Let's run the numbers!";
       aikoBubbleBorder = AikoColors.primaryBlue;
     }
 
@@ -229,7 +250,7 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
             icon: const Icon(Icons.add_circle_outline),
             onPressed: _showAddDebtDialog,
             tooltip: 'Add Debt or Loan',
-          )
+          ),
         ],
       ),
       body: ListView(
@@ -241,13 +262,16 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
             decoration: BoxDecoration(
               color: AikoColors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: aikoBubbleBorder.withOpacity(0.5), width: 1.5),
+              border: Border.all(
+                color: aikoBubbleBorder.withValues(alpha: 0.5),
+                width: 1.5,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: AikoColors.border.withOpacity(0.1),
+                  color: AikoColors.border.withValues(alpha: 0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
-                )
+                ),
               ],
             ),
             child: Row(
@@ -256,7 +280,11 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                   aikoExpression,
                   width: 72,
                   height: 72,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.face, size: 72, color: AikoColors.primaryBlue),
+                  errorBuilder: (_, _, _) => const Icon(
+                    Icons.face,
+                    size: 72,
+                    color: AikoColors.primaryBlue,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -296,14 +324,21 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                     ),
                     Text(
                       'Mins: \$${totalMins.toStringAsFixed(0)}/mo',
-                      style: const TextStyle(color: AikoColors.mutedText, fontWeight: FontWeight.w600),
-                    )
+                      style: const TextStyle(
+                        color: AikoColors.mutedText,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   'This includes student loans, auto loans, personal loans, and credit card balances. Leverage strategy-based payoffs to wipe this out faster.',
-                  style: TextStyle(fontSize: 11, color: AikoColors.mutedText, height: 1.3),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AikoColors.mutedText,
+                    height: 1.3,
+                  ),
                 ),
               ],
             ),
@@ -320,7 +355,11 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
               children: [
                 const Text(
                   'Select Strategy:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AikoColors.darkNavy),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: AikoColors.darkNavy,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -331,7 +370,9 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                         selected: strategy == DebtPayoffStrategy.snowball,
                         onSelected: (selected) {
                           if (selected) {
-                            ref.read(debtStrategyProvider.notifier).setStrategy(DebtPayoffStrategy.snowball);
+                            ref
+                                .read(debtStrategyProvider.notifier)
+                                .setStrategy(DebtPayoffStrategy.snowball);
                           }
                         },
                       ),
@@ -343,7 +384,9 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                         selected: strategy == DebtPayoffStrategy.avalanche,
                         onSelected: (selected) {
                           if (selected) {
-                            ref.read(debtStrategyProvider.notifier).setStrategy(DebtPayoffStrategy.avalanche);
+                            ref
+                                .read(debtStrategyProvider.notifier)
+                                .setStrategy(DebtPayoffStrategy.avalanche);
                           }
                         },
                       ),
@@ -356,12 +399,20 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                   children: [
                     const Text(
                       'Accelerated Monthly Payment',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AikoColors.darkNavy),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: AikoColors.darkNavy,
+                      ),
                     ),
                     Text(
                       '+\$${_extraMonthlyPayment.toStringAsFixed(0)}/mo',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AikoColors.primaryBlue),
-                    )
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AikoColors.primaryBlue,
+                      ),
+                    ),
                   ],
                 ),
                 Slider(
@@ -394,26 +445,48 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                   children: [
                     Column(
                       children: [
-                        const Text('Accelerated Payoff', style: TextStyle(fontSize: 11, color: AikoColors.mutedText)),
+                        const Text(
+                          'Accelerated Payoff',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AikoColors.mutedText,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           accelerated['never'] ? 'Never' : '$accMonths months',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: accelerated['never'] ? AikoColors.dangerRed : AikoColors.primaryBlue,
+                            color: accelerated['never']
+                                ? AikoColors.dangerRed
+                                : AikoColors.primaryBlue,
                           ),
                         ),
                       ],
                     ),
-                    Container(width: 1, height: 40, color: AikoColors.borderSubtle),
+                    Container(
+                      width: 1,
+                      height: 40,
+                      color: AikoColors.borderSubtle,
+                    ),
                     Column(
                       children: [
-                        const Text('Total Interest Saved', style: TextStyle(fontSize: 11, color: AikoColors.mutedText)),
+                        const Text(
+                          'Total Interest Saved',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AikoColors.mutedText,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           '\$${savedInterest.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AikoColors.successGreen),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AikoColors.successGreen,
+                          ),
                         ),
                       ],
                     ),
@@ -424,11 +497,19 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.flash_on, size: 16, color: AikoColors.warningOrange),
+                      const Icon(
+                        Icons.flash_on,
+                        size: 16,
+                        color: AikoColors.warningOrange,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         'You will be debt-free $savedMonths months earlier!',
-                        style: const TextStyle(fontWeight: FontWeight.w600, color: AikoColors.neutralInk, fontSize: 12),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AikoColors.neutralInk,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -446,11 +527,21 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
               children: [
                 const Text(
                   'Debt Prioritization List',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AikoColors.darkNavy),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AikoColors.darkNavy,
+                  ),
                 ),
                 Text(
-                  strategy == DebtPayoffStrategy.snowball ? 'By Balance' : 'By Interest Rate',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AikoColors.mutedText),
+                  strategy == DebtPayoffStrategy.snowball
+                      ? 'By Balance'
+                      : 'By Interest Rate',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AikoColors.mutedText,
+                  ),
                 ),
               ],
             ),
@@ -460,12 +551,17 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
           if (debts.isEmpty)
             Card(
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               color: AikoColors.surfacePanel,
               child: const Padding(
                 padding: EdgeInsets.all(24.0),
                 child: Center(
-                  child: Text('No debts found! Tap the top-right button to add one.', style: TextStyle(color: AikoColors.mutedText)),
+                  child: Text(
+                    'No debts found! Tap the top-right button to add one.',
+                    style: TextStyle(color: AikoColors.mutedText),
+                  ),
                 ),
               ),
             )
@@ -477,19 +573,25 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
               return Card(
                 elevation: 1,
                 margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 color: AikoColors.white,
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Row(
                     children: [
                       CircleAvatar(
-                        backgroundColor: idx == 0 ? AikoColors.warningOrange : AikoColors.surfacePanel,
+                        backgroundColor: idx == 0
+                            ? AikoColors.warningOrange
+                            : AikoColors.surfacePanel,
                         child: Text(
                           '#${idx + 1}',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: idx == 0 ? AikoColors.white : AikoColors.primaryBlue,
+                            color: idx == 0
+                                ? AikoColors.white
+                                : AikoColors.primaryBlue,
                           ),
                         ),
                       ),
@@ -500,12 +602,19 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                           children: [
                             Text(
                               d.name,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AikoColors.darkNavy),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: AikoColors.darkNavy,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               '${d.interestRatePercent}% APR | min \$${d.monthlyPayment.amount.toStringAsFixed(0)}/mo',
-                              style: const TextStyle(fontSize: 12, color: AikoColors.mutedText),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AikoColors.mutedText,
+                              ),
                             ),
                           ],
                         ),
@@ -515,17 +624,27 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                         children: [
                           Text(
                             d.balance.toString(),
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AikoColors.dangerRed),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AikoColors.dangerRed,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           IconButton(
-                            icon: const Icon(Icons.delete_outline, color: AikoColors.mutedText, size: 18),
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: AikoColors.mutedText,
+                              size: 18,
+                            ),
                             onPressed: () {
-                              ref.read(debtsProvider.notifier).deleteDebt(d.name);
+                              ref
+                                  .read(debtsProvider.notifier)
+                                  .deleteDebt(d.name);
                             },
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                          )
+                          ),
                         ],
                       ),
                     ],

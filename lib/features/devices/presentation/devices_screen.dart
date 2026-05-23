@@ -41,9 +41,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
   Future<void> _triggerSync() async {
     setState(() => _syncStatus = SyncStatus.syncing);
     final result = await _syncService.syncNow();
-    
+
     if (!mounted) return;
-    
+
     setState(() {
       _syncStatus = result;
       if (result == SyncStatus.synced) {
@@ -86,7 +86,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
             icon: _syncStatus == SyncStatus.syncing
                 ? const SizedBox.square(
                     dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AikoColors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AikoColors.white,
+                    ),
                   )
                 : const Icon(Icons.sync),
             onPressed: _syncStatus == SyncStatus.syncing ? null : _triggerSync,
@@ -126,8 +129,8 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                 color: _syncStatus == SyncStatus.syncing
                                     ? AikoColors.warningOrange
                                     : _syncStatus == SyncStatus.synced
-                                        ? AikoColors.successGreen
-                                        : AikoColors.primaryBlue,
+                                    ? AikoColors.successGreen
+                                    : AikoColors.primaryBlue,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -135,9 +138,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
                               _syncStatus == SyncStatus.syncing
                                   ? 'Syncing changes...'
                                   : _syncStatus == SyncStatus.synced
-                                      ? 'Fully Synced with Cloud'
-                                      : 'Connected (Idle)',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ? 'Fully Synced with Cloud'
+                                  : 'Connected (Idle)',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -147,7 +152,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       FilledButton.icon(
                         onPressed: _triggerSync,
                         icon: const Icon(Icons.refresh, size: 16),
-                        label: const Text('Sync Now', style: TextStyle(fontSize: 12)),
+                        label: const Text(
+                          'Sync Now',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         style: FilledButton.styleFrom(
                           backgroundColor: AikoColors.premiumPurple,
                         ),
@@ -184,14 +192,20 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       children: [
                         Text(
                           dev['name'] as String,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                         if (dev['isCurrent'] as bool) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: AikoColors.deepBlue.withOpacity(0.1),
+                              color: AikoColors.deepBlue.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: const Text(
@@ -206,17 +220,25 @@ class _DevicesScreenState extends State<DevicesScreen> {
                         ],
                       ],
                     ),
-                    subtitle: Text('${dev['type']} | Last Synced: ${dev['lastSynced']}'),
+                    subtitle: Text(
+                      '${dev['type']} | Last Synced: ${dev['lastSynced']}',
+                    ),
                     trailing: dev['isCurrent'] as bool
                         ? null
                         : IconButton(
-                            icon: const Icon(Icons.remove_circle_outline, color: AikoColors.dangerRed, size: 20),
+                            icon: const Icon(
+                              Icons.remove_circle_outline,
+                              color: AikoColors.dangerRed,
+                              size: 20,
+                            ),
                             onPressed: () {
                               setState(() {
                                 _trustedDevices.remove(dev);
                               });
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Device session revoked.')),
+                                const SnackBar(
+                                  content: Text('Device session revoked.'),
+                                ),
                               );
                             },
                           ),
@@ -238,38 +260,56 @@ class _DevicesScreenState extends State<DevicesScreen> {
               children: [
                 const Text(
                   'Choose how merge conflicts are handled between multiple offline active sessions.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey, height: 1.4),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    height: 1.4,
+                  ),
                 ),
                 const SizedBox(height: 12),
-                RadioListTile<String>(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                    'Last-Write-Wins (Recommended)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  subtitle: const Text(
-                    'Automatic conflict resolution utilizing cryptographic timestamps. Ensures 100% zero-effort data integration.',
-                    style: TextStyle(fontSize: 11),
-                  ),
-                  value: 'lww',
+                RadioGroup<String>(
                   groupValue: _conflictResolutionMode,
-                  activeColor: AikoColors.warningOrange,
-                  onChanged: (val) => setState(() => _conflictResolutionMode = val!),
-                ),
-                RadioListTile<String>(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                    'Manual Conflict Review',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _conflictResolutionMode = value);
+                    }
+                  },
+                  child: Column(
+                    children: [
+                      RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Last-Write-Wins (Recommended)',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        subtitle: const Text(
+                          'Automatic conflict resolution utilizing cryptographic timestamps. Ensures 100% zero-effort data integration.',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                        value: 'lww',
+                        activeColor: AikoColors.warningOrange,
+                      ),
+                      RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Manual Conflict Review',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        subtitle: const Text(
+                          'Prompts a manual review overlay where you choose which balance or transaction history to retain.',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                        value: 'manual',
+                        activeColor: AikoColors.warningOrange,
+                      ),
+                    ],
                   ),
-                  subtitle: const Text(
-                    'Prompts a manual review overlay where you choose which balance or transaction history to retain.',
-                    style: TextStyle(fontSize: 11),
-                  ),
-                  value: 'manual',
-                  groupValue: _conflictResolutionMode,
-                  activeColor: AikoColors.warningOrange,
-                  onChanged: (val) => setState(() => _conflictResolutionMode = val!),
                 ),
               ],
             ),

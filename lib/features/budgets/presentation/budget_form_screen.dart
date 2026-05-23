@@ -608,8 +608,9 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                 child: FutureBuilder<List<Category>>(
                   future: ref.read(categoriesProvider.future),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData)
+                    if (!snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
+                    }
                     final cats = snapshot.data!
                         .where((c) => c.isActive)
                         .take(3)

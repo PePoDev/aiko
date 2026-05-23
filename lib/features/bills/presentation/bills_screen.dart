@@ -281,12 +281,12 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                   color: AikoColors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: aikoBubbleBorder.withOpacity(0.5),
+                    color: aikoBubbleBorder.withValues(alpha: 0.5),
                     width: 1.5,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AikoColors.border.withOpacity(0.1),
+                      color: AikoColors.border.withValues(alpha: 0.1),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -362,8 +362,8 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AikoColors.primaryBlue.withOpacity(
-                                      0.08,
+                                    color: AikoColors.primaryBlue.withValues(
+                                      alpha: 0.08,
                                     ),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
@@ -471,7 +471,9 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: AikoColors.dangerRed.withOpacity(0.08),
+                              color: AikoColors.dangerRed.withValues(
+                                alpha: 0.08,
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -818,7 +820,7 @@ class _AddBillBottomSheetState extends ConsumerState<_AddBillBottomSheet> {
               const SizedBox(height: 16),
               // Billing Cycle
               DropdownButtonFormField<BillingCycle>(
-                value: _selectedCycle,
+                initialValue: _selectedCycle,
                 decoration: const InputDecoration(
                   labelText: 'Billing Cycle',
                   border: OutlineInputBorder(),
@@ -860,7 +862,7 @@ class _AddBillBottomSheetState extends ConsumerState<_AddBillBottomSheet> {
                 error: (_, _) => const SizedBox.shrink(),
                 data: (categories) {
                   return DropdownButtonFormField<String>(
-                    value: _selectedCategoryId,
+                    initialValue: _selectedCategoryId,
                     decoration: const InputDecoration(
                       labelText: 'Category Link',
                       border: OutlineInputBorder(),
@@ -888,7 +890,7 @@ class _AddBillBottomSheetState extends ConsumerState<_AddBillBottomSheet> {
                   style: TextStyle(fontSize: 14),
                 ),
                 value: _reminderEnabled,
-                activeColor: AikoColors.primaryBlue,
+                activeThumbColor: AikoColors.primaryBlue,
                 contentPadding: EdgeInsets.zero,
                 onChanged: (val) {
                   setState(() {

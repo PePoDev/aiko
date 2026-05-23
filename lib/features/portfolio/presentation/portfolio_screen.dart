@@ -41,10 +41,15 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: Text(
             'Sell / Remove ${holding.symbol}',
-            style: const TextStyle(fontWeight: FontWeight.bold, color: AikoColors.darkNavy),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AikoColors.darkNavy,
+            ),
           ),
           content: Text(
             'Are you sure you want to permanently delete or liquidate your position in ${holding.symbol}? This action cannot be undone.',
@@ -53,11 +58,16 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: AikoColors.mutedText)),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: AikoColors.mutedText),
+              ),
             ),
             FilledButton(
               onPressed: () {
-                ref.read(portfolioProvider.notifier).deleteHolding(holding.symbol);
+                ref
+                    .read(portfolioProvider.notifier)
+                    .deleteHolding(holding.symbol);
                 if (_selectedTaxHolding?.symbol == holding.symbol) {
                   setState(() {
                     _selectedTaxHolding = null;
@@ -79,7 +89,9 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                   ),
                 );
               },
-              style: FilledButton.styleFrom(backgroundColor: AikoColors.dangerRed),
+              style: FilledButton.styleFrom(
+                backgroundColor: AikoColors.dangerRed,
+              ),
               child: const Text('Remove Position'),
             ),
           ],
@@ -95,7 +107,8 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
     final isRefreshing = state.isRefreshing;
 
     // Dynamically initialize selection for tax estimator if not yet set
-    if (holdings.isNotEmpty && (!_isTaxEstimatorInitialized || _selectedTaxHolding == null)) {
+    if (holdings.isNotEmpty &&
+        (!_isTaxEstimatorInitialized || _selectedTaxHolding == null)) {
       // Find if previous selected holding still exists, otherwise take first
       final matched = holdings.firstWhere(
         (h) => h.symbol == _selectedTaxHolding?.symbol,
@@ -120,14 +133,20 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
 
     // Compute dynamic capital gains estimate based on user sliders
     CapitalGainsEstimate? gains;
-    if (_selectedTaxHolding != null && holdings.any((h) => h.symbol == _selectedTaxHolding!.symbol)) {
+    if (_selectedTaxHolding != null &&
+        holdings.any((h) => h.symbol == _selectedTaxHolding!.symbol)) {
       // Find latest instance from provider in case values changed
-      final latestHolding = holdings.firstWhere((h) => h.symbol == _selectedTaxHolding!.symbol);
+      final latestHolding = holdings.firstWhere(
+        (h) => h.symbol == _selectedTaxHolding!.symbol,
+      );
       try {
         gains = PortfolioScreen._service.capitalGainsOnSale(
           holding: latestHolding,
           quantitySold: _taxQuantitySold.clamp(0.1, latestHolding.quantity),
-          salePrice: Money.parse(_taxSalePrice.toStringAsFixed(2), latestHolding.currentPrice.currency),
+          salePrice: Money.parse(
+            _taxSalePrice.toStringAsFixed(2),
+            latestHolding.currentPrice.currency,
+          ),
         );
       } catch (_) {
         gains = null;
@@ -160,7 +179,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
         onPressed: _showAddHoldingBottomSheet,
         backgroundColor: AikoColors.premiumPurple,
         icon: const Icon(Icons.trending_up, color: Colors.white),
-        label: const Text('Add Investment', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: const Text(
+          'Add Investment',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: () => ref.read(portfolioProvider.notifier).refreshPrices(),
@@ -173,7 +195,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
               // Premium Live Ticker Indicator
               if (isRefreshing) ...[
                 Card(
-                  color: AikoColors.premiumPurple.withOpacity(0.1),
+                  color: AikoColors.premiumPurple.withValues(alpha: 0.1),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                     side: const BorderSide(color: AikoColors.premiumPurple),
@@ -241,7 +263,9 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AikoColors.analyticsTeal.withOpacity(0.1),
+                                  color: AikoColors.analyticsTeal.withValues(
+                                    alpha: 0.1,
+                                  ),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -282,7 +306,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                                             ? Icons.arrow_downward
                                             : Icons.arrow_upward,
                                         size: 10,
-                                        color: holding.unrealizedGainLoss.isNegative
+                                        color:
+                                            holding
+                                                .unrealizedGainLoss
+                                                .isNegative
                                             ? AikoColors.dangerRed
                                             : AikoColors.successGreen,
                                       ),
@@ -292,7 +319,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                                         style: TextStyle(
                                           fontSize: 10,
                                           fontWeight: FontWeight.bold,
-                                          color: holding.unrealizedGainLoss.isNegative
+                                          color:
+                                              holding
+                                                  .unrealizedGainLoss
+                                                  .isNegative
                                               ? AikoColors.dangerRed
                                               : AikoColors.successGreen,
                                         ),
@@ -303,10 +333,14 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                               ),
                               const SizedBox(width: 4),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline, color: AikoColors.mutedText, size: 20),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: AikoColors.mutedText,
+                                  size: 20,
+                                ),
                                 onPressed: () => _confirmDeleteHolding(holding),
                                 tooltip: 'Liquidate / Remove position',
-                              )
+                              ),
                             ],
                           ),
                         ),
@@ -330,11 +364,18 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.check_circle_outline, color: AikoColors.successGreen, size: 18),
+                            Icon(
+                              Icons.check_circle_outline,
+                              color: AikoColors.successGreen,
+                              size: 18,
+                            ),
                             SizedBox(width: 8),
                             Text(
                               'Portfolio is perfectly balanced!',
-                              style: TextStyle(color: Colors.grey, fontSize: 13),
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 13,
+                              ),
                             ),
                           ],
                         ),
@@ -345,7 +386,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                           contentPadding: EdgeInsets.zero,
                           title: Text(
                             alert.assetClass,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                           ),
                           subtitle: Text(
                             'Drift direction: ${alert.direction}',
@@ -357,18 +401,23 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                             ),
                           ),
                           trailing: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: AikoColors.warningOrange.withOpacity(0.08),
+                              color: AikoColors.warningOrange.withValues(
+                                alpha: 0.08,
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               'Actual: ${alert.actualPercent.toStringAsFixed(0)}% / Target: ${alert.targetPercent.toStringAsFixed(0)}%',
                               style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: AikoColors.warningOrange,
-                                ),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AikoColors.warningOrange,
+                              ),
                             ),
                           ),
                         ),
@@ -390,17 +439,29 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                     if (gains != null && _selectedTaxHolding != null) ...[
                       const Text(
                         'Simulate a stock liquidation and compute immediate taxable gains using FIFO estimation rules.',
-                        style: TextStyle(fontSize: 12, color: AikoColors.mutedText, height: 1.4),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AikoColors.mutedText,
+                          height: 1.4,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       // Dropdown holding selector
                       Row(
                         children: [
-                          const Text('Holding: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const Text(
+                            'Holding: ',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: AikoColors.border),
@@ -411,16 +472,26 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                                   items: holdings.map((h) {
                                     return DropdownMenuItem<String>(
                                       value: h.symbol,
-                                      child: Text('${h.symbol} (${h.assetClass})'),
+                                      child: Text(
+                                        '${h.symbol} (${h.assetClass})',
+                                      ),
                                     );
                                   }).toList(),
                                   onChanged: (val) {
                                     if (val == null) return;
                                     setState(() {
-                                      final matched = holdings.firstWhere((h) => h.symbol == val);
+                                      final matched = holdings.firstWhere(
+                                        (h) => h.symbol == val,
+                                      );
                                       _selectedTaxHolding = matched;
-                                      _taxQuantitySold = matched.quantity.clamp(0.1, matched.quantity);
-                                      _taxSalePrice = matched.currentPrice.amount.toDouble();
+                                      _taxQuantitySold = matched.quantity.clamp(
+                                        0.1,
+                                        matched.quantity,
+                                      );
+                                      _taxSalePrice = matched
+                                          .currentPrice
+                                          .amount
+                                          .toDouble();
                                     });
                                   },
                                 ),
@@ -434,17 +505,32 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Quantity to Sell:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const Text(
+                            'Quantity to Sell:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
                           Text(
                             _taxQuantitySold.toStringAsFixed(2),
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: AikoColors.primaryBlue),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AikoColors.primaryBlue,
+                            ),
                           ),
                         ],
                       ),
                       Slider(
-                        value: _taxQuantitySold.clamp(0.1, _selectedTaxHolding!.quantity),
+                        value: _taxQuantitySold.clamp(
+                          0.1,
+                          _selectedTaxHolding!.quantity,
+                        ),
                         min: 0.1,
-                        max: _selectedTaxHolding!.quantity.clamp(0.1, double.infinity),
+                        max: _selectedTaxHolding!.quantity.clamp(
+                          0.1,
+                          double.infinity,
+                        ),
                         activeColor: AikoColors.analyticsTeal,
                         inactiveColor: AikoColors.borderSubtle,
                         onChanged: (val) {
@@ -457,17 +543,34 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Simulated Sale Price:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const Text(
+                            'Simulated Sale Price:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
                           Text(
                             '\$${_taxSalePrice.toStringAsFixed(2)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: AikoColors.primaryBlue),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AikoColors.primaryBlue,
+                            ),
                           ),
                         ],
                       ),
                       Slider(
                         value: _taxSalePrice,
-                        min: (_selectedTaxHolding!.averageCost.amount.toDouble() * 0.2).clamp(1.0, double.infinity),
-                        max: (_selectedTaxHolding!.currentPrice.amount.toDouble() * 2.0).clamp(10.0, double.infinity),
+                        min:
+                            (_selectedTaxHolding!.averageCost.amount
+                                        .toDouble() *
+                                    0.2)
+                                .clamp(1.0, double.infinity),
+                        max:
+                            (_selectedTaxHolding!.currentPrice.amount
+                                        .toDouble() *
+                                    2.0)
+                                .clamp(10.0, double.infinity),
                         activeColor: AikoColors.successGreen,
                         inactiveColor: AikoColors.borderSubtle,
                         onChanged: (val) {
@@ -482,13 +585,15 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: gains.gainLoss.isNegative
-                              ? AikoColors.dangerRed.withOpacity(0.05)
-                              : AikoColors.successGreen.withOpacity(0.05),
+                              ? AikoColors.dangerRed.withValues(alpha: 0.05)
+                              : AikoColors.successGreen.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: gains.gainLoss.isNegative
-                                ? AikoColors.dangerRed.withOpacity(0.15)
-                                : AikoColors.successGreen.withOpacity(0.15),
+                                ? AikoColors.dangerRed.withValues(alpha: 0.15)
+                                : AikoColors.successGreen.withValues(
+                                    alpha: 0.15,
+                                  ),
                           ),
                         ),
                         child: Column(
@@ -496,16 +601,32 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Total Sale Proceeds:', style: TextStyle(fontSize: 12)),
-                                Text(gains.proceeds.format(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                const Text(
+                                  'Total Sale Proceeds:',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                                Text(
+                                  gains.proceeds.format(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 4),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Total Cost Basis:', style: TextStyle(fontSize: 12)),
-                                Text(gains.costBasis.format(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                const Text(
+                                  'Total Cost Basis:',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                                Text(
+                                  gains.costBasis.format(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ],
                             ),
                             const Divider(height: 16),
@@ -513,8 +634,13 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  gains.gainLoss.isNegative ? 'Simulated Capital Loss:' : 'Simulated Capital Gain:',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  gains.gainLoss.isNegative
+                                      ? 'Simulated Capital Loss:'
+                                      : 'Simulated Capital Gain:',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
                                 ),
                                 Text(
                                   gains.gainLoss.format(),
@@ -534,7 +660,11 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                       const SizedBox(height: 12),
                       const Text(
                         'This estimator utilizes FIFO accounting. Live market pricing updates automatically recompute taxable gains.',
-                        style: TextStyle(fontSize: 11, color: Colors.grey, height: 1.3),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          height: 1.3,
+                        ),
                       ),
                     ] else
                       const Padding(
@@ -542,7 +672,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                         child: Center(
                           child: Text(
                             'Add stock or bond holdings above to calculate simulated capital gains.',
-                            style: TextStyle(color: AikoColors.mutedText, fontSize: 12),
+                            style: TextStyle(
+                              color: AikoColors.mutedText,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ),
@@ -561,10 +694,12 @@ class _AddHoldingBottomSheet extends ConsumerStatefulWidget {
   const _AddHoldingBottomSheet();
 
   @override
-  ConsumerState<_AddHoldingBottomSheet> createState() => _AddHoldingBottomSheetState();
+  ConsumerState<_AddHoldingBottomSheet> createState() =>
+      _AddHoldingBottomSheetState();
 }
 
-class _AddHoldingBottomSheetState extends ConsumerState<_AddHoldingBottomSheet> {
+class _AddHoldingBottomSheetState
+    extends ConsumerState<_AddHoldingBottomSheet> {
   final _formKey = GlobalKey<FormState>();
   final _symbolController = TextEditingController();
   final _quantityController = TextEditingController();
@@ -573,7 +708,13 @@ class _AddHoldingBottomSheetState extends ConsumerState<_AddHoldingBottomSheet> 
   String _selectedAssetClass = 'Stocks';
   bool _isLoading = false;
 
-  final List<String> _assetClasses = ['Stocks', 'Bonds', 'Crypto', 'Cash', 'Custom'];
+  final List<String> _assetClasses = [
+    'Stocks',
+    'Bonds',
+    'Crypto',
+    'Cash',
+    'Custom',
+  ];
 
   @override
   void dispose() {
@@ -593,8 +734,8 @@ class _AddHoldingBottomSheetState extends ConsumerState<_AddHoldingBottomSheet> 
       final symbol = _symbolController.text.trim().toUpperCase();
       final quantity = double.parse(_quantityController.text.trim());
       final avgCostVal = _averageCostController.text.trim();
-      final currentPriceVal = _currentPriceController.text.trim().isEmpty 
-          ? avgCostVal 
+      final currentPriceVal = _currentPriceController.text.trim().isEmpty
+          ? avgCostVal
           : _currentPriceController.text.trim();
 
       final holding = InvestmentHolding(
@@ -642,7 +783,12 @@ class _AddHoldingBottomSheetState extends ConsumerState<_AddHoldingBottomSheet> 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 30),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 30,
+      ),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -659,7 +805,11 @@ class _AddHoldingBottomSheetState extends ConsumerState<_AddHoldingBottomSheet> 
                 children: [
                   const Text(
                     'Add Investment Asset',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AikoColors.premiumPurple),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: AikoColors.premiumPurple,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -671,7 +821,7 @@ class _AddHoldingBottomSheetState extends ConsumerState<_AddHoldingBottomSheet> 
               const SizedBox(height: 12),
               // Asset Class selector
               DropdownButtonFormField<String>(
-                value: _selectedAssetClass,
+                initialValue: _selectedAssetClass,
                 decoration: const InputDecoration(
                   labelText: 'Asset Class',
                   border: OutlineInputBorder(),
@@ -696,9 +846,7 @@ class _AddHoldingBottomSheetState extends ConsumerState<_AddHoldingBottomSheet> 
               TextFormField(
                 controller: _symbolController,
                 textCapitalization: TextCapitalization.characters,
-                inputFormatters: [
-                  LengthLimitingTextInputFormatter(10),
-                ],
+                inputFormatters: [LengthLimitingTextInputFormatter(10)],
                 decoration: const InputDecoration(
                   labelText: 'Ticker Symbol (e.g. AAPL, BND, BTC)',
                   border: OutlineInputBorder(),
@@ -715,14 +863,18 @@ class _AddHoldingBottomSheetState extends ConsumerState<_AddHoldingBottomSheet> 
               // Quantity
               TextFormField(
                 controller: _quantityController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(
                   labelText: 'Quantity Owned',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.pin_outlined),
                 ),
                 validator: (val) {
-                  if (val == null || double.tryParse(val.trim()) == null || double.parse(val.trim()) <= 0) {
+                  if (val == null ||
+                      double.tryParse(val.trim()) == null ||
+                      double.parse(val.trim()) <= 0) {
                     return 'Please enter a positive numeric quantity';
                   }
                   return null;
@@ -732,14 +884,18 @@ class _AddHoldingBottomSheetState extends ConsumerState<_AddHoldingBottomSheet> 
               // Average Cost
               TextFormField(
                 controller: _averageCostController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(
                   labelText: 'Average Cost Basis per Unit (\$)',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.attach_money_outlined),
                 ),
                 validator: (val) {
-                  if (val == null || double.tryParse(val.trim()) == null || double.parse(val.trim()) <= 0) {
+                  if (val == null ||
+                      double.tryParse(val.trim()) == null ||
+                      double.parse(val.trim()) <= 0) {
                     return 'Please enter a valid cost basis';
                   }
                   return null;
@@ -749,14 +905,20 @@ class _AddHoldingBottomSheetState extends ConsumerState<_AddHoldingBottomSheet> 
               // Current Live Price
               TextFormField(
                 controller: _currentPriceController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(
-                  labelText: 'Current Market Price (\$) [Optional, defaults to cost]',
+                  labelText:
+                      'Current Market Price (\$) [Optional, defaults to cost]',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.price_change_outlined),
                 ),
                 validator: (val) {
-                  if (val != null && val.trim().isNotEmpty && (double.tryParse(val.trim()) == null || double.parse(val.trim()) <= 0)) {
+                  if (val != null &&
+                      val.trim().isNotEmpty &&
+                      (double.tryParse(val.trim()) == null ||
+                          double.parse(val.trim()) <= 0)) {
                     return 'Please enter a positive live price or leave blank';
                   }
                   return null;
@@ -771,11 +933,19 @@ class _AddHoldingBottomSheetState extends ConsumerState<_AddHoldingBottomSheet> 
                   icon: _isLoading
                       ? const SizedBox.square(
                           dimension: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.add),
-                  label: const Text('Add to Portfolio', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  style: FilledButton.styleFrom(backgroundColor: AikoColors.premiumPurple),
+                  label: const Text(
+                    'Add to Portfolio',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AikoColors.premiumPurple,
+                  ),
                 ),
               ),
             ],

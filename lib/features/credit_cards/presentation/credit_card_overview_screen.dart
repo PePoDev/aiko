@@ -301,12 +301,12 @@ class _CreditCardOverviewScreenState
               color: AikoColors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: aikoBubbleBorder.withOpacity(0.5),
+                color: aikoBubbleBorder.withValues(alpha: 0.5),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AikoColors.border.withOpacity(0.1),
+                  color: AikoColors.border.withValues(alpha: 0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -318,7 +318,7 @@ class _CreditCardOverviewScreenState
                   aikoExpression,
                   width: 72,
                   height: 72,
-                  errorBuilder: (_, __, ___) => const Icon(
+                  errorBuilder: (_, _, _) => const Icon(
                     Icons.face_3,
                     size: 72,
                     color: AikoColors.primaryBlue,
@@ -803,7 +803,7 @@ class _CreditCardOverviewScreenState
                         return Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AikoColors.dangerRed.withOpacity(0.1),
+                            color: AikoColors.dangerRed.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Row(

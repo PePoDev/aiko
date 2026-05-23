@@ -82,15 +82,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         final pin = pinController.text.trim();
                         if (pin.length == 4) {
                           await _lockService.configurePin(pin);
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          if (!mounted) return;
+                          Navigator.pop(this.context);
+                          ScaffoldMessenger.of(this.context).showSnackBar(
                             const SnackBar(
                               content: Text('PIN configured successfully!'),
                               backgroundColor: AikoColors.successGreen,
                             ),
                           );
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(this.context).showSnackBar(
                             const SnackBar(
                               content: Text('PIN must be exactly 4 digits.'),
                               backgroundColor: AikoColors.dangerRed,

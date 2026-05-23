@@ -255,13 +255,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: isRecording
-                          ? AikoColors.dangerRed.withOpacity(0.05)
-                          : AikoColors.premiumPurple.withOpacity(0.03),
+                          ? AikoColors.dangerRed.withValues(alpha: 0.05)
+                          : AikoColors.premiumPurple.withValues(alpha: 0.03),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isRecording
-                            ? AikoColors.dangerRed.withOpacity(0.2)
-                            : AikoColors.premiumPurple.withOpacity(0.1),
+                            ? AikoColors.dangerRed.withValues(alpha: 0.2)
+                            : AikoColors.premiumPurple.withValues(alpha: 0.1),
                       ),
                     ),
                     child: Column(
@@ -422,7 +422,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                                         (isRecording
                                                 ? AikoColors.dangerRed
                                                 : AikoColors.premiumPurple)
-                                            .withOpacity(0.3),
+                                            .withValues(alpha: 0.3),
                                     blurRadius: isRecording ? 16 : 8,
                                     spreadRadius: isRecording ? 4 : 1,
                                   ),
@@ -898,7 +898,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
               side: BorderSide(
-                color: AikoColors.premiumPurple.withOpacity(0.3),
+                color: AikoColors.premiumPurple.withValues(alpha: 0.3),
               ),
             ),
             child: Container(
@@ -906,8 +906,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AikoColors.premiumPurple.withOpacity(0.05),
-                    AikoColors.deepBlue.withOpacity(0.05),
+                    AikoColors.premiumPurple.withValues(alpha: 0.05),
+                    AikoColors.deepBlue.withValues(alpha: 0.05),
                   ],
                 ),
               ),

@@ -50,7 +50,7 @@ Future<IntegrationTestAccount> createIntegrationTestAccount() async {
   final timestamp = DateTime.now().microsecondsSinceEpoch;
   final account = IntegrationTestAccount(
     email: 'aiko.integration.$timestamp@example.com',
-    password: 'AikoTest#${timestamp}!',
+    password: 'AikoTest#$timestamp!',
   );
 
   final response = await client.auth.signUp(

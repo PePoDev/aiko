@@ -55,7 +55,7 @@ class MultiDeviceSyncService {
         },
       );
 
-    await _realtimeChannel!.subscribe();
+    _realtimeChannel!.subscribe();
   }
 
   Future<SyncStatus> syncNow() async {
@@ -71,13 +71,11 @@ class MultiDeviceSyncService {
         // Fetch remote updates, resolve conflicts, and upload local changes
         final session = AikoSupabase.requireSession();
         // Trigger simulated database transaction representing LWW CRDT integration
-        await client
-            .from('devices')
-            .upsert({
-              'user_id': session.userId,
-              'updated_at': DateTime.now().toUtc().toIso8601String(),
-              'status': 'synced',
-            });
+        await client.from('devices').upsert({
+          'user_id': session.userId,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+          'status': 'synced',
+        });
       }
       _currentStatus = SyncStatus.synced;
       _statusController.add(SyncStatus.synced);

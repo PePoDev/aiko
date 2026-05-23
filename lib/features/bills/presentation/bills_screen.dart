@@ -298,7 +298,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                       aikoExpression,
                       width: 72,
                       height: 72,
-                      errorBuilder: (_, __, ___) => const Icon(
+                      errorBuilder: (_, _, _) => const Icon(
                         Icons.face_3,
                         size: 72,
                         color: AikoColors.primaryBlue,
@@ -857,7 +857,7 @@ class _AddBillBottomSheetState extends ConsumerState<_AddBillBottomSheet> {
                   height: 50,
                   child: Center(child: CircularProgressIndicator()),
                 ),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
                 data: (categories) {
                   return DropdownButtonFormField<String>(
                     value: _selectedCategoryId,

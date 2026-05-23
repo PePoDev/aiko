@@ -12,7 +12,8 @@ class AikoAssistantScreen extends ConsumerStatefulWidget {
   const AikoAssistantScreen({super.key});
 
   @override
-  ConsumerState<AikoAssistantScreen> createState() => _AikoAssistantScreenState();
+  ConsumerState<AikoAssistantScreen> createState() =>
+      _AikoAssistantScreenState();
 }
 
 class _ChatMessage {
@@ -46,12 +47,15 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
   @override
   void initState() {
     super.initState();
-    _messages.add(_ChatMessage(
-      text: "Hi there! I'm Aiko, your blue-haired personal finance assistant. 💙 Let me know how I can guide you today!",
-      isMe: false,
-      time: DateTime.now(),
-      expression: 'assets/images/aiko/aiko_welcome.png',
-    ));
+    _messages.add(
+      _ChatMessage(
+        text:
+            "Hi there! I'm Aiko, your blue-haired personal finance assistant. 💙 Let me know how I can guide you today!",
+        isMe: false,
+        time: DateTime.now(),
+        expression: 'assets/images/aiko/aiko_welcome.png',
+      ),
+    );
   }
 
   @override
@@ -77,11 +81,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
     if (text.isEmpty) return;
 
     setState(() {
-      _messages.add(_ChatMessage(
-        text: text,
-        isMe: true,
-        time: DateTime.now(),
-      ));
+      _messages.add(_ChatMessage(text: text, isMe: true, time: DateTime.now()));
       _isTyping = true;
       _currentExpression = 'assets/images/aiko/aiko_thinking.png';
     });
@@ -104,13 +104,18 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
     final aiConsent = profile.aiConsentEnabled;
 
     // We can fetch safeToSpend estimation cushion if available from dashboard or simple math
-    final double safeToSpendValue = accounts.fold<double>(0, (sum, acc) {
-      if (acc.type == AccountType.cash || acc.type == AccountType.bank) {
-        return sum + acc.currentBalance.amount.toDouble();
-      }
-      return sum;
-    }) * 0.15; // 15% cash safe-to-spend mock cushion if none available
-    final safeToSpendAmount = Money.parse(safeToSpendValue.toStringAsFixed(2), 'USD');
+    final double safeToSpendValue =
+        accounts.fold<double>(0, (sum, acc) {
+          if (acc.type == AccountType.cash || acc.type == AccountType.bank) {
+            return sum + acc.currentBalance.amount.toDouble();
+          }
+          return sum;
+        }) *
+        0.15; // 15% cash safe-to-spend mock cushion if none available
+    final safeToSpendAmount = Money.parse(
+      safeToSpendValue.toStringAsFixed(2),
+      'USD',
+    );
 
     final response = _service.answerQuestion(
       question: text,
@@ -126,29 +131,36 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
     // Map response type to character expression
     String responseExpression = 'assets/images/aiko/aiko_happy.png';
     final normalized = text.toLowerCase();
-    
+
     if (response.type == AikoResponseType.missingData) {
       responseExpression = 'assets/images/aiko/aiko_warning.png';
-    } else if (normalized.contains('net worth') || normalized.contains('goal') || normalized.contains('celebrate')) {
+    } else if (normalized.contains('net worth') ||
+        normalized.contains('goal') ||
+        normalized.contains('celebrate')) {
       responseExpression = 'assets/images/aiko/aiko_celebrating.png';
-    } else if (normalized.contains('safe') || normalized.contains('spend') || normalized.contains('optimize')) {
+    } else if (normalized.contains('safe') ||
+        normalized.contains('spend') ||
+        normalized.contains('optimize')) {
       responseExpression = 'assets/images/aiko/aiko_encouraging.png';
-    } else if (normalized.contains('help') || response.type == AikoResponseType.disclaimer) {
+    } else if (normalized.contains('help') ||
+        response.type == AikoResponseType.disclaimer) {
       responseExpression = 'assets/images/aiko/aiko_thinking.png';
     }
 
     setState(() {
       _isTyping = false;
       _currentExpression = responseExpression;
-      _messages.add(_ChatMessage(
-        text: response.answer,
-        isMe: false,
-        time: DateTime.now(),
-        explanation: response.explanation,
-        disclaimer: response.disclaimer,
-        recommendation: response.recommendation,
-        expression: responseExpression,
-      ));
+      _messages.add(
+        _ChatMessage(
+          text: response.answer,
+          isMe: false,
+          time: DateTime.now(),
+          explanation: response.explanation,
+          disclaimer: response.disclaimer,
+          recommendation: response.recommendation,
+          expression: responseExpression,
+        ),
+      );
     });
     _scrollToBottom();
   }
@@ -168,8 +180,14 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Aiko Assistant', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text('Online companion', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                Text(
+                  'Aiko Assistant',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  'Online companion',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
               ],
             ),
           ],
@@ -192,7 +210,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
                   _currentExpression,
                   width: 60,
                   height: 60,
-                  errorBuilder: (_, __, ___) => const Icon(
+                  errorBuilder: (_, _, _) => const Icon(
                     Icons.face_3,
                     size: 60,
                     color: AikoColors.primaryBlue,
@@ -214,10 +232,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
                       SizedBox(height: 2),
                       Text(
                         'Aiko analyzes your budgets, savings goals, and cash flow in real-time.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey,
-                        ),
+                        style: TextStyle(fontSize: 11, color: Colors.grey),
                       ),
                     ],
                   ),
@@ -225,7 +240,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
               ],
             ),
           ),
-          
+
           // Scrollable messages list
           Expanded(
             child: ListView.builder(
@@ -273,7 +288,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
               'assets/images/aiko/aiko_thinking.png',
               width: 24,
               height: 24,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
             const SizedBox(width: 8),
             const Text(
@@ -324,10 +339,14 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
               msg.expression,
               width: 36,
               height: 36,
-              errorBuilder: (_, __, ___) => const CircleAvatar(
+              errorBuilder: (_, _, _) => const CircleAvatar(
                 radius: 18,
                 backgroundColor: AikoColors.softBlue,
-                child: Icon(Icons.face_3, size: 20, color: AikoColors.primaryBlue),
+                child: Icon(
+                  Icons.face_3,
+                  size: 20,
+                  color: AikoColors.primaryBlue,
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -347,8 +366,8 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
                       color: AikoColors.border.withOpacity(0.1),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
-                    )
-                  ]
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

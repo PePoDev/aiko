@@ -560,7 +560,7 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
               const SizedBox(height: 16),
               // Goal Purpose
               DropdownButtonFormField<GoalPurpose>(
-                value: _selectedPurpose,
+                initialValue: _selectedPurpose,
                 decoration: InputDecoration(
                   labelText: 'Goal Category / Purpose',
                   prefixIcon: const Icon(Icons.category_outlined),
@@ -673,7 +673,7 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
                       .where((a) => a.isActive)
                       .toList();
                   return DropdownButtonFormField<String?>(
-                    value: _selectedAccountId,
+                    initialValue: _selectedAccountId,
                     decoration: InputDecoration(
                       labelText: 'Linked Funding Account (Optional)',
                       prefixIcon: const Icon(

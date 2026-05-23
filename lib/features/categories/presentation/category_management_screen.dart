@@ -71,7 +71,8 @@ class CategoryManagementScreen extends ConsumerWidget {
           if (categories.isEmpty) {
             return AikoScreenState.empty(
               title: 'No categories yet',
-              message: 'Create categories to organize transactions and budgets.',
+              message:
+                  'Create categories to organize transactions and budgets.',
               action: PrimaryActionButton(
                 label: 'Add Category',
                 icon: Icons.add_circle_outline,
@@ -102,7 +103,10 @@ class CategoryManagementScreen extends ConsumerWidget {
                         style: const TextStyle(color: AikoColors.mutedText),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: category.budgetEnabled
                               ? AikoColors.successGreen.withValues(alpha: 0.1)
@@ -225,10 +229,12 @@ class _AddCategoryBottomSheet extends ConsumerStatefulWidget {
   const _AddCategoryBottomSheet();
 
   @override
-  ConsumerState<_AddCategoryBottomSheet> createState() => _AddCategoryBottomSheetState();
+  ConsumerState<_AddCategoryBottomSheet> createState() =>
+      _AddCategoryBottomSheetState();
 }
 
-class _AddCategoryBottomSheetState extends ConsumerState<_AddCategoryBottomSheet> {
+class _AddCategoryBottomSheetState
+    extends ConsumerState<_AddCategoryBottomSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
 
@@ -406,8 +412,8 @@ class _AddCategoryBottomSheetState extends ConsumerState<_AddCategoryBottomSheet
                   Text(
                     'Add Category',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -429,7 +435,9 @@ class _AddCategoryBottomSheetState extends ConsumerState<_AddCategoryBottomSheet
                     return 'Please enter a category name';
                   }
                   final list = categoriesAsync.value ?? [];
-                  if (list.any((c) => c.name.toLowerCase() == value.trim().toLowerCase())) {
+                  if (list.any(
+                    (c) => c.name.toLowerCase() == value.trim().toLowerCase(),
+                  )) {
                     return 'A category with this name already exists';
                   }
                   return null;
@@ -438,7 +446,7 @@ class _AddCategoryBottomSheetState extends ConsumerState<_AddCategoryBottomSheet
               const SizedBox(height: 16),
               // Category Type
               DropdownButtonFormField<CategoryType>(
-                value: _selectedType,
+                initialValue: _selectedType,
                 decoration: InputDecoration(
                   labelText: 'Category Type',
                   prefixIcon: const Icon(Icons.swap_horiz_outlined),
@@ -459,7 +467,7 @@ class _AddCategoryBottomSheetState extends ConsumerState<_AddCategoryBottomSheet
               const SizedBox(height: 16),
               // Category Group
               DropdownButtonFormField<CategoryGroup>(
-                value: _selectedGroup,
+                initialValue: _selectedGroup,
                 decoration: InputDecoration(
                   labelText: 'Category Group (50/30/20 Rule)',
                   prefixIcon: const Icon(Icons.grid_view_outlined),
@@ -509,7 +517,9 @@ class _AddCategoryBottomSheetState extends ConsumerState<_AddCategoryBottomSheet
                           color: colorVal,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: isSelected ? Colors.black : Colors.transparent,
+                            color: isSelected
+                                ? Colors.black
+                                : Colors.transparent,
                             width: 2.5,
                           ),
                         ),
@@ -560,13 +570,17 @@ class _AddCategoryBottomSheetState extends ConsumerState<_AddCategoryBottomSheet
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: isSelected ? activeColor : AikoColors.borderSubtle,
+                            color: isSelected
+                                ? activeColor
+                                : AikoColors.borderSubtle,
                             width: 2,
                           ),
                         ),
                         child: Icon(
                           iconData,
-                          color: isSelected ? activeColor : AikoColors.mutedText,
+                          color: isSelected
+                              ? activeColor
+                              : AikoColors.mutedText,
                           size: 24,
                         ),
                       ),
@@ -582,9 +596,11 @@ class _AddCategoryBottomSheetState extends ConsumerState<_AddCategoryBottomSheet
                   'Include in Budgets',
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
-                subtitle: const Text('Enables setting up spending budget rules for this category'),
+                subtitle: const Text(
+                  'Enables setting up spending budget rules for this category',
+                ),
                 value: _budgetEnabled,
-                activeColor: AikoColors.primaryBlue,
+                activeThumbColor: AikoColors.primaryBlue,
                 onChanged: (val) => setState(() => _budgetEnabled = val),
               ),
               const SizedBox(height: 24),

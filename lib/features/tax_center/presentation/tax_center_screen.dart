@@ -33,12 +33,42 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
   double _taxRatePercent = 22.0;
 
   final List<TaxDeductionItem> _deductions = [
-    TaxDeductionItem(id: 'home_office', name: 'Home Office Deduction', category: 'Schedule C', amount: 1500.0),
-    TaxDeductionItem(id: 'software', name: 'Software & Subscriptions (Aiko Pro, etc.)', category: 'Schedule C', amount: 360.0),
-    TaxDeductionItem(id: 'vehicle', name: 'Business Mileage (Standard Rate)', category: 'Schedule C', amount: 850.0),
-    TaxDeductionItem(id: 'internet', name: 'Internet & Phone (Business portion)', category: 'Schedule C', amount: 480.0),
-    TaxDeductionItem(id: 'supplies', name: 'Office Supplies & Hardware', category: 'Schedule C', amount: 250.0),
-    TaxDeductionItem(id: 'meals', name: 'Business Meals (50% rule)', category: 'Schedule C', amount: 180.0),
+    TaxDeductionItem(
+      id: 'home_office',
+      name: 'Home Office Deduction',
+      category: 'Schedule C',
+      amount: 1500.0,
+    ),
+    TaxDeductionItem(
+      id: 'software',
+      name: 'Software & Subscriptions (Aiko Pro, etc.)',
+      category: 'Schedule C',
+      amount: 360.0,
+    ),
+    TaxDeductionItem(
+      id: 'vehicle',
+      name: 'Business Mileage (Standard Rate)',
+      category: 'Schedule C',
+      amount: 850.0,
+    ),
+    TaxDeductionItem(
+      id: 'internet',
+      name: 'Internet & Phone (Business portion)',
+      category: 'Schedule C',
+      amount: 480.0,
+    ),
+    TaxDeductionItem(
+      id: 'supplies',
+      name: 'Office Supplies & Hardware',
+      category: 'Schedule C',
+      amount: 250.0,
+    ),
+    TaxDeductionItem(
+      id: 'meals',
+      name: 'Business Meals (50% rule)',
+      category: 'Schedule C',
+      amount: 180.0,
+    ),
   ];
 
   final _incomeController = TextEditingController(text: '75000');
@@ -74,7 +104,7 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
       _isUploading = true;
       _uploadStatusMessage = 'Uploading $fileName...';
     });
-    
+
     try {
       final bytes = [0, 1, 2, 3];
       await _vaultService.uploadDocument(
@@ -82,9 +112,9 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
         fileBytes: bytes,
         userId: 'user_123',
       );
-      
+
       final updatedDocs = await _vaultService.listDocuments(userId: 'user_123');
-      
+
       setState(() {
         _documents = updatedDocs;
         if (!_documents.contains(fileName)) {
@@ -93,11 +123,13 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
         _isUploading = false;
         _uploadStatusMessage = null;
       });
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$fileName uploaded successfully to encrypted cloud vault!'),
+          content: Text(
+            '$fileName uploaded successfully to encrypted cloud vault!',
+          ),
           backgroundColor: AikoColors.successGreen,
         ),
       );
@@ -132,9 +164,9 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
               Text(
                 'Upload Tax Document',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AikoColors.primaryBlue,
-                    ),
+                  fontWeight: FontWeight.bold,
+                  color: AikoColors.primaryBlue,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -145,7 +177,10 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
               ),
               const SizedBox(height: 20),
               ListTile(
-                leading: const Icon(Icons.description_outlined, color: AikoColors.analyticsTeal),
+                leading: const Icon(
+                  Icons.description_outlined,
+                  color: AikoColors.analyticsTeal,
+                ),
                 title: const Text('Form 1099-DIV (Dividend Income)'),
                 subtitle: const Text('1099_DIV_Brokerage.pdf'),
                 onTap: () {
@@ -155,7 +190,10 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
               ),
               const Divider(height: 1),
               ListTile(
-                leading: const Icon(Icons.badge_outlined, color: AikoColors.primaryBlue),
+                leading: const Icon(
+                  Icons.badge_outlined,
+                  color: AikoColors.primaryBlue,
+                ),
                 title: const Text('Form W-2 (Wage & Tax Statement)'),
                 subtitle: const Text('W2_Form_2026.pdf'),
                 onTap: () {
@@ -165,7 +203,10 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
               ),
               const Divider(height: 1),
               ListTile(
-                leading: const Icon(Icons.savings_outlined, color: AikoColors.successGreen),
+                leading: const Icon(
+                  Icons.savings_outlined,
+                  color: AikoColors.successGreen,
+                ),
                 title: const Text('Form 1099-INT (Interest Income)'),
                 subtitle: const Text('1099_INT_Savings.pdf'),
                 onTap: () {
@@ -175,12 +216,17 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
               ),
               const Divider(height: 1),
               ListTile(
-                leading: const Icon(Icons.upload_file_outlined, color: AikoColors.premiumPurple),
+                leading: const Icon(
+                  Icons.upload_file_outlined,
+                  color: AikoColors.premiumPurple,
+                ),
                 title: const Text('Custom Expense PDF Receipt'),
                 subtitle: const Text('Custom_Receipt.pdf'),
                 onTap: () {
                   Navigator.pop(context);
-                  final ts = DateTime.now().millisecondsSinceEpoch.toString().substring(8);
+                  final ts = DateTime.now().millisecondsSinceEpoch
+                      .toString()
+                      .substring(8);
                   _uploadDocument('Custom_Tax_Receipt_$ts.pdf');
                 },
               ),
@@ -226,14 +272,19 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
         backgroundColor: AikoColors.white,
         title: const Text(
           'Add Custom Deduction',
-          style: TextStyle(color: AikoColors.darkNavy, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: AikoColors.darkNavy,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: _customDeductionNameController,
-              decoration: const InputDecoration(labelText: 'Deduction Name (e.g. Marketing)'),
+              decoration: const InputDecoration(
+                labelText: 'Deduction Name (e.g. Marketing)',
+              ),
             ),
             TextField(
               controller: _customDeductionAmountController,
@@ -245,13 +296,19 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: AikoColors.mutedText)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AikoColors.mutedText),
+            ),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AikoColors.primaryBlue),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AikoColors.primaryBlue,
+            ),
             onPressed: () {
               final name = _customDeductionNameController.text;
-              final amount = double.tryParse(_customDeductionAmountController.text) ?? 0.0;
+              final amount =
+                  double.tryParse(_customDeductionAmountController.text) ?? 0.0;
               if (name.isNotEmpty && amount > 0) {
                 setState(() {
                   _deductions.add(
@@ -295,7 +352,7 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
             icon: const Icon(Icons.add_chart),
             onPressed: _showAddDeductionDialog,
             tooltip: 'Add Custom Deduction',
-          )
+          ),
         ],
       ),
       body: ListView(
@@ -307,14 +364,17 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
             decoration: BoxDecoration(
               color: AikoColors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AikoColors.analyticsTeal.withOpacity(0.5), width: 1.5),
+              border: Border.all(
+                color: AikoColors.analyticsTeal.withOpacity(0.5),
+                width: 1.5,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: AikoColors.border.withOpacity(0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
-                )
-              ]
+                ),
+              ],
             ),
             child: Row(
               children: [
@@ -322,7 +382,11 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
                   'assets/images/aiko/aiko_thinking.png',
                   width: 72,
                   height: 72,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.face_5, size: 72, color: AikoColors.analyticsTeal),
+                  errorBuilder: (_, _, _) => const Icon(
+                    Icons.face_5,
+                    size: 72,
+                    color: AikoColors.analyticsTeal,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
@@ -391,33 +455,71 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
                   children: [
                     Column(
                       children: [
-                        const Text('Est. Tax Liability', style: TextStyle(fontSize: 11, color: AikoColors.mutedText)),
+                        const Text(
+                          'Est. Tax Liability',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AikoColors.mutedText,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           '\$${estimatedTax.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AikoColors.dangerRed),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AikoColors.dangerRed,
+                          ),
                         ),
                       ],
                     ),
-                    Container(width: 1, height: 40, color: AikoColors.borderSubtle),
+                    Container(
+                      width: 1,
+                      height: 40,
+                      color: AikoColors.borderSubtle,
+                    ),
                     Column(
                       children: [
-                        const Text('Total Deductions', style: TextStyle(fontSize: 11, color: AikoColors.mutedText)),
+                        const Text(
+                          'Total Deductions',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AikoColors.mutedText,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           '\$${totalDeductions.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AikoColors.primaryBlue),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AikoColors.primaryBlue,
+                          ),
                         ),
                       ],
                     ),
-                    Container(width: 1, height: 40, color: AikoColors.borderSubtle),
+                    Container(
+                      width: 1,
+                      height: 40,
+                      color: AikoColors.borderSubtle,
+                    ),
                     Column(
                       children: [
-                        const Text('Tax Savings', style: TextStyle(fontSize: 11, color: AikoColors.mutedText)),
+                        const Text(
+                          'Tax Savings',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AikoColors.mutedText,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           '\$${taxSavings.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AikoColors.successGreen),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AikoColors.successGreen,
+                          ),
                         ),
                       ],
                     ),
@@ -429,11 +531,19 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
                   children: [
                     const Text(
                       'Net Taxable Income:',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: AikoColors.darkNavy, fontSize: 13),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AikoColors.darkNavy,
+                        fontSize: 13,
+                      ),
                     ),
                     Text(
                       '\$${taxableIncome.toStringAsFixed(2)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: AikoColors.neutralInk, fontSize: 14),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AikoColors.neutralInk,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),
@@ -450,14 +560,21 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
               children: [
                 const Text(
                   'Tax Deduction Log',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AikoColors.darkNavy),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AikoColors.darkNavy,
+                  ),
                 ),
                 TextButton.icon(
                   onPressed: _showAddDeductionDialog,
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Add', style: TextStyle(fontSize: 12)),
-                  style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
-                )
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                  ),
+                ),
               ],
             ),
           ),
@@ -465,20 +582,28 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
 
           // Deduction items list
           ..._deductions.map((item) {
-
             return Card(
               elevation: 1,
               margin: const EdgeInsets.only(bottom: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               color: AikoColors.white,
               child: CheckboxListTile(
                 title: Text(
                   item.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AikoColors.darkNavy),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: AikoColors.darkNavy,
+                  ),
                 ),
                 subtitle: Text(
                   '${item.category} | Amount: \$${item.amount.toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 11, color: AikoColors.mutedText),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AikoColors.mutedText,
+                  ),
                 ),
                 value: item.isSelected,
                 activeColor: AikoColors.analyticsTeal,
@@ -487,7 +612,10 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
                     item.isSelected = val ?? false;
                   });
                 },
-                secondary: const Icon(Icons.receipt_long, color: AikoColors.analyticsTeal),
+                secondary: const Icon(
+                  Icons.receipt_long,
+                  color: AikoColors.analyticsTeal,
+                ),
               ),
             );
           }),
@@ -575,7 +703,9 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
                               });
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('$doc deleted from local vault.'),
+                                  content: Text(
+                                    '$doc deleted from local vault.',
+                                  ),
                                   backgroundColor: AikoColors.warningOrange,
                                 ),
                               );
@@ -634,7 +764,11 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
             accentColor: AikoColors.warningOrange,
             child: const Text(
               'Aiko calculations and deductions are estimates for educational and forecasting purposes only. Tax laws are complex and change frequently. Please consult a licensed CPA or certified tax professional for official tax filing guidance.',
-              style: TextStyle(fontSize: 12, color: AikoColors.mutedText, height: 1.4),
+              style: TextStyle(
+                fontSize: 12,
+                color: AikoColors.mutedText,
+                height: 1.4,
+              ),
             ),
           ),
         ],

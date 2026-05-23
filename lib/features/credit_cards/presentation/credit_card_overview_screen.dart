@@ -45,18 +45,21 @@ class CreditCardsNotifier extends Notifier<List<CreditCardDetail>> {
 }
 
 // State provider to manage the list of credit cards locally for interactive tracking
-final creditCardsProvider = NotifierProvider<CreditCardsNotifier, List<CreditCardDetail>>(() {
-  return CreditCardsNotifier();
-});
+final creditCardsProvider =
+    NotifierProvider<CreditCardsNotifier, List<CreditCardDetail>>(() {
+      return CreditCardsNotifier();
+    });
 
 class CreditCardOverviewScreen extends ConsumerStatefulWidget {
   const CreditCardOverviewScreen({super.key});
 
   @override
-  ConsumerState<CreditCardOverviewScreen> createState() => _CreditCardOverviewScreenState();
+  ConsumerState<CreditCardOverviewScreen> createState() =>
+      _CreditCardOverviewScreenState();
 }
 
-class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScreen> {
+class _CreditCardOverviewScreenState
+    extends ConsumerState<CreditCardOverviewScreen> {
   CreditCardDetail? _selectedCard;
   final _metricsService = const CreditCardMetricsService();
 
@@ -97,7 +100,10 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
         backgroundColor: AikoColors.white,
         title: const Text(
           'Add Credit Card',
-          style: TextStyle(color: AikoColors.darkNavy, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: AikoColors.darkNavy,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         content: SingleChildScrollView(
           child: Column(
@@ -105,31 +111,43 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
             children: [
               TextField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Card Name (e.g. Aiko Premium)'),
+                decoration: const InputDecoration(
+                  labelText: 'Card Name (e.g. Aiko Premium)',
+                ),
               ),
               TextField(
                 controller: _balanceController,
-                decoration: const InputDecoration(labelText: 'Statement Balance (\$)'),
+                decoration: const InputDecoration(
+                  labelText: 'Statement Balance (\$)',
+                ),
                 keyboardType: TextInputType.number,
               ),
               TextField(
                 controller: _limitController,
-                decoration: const InputDecoration(labelText: 'Credit Limit (\$)'),
+                decoration: const InputDecoration(
+                  labelText: 'Credit Limit (\$)',
+                ),
                 keyboardType: TextInputType.number,
               ),
               TextField(
                 controller: _aprController,
-                decoration: const InputDecoration(labelText: 'APR % (e.g. 18.99)'),
+                decoration: const InputDecoration(
+                  labelText: 'APR % (e.g. 18.99)',
+                ),
                 keyboardType: TextInputType.number,
               ),
               TextField(
                 controller: _minPaymentController,
-                decoration: const InputDecoration(labelText: 'Minimum Payment (\$)'),
+                decoration: const InputDecoration(
+                  labelText: 'Minimum Payment (\$)',
+                ),
                 keyboardType: TextInputType.number,
               ),
               TextField(
                 controller: _rewardsController,
-                decoration: const InputDecoration(labelText: 'Rewards (e.g. 2% Cash Back)'),
+                decoration: const InputDecoration(
+                  labelText: 'Rewards (e.g. 2% Cash Back)',
+                ),
               ),
             ],
           ),
@@ -137,26 +155,38 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: AikoColors.mutedText)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AikoColors.mutedText),
+            ),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AikoColors.primaryBlue),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AikoColors.primaryBlue,
+            ),
             onPressed: () {
               if (_nameController.text.isEmpty) return;
               final balance = double.tryParse(_balanceController.text) ?? 0.0;
               final limit = double.tryParse(_limitController.text) ?? 5000.0;
               final apr = double.tryParse(_aprController.text) ?? 18.0;
-              final minPay = double.tryParse(_minPaymentController.text) ?? (balance * 0.02);
+              final minPay =
+                  double.tryParse(_minPaymentController.text) ??
+                  (balance * 0.02);
 
               final newCard = CreditCardDetail(
                 id: 'card-${DateTime.now().millisecondsSinceEpoch}',
                 userId: 'user-default',
                 accountId: _nameController.text,
-                statementBalance: Money.parse(balance.toStringAsFixed(2), 'USD'),
+                statementBalance: Money.parse(
+                  balance.toStringAsFixed(2),
+                  'USD',
+                ),
                 paymentDueDate: DateTime.now().add(const Duration(days: 30)),
                 creditLimit: Money.parse(limit.toStringAsFixed(2), 'USD'),
                 aprPercent: apr,
-                rewardsSummary: _rewardsController.text.isEmpty ? 'Standard Rewards' : _rewardsController.text,
+                rewardsSummary: _rewardsController.text.isEmpty
+                    ? 'Standard Rewards'
+                    : _rewardsController.text,
                 minimumPayment: Money.parse(minPay.toStringAsFixed(2), 'USD'),
               );
 
@@ -171,10 +201,13 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
   }
 
   // Payoff calculation loop
-  Map<String, dynamic> _calculatePayoffMonths(CreditCardDetail card, double payment) {
-    double bal = card.statementBalance.amount.toDouble();
-    double apr = card.aprPercent ?? 0.0;
-    double rate = apr / 100 / 12;
+  Map<String, dynamic> _calculatePayoffMonths(
+    CreditCardDetail card,
+    double payment,
+  ) {
+    final double bal = card.statementBalance.amount.toDouble();
+    final double apr = card.aprPercent ?? 0.0;
+    final double rate = apr / 100 / 12;
 
     if (bal <= 0) {
       return {'months': 0, 'interest': 0.0, 'never': false};
@@ -188,17 +221,13 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
     double currentBal = bal;
 
     while (currentBal > 0 && months < 360) {
-      double interest = currentBal * rate;
+      final double interest = currentBal * rate;
       totalInterest += interest;
       currentBal = currentBal + interest - payment;
       months++;
     }
 
-    return {
-      'months': months,
-      'interest': totalInterest,
-      'never': false,
-    };
+    return {'months': months, 'interest': totalInterest, 'never': false};
   }
 
   @override
@@ -214,11 +243,19 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
     for (final card in cards) {
       totalLimit += card.creditLimit?.amount.toDouble() ?? 0;
       totalBalance += card.statementBalance.amount.toDouble();
-      totalMinPayment += _metricsService.suggestedMinimumPayment(card).amount.toDouble();
-      totalInterestEst += _metricsService.estimateMonthlyInterest(card).amount.toDouble();
+      totalMinPayment += _metricsService
+          .suggestedMinimumPayment(card)
+          .amount
+          .toDouble();
+      totalInterestEst += _metricsService
+          .estimateMonthlyInterest(card)
+          .amount
+          .toDouble();
     }
 
-    final overallUtil = totalLimit > 0 ? (totalBalance / totalLimit * 100) : 0.0;
+    final overallUtil = totalLimit > 0
+        ? (totalBalance / totalLimit * 100)
+        : 0.0;
 
     // Determine Aiko's expression and guidance text
     String aikoExpression;
@@ -227,15 +264,18 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
 
     if (overallUtil > 30) {
       aikoExpression = 'assets/images/aiko/aiko_warning.png';
-      aikoSpeech = "Aiko warning: Your credit utilization is at ${overallUtil.toStringAsFixed(1)}%. Keeping utilization under 30% helps protect your credit score! Let's build a payoff plan.";
+      aikoSpeech =
+          "Aiko warning: Your credit utilization is at ${overallUtil.toStringAsFixed(1)}%. Keeping utilization under 30% helps protect your credit score! Let's build a payoff plan.";
       aikoBubbleBorder = AikoColors.dangerRed;
     } else if (cards.isEmpty) {
       aikoExpression = 'assets/images/aiko/aiko_thinking.png';
-      aikoSpeech = "Hi! You haven't added any credit cards yet. Tap the button below to add your cards and estimate your monthly interest.";
+      aikoSpeech =
+          "Hi! You haven't added any credit cards yet. Tap the button below to add your cards and estimate your monthly interest.";
       aikoBubbleBorder = AikoColors.primaryBlue;
     } else {
       aikoExpression = 'assets/images/aiko/aiko_happy.png';
-      aikoSpeech = "Fantastic job! Your overall credit utilization is ${overallUtil.toStringAsFixed(1)}%, which is well within the healthy range. Let's keep it up!";
+      aikoSpeech =
+          "Fantastic job! Your overall credit utilization is ${overallUtil.toStringAsFixed(1)}%, which is well within the healthy range. Let's keep it up!";
       aikoBubbleBorder = AikoColors.successGreen;
     }
 
@@ -248,7 +288,7 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
             icon: const Icon(Icons.add_card),
             onPressed: _showAddCardDialog,
             tooltip: 'Add Credit Card',
-          )
+          ),
         ],
       ),
       body: ListView(
@@ -260,14 +300,17 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
             decoration: BoxDecoration(
               color: AikoColors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: aikoBubbleBorder.withOpacity(0.5), width: 1.5),
+              border: Border.all(
+                color: aikoBubbleBorder.withOpacity(0.5),
+                width: 1.5,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: AikoColors.border.withOpacity(0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
-                )
-              ]
+                ),
+              ],
             ),
             child: Row(
               children: [
@@ -275,7 +318,11 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                   aikoExpression,
                   width: 72,
                   height: 72,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.face_3, size: 72, color: AikoColors.primaryBlue),
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.face_3,
+                    size: 72,
+                    color: AikoColors.primaryBlue,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -298,7 +345,9 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
           FinanceCard(
             title: 'Utilization',
             icon: Icons.pie_chart_outline_outlined,
-            accentColor: overallUtil > 30 ? AikoColors.warningOrange : AikoColors.deepBlue,
+            accentColor: overallUtil > 30
+                ? AikoColors.warningOrange
+                : AikoColors.deepBlue,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -310,31 +359,44 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: overallUtil > 30 ? AikoColors.warningOrange : AikoColors.deepBlue,
+                        color: overallUtil > 30
+                            ? AikoColors.warningOrange
+                            : AikoColors.deepBlue,
                       ),
                     ),
                     Text(
                       '\$${totalBalance.toStringAsFixed(0)} / \$${totalLimit.toStringAsFixed(0)}',
-                      style: const TextStyle(color: AikoColors.mutedText, fontWeight: FontWeight.w600),
-                    )
+                      style: const TextStyle(
+                        color: AikoColors.mutedText,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: LinearProgressIndicator(
-                    value: totalLimit > 0 ? (totalBalance / totalLimit).clamp(0.0, 1.0) : 0,
+                    value: totalLimit > 0
+                        ? (totalBalance / totalLimit).clamp(0.0, 1.0)
+                        : 0,
                     minHeight: 10,
                     backgroundColor: AikoColors.surfacePanel,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      overallUtil > 30 ? AikoColors.warningOrange : AikoColors.primaryBlue,
+                      overallUtil > 30
+                          ? AikoColors.warningOrange
+                          : AikoColors.primaryBlue,
                     ),
                   ),
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   'Your credit utilization is calculated as (Total Balance / Total Limit). Keep individual and total card utilization below 30% to maximize credit score health.',
-                  style: TextStyle(fontSize: 11, color: AikoColors.mutedText, height: 1.3),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AikoColors.mutedText,
+                    height: 1.3,
+                  ),
                 ),
               ],
             ),
@@ -352,12 +414,22 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Est. Monthly Interest', style: TextStyle(fontSize: 12, color: AikoColors.mutedText)),
+                      const Text(
+                        'Est. Monthly Interest',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AikoColors.mutedText,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Text(
                         '\$${totalInterestEst.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AikoColors.dangerRed),
-                      )
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AikoColors.dangerRed,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -367,12 +439,22 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Total Suggested Min', style: TextStyle(fontSize: 12, color: AikoColors.mutedText)),
+                      const Text(
+                        'Total Suggested Min',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AikoColors.mutedText,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Text(
                         '\$${totalMinPayment.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AikoColors.darkNavy),
-                      )
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AikoColors.darkNavy,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -386,7 +468,11 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: const Text(
               'Your Credit Cards',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AikoColors.darkNavy),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AikoColors.darkNavy,
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -394,12 +480,17 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
           if (cards.isEmpty)
             Card(
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               color: AikoColors.surfacePanel,
               child: const Padding(
                 padding: EdgeInsets.all(24.0),
                 child: Center(
-                  child: Text('No credit cards found. Tap the top-right button to add one.', style: TextStyle(color: AikoColors.mutedText)),
+                  child: Text(
+                    'No credit cards found. Tap the top-right button to add one.',
+                    style: TextStyle(color: AikoColors.mutedText),
+                  ),
                 ),
               ),
             )
@@ -415,7 +506,10 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                   side: isSelected
-                      ? const BorderSide(color: AikoColors.primaryBlue, width: 2)
+                      ? const BorderSide(
+                          color: AikoColors.primaryBlue,
+                          width: 2,
+                        )
                       : BorderSide.none,
                 ),
                 color: AikoColors.white,
@@ -424,7 +518,9 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                   onTap: () {
                     setState(() {
                       _selectedCard = card;
-                      _customMonthlyPayment = (minPay.amount.toDouble() * 2).clamp(25.0, card.statementBalance.amount.toDouble()).toDouble();
+                      _customMonthlyPayment = (minPay.amount.toDouble() * 2)
+                          .clamp(25.0, card.statementBalance.amount.toDouble())
+                          .toDouble();
                       _isEstimatingPayoff = true;
                     });
                   },
@@ -438,19 +534,34 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.credit_card, color: cardUtil > 30 ? AikoColors.warningOrange : AikoColors.primaryBlue),
+                                Icon(
+                                  Icons.credit_card,
+                                  color: cardUtil > 30
+                                      ? AikoColors.warningOrange
+                                      : AikoColors.primaryBlue,
+                                ),
                                 const SizedBox(width: 8),
                                 Text(
                                   card.accountId,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AikoColors.darkNavy),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: AikoColors.darkNavy,
+                                  ),
                                 ),
                               ],
                             ),
                             PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert, size: 20, color: AikoColors.mutedText),
+                              icon: const Icon(
+                                Icons.more_vert,
+                                size: 20,
+                                color: AikoColors.mutedText,
+                              ),
                               onSelected: (value) {
                                 if (value == 'delete') {
-                                  ref.read(creditCardsProvider.notifier).deleteCard(card.id);
+                                  ref
+                                      .read(creditCardsProvider.notifier)
+                                      .deleteCard(card.id);
                                   if (_selectedCard?.id == card.id) {
                                     setState(() {
                                       _selectedCard = null;
@@ -462,10 +573,15 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                               itemBuilder: (context) => [
                                 const PopupMenuItem(
                                   value: 'delete',
-                                  child: Text('Delete Card', style: TextStyle(color: AikoColors.dangerRed)),
-                                )
+                                  child: Text(
+                                    'Delete Card',
+                                    style: TextStyle(
+                                      color: AikoColors.dangerRed,
+                                    ),
+                                  ),
+                                ),
                               ],
-                            )
+                            ),
                           ],
                         ),
                         const SizedBox(height: 12),
@@ -476,11 +592,21 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Statement Balance', style: TextStyle(fontSize: 12, color: AikoColors.mutedText)),
+                                  const Text(
+                                    'Statement Balance',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AikoColors.mutedText,
+                                    ),
+                                  ),
                                   const SizedBox(height: 4),
                                   Text(
                                     card.statementBalance.toString(),
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AikoColors.darkNavy),
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: AikoColors.darkNavy,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -490,11 +616,20 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  const Text('APR & Limit', style: TextStyle(fontSize: 12, color: AikoColors.mutedText)),
+                                  const Text(
+                                    'APR & Limit',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AikoColors.mutedText,
+                                    ),
+                                  ),
                                   const SizedBox(height: 4),
                                   Text(
                                     '${card.aprPercent}% | ${card.creditLimit?.toString() ?? 'N/A'}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AikoColors.neutralInk),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AikoColors.neutralInk,
+                                    ),
                                     textAlign: TextAlign.end,
                                   ),
                                 ],
@@ -514,7 +649,9 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                                   minHeight: 6,
                                   backgroundColor: AikoColors.surfacePanel,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    cardUtil > 30 ? AikoColors.warningOrange : AikoColors.primaryBlue,
+                                    cardUtil > 30
+                                        ? AikoColors.warningOrange
+                                        : AikoColors.primaryBlue,
                                   ),
                                 ),
                               ),
@@ -525,7 +662,9 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: cardUtil > 30 ? AikoColors.warningOrange : AikoColors.mutedText,
+                                color: cardUtil > 30
+                                    ? AikoColors.warningOrange
+                                    : AikoColors.mutedText,
                               ),
                             ),
                           ],
@@ -534,17 +673,25 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              const Icon(Icons.star, size: 14, color: AikoColors.warningOrange),
+                              const Icon(
+                                Icons.star,
+                                size: 14,
+                                color: AikoColors.warningOrange,
+                              ),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
                                   card.rewardsSummary!,
-                                  style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AikoColors.mutedText),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontStyle: FontStyle.italic,
+                                    color: AikoColors.mutedText,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ]
+                        ],
                       ],
                     ),
                   ),
@@ -570,12 +717,17 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                     children: [
                       Text(
                         'Estimate Payoff for ${_selectedCard!.accountId}',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AikoColors.darkNavy),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AikoColors.darkNavy,
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close, size: 20),
-                        onPressed: () => setState(() => _isEstimatingPayoff = false),
-                      )
+                        onPressed: () =>
+                            setState(() => _isEstimatingPayoff = false),
+                      ),
                     ],
                   ),
                   const Divider(),
@@ -585,11 +737,17 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                     children: [
                       Text(
                         'Est. Monthly Interest: \$${_metricsService.estimateMonthlyInterest(_selectedCard!).amount.toStringAsFixed(2)}',
-                        style: const TextStyle(fontWeight: FontWeight.w600, color: AikoColors.dangerRed),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AikoColors.dangerRed,
+                        ),
                       ),
                       Text(
                         'Min Payment: \$${_metricsService.suggestedMinimumPayment(_selectedCard!).amount.toStringAsFixed(2)}',
-                        style: const TextStyle(fontWeight: FontWeight.w600, color: AikoColors.darkNavy),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AikoColors.darkNavy,
+                        ),
                       ),
                     ],
                   ),
@@ -599,18 +757,29 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                     children: [
                       const Text(
                         'Custom Monthly Payment',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AikoColors.darkNavy),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: AikoColors.darkNavy,
+                        ),
                       ),
                       Text(
                         '\$${_customMonthlyPayment.toStringAsFixed(0)}',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AikoColors.primaryBlue),
-                      )
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AikoColors.primaryBlue,
+                        ),
+                      ),
                     ],
                   ),
                   Slider(
                     value: _customMonthlyPayment,
                     min: 10,
-                    max: (_selectedCard!.statementBalance.amount.toDouble() * 1.2).clamp(50.0, 5000.0),
+                    max:
+                        (_selectedCard!.statementBalance.amount.toDouble() *
+                                1.2)
+                            .clamp(50.0, 5000.0),
                     activeColor: AikoColors.primaryBlue,
                     inactiveColor: AikoColors.borderSubtle,
                     onChanged: (val) {
@@ -622,7 +791,10 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                   const SizedBox(height: 12),
                   Builder(
                     builder: (context) {
-                      final result = _calculatePayoffMonths(_selectedCard!, _customMonthlyPayment);
+                      final result = _calculatePayoffMonths(
+                        _selectedCard!,
+                        _customMonthlyPayment,
+                      );
                       final int months = result['months'];
                       final double interest = result['interest'];
                       final bool never = result['never'];
@@ -641,9 +813,13 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                               Expanded(
                                 child: Text(
                                   'Aiko warning: This monthly payment is less than or equal to the interest. Your balance will grow indefinitely!',
-                                  style: TextStyle(color: AikoColors.dangerRed, fontSize: 12, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                    color: AikoColors.dangerRed,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              )
+                              ),
                             ],
                           ),
                         );
@@ -661,34 +837,58 @@ class _CreditCardOverviewScreenState extends ConsumerState<CreditCardOverviewScr
                           children: [
                             Column(
                               children: [
-                                const Text('Months to Payoff', style: TextStyle(fontSize: 11, color: AikoColors.mutedText)),
+                                const Text(
+                                  'Months to Payoff',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AikoColors.mutedText,
+                                  ),
+                                ),
                                 const SizedBox(height: 4),
                                 Text(
                                   '$months months',
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AikoColors.primaryBlue),
-                                )
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: AikoColors.primaryBlue,
+                                  ),
+                                ),
                               ],
                             ),
-                            Container(width: 1, height: 30, color: AikoColors.borderSubtle),
+                            Container(
+                              width: 1,
+                              height: 30,
+                              color: AikoColors.borderSubtle,
+                            ),
                             Column(
                               children: [
-                                const Text('Total Interest Paid', style: TextStyle(fontSize: 11, color: AikoColors.mutedText)),
+                                const Text(
+                                  'Total Interest Paid',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AikoColors.mutedText,
+                                  ),
+                                ),
                                 const SizedBox(height: 4),
                                 Text(
                                   '\$${interest.toStringAsFixed(2)}',
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AikoColors.dangerRed),
-                                )
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: AikoColors.dangerRed,
+                                  ),
+                                ),
                               ],
-                            )
+                            ),
                           ],
                         ),
                       );
                     },
-                  )
+                  ),
                 ],
               ),
-            )
-          ]
+            ),
+          ],
         ],
       ),
     );

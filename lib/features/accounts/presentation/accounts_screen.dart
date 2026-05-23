@@ -141,27 +141,30 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
 
                           if (!mounted) return;
                           Navigator.pop(context); // Close sheet
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Row(
-                                children: [
-                                  const Icon(Icons.check_circle, color: Colors.white),
-                                  const SizedBox(width: 8),
-                                  Text('Successfully linked ${accounts.length} bank feed accounts!'),
-                                ],
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    const Icon(Icons.check_circle, color: Colors.white),
+                                    const SizedBox(width: 8),
+                                    Text('Successfully linked ${accounts.length} bank feed accounts!'),
+                                  ],
+                                ),
+                                backgroundColor: AikoColors.successGreen,
+                                behavior: SnackBarBehavior.floating,
                               ),
-                              backgroundColor: AikoColors.successGreen,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
+                            );
+                          }
                         } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('API Integration Error: $e'),
-                              backgroundColor: AikoColors.dangerRed,
-                            ),
-                          );
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('API Integration Error: $e'),
+                                backgroundColor: AikoColors.dangerRed,
+                              ),
+                            );
+                          }
                         } finally {
                           if (mounted) {
                             setModalState(() => _isLinking = false);

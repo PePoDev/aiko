@@ -130,7 +130,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                     'assets/images/aiko/aiko_welcome.png',
                     width: 90,
                     height: 90,
-                    errorBuilder: (_, __, ___) => const Icon(
+                    errorBuilder: (_, _, _) => const Icon(
                       Icons.flight_takeoff,
                       size: 90,
                       color: AikoColors.primaryBlue,
@@ -266,7 +266,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                       : 'assets/images/aiko/aiko_happy.png',
                   width: 72,
                   height: 72,
-                  errorBuilder: (_, __, ___) => const Icon(
+                  errorBuilder: (_, _, _) => const Icon(
                     Icons.face,
                     size: 72,
                     color: AikoColors.primaryBlue,
@@ -724,7 +724,7 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
               const SizedBox(height: 16),
               // Local Currency
               DropdownButtonFormField<String>(
-                value: _selectedLocalCurrency,
+                initialValue: _selectedLocalCurrency,
                 decoration: const InputDecoration(
                   labelText: 'Local Travel Currency',
                   border: OutlineInputBorder(),

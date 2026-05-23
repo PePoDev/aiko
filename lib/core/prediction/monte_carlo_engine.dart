@@ -48,12 +48,12 @@ class MonteCarloEngine {
       for (int m = 0; m < targetMonths; m++) {
         // Box-Muller transform to get standard normal random variable
         double u1 = random.nextDouble();
-        double u2 = random.nextDouble();
+        final double u2 = random.nextDouble();
         if (u1 < 1e-9) u1 = 1e-9;
-        
+
         final double z = sqrt(-2.0 * log(u1)) * cos(2.0 * pi * u2);
         final double monthlyReturn = monthlyRate + z * monthlyVol;
-        
+
         bal = bal * (1.0 + monthlyReturn) + monthlyContribution;
       }
       finalBalances.add(bal);

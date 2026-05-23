@@ -34,11 +34,12 @@ class InsightsScreen extends ConsumerWidget {
             // 1. Sankey Visual Cash Flow Card
             summaryAsync.when(
               loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
+              error: (_, _) => const SizedBox.shrink(),
               data: (summary) {
                 double totalIncome = summary.monthlyIncome.amount.toDouble();
                 if (totalIncome <= 0) totalIncome = 5000.0;
-                double totalSpending = summary.monthlySpending.amount.toDouble();
+                double totalSpending = summary.monthlySpending.amount
+                    .toDouble();
                 if (totalSpending <= 0) totalSpending = 2500.0;
 
                 // Establish beautiful allocations
@@ -99,7 +100,8 @@ class InsightsScreen extends ConsumerWidget {
                               child: CustomPaint(
                                 painter: SankeyPainter(
                                   billsRatio: bills / totalIncome,
-                                  discretionaryRatio: discretionary / totalIncome,
+                                  discretionaryRatio:
+                                      discretionary / totalIncome,
                                   savingsRatio: savings / totalIncome,
                                 ),
                               ),
@@ -115,7 +117,10 @@ class InsightsScreen extends ConsumerWidget {
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    Text('Fixed Bills', style: textTheme.bodySmall),
+                                    Text(
+                                      'Fixed Bills',
+                                      style: textTheme.bodySmall,
+                                    ),
                                     Text(
                                       currencyFormat.format(bills),
                                       style: textTheme.bodyMedium?.copyWith(
@@ -130,7 +135,10 @@ class InsightsScreen extends ConsumerWidget {
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    Text('Discretionary', style: textTheme.bodySmall),
+                                    Text(
+                                      'Discretionary',
+                                      style: textTheme.bodySmall,
+                                    ),
                                     Text(
                                       currencyFormat.format(discretionary),
                                       style: textTheme.bodyMedium?.copyWith(
@@ -170,9 +178,11 @@ class InsightsScreen extends ConsumerWidget {
             // 2. Monte Carlo Goals Projection
             goalsAsync.when(
               loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
+              error: (_, _) => const SizedBox.shrink(),
               data: (goals) {
-                final activeGoals = goals.where((g) => g.status == GoalStatus.active).toList();
+                final activeGoals = goals
+                    .where((g) => g.status == GoalStatus.active)
+                    .toList();
                 if (activeGoals.isEmpty) {
                   // Render a premium mock simulation card to show off features
                   return _buildMockGoalSimulationCard(context);
@@ -248,9 +258,12 @@ class InsightsScreen extends ConsumerWidget {
   Widget _buildGoalMonteCarloCard(BuildContext context, Goal goal) {
     final textTheme = Theme.of(context).textTheme;
     final now = DateTime.now();
-    
+
     // Estimate target term
-    int months = ((goal.targetDate.year - now.year) * 12) + goal.targetDate.month - now.month;
+    int months =
+        ((goal.targetDate.year - now.year) * 12) +
+        goal.targetDate.month -
+        now.month;
     if (months <= 0) months = 1;
 
     // Estimate realistic monthly contributions
@@ -290,7 +303,9 @@ class InsightsScreen extends ConsumerWidget {
                       '${result.successProbabilityPercent.toStringAsFixed(1)}%',
                       style: textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: _getProbabilityColor(result.successProbabilityPercent),
+                        color: _getProbabilityColor(
+                          result.successProbabilityPercent,
+                        ),
                       ),
                     ),
                   ],
@@ -417,7 +432,12 @@ class InsightsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildBandColumn(String label, String amount, Color color, TextTheme textTheme) {
+  Widget _buildBandColumn(
+    String label,
+    String amount,
+    Color color,
+    TextTheme textTheme,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -529,7 +549,14 @@ class SankeyPainter extends CustomPainter {
     // Right vertical line
     path.lineTo(w, toYStart + toHeight);
     // Bottom cubic curve
-    path.cubicTo(w * 0.6, toYStart + toHeight, w * 0.4, fromYStart + fromHeight, 0, fromYStart + fromHeight);
+    path.cubicTo(
+      w * 0.6,
+      toYStart + toHeight,
+      w * 0.4,
+      fromYStart + fromHeight,
+      0,
+      fromYStart + fromHeight,
+    );
     path.close();
 
     canvas.drawPath(path, paint);

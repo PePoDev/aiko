@@ -127,7 +127,7 @@ class _OnboardingAccountFormState extends ConsumerState<OnboardingAccountForm> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<AccountType>(
-            value: _selectedType,
+            initialValue: _selectedType,
             decoration: const InputDecoration(
               labelText: 'Account Type',
               prefixIcon: Icon(Icons.account_balance_wallet_outlined),

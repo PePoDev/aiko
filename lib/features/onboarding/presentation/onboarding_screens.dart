@@ -150,12 +150,14 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
       if (_securityOption == 'pin') {
         final pin = _pinControllers.map((c) => c.text).join();
         if (pin.length < 4) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please enter a full 4-digit PIN passcode.'),
-              backgroundColor: AikoColors.dangerRed,
-            ),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please enter a full 4-digit PIN passcode.'),
+                backgroundColor: AikoColors.dangerRed,
+              ),
+            );
+          }
           return;
         }
       }
@@ -238,7 +240,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                     _getAikoExpression(),
                     width: 72,
                     height: 72,
-                    errorBuilder: (_, __, ___) => const Icon(
+                    errorBuilder: (_, _, _) => const Icon(
                       Icons.face_3_outlined,
                       size: 72,
                       color: AikoColors.primaryBlue,
@@ -578,7 +580,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _selectedCurrency,
+            initialValue: _selectedCurrency,
             decoration: InputDecoration(
               labelText: 'Base Currency',
               prefixIcon: const Icon(Icons.monetization_on_outlined),
@@ -595,7 +597,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
           ),
           const SizedBox(height: 20),
           DropdownButtonFormField<String>(
-            value: _selectedCountry,
+            initialValue: _selectedCountry,
             decoration: InputDecoration(
               labelText: 'Country',
               prefixIcon: const Icon(Icons.public_outlined),
@@ -653,7 +655,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<AccountType>(
-              value: _accountType,
+              initialValue: _accountType,
               decoration: InputDecoration(
                 labelText: 'Account Type',
                 prefixIcon: const Icon(Icons.account_balance_outlined),

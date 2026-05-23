@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../brick/repository.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../../../core/storage/secure_storage_service.dart';
 
@@ -99,7 +98,7 @@ class AuthRepository {
     return _session!;
   }
 
-  Future<void> signInWithGoogle() async {
+Future<void> signInWithGoogle() async {
     final client = AikoSupabase.requireClient();
     await client.auth.signInWithOAuth(OAuthProvider.google);
   }
@@ -109,7 +108,6 @@ class AuthRepository {
     if (client != null) {
       await client.auth.signOut();
     }
-    await _clearLocalData();
   }
 
   Future<void> resetPassword(String email) async {
@@ -119,21 +117,16 @@ class AuthRepository {
 
   Future<void> deleteAccount() async {
     final client = AikoSupabase.requireClient();
-    final userId = client.auth.currentUser?.id;
-    if (userId == null) {
-      throw StateError('Sign in before deleting your account.');
+    final session = client.auth.currentSession;
+    if (session == null) {
+      throw AuthException('No active session found.');
     }
-
     try {
-      // Full Auth user deletion requires service-role permissions.
+      final userId = session.user.id;
       await client.auth.admin.deleteUser(userId);
     } on AuthException {
-      // In client apps with anon keys, fall back to deleting profile-owned data.
-      await client.from('profiles').delete().eq('id', userId);
+      await client.from('profiles').delete().eq('id', session.user.id);
     }
-
-    await client.auth.signOut(scope: SignOutScope.global);
-    await _clearLocalData();
   }
 
   Future<AuthSession?> restoreSession() async {
@@ -156,12 +149,6 @@ class AuthRepository {
     } catch (_) {
       // Remembering a known account should not block startup.
     }
-  }
-
-  Future<void> _clearLocalData() async {
-    await AikoBrickRepository.resetLocalData();
-    await _storage.deleteAll();
-    _session = null;
   }
 
   Future<void> _ensureProfileAndDefaultsExist(

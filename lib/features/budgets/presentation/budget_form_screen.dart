@@ -111,7 +111,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
 
   void _reallocatePresets() async {
     final categories = await _ensurePresetCategories();
-    double income = double.tryParse(_incomeController.text) ?? 0.0;
+    final double income = double.tryParse(_incomeController.text) ?? 0.0;
 
     if (_presetType == 'zero_based') {
       // Divide equally among first 4 categories as default
@@ -438,7 +438,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<String>(
-                    value: _presetType,
+                    initialValue: _presetType,
                     decoration: const InputDecoration(
                       labelText: 'Template Presets',
                     ),
@@ -534,21 +534,23 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                 child: FutureBuilder<List<Category>>(
                   future: ref.read(categoriesProvider.future),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData)
+                    if (!snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
+                    }
                     final cats = snapshot.data!
                         .where((c) => c.isActive)
                         .take(4)
                         .toList();
-                    double inc = double.tryParse(_incomeController.text) ?? 0.0;
-                    double allocated = _allocatorControllers.entries
+                    final double inc =
+                        double.tryParse(_incomeController.text) ?? 0.0;
+                    final double allocated = _allocatorControllers.entries
                         .where((e) => cats.any((c) => c.id == e.key))
                         .fold(
                           0.0,
                           (sum, e) =>
                               sum + (double.tryParse(e.value.text) ?? 0.0),
                         );
-                    double remaining = inc - allocated;
+                    final double remaining = inc - allocated;
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,

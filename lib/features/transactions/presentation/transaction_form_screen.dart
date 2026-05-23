@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:decimal/decimal.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -528,7 +529,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Simulate Document Upload',
+                'Document Upload',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: AikoColors.premiumPurple,
@@ -537,54 +538,33 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               ),
               const SizedBox(height: 10),
               const Text(
-                'Choose a simulated receipt or document to upload:',
+                'Choose a source to attach a real receipt or document:',
                 style: TextStyle(fontSize: 13, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
               ListTile(
                 leading: const Icon(
-                  Icons.picture_as_pdf,
-                  color: AikoColors.dangerRed,
+                  Icons.folder_open,
+                  color: AikoColors.deepBlue,
                 ),
-                title: const Text('Starbucks_Receipt.pdf'),
-                subtitle: const Text('PDF | 1.2 MB'),
+                title: const Text('Browse Files'),
+                subtitle: const Text('PDF, image, and other documents'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  _simulateAttachmentUpload(
-                    fileName: 'Starbucks_Receipt.pdf',
-                    mimeType: 'application/pdf',
-                    sizeBytes: 1250000,
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.image, color: AikoColors.primaryBlue),
-                title: const Text('Amazon_Invoice.png'),
-                subtitle: const Text('PNG | 450 KB'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _simulateAttachmentUpload(
-                    fileName: 'Amazon_Invoice.png',
-                    mimeType: 'image/png',
-                    sizeBytes: 460800,
-                  );
+                  _pickAndAttachDocumentFromFiles();
                 },
               ),
               ListTile(
                 leading: const Icon(
-                  Icons.image,
+                  Icons.photo_library,
                   color: AikoColors.successGreen,
                 ),
-                title: const Text('Chevron_Gas_Receipt.jpg'),
-                subtitle: const Text('JPEG | 850 KB'),
+                title: const Text('Choose Photo from Gallery'),
+                subtitle: const Text('Attach an existing receipt image'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  _simulateAttachmentUpload(
-                    fileName: 'Chevron_Gas_Receipt.jpg',
-                    mimeType: 'image/jpeg',
-                    sizeBytes: 870400,
-                  );
+                  _pickAndAttachImageFromGallery();
                 },
               ),
             ],
@@ -594,8 +574,81 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     );
   }
 
-  void _simulateAttachmentUpload({
+  Future<void> _pickAndAttachDocumentFromFiles() async {
+    FilePickerResult? result;
+    try {
+      result = await FilePicker.platform.pickFiles(
+        allowMultiple: false,
+        withData: false,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Unable to open file picker.'),
+          backgroundColor: AikoColors.dangerRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+      return;
+    }
+
+    if (result == null || result.files.isEmpty) {
+      return;
+    }
+
+    final file = result.files.first;
+    final fileName = file.name;
+    final filePath = file.path ?? 'local/$fileName';
+    final mimeType = _mimeTypeFromFileName(fileName);
+    final sizeBytes = file.size;
+
+    await _attachSelectedFile(
+      fileName: fileName,
+      storagePath: filePath,
+      mimeType: mimeType,
+      sizeBytes: sizeBytes,
+    );
+  }
+
+  Future<void> _pickAndAttachImageFromGallery() async {
+    XFile? picked;
+    try {
+      picked = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 92,
+        requestFullMetadata: false,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Unable to open gallery right now.'),
+          backgroundColor: AikoColors.dangerRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+      return;
+    }
+
+    if (picked == null) {
+      return;
+    }
+
+    final bytes = await picked.readAsBytes();
+    await _attachSelectedFile(
+      fileName: picked.name,
+      storagePath: picked.path,
+      mimeType: _mimeTypeFromFileName(picked.name),
+      sizeBytes: bytes.length,
+    );
+  }
+
+  Future<void> _attachSelectedFile({
     required String fileName,
+    required String storagePath,
     required String mimeType,
     required int sizeBytes,
   }) async {
@@ -608,15 +661,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             children: [
               CircularProgressIndicator(),
               SizedBox(width: 20),
-              Text('Uploading attachment to Supabase...'),
+              Text('Attaching document...'),
             ],
           ),
         );
       },
     );
 
-    // Simulate 800ms upload delay
-    await Future<void>.delayed(const Duration(milliseconds: 800));
+    await Future<void>.delayed(const Duration(milliseconds: 350));
 
     if (!mounted) return;
     Navigator.of(context).pop(); // Close spinner
@@ -626,7 +678,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       userId: '',
       transactionId: '',
       fileName: fileName,
-      storagePath: 'receipts/simulated/${const Uuid().v4()}_$fileName',
+      storagePath: storagePath,
       mimeType: mimeType,
       sizeBytes: sizeBytes,
       createdAt: DateTime.now(),
@@ -642,7 +694,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           children: [
             const Icon(Icons.check_circle_outline, color: Colors.white),
             const SizedBox(width: 8),
-            Text('Attached $fileName successfully!'),
+            Text('Attached $fileName'),
           ],
         ),
         backgroundColor: AikoColors.successGreen,
@@ -650,6 +702,19 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
+  }
+
+  String _mimeTypeFromFileName(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.pdf')) return 'application/pdf';
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+      return 'image/jpeg';
+    }
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    if (lower.endsWith('.txt')) return 'text/plain';
+    return 'application/octet-stream';
   }
 
   Future<void> _submitForm() async {

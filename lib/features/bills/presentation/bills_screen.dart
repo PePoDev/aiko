@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import '../../../core/money/money.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
-import '../../categories/domain/category.dart';
 import '../../../app/providers.dart';
 import '../application/subscription_cancellation_service.dart';
 import '../application/subscription_suggestion_service.dart';

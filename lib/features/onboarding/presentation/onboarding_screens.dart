@@ -6,7 +6,6 @@ import 'package:decimal/decimal.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
-import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
 import '../../settings/domain/profile.dart';
@@ -15,7 +14,8 @@ class OnboardingFlowScreen extends ConsumerStatefulWidget {
   const OnboardingFlowScreen({super.key});
 
   @override
-  ConsumerState<OnboardingFlowScreen> createState() => _OnboardingFlowScreenState();
+  ConsumerState<OnboardingFlowScreen> createState() =>
+      _OnboardingFlowScreenState();
 }
 
 class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
@@ -40,7 +40,10 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
 
   // Step 5 State: Security
   String _securityOption = 'biometric'; // 'pin', 'biometric'
-  final List<TextEditingController> _pinControllers = List.generate(4, (_) => TextEditingController());
+  final List<TextEditingController> _pinControllers = List.generate(
+    4,
+    (_) => TextEditingController(),
+  );
   final List<FocusNode> _pinFocusNodes = List.generate(4, (_) => FocusNode());
 
   @override
@@ -60,8 +63,10 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
   // Resolves Aiko asset based on step and selected options
   String _getAikoExpression() {
     if (_page == 0) {
-      if (_personality == 'professional') return 'assets/images/aiko/aiko_thinking.png';
-      if (_personality == 'playful') return 'assets/images/aiko/aiko_celebrating.png';
+      if (_personality == 'professional')
+        return 'assets/images/aiko/aiko_thinking.png';
+      if (_personality == 'playful')
+        return 'assets/images/aiko/aiko_celebrating.png';
       return 'assets/images/aiko/aiko_welcome.png';
     }
     if (_page == 1) {
@@ -119,7 +124,10 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
       final name = _accountNameController.text.trim();
       final type = _accountType;
       final balStr = _accountBalanceController.text.trim();
-      final balance = Money.parse(balStr.isEmpty ? '0' : balStr, _selectedCurrency);
+      final balance = Money.parse(
+        balStr.isEmpty ? '0' : balStr,
+        _selectedCurrency,
+      );
 
       final account = Account(
         id: const Uuid().v4(),
@@ -221,7 +229,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                     color: AikoColors.border.withValues(alpha: 0.1),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
-                  )
+                  ),
                 ],
               ),
               child: Row(
@@ -256,7 +264,8 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
           Expanded(
             child: PageView(
               controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(), // Force wizard button progression
+              physics:
+                  const NeverScrollableScrollPhysics(), // Force wizard button progression
               onPageChanged: (value) => setState(() => _page = value),
               children: [
                 _buildStep1MeetAiko(),
@@ -322,19 +331,19 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
         'key': 'supportive',
         'title': 'Supportive',
         'desc': 'A warm, encouraging, non-judgmental finance bestie.',
-        'icon': '❤️'
+        'icon': '❤️',
       },
       {
         'key': 'professional',
         'title': 'Professional',
         'desc': 'Analytical, serious, data-driven financial advisor.',
-        'icon': '💼'
+        'icon': '💼',
       },
       {
         'key': 'playful',
         'title': 'Playful',
         'desc': 'Energetic, fun, celebrates small wins with high-fives.',
-        'icon': '⭐'
+        'icon': '⭐',
       },
     ];
 
@@ -379,19 +388,18 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                   boxShadow: _personality == choice['key']!
                       ? [
                           BoxShadow(
-                            color: AikoColors.primaryBlue.withValues(alpha: 0.12),
+                            color: AikoColors.primaryBlue.withValues(
+                              alpha: 0.12,
+                            ),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
-                          )
+                          ),
                         ]
                       : [],
                 ),
                 child: Row(
                   children: [
-                    Text(
-                      choice['icon']!,
-                      style: const TextStyle(fontSize: 28),
-                    ),
+                    Text(choice['icon']!, style: const TextStyle(fontSize: 28)),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
@@ -433,25 +441,25 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
         'key': 'save',
         'title': 'Save money',
         'desc': 'Build a strong emergency savings cushion.',
-        'icon': '💰'
+        'icon': '💰',
       },
       {
         'key': 'track',
         'title': 'Track spending',
         'desc': 'Log expenses to see where every dollar goes.',
-        'icon': '📊'
+        'icon': '📊',
       },
       {
         'key': 'debt',
         'title': 'Pay off debt',
         'desc': 'Create payoffs plans to become debt-free.',
-        'icon': '🛡️'
+        'icon': '🛡️',
       },
       {
         'key': 'wealth',
         'title': 'Build wealth',
         'desc': 'Invest smartly and plan for long-term growth.',
-        'icon': '🚀'
+        'icon': '🚀',
       },
     ];
 
@@ -491,16 +499,20 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                     color: AikoColors.white,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isSelected ? AikoColors.primaryBlue : AikoColors.borderSubtle,
+                      color: isSelected
+                          ? AikoColors.primaryBlue
+                          : AikoColors.borderSubtle,
                       width: isSelected ? 2.5 : 1,
                     ),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: AikoColors.primaryBlue.withValues(alpha: 0.1),
+                              color: AikoColors.primaryBlue.withValues(
+                                alpha: 0.1,
+                              ),
                               blurRadius: 8,
                               offset: const Offset(0, 4),
-                            )
+                            ),
                           ]
                         : [],
                   ),
@@ -508,10 +520,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        opt['icon']!,
-                        style: const TextStyle(fontSize: 24),
-                      ),
+                      Text(opt['icon']!, style: const TextStyle(fontSize: 24)),
                       const SizedBox(height: 8),
                       Text(
                         opt['title']!,
@@ -551,7 +560,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
       'European Union',
       'Japan',
       'Canada',
-      'Australia'
+      'Australia',
     ];
 
     return SingleChildScrollView(
@@ -578,10 +587,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
               ),
             ),
             items: currencies.map((curr) {
-              return DropdownMenuItem(
-                value: curr,
-                child: Text(curr),
-              );
+              return DropdownMenuItem(value: curr, child: Text(curr));
             }).toList(),
             onChanged: (val) {
               if (val != null) setState(() => _selectedCurrency = val);
@@ -598,10 +604,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
               ),
             ),
             items: countries.map((c) {
-              return DropdownMenuItem(
-                value: c,
-                child: Text(c),
-              );
+              return DropdownMenuItem(value: c, child: Text(c));
             }).toList(),
             onChanged: (val) {
               if (val != null) setState(() => _selectedCountry = val);
@@ -659,10 +662,22 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                 ),
               ),
               items: const [
-                DropdownMenuItem(value: AccountType.cash, child: Text('Cash Wallet')),
-                DropdownMenuItem(value: AccountType.bank, child: Text('Bank Account')),
-                DropdownMenuItem(value: AccountType.creditCard, child: Text('Credit Card')),
-                DropdownMenuItem(value: AccountType.investment, child: Text('Investment')),
+                DropdownMenuItem(
+                  value: AccountType.cash,
+                  child: Text('Cash Wallet'),
+                ),
+                DropdownMenuItem(
+                  value: AccountType.bank,
+                  child: Text('Bank Account'),
+                ),
+                DropdownMenuItem(
+                  value: AccountType.creditCard,
+                  child: Text('Credit Card'),
+                ),
+                DropdownMenuItem(
+                  value: AccountType.investment,
+                  child: Text('Investment'),
+                ),
               ],
               onChanged: (val) {
                 if (val != null) setState(() => _accountType = val);
@@ -671,7 +686,9 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _accountBalanceController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: InputDecoration(
                 labelText: 'Opening Balance',
                 prefixText: '$_selectedCurrency ',
@@ -731,7 +748,9 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                     },
                     selectedColor: AikoColors.primaryBlue,
                     labelStyle: TextStyle(
-                      color: _securityOption == 'pin' ? Colors.white : AikoColors.neutralInk,
+                      color: _securityOption == 'pin'
+                          ? Colors.white
+                          : AikoColors.neutralInk,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -741,11 +760,14 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                     label: const Center(child: Text('Biometrics Only')),
                     selected: _securityOption == 'biometric',
                     onSelected: (selected) {
-                      if (selected) setState(() => _securityOption = 'biometric');
+                      if (selected)
+                        setState(() => _securityOption = 'biometric');
                     },
                     selectedColor: AikoColors.primaryBlue,
                     labelStyle: TextStyle(
-                      color: _securityOption == 'biometric' ? Colors.white : AikoColors.neutralInk,
+                      color: _securityOption == 'biometric'
+                          ? Colors.white
+                          : AikoColors.neutralInk,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -790,19 +812,26 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AikoColors.primaryBlue, width: 2),
+                        borderSide: const BorderSide(
+                          color: AikoColors.primaryBlue,
+                          width: 2,
+                        ),
                       ),
                     ),
                     onChanged: (value) {
                       if (value.isNotEmpty) {
                         if (idx < 3) {
-                          FocusScope.of(context).requestFocus(_pinFocusNodes[idx + 1]);
+                          FocusScope.of(
+                            context,
+                          ).requestFocus(_pinFocusNodes[idx + 1]);
                         } else {
                           _pinFocusNodes[idx].unfocus();
                         }
                       } else {
                         if (idx > 0) {
-                          FocusScope.of(context).requestFocus(_pinFocusNodes[idx - 1]);
+                          FocusScope.of(
+                            context,
+                          ).requestFocus(_pinFocusNodes[idx - 1]);
                         }
                       }
                     },

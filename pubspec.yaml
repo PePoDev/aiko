@@ -58,6 +58,7 @@ dependencies:
   brick_offline_first: ^4.0.2
   brick_core: ^2.1.0
   image_picker: ^1.2.2
+  file_picker: ^3.0.4
 
 dev_dependencies:
   flutter_test:

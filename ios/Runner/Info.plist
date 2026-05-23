@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Aiko uses the camera to scan receipts for transaction entry.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Aiko uses your photo library to attach receipt images to transactions.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

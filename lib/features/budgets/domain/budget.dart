@@ -1,6 +1,6 @@
 import '../../../core/money/money.dart';
 
-enum BudgetPeriod { monthly, weekly, yearly, custom }
+enum BudgetPeriod { daily, monthly, weekly, yearly, custom }
 
 enum BudgetStatus { active, paused, archived }
 
@@ -16,7 +16,12 @@ class Budget {
     this.period = BudgetPeriod.monthly,
     this.alertThresholds = const [50, 75, 90, 100],
     this.status = BudgetStatus.active,
+    this.includedCategoryIds = const [],
+    this.isAppDefined = false,
   });
+
+  static const dailySpendingId = 'app-defined-daily-spending';
+  static const dailySpendingCategoryId = 'app-defined-daily-spending';
 
   final String id;
   final String userId;
@@ -28,6 +33,50 @@ class Budget {
   final BudgetPeriod period;
   final List<int> alertThresholds;
   final BudgetStatus status;
+  final List<String> includedCategoryIds;
+  final bool isAppDefined;
+
+  bool get isDailySpending =>
+      id == dailySpendingId || (isAppDefined && name == 'Daily Spending');
+  bool get canDelete => !isAppDefined;
+
+  bool includesCategory(String? transactionCategoryId) {
+    if (transactionCategoryId == null) {
+      return false;
+    }
+    if (includedCategoryIds.isNotEmpty) {
+      return includedCategoryIds.contains(transactionCategoryId);
+    }
+    return categoryId == transactionCategoryId;
+  }
+
+  Budget copyWith({
+    String? name,
+    String? categoryId,
+    Money? amount,
+    DateTime? periodStart,
+    DateTime? periodEnd,
+    BudgetPeriod? period,
+    List<int>? alertThresholds,
+    BudgetStatus? status,
+    List<String>? includedCategoryIds,
+    bool? isAppDefined,
+  }) {
+    return Budget(
+      id: id,
+      userId: userId,
+      name: name ?? this.name,
+      categoryId: categoryId ?? this.categoryId,
+      amount: amount ?? this.amount,
+      periodStart: periodStart ?? this.periodStart,
+      periodEnd: periodEnd ?? this.periodEnd,
+      period: period ?? this.period,
+      alertThresholds: alertThresholds ?? this.alertThresholds,
+      status: status ?? this.status,
+      includedCategoryIds: includedCategoryIds ?? this.includedCategoryIds,
+      isAppDefined: isAppDefined ?? this.isAppDefined,
+    );
+  }
 }
 
 class BudgetProgress {

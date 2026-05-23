@@ -44,4 +44,18 @@ class AccountRepository {
     final account = accounts.first.toDomain();
     await save(account.copyWith(isActive: false));
   }
+
+  Future<void> delete(String id) async {
+    final userId = await OfflineUserContext().resolveUserId();
+    final accounts = await OfflineStore().get<OfflineAccount>(
+      query: Query(
+        where: [Where.exact('id', id), Where.exact('userId', userId)],
+        limit: 1,
+      ),
+    );
+    if (accounts.isEmpty) {
+      return;
+    }
+    await OfflineStore().delete(accounts.first);
+  }
 }

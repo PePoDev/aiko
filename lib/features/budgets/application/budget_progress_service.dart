@@ -11,7 +11,7 @@ class BudgetProgressService {
   ) {
     final matching = transactions.where(
       (transaction) =>
-          transaction.categoryId == budget.categoryId &&
+          budget.includesCategory(transaction.categoryId) &&
           transaction.date.compareTo(budget.periodStart) >= 0 &&
           transaction.date.compareTo(budget.periodEnd) <= 0 &&
           transaction.type == TransactionType.expense,

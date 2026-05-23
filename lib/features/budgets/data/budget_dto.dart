@@ -22,6 +22,16 @@ class BudgetDto {
       alertThresholds: List<int>.from(
         json['alert_thresholds'] as List? ?? [50, 75, 90, 100],
       ),
+      status: BudgetStatus.values.byName(json['status'] as String? ?? 'active'),
+      includedCategoryIds: _stringList(json['included_category_ids']),
+      isAppDefined: json['is_app_defined'] as bool? ?? false,
     );
+  }
+
+  List<String> _stringList(Object? value) {
+    if (value is List) {
+      return value.map((item) => item.toString()).toList(growable: false);
+    }
+    return const [];
   }
 }

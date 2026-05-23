@@ -58,6 +58,8 @@ extension OfflineBudgetMapper on OfflineBudget {
       period: _enumByName(BudgetPeriod.values, period, BudgetPeriod.monthly),
       alertThresholds: alertThresholds,
       status: _enumByName(BudgetStatus.values, status, BudgetStatus.active),
+      includedCategoryIds: includedCategoryIds,
+      isAppDefined: isAppDefined,
     );
   }
 }
@@ -76,6 +78,8 @@ extension BudgetOfflineMapper on Budget {
       period: period.name,
       alertThresholds: alertThresholds,
       status: status.name,
+      includedCategoryIds: includedCategoryIds,
+      isAppDefined: isAppDefined,
     );
   }
 }

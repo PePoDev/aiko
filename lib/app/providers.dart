@@ -91,6 +91,18 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
   Future<void> addTransaction(FinanceTransaction transaction) async {
     await saveTransaction(transaction);
   }
+
+  Future<void> deleteTransaction(String id) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(transactionRepositoryProvider);
+      await repo.delete(id);
+      return repo.list();
+    });
+    if (state.hasError) {
+      Error.throwWithStackTrace(state.error!, state.stackTrace!);
+    }
+  }
 }
 
 final transactionsProvider =
@@ -109,12 +121,31 @@ class AccountsNotifier extends AsyncNotifier<List<Account>> {
   }
 
   Future<void> addAccount(Account account) async {
+    await saveAccount(account);
+  }
+
+  Future<void> saveAccount(Account account) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(accountRepositoryProvider);
       await repo.save(account);
       return repo.list();
     });
+    if (state.hasError) {
+      Error.throwWithStackTrace(state.error!, state.stackTrace!);
+    }
+  }
+
+  Future<void> deleteAccount(String id) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(accountRepositoryProvider);
+      await repo.delete(id);
+      return repo.list();
+    });
+    if (state.hasError) {
+      Error.throwWithStackTrace(state.error!, state.stackTrace!);
+    }
   }
 }
 
@@ -153,12 +184,34 @@ class BudgetsNotifier extends AsyncNotifier<List<Budget>> {
   }
 
   Future<void> addBudget(Budget budget) async {
+    await saveBudget(budget);
+  }
+
+  Future<void> saveBudget(Budget budget) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(budgetRepositoryProvider);
       await repo.save(budget);
       return repo.list();
     });
+    if (state.hasError) {
+      Error.throwWithStackTrace(state.error!, state.stackTrace!);
+    }
+  }
+
+  Future<void> deleteBudget(String id) async {
+    if (id == Budget.dailySpendingId) {
+      throw StateError('The Daily Spending budget cannot be deleted.');
+    }
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(budgetRepositoryProvider);
+      await repo.delete(id);
+      return repo.list();
+    });
+    if (state.hasError) {
+      Error.throwWithStackTrace(state.error!, state.stackTrace!);
+    }
   }
 }
 

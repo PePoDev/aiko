@@ -48,6 +48,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _amountController = TextEditingController();
   final _exchangeRateController = TextEditingController(text: '1.00');
   final _noteController = TextEditingController();
+  final _tagsController = TextEditingController();
   final _imagePicker = ImagePicker();
   String _type = 'expense';
   String _selectedCurrency = 'THB';
@@ -63,6 +64,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _amountController.dispose();
     _exchangeRateController.dispose();
     _noteController.dispose();
+    _tagsController.dispose();
     super.dispose();
   }
 
@@ -84,6 +86,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _selectedDate = transaction.date;
     _selectedCategoryId = transaction.categoryId;
     _selectedAccountId = transaction.accountId;
+    _tagsController.text = transaction.tags.join(', ');
   }
 
   void _autofillForm({
@@ -619,6 +622,40 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     );
   }
 
+  Future<void> _showAmountCalculator() async {
+    final currentAmount = _amountController.text.trim();
+
+    final result = await showModalBottomSheet<Decimal>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          child: _AmountCalculatorSheet(
+            initialUnitPrice: currentAmount,
+            currency: _selectedCurrency,
+          ),
+        );
+      },
+    );
+
+    if (result == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _amountController.text = result.toStringAsFixed(2);
+    });
+  }
+
   void _showAddAttachmentDialog() {
     showModalBottomSheet<void>(
       context: context,
@@ -928,6 +965,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     final existingTransaction = widget.initialTransaction;
     final txId = existingTransaction?.id ?? const Uuid().v4();
+    final tags = _tagsController.text
+        .split(',')
+        .map((tag) => tag.trim())
+        .where((tag) => tag.isNotEmpty)
+        .toList(growable: false);
     final savedTx = FinanceTransaction(
       id: txId,
       userId: existingTransaction?.userId ?? '',
@@ -940,7 +982,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           ? null
           : _titleController.text.trim(),
       note: _noteController.text.trim(),
-      tags: existingTransaction?.tags ?? const [],
+      tags: tags,
       splits: existingTransaction?.splits ?? const [],
       status: existingTransaction?.status ?? TransactionStatus.posted,
     );
@@ -1048,6 +1090,31 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           // Standard Entry Fields
+          SegmentedButton<String>(
+            key: const Key('transaction-type-selector'),
+            segments: const [
+              ButtonSegment(
+                value: 'expense',
+                label: Text('Expense'),
+                icon: Icon(Icons.north_east),
+              ),
+              ButtonSegment(
+                value: 'income',
+                label: Text('Income'),
+                icon: Icon(Icons.south_west),
+              ),
+              ButtonSegment(
+                value: 'transfer',
+                label: Text('Transfer'),
+                icon: Icon(Icons.swap_horiz),
+              ),
+            ],
+            selected: {_type},
+            onSelectionChanged: (selection) {
+              setState(() => _type = selection.first);
+            },
+          ),
+          const SizedBox(height: 16),
           TextField(
             controller: _titleController,
             decoration: const InputDecoration(
@@ -1063,7 +1130,15 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 child: TextField(
                   key: const Key('transaction-amount-field'),
                   controller: _amountController,
-                  decoration: const InputDecoration(labelText: 'Amount'),
+                  decoration: InputDecoration(
+                    labelText: 'Amount',
+                    prefixIcon: IconButton(
+                      key: const Key('amount-calculator-button'),
+                      tooltip: 'Open amount calculator',
+                      onPressed: _showAmountCalculator,
+                      icon: const Icon(Icons.calculate_outlined),
+                    ),
+                  ),
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
@@ -1089,22 +1164,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          DropdownMenu<String>(
-            initialSelection: _type,
-            expandedInsets: EdgeInsets.zero,
-            label: const Text('Type'),
-            dropdownMenuEntries: const [
-              DropdownMenuEntry(value: 'expense', label: 'Expense'),
-              DropdownMenuEntry(value: 'income', label: 'Income'),
-              DropdownMenuEntry(value: 'transfer', label: 'Transfer'),
-            ],
-            onSelected: (value) {
-              if (value != null) {
-                setState(() => _type = value);
-              }
-            },
           ),
           const SizedBox(height: 16),
 
@@ -1222,6 +1281,17 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             ),
             const SizedBox(height: 16),
           ],
+
+          TextField(
+            key: const Key('transaction-tags-field'),
+            controller: _tagsController,
+            decoration: const InputDecoration(
+              labelText: 'Tags',
+              hintText: 'food, work, reimbursable',
+              prefixIcon: Icon(Icons.sell_outlined),
+            ),
+          ),
+          const SizedBox(height: 16),
 
           TextField(
             controller: _noteController,
@@ -1372,6 +1442,144 @@ class _CurrencyConversionPrompt extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AmountCalculatorSheet extends StatefulWidget {
+  const _AmountCalculatorSheet({
+    required this.initialUnitPrice,
+    required this.currency,
+  });
+
+  final String initialUnitPrice;
+  final String currency;
+
+  @override
+  State<_AmountCalculatorSheet> createState() => _AmountCalculatorSheetState();
+}
+
+class _AmountCalculatorSheetState extends State<_AmountCalculatorSheet> {
+  late final TextEditingController _quantityController;
+  late final TextEditingController _unitPriceController;
+
+  Decimal get _quantity =>
+      Decimal.tryParse(_quantityController.text.trim()) ?? Decimal.zero;
+
+  Decimal get _unitPrice =>
+      Decimal.tryParse(_unitPriceController.text.trim()) ?? Decimal.zero;
+
+  Decimal get _total => _quantity * _unitPrice;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantityController = TextEditingController(text: '1');
+    _unitPriceController = TextEditingController(text: widget.initialUnitPrice);
+    _quantityController.addListener(_refresh);
+    _unitPriceController.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    _quantityController.removeListener(_refresh);
+    _unitPriceController.removeListener(_refresh);
+    _quantityController.dispose();
+    _unitPriceController.dispose();
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _apply() {
+    if (_total <= Decimal.zero) {
+      return;
+    }
+    Navigator.of(context).pop(_total);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Amount calculator',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          key: const Key('calculator-quantity-field'),
+          controller: _quantityController,
+          decoration: const InputDecoration(
+            labelText: 'Quantity',
+            prefixIcon: Icon(Icons.tag_outlined),
+          ),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const Key('calculator-unit-price-field'),
+          controller: _unitPriceController,
+          decoration: InputDecoration(
+            labelText: 'Unit price',
+            prefixIcon: const Icon(Icons.local_cafe_outlined),
+            suffixText: widget.currency,
+          ),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AikoColors.primaryBlue.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: AikoColors.primaryBlue.withValues(alpha: 0.16),
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.functions_outlined,
+                color: AikoColors.primaryBlue,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${_quantity.toString()} × ${_unitPrice.toString()}',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ),
+              Text(
+                '${_total.toStringAsFixed(2)} ${widget.currency}',
+                key: const Key('calculator-total-value'),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AikoColors.primaryBlue,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          key: const Key('apply-calculated-amount-button'),
+          onPressed: _total > Decimal.zero ? _apply : null,
+          icon: const Icon(Icons.check),
+          label: const Text('Use amount'),
+        ),
+      ],
     );
   }
 }

@@ -145,6 +145,84 @@ void main() {
     expect(find.text('Tea Bar'), findsOneWidget);
     expect(find.text('Cafe'), findsNothing);
   });
+
+  testWidgets('details screen can delete a transaction', (tester) async {
+    final repository = _FakeTransactionRepository();
+    final transaction = FinanceTransaction(
+      id: 'tx-1',
+      userId: 'user',
+      accountId: 'cash',
+      categoryId: 'coffee',
+      type: TransactionType.expense,
+      amount: Money.parse('4.50', 'USD'),
+      date: DateTime(2026, 5, 23, 9, 30),
+      merchant: 'Cafe',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(repository),
+          accountsProvider.overrideWith(
+            () => _AccountsNotifier([
+              Account(
+                id: 'cash',
+                userId: 'user',
+                name: 'Cash Wallet',
+                type: AccountType.cash,
+                openingBalance: Money.zero('USD'),
+                currentBalance: Money.zero('USD'),
+              ),
+            ]),
+          ),
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              const Category(
+                id: 'coffee',
+                userId: 'user',
+                name: 'Coffee',
+                type: CategoryType.expense,
+                group: CategoryGroup.wants,
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: Builder(
+            builder: (context) {
+              return Scaffold(
+                body: Center(
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            TransactionDetailScreen(transaction: transaction),
+                      ),
+                    ),
+                    child: const Text('Open details'),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open details'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Delete transaction'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete transaction?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+
+    expect(repository.deletedId, 'tx-1');
+    expect(find.text('Open details'), findsOneWidget);
+    expect(find.text('Transaction details'), findsNothing);
+  });
 }
 
 class _AccountsNotifier extends AccountsNotifier {
@@ -167,6 +245,7 @@ class _CategoriesNotifier extends CategoriesNotifier {
 
 class _FakeTransactionRepository extends TransactionRepository {
   FinanceTransaction? savedTransaction;
+  String? deletedId;
 
   @override
   Future<List<FinanceTransaction>> list() async {
@@ -177,5 +256,13 @@ class _FakeTransactionRepository extends TransactionRepository {
   Future<FinanceTransaction> save(FinanceTransaction transaction) async {
     savedTransaction = transaction;
     return transaction;
+  }
+
+  @override
+  Future<void> delete(String id) async {
+    deletedId = id;
+    if (savedTransaction?.id == id) {
+      savedTransaction = null;
+    }
   }
 }

@@ -2,6 +2,8 @@ import 'package:aiko/app/providers.dart';
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/categories/domain/category.dart';
+import 'package:aiko/features/transactions/data/transaction_repository.dart';
+import 'package:aiko/features/transactions/domain/transaction.dart';
 import 'package:aiko/features/transactions/presentation/transaction_form_screen.dart';
 import 'package:aiko/l10n/app_localizations.dart';
 import 'package:aiko/theme/aiko_theme.dart';
@@ -12,7 +14,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() {
-  testWidgets('transaction form has title and amount fields', (tester) async {
+  testWidgets('transaction form starts with segmented type selector', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -35,14 +39,63 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    final textFields = find.byType(TextField);
-    expect(textFields, findsWidgets);
-
-    // Check for Title field (first field)
+    expect(find.byKey(const Key('transaction-type-selector')), findsOneWidget);
+    expect(find.byType(SegmentedButton<String>), findsOneWidget);
+    expect(find.text('Expense'), findsOneWidget);
+    expect(find.text('Income'), findsOneWidget);
+    expect(find.text('Transfer'), findsOneWidget);
     expect(find.widgetWithText(TextField, 'Title'), findsOneWidget);
-
-    // Check for Amount field
     expect(find.widgetWithText(TextField, 'Amount'), findsOneWidget);
+
+    final typeSelectorTop = tester
+        .getTopLeft(find.byKey(const Key('transaction-type-selector')))
+        .dy;
+    final titleTop = tester
+        .getTopLeft(find.widgetWithText(TextField, 'Title'))
+        .dy;
+    expect(typeSelectorTop, lessThan(titleTop));
+  });
+
+  testWidgets('transaction type selector switches to transfer controls', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+          accountsProvider.overrideWith(
+            () => _AccountsNotifier([
+              Account(
+                id: 'cash',
+                userId: 'user',
+                name: 'Cash',
+                type: AccountType.cash,
+                openingBalance: Money.zero('USD'),
+                currentBalance: Money.zero('USD'),
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Transfer'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('From Account'), findsOneWidget);
+    expect(find.text('To Account'), findsOneWidget);
   });
 
   testWidgets('smart entry tools are app bar actions', (tester) async {
@@ -72,6 +125,54 @@ void main() {
     expect(find.byTooltip('Smart entry tools'), findsNothing);
     expect(find.byTooltip('Scan receipt'), findsOneWidget);
     expect(find.byTooltip('Voice entry'), findsOneWidget);
+  });
+
+  testWidgets('amount field calculator applies quantity times unit price', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+          accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('amount-calculator-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Amount calculator'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('calculator-quantity-field')),
+      '4',
+    );
+    await tester.enterText(
+      find.byKey(const Key('calculator-unit-price-field')),
+      '3.50',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('14.00 THB'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('apply-calculated-amount-button')));
+    await tester.pumpAndSettle();
+
+    final amountField = tester.widget<TextField>(
+      find.byKey(const Key('transaction-amount-field')),
+    );
+    expect(amountField.controller?.text, '14.00');
   });
 
   testWidgets('amount currency can convert to selected account currency', (
@@ -139,6 +240,76 @@ void main() {
     expect(amountField.controller?.text, '3.00');
     expect(find.text('Convert to USD?'), findsNothing);
   });
+
+  testWidgets('transaction form saves comma separated tags', (tester) async {
+    final repository = _FakeTransactionRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(repository),
+          categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+          accountsProvider.overrideWith(
+            () => _AccountsNotifier([
+              Account(
+                id: 'cash',
+                userId: 'user',
+                name: 'Cash',
+                type: AccountType.cash,
+                openingBalance: Money.zero('USD'),
+                currentBalance: Money.zero('USD'),
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Title'), 'Coffee');
+    await tester.enterText(
+      find.byKey(const Key('transaction-amount-field')),
+      '4.50',
+    );
+    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Account'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cash').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('transaction-tags-field')),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.enterText(
+      find.byKey(const Key('transaction-tags-field')),
+      'coffee, work,  reimbursable ',
+    );
+    final saveButton = find.widgetWithText(FilledButton, 'Save Transaction');
+    await tester.scrollUntilVisible(
+      saveButton,
+      320,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.savedTransaction?.tags, [
+      'coffee',
+      'work',
+      'reimbursable',
+    ]);
+  });
 }
 
 class _EmptyCategoriesNotifier extends CategoriesNotifier {
@@ -158,4 +329,19 @@ class _AccountsNotifier extends AccountsNotifier {
 
   @override
   Future<List<Account>> build() async => accounts;
+}
+
+class _FakeTransactionRepository extends TransactionRepository {
+  FinanceTransaction? savedTransaction;
+
+  @override
+  Future<List<FinanceTransaction>> list() async {
+    return savedTransaction == null ? const [] : [savedTransaction!];
+  }
+
+  @override
+  Future<FinanceTransaction> save(FinanceTransaction transaction) async {
+    savedTransaction = transaction;
+    return transaction;
+  }
 }

@@ -20,6 +20,24 @@ class TransactionDto {
       categoryId: json['category_id'] as String?,
       merchant: json['merchant'] as String?,
       note: json['note'] as String?,
+      tags: _tagsFromJson(json['tags']),
     );
+  }
+
+  List<String> _tagsFromJson(Object? value) {
+    if (value == null) {
+      return const [];
+    }
+    if (value is List) {
+      return value.map((tag) => tag.toString()).toList(growable: false);
+    }
+    if (value is String) {
+      return value
+          .split(',')
+          .map((tag) => tag.trim())
+          .where((tag) => tag.isNotEmpty)
+          .toList(growable: false);
+    }
+    return const [];
   }
 }

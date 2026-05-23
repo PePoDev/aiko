@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../categories/presentation/category_management_screen.dart';
 import '../domain/transaction.dart';
 import 'transaction_detail_screen.dart';
 import 'transaction_form_screen.dart';
@@ -83,6 +85,15 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
               onPressed: _startSearch,
               icon: const Icon(Icons.search),
             ),
+          IconButton(
+            tooltip: 'Categories',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const CategoryManagementScreen(),
+              ),
+            ),
+            icon: const Icon(Icons.category_outlined),
+          ),
           IconButton(
             tooltip: 'Rules',
             onPressed: () => Navigator.of(context).push(
@@ -219,8 +230,9 @@ class _TransactionMonthPage extends StatelessWidget {
       if (searchQuery.isEmpty) return true;
       final query = searchQuery.toLowerCase();
       return (tx.merchant ?? '').toLowerCase().contains(query) ||
-          (tx.note ?? '').toLowerCase().contains(query);
-    }).toList();
+          (tx.note ?? '').toLowerCase().contains(query) ||
+          tx.tags.any((tag) => tag.toLowerCase().contains(query));
+    }).toList()..sort((a, b) => b.date.compareTo(a.date));
 
     if (filtered.isEmpty) {
       return AikoScreenState.empty(
@@ -231,30 +243,78 @@ class _TransactionMonthPage extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
-      itemCount: filtered.length,
-      itemBuilder: (context, index) {
-        final tx = filtered[index];
-        final sign = tx.type == TransactionType.income ? '+' : '-';
-        final accent = tx.type == TransactionType.income
-            ? AikoColors.successGreen
-            : AikoColors.dangerRed;
+    final groups = _groupTransactionsByDate(filtered);
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: _CompactTransactionCard(
-            transaction: tx,
-            accent: accent,
-            sign: sign,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => TransactionDetailScreen(transaction: tx),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
+      children: [
+        for (final group in groups) ...[
+          _TransactionDateHeader(date: group.date),
+          for (final tx in group.transactions)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _CompactTransactionCard(
+                transaction: tx,
+                accent: tx.type == TransactionType.income
+                    ? AikoColors.successGreen
+                    : AikoColors.dangerRed,
+                sign: tx.type == TransactionType.income ? '+' : '-',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => TransactionDetailScreen(transaction: tx),
+                  ),
+                ),
               ),
             ),
-          ),
-        );
-      },
+        ],
+      ],
+    );
+  }
+
+  List<_TransactionDateGroup> _groupTransactionsByDate(
+    List<FinanceTransaction> transactions,
+  ) {
+    final grouped = <DateTime, List<FinanceTransaction>>{};
+    for (final transaction in transactions) {
+      final date = _dateOnly(transaction.date);
+      grouped.putIfAbsent(date, () => []).add(transaction);
+    }
+
+    final dates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+    return [
+      for (final date in dates)
+        _TransactionDateGroup(
+          date: date,
+          transactions: grouped[date]!
+            ..sort((a, b) => b.date.compareTo(a.date)),
+        ),
+    ];
+  }
+}
+
+class _TransactionDateGroup {
+  const _TransactionDateGroup({required this.date, required this.transactions});
+
+  final DateTime date;
+  final List<FinanceTransaction> transactions;
+}
+
+class _TransactionDateHeader extends StatelessWidget {
+  const _TransactionDateHeader({required this.date});
+
+  final DateTime date;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+      child: Text(
+        _dateHeaderLabel(date),
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: AikoColors.mutedText,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }
@@ -324,24 +384,40 @@ class _CompactTransactionCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final title = transaction.merchant ?? transaction.note ?? 'Transaction';
-    final amount = '$sign\$${transaction.amount.amount.toStringAsFixed(2)}';
-    final icon = transaction.type == TransactionType.income
-        ? Icons.south_west
-        : Icons.north_east;
+    final amount = '$sign${transaction.amount.format()}';
+    final tagsLabel = transaction.tags.map((tag) => '#$tag').join(' ');
 
     final accountsAsync = ref.watch(accountsProvider);
-    final accountName =
+    final accountLabel =
         accountsAsync.whenOrNull(
           data: (accounts) {
-            for (final account in accounts) {
-              if (account.id == transaction.accountId) {
-                return account.name;
-              }
+            final matches = accounts.where(
+              (account) => account.id == transaction.accountId,
+            );
+            if (matches.isEmpty) {
+              return 'Unknown';
             }
-            return 'Unknown';
+            final account = matches.first;
+            return '${account.name} (${account.currentBalance.format()})';
           },
         ) ??
         'Unknown';
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final categoryIcon =
+        categoriesAsync.whenOrNull(
+          data: (categories) {
+            final matches = categories.where(
+              (category) => category.id == transaction.categoryId,
+            );
+            if (matches.isEmpty) {
+              return null;
+            }
+            return _categoryIconFor(matches.first.icon);
+          },
+        ) ??
+        (transaction.type == TransactionType.income
+            ? Icons.south_west
+            : Icons.north_east);
 
     return Card(
       child: InkWell(
@@ -358,7 +434,7 @@ class _CompactTransactionCard extends ConsumerWidget {
                   color: accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Icon(icon, color: accent, size: 16),
+                child: Icon(categoryIcon, color: accent, size: 16),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -371,22 +447,46 @@ class _CompactTransactionCard extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '$accountName • ${transaction.type.name.toUpperCase()} • ${transaction.date.toString().substring(0, 10)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+                    if (tagsLabel.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        tagsLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AikoColors.mutedText,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                amount,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: accent,
-                  fontWeight: FontWeight.w700,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 132),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      amount,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: accent,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      accountLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AikoColors.mutedText,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 4),
@@ -397,4 +497,44 @@ class _CompactTransactionCard extends ConsumerWidget {
       ),
     );
   }
+
+  IconData _categoryIconFor(String iconName) {
+    switch (iconName) {
+      case 'food':
+        return Icons.restaurant_outlined;
+      case 'housing':
+        return Icons.home_outlined;
+      case 'travel':
+        return Icons.flight_outlined;
+      case 'coffee':
+        return Icons.coffee_outlined;
+      case 'shopping':
+        return Icons.shopping_bag_outlined;
+      case 'savings':
+        return Icons.savings_outlined;
+      case 'investing':
+        return Icons.trending_up_outlined;
+      case 'gym':
+        return Icons.fitness_center_outlined;
+      case 'salary':
+        return Icons.attach_money_outlined;
+      case 'entertainment':
+        return Icons.movie_outlined;
+      default:
+        return Icons.category_outlined;
+    }
+  }
+}
+
+DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
+
+String _dateHeaderLabel(DateTime date) {
+  final today = _dateOnly(DateTime.now());
+  if (date == today) {
+    return 'Today';
+  }
+  if (date == today.subtract(const Duration(days: 1))) {
+    return 'Yesterday';
+  }
+  return DateFormat('EEE, MMM d, yyyy').format(date);
 }

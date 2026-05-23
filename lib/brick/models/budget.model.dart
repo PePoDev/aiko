@@ -18,6 +18,8 @@ class OfflineBudget extends OfflineFirstWithSupabaseModel {
     this.period = 'monthly',
     this.alertThresholds = const [50, 75, 90, 100],
     this.status = 'active',
+    this.includedCategoryIds = const [],
+    this.isAppDefined = false,
   });
 
   @Sqlite(unique: true)
@@ -48,4 +50,6 @@ class OfflineBudget extends OfflineFirstWithSupabaseModel {
   final String period;
   final List<int> alertThresholds;
   final String status;
+  final List<String> includedCategoryIds;
+  final bool isAppDefined;
 }

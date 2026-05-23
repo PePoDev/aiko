@@ -18,6 +18,8 @@ Future<OfflineBudget> _$OfflineBudgetFromSupabase(
     period: data['period'] as String,
     alertThresholds: data['alert_thresholds'].toList().cast<int>(),
     status: data['status'] as String,
+    includedCategoryIds: data['included_category_ids'].toList().cast<String>(),
+    isAppDefined: data['is_app_defined'] as bool,
   );
 }
 
@@ -38,6 +40,8 @@ Future<Map<String, dynamic>> _$OfflineBudgetToSupabase(
     'period': instance.period,
     'alert_thresholds': instance.alertThresholds,
     'status': instance.status,
+    'included_category_ids': instance.includedCategoryIds,
+    'is_app_defined': instance.isAppDefined,
   };
 }
 
@@ -58,6 +62,10 @@ Future<OfflineBudget> _$OfflineBudgetFromSqlite(
     period: data['period'] as String,
     alertThresholds: jsonDecode(data['alert_thresholds']).toList().cast<int>(),
     status: data['status'] as String,
+    includedCategoryIds: data['included_category_ids'] == null
+        ? const []
+        : jsonDecode(data['included_category_ids']).toList().cast<String>(),
+    isAppDefined: data['is_app_defined'] == 1,
   )..primaryKey = data['_brick_id'] as int;
 }
 
@@ -78,6 +86,8 @@ Future<Map<String, dynamic>> _$OfflineBudgetToSqlite(
     'period': instance.period,
     'alert_thresholds': jsonEncode(instance.alertThresholds),
     'status': instance.status,
+    'included_category_ids': jsonEncode(instance.includedCategoryIds),
+    'is_app_defined': instance.isAppDefined ? 1 : 0,
   };
 }
 
@@ -135,6 +145,14 @@ class OfflineBudgetAdapter
     'status': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'status',
+    ),
+    'includedCategoryIds': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'included_category_ids',
+    ),
+    'isAppDefined': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'is_app_defined',
     ),
   };
   @override
@@ -214,6 +232,18 @@ class OfflineBudgetAdapter
       columnName: 'status',
       iterable: false,
       type: String,
+    ),
+    'includedCategoryIds': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'included_category_ids',
+      iterable: true,
+      type: String,
+    ),
+    'isAppDefined': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'is_app_defined',
+      iterable: false,
+      type: bool,
     ),
   };
   @override

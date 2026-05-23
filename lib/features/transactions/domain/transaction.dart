@@ -53,6 +53,7 @@ class FinanceTransaction {
     Money? amount,
     String? categoryId,
     String? merchant,
+    List<String>? tags,
     List<TransactionSplit>? splits,
     TransactionStatus? status,
   }) {
@@ -66,7 +67,7 @@ class FinanceTransaction {
       categoryId: categoryId ?? this.categoryId,
       merchant: merchant ?? this.merchant,
       note: note,
-      tags: tags,
+      tags: tags ?? this.tags,
       splits: splits ?? this.splits,
       status: status ?? this.status,
     );

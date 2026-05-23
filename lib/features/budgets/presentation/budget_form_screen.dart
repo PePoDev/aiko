@@ -11,7 +11,9 @@ import '../domain/budget.dart';
 import '../../categories/domain/category.dart';
 
 class BudgetFormScreen extends ConsumerStatefulWidget {
-  const BudgetFormScreen({super.key});
+  const BudgetFormScreen({this.initialBudget, super.key});
+
+  final Budget? initialBudget;
 
   @override
   ConsumerState<BudgetFormScreen> createState() => _BudgetFormScreenState();
@@ -27,6 +29,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
 
   // Dynamic allocators for Zero-Based & Envelope
   final Map<String, TextEditingController> _allocatorControllers = {};
+  final Set<String> _includedCategoryIds = {};
 
   String _mode = 'custom'; // 'custom', 'preset'
   String _presetType = '50_30_20'; // '50_30_20', 'zero_based', 'envelope'
@@ -35,6 +38,17 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
   @override
   void initState() {
     super.initState();
+    final budget = widget.initialBudget;
+    if (budget != null) {
+      _categoryController.text = budget.name;
+      _amountController.text = budget.amount.amount.toString();
+      _includedCategoryIds.addAll(budget.includedCategoryIds);
+      if (budget.isDailySpending &&
+          _includedCategoryIds.isEmpty &&
+          budget.categoryId != Budget.dailySpendingCategoryId) {
+        _includedCategoryIds.add(budget.categoryId);
+      }
+    }
     _incomeController.addListener(_onIncomeChanged);
   }
 
@@ -162,10 +176,12 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
   }
 
   Future<void> _submitCustomBudget() async {
+    final existingBudget = widget.initialBudget;
+    final isDailySpending = existingBudget?.isDailySpending ?? false;
     final category = _categoryController.text.trim();
     final amountText = _amountController.text.trim();
 
-    if (category.isEmpty) {
+    if (!isDailySpending && category.isEmpty) {
       _showMessage('Enter a category name.');
       return;
     }
@@ -184,6 +200,11 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
     }
 
     final categories = await ref.read(categoriesProvider.future);
+    if (isDailySpending && _includedCategoryIds.isEmpty) {
+      _showMessage('Select at least one category for Daily Spending.');
+      return;
+    }
+
     final matchingCategories = categories
         .where(
           (item) =>
@@ -191,7 +212,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
               item.name.toLowerCase() == category.toLowerCase(),
         )
         .toList();
-    if (matchingCategories.isEmpty) {
+    if (!isDailySpending && matchingCategories.isEmpty) {
       _showMessage('Create this category before assigning a budget to it.');
       return;
     }
@@ -202,16 +223,32 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
     final periodEnd = DateTime(now.year, now.month + 1, 0);
 
     final budget = Budget(
-      id: const Uuid().v4(),
-      userId: '',
-      name: category,
-      categoryId: matchingCategories.first.id,
+      id: existingBudget?.id ?? const Uuid().v4(),
+      userId: existingBudget?.userId ?? '',
+      name: isDailySpending ? 'Daily Spending' : category,
+      categoryId: isDailySpending
+          ? _includedCategoryIds.first
+          : matchingCategories.first.id,
       amount: Money(amount: amount, currency: 'THB'),
-      periodStart: periodStart,
-      periodEnd: periodEnd,
+      periodStart: isDailySpending
+          ? DateTime(now.year, now.month, now.day)
+          : existingBudget?.periodStart ?? periodStart,
+      periodEnd: isDailySpending
+          ? DateTime(now.year, now.month, now.day, 23, 59, 59)
+          : existingBudget?.periodEnd ?? periodEnd,
+      period: isDailySpending
+          ? BudgetPeriod.daily
+          : existingBudget?.period ?? BudgetPeriod.monthly,
+      alertThresholds:
+          existingBudget?.alertThresholds ?? const [50, 75, 90, 100],
+      status: existingBudget?.status ?? BudgetStatus.active,
+      includedCategoryIds: isDailySpending
+          ? _includedCategoryIds.toList(growable: false)
+          : const [],
+      isAppDefined: existingBudget?.isAppDefined ?? false,
     );
 
-    await ref.read(budgetsProvider.notifier).addBudget(budget);
+    await ref.read(budgetsProvider.notifier).saveBudget(budget);
     if (!mounted) return;
 
     final state = ref.read(budgetsProvider);
@@ -221,7 +258,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
       return;
     }
 
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(budget);
   }
 
   Future<void> _submitPresetBudgets() async {
@@ -239,6 +276,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
     final periodEnd = DateTime(now.year, now.month + 1, 0);
 
     try {
+      final presetBudgets = <Budget>[];
       if (_presetType == '50_30_20') {
         // Needs category budget (50%)
         final needsCat = categories.firstWhere(
@@ -256,7 +294,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
           periodStart: periodStart,
           periodEnd: periodEnd,
         );
-        await ref.read(budgetsProvider.notifier).addBudget(needsBudget);
+        presetBudgets.add(needsBudget);
 
         // Wants category budget (30%)
         final wantsCat = categories.firstWhere(
@@ -274,7 +312,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
           periodStart: periodStart,
           periodEnd: periodEnd,
         );
-        await ref.read(budgetsProvider.notifier).addBudget(wantsBudget);
+        presetBudgets.add(wantsBudget);
 
         // Savings category budget (20%)
         final savingsCat = categories.firstWhere(
@@ -292,18 +330,17 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
           periodStart: periodStart,
           periodEnd: periodEnd,
         );
-        await ref.read(budgetsProvider.notifier).addBudget(savingsBudget);
+        presetBudgets.add(savingsBudget);
       } else {
         // Zero-Based or Envelope
         double totalAllocated = 0;
-        final List<Budget> batch = [];
 
         for (final entry in _allocatorControllers.entries) {
           final amt = double.tryParse(entry.value.text) ?? 0.0;
           if (amt > 0) {
             totalAllocated += amt;
             final cat = categories.firstWhere((c) => c.id == entry.key);
-            batch.add(
+            presetBudgets.add(
               Budget(
                 id: const Uuid().v4(),
                 userId: '',
@@ -328,18 +365,56 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
           );
           return;
         }
-
-        for (final b in batch) {
-          await ref.read(budgetsProvider.notifier).addBudget(b);
-        }
       }
 
-      _showMessage('Preset budgets initialized successfully!');
+      final existingBudgets = await ref.read(budgetsProvider.future);
+      final duplicates = presetBudgets.where((budget) {
+        return existingBudgets.any(
+          (existing) =>
+              existing.status != BudgetStatus.archived &&
+              existing.categoryId == budget.categoryId &&
+              _isSameBudgetPeriod(existing, budget),
+        );
+      }).toList();
+      final budgetsToCreate = [
+        for (final budget in presetBudgets)
+          if (!duplicates.any(
+            (duplicate) => duplicate.categoryId == budget.categoryId,
+          ))
+            budget,
+      ];
+
+      if (budgetsToCreate.isEmpty) {
+        setState(() => _isSubmitting = false);
+        _showMessage('These preset budgets already exist for this month.');
+        return;
+      }
+
+      for (final budget in budgetsToCreate) {
+        await ref.read(budgetsProvider.notifier).addBudget(budget);
+      }
+
+      final skipped = duplicates.length;
+      _showMessage(
+        skipped == 0
+            ? 'Preset budgets initialized successfully!'
+            : 'Created ${budgetsToCreate.length} preset budgets. Skipped $skipped already created.',
+      );
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       setState(() => _isSubmitting = false);
       _showMessage('Failed to save preset budgets.');
     }
+  }
+
+  bool _isSameBudgetPeriod(Budget existing, Budget incoming) {
+    return existing.period == incoming.period &&
+        existing.periodStart.year == incoming.periodStart.year &&
+        existing.periodStart.month == incoming.periodStart.month &&
+        existing.periodStart.day == incoming.periodStart.day &&
+        existing.periodEnd.year == incoming.periodEnd.year &&
+        existing.periodEnd.month == incoming.periodEnd.month &&
+        existing.periodEnd.day == incoming.periodEnd.day;
   }
 
   void _showMessage(String message) {
@@ -351,59 +426,78 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final initialBudget = widget.initialBudget;
+    final isDailySpending = initialBudget?.isDailySpending ?? false;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_mode == 'custom' ? 'New budget' : 'Preset budgets'),
+        title: Text(
+          isDailySpending
+              ? 'Daily Spending'
+              : widget.initialBudget != null
+              ? 'Edit budget'
+              : _mode == 'custom'
+              ? 'New budget'
+              : 'Preset budgets',
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          // Mode Switcher Selector
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(
-                value: 'custom',
-                label: Text('Custom Entry'),
-                icon: Icon(Icons.edit_note),
-              ),
-              ButtonSegment(
-                value: 'preset',
-                label: Text('Aiko Presets'),
-                icon: Icon(Icons.auto_awesome),
-              ),
-            ],
-            selected: {_mode},
-            onSelectionChanged: (selection) {
-              setState(() {
-                _mode = selection.first;
-                if (_mode == 'preset') {
-                  _reallocatePresets();
-                }
-              });
-            },
-          ),
-          const SizedBox(height: 16),
+          if (widget.initialBudget == null) ...[
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(
+                  value: 'custom',
+                  label: Text('Custom Entry'),
+                  icon: Icon(Icons.edit_note),
+                ),
+                ButtonSegment(
+                  value: 'preset',
+                  label: Text('Aiko Presets'),
+                  icon: Icon(Icons.auto_awesome),
+                ),
+              ],
+              selected: {_mode},
+              onSelectionChanged: (selection) {
+                setState(() {
+                  _mode = selection.first;
+                  if (_mode == 'preset') {
+                    _reallocatePresets();
+                  }
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
 
           if (_mode == 'custom') ...[
             FinanceCard(
-              title: 'Budget details',
-              icon: Icons.pie_chart_outline,
+              title: isDailySpending
+                  ? 'Daily spending limit'
+                  : 'Budget details',
+              icon: isDailySpending
+                  ? Icons.today_outlined
+                  : Icons.pie_chart_outline,
               accentColor: AikoColors.warningOrange,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextField(
-                    controller: _categoryController,
-                    decoration: const InputDecoration(labelText: 'Category'),
-                    textInputAction: TextInputAction.next,
-                    enabled: !_isSubmitting,
-                  ),
-                  const SizedBox(height: 16),
+                  if (!isDailySpending) ...[
+                    TextField(
+                      controller: _categoryController,
+                      decoration: const InputDecoration(labelText: 'Category'),
+                      textInputAction: TextInputAction.next,
+                      enabled: !_isSubmitting,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   TextField(
                     controller: _amountController,
-                    decoration: const InputDecoration(
-                      labelText: 'Monthly amount',
+                    decoration: InputDecoration(
+                      labelText: isDailySpending
+                          ? 'Daily limit'
+                          : 'Monthly amount',
                       prefixText: r'$ ',
                     ),
                     keyboardType: const TextInputType.numberWithOptions(
@@ -415,6 +509,21 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                         _isSubmitting ? null : _submitCustomBudget(),
                   ),
                   const SizedBox(height: 16),
+                  if (isDailySpending) ...[
+                    _DailySpendingCategorySelector(
+                      selectedCategoryIds: _includedCategoryIds,
+                      onChanged: (categoryId, selected) {
+                        setState(() {
+                          if (selected) {
+                            _includedCategoryIds.add(categoryId);
+                          } else {
+                            _includedCategoryIds.remove(categoryId);
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   FilledButton.icon(
                     onPressed: _isSubmitting ? null : _submitCustomBudget,
                     icon: _isSubmitting
@@ -423,7 +532,13 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.check),
-                    label: Text(_isSubmitting ? 'Saving...' : 'Save budget'),
+                    label: Text(
+                      _isSubmitting
+                          ? 'Saving...'
+                          : widget.initialBudget == null
+                          ? 'Save budget'
+                          : 'Save changes',
+                    ),
                   ),
                 ],
               ),
@@ -685,6 +800,56 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
           style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
       ],
+    );
+  }
+}
+
+class _DailySpendingCategorySelector extends ConsumerWidget {
+  const _DailySpendingCategorySelector({
+    required this.selectedCategoryIds,
+    required this.onChanged,
+  });
+
+  final Set<String> selectedCategoryIds;
+  final void Function(String categoryId, bool selected) onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final categoriesAsync = ref.watch(categoriesProvider);
+    return categoriesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, _) => const Text('Unable to load categories.'),
+      data: (categories) {
+        final activeExpenseCategories = categories
+            .where((category) => category.isActive)
+            .where((category) => category.type == CategoryType.expense)
+            .toList(growable: false);
+        if (activeExpenseCategories.isEmpty) {
+          return const Text(
+            'Create an expense category before editing this budget.',
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Included categories',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 8),
+            for (final category in activeExpenseCategories)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: selectedCategoryIds.contains(category.id),
+                title: Text(category.name),
+                controlAffinity: ListTileControlAffinity.leading,
+                onChanged: (selected) =>
+                    onChanged(category.id, selected ?? false),
+              ),
+          ],
+        );
+      },
     );
   }
 }

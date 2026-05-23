@@ -33,6 +33,22 @@ class TransactionRepository {
     return saved.toDomain();
   }
 
+  Future<void> delete(String id) async {
+    final userId = await OfflineUserContext().resolveUserId();
+    final transactions = await OfflineStore().get<OfflineTransaction>(
+      query: Query(
+        where: [Where.exact('userId', userId), Where.exact('id', id)],
+        limit: 1,
+      ),
+    );
+
+    if (transactions.isEmpty) {
+      return;
+    }
+
+    await OfflineStore().delete(transactions.first);
+  }
+
   Future<List<FinanceTransaction>> search(String query) async {
     final currentList = await list();
     final lower = query.toLowerCase();

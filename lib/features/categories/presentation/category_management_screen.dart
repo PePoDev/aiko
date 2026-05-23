@@ -95,6 +95,21 @@ class CategoryManagementScreen extends ConsumerWidget {
                   title: category.name,
                   icon: categoryIcon,
                   accentColor: categoryColor,
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: AikoColors.mutedText,
+                  ),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => _CategoryDetailScreen(
+                        category: category,
+                        categoryIcon: categoryIcon,
+                        categoryColor: categoryColor,
+                        typeLabel: _getTypeLabel(category.type),
+                        groupLabel: _getGroupLabel(category.group),
+                      ),
+                    ),
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -218,6 +233,132 @@ class CategoryManagementScreen extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('I see!'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryDetailScreen extends StatelessWidget {
+  const _CategoryDetailScreen({
+    required this.category,
+    required this.categoryIcon,
+    required this.categoryColor,
+    required this.typeLabel,
+    required this.groupLabel,
+  });
+
+  final Category category;
+  final IconData categoryIcon;
+  final Color categoryColor;
+  final String typeLabel;
+  final String groupLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Category details')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: [
+          FinanceCard(
+            title: category.name,
+            icon: categoryIcon,
+            accentColor: categoryColor,
+            prominent: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _CategoryStatusPill(
+                  label: category.isActive ? 'Active' : 'Archived',
+                  color: category.isActive
+                      ? AikoColors.successGreen
+                      : AikoColors.mutedText,
+                ),
+                const SizedBox(height: 16),
+                _CategoryDetailRow(label: 'Type', value: typeLabel),
+                const Divider(),
+                _CategoryDetailRow(label: 'Group', value: groupLabel),
+                const Divider(),
+                _CategoryDetailRow(
+                  label: 'Budget',
+                  value: category.budgetEnabled ? 'Enabled' : 'Disabled',
+                ),
+                if (category.parentId != null) ...[
+                  const Divider(),
+                  _CategoryDetailRow(
+                    label: 'Parent',
+                    value: category.parentId!,
+                  ),
+                ],
+                const Divider(),
+                _CategoryDetailRow(label: 'Color', value: category.color),
+                const Divider(),
+                _CategoryDetailRow(label: 'Icon', value: category.icon),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryStatusPill extends StatelessWidget {
+  const _CategoryStatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryDetailRow extends StatelessWidget {
+  const _CategoryDetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AikoColors.mutedText),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
           ),
         ],
       ),

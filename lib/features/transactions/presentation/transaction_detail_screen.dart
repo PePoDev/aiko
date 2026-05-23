@@ -39,6 +39,55 @@ class _TransactionDetailScreenState
     setState(() => _transaction = updated);
   }
 
+  Future<void> _deleteTransaction() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete transaction?'),
+        content: const Text(
+          'Are you sure you want to delete this transaction?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(context).pop(true),
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    try {
+      await ref
+          .read(transactionsProvider.notifier)
+          .deleteTransaction(_transaction.id);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Transaction deleted!')));
+      Navigator.of(context).pop();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to delete transaction right now.'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final transaction = _transaction;
@@ -116,6 +165,11 @@ class _TransactionDetailScreenState
       appBar: AppBar(
         title: const Text('Transaction details'),
         actions: [
+          IconButton(
+            tooltip: 'Delete transaction',
+            onPressed: _deleteTransaction,
+            icon: const Icon(Icons.delete_outline),
+          ),
           IconButton(
             tooltip: 'Edit transaction',
             onPressed: _editTransaction,

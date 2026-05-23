@@ -29,4 +29,50 @@ void main() {
 
     expect(progress.percentUsed, 25);
   });
+
+  test('budget progress sums included categories for app-defined budgets', () {
+    final budget = Budget(
+      id: Budget.dailySpendingId,
+      userId: 'user',
+      name: 'Daily Spending',
+      categoryId: 'food',
+      includedCategoryIds: const ['food', 'coffee'],
+      amount: Money.parse('100', 'USD'),
+      periodStart: DateTime(2026),
+      periodEnd: DateTime(2026, 1, 31),
+      period: BudgetPeriod.daily,
+      isAppDefined: true,
+    );
+    final progress = const BudgetProgressService().progressFor(budget, [
+      FinanceTransaction(
+        id: 't1',
+        userId: 'user',
+        accountId: 'cash',
+        type: TransactionType.expense,
+        amount: Money.parse('25', 'USD'),
+        date: DateTime(2026, 1, 10),
+        categoryId: 'food',
+      ),
+      FinanceTransaction(
+        id: 't2',
+        userId: 'user',
+        accountId: 'cash',
+        type: TransactionType.expense,
+        amount: Money.parse('10', 'USD'),
+        date: DateTime(2026, 1, 10),
+        categoryId: 'coffee',
+      ),
+      FinanceTransaction(
+        id: 't3',
+        userId: 'user',
+        accountId: 'cash',
+        type: TransactionType.expense,
+        amount: Money.parse('50', 'USD'),
+        date: DateTime(2026, 1, 10),
+        categoryId: 'rent',
+      ),
+    ]);
+
+    expect(progress.percentUsed, 35);
+  });
 }

@@ -1,354 +1,592 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/money/money.dart';
 import '../../../shared/widgets/finance_card.dart';
+import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/account.dart';
-import '../application/bank_feed_service.dart';
-import 'onboarding_account_form.dart';
 
-class AccountsScreen extends ConsumerStatefulWidget {
+class AccountsScreen extends ConsumerWidget {
   const AccountsScreen({super.key});
 
   @override
-  ConsumerState<AccountsScreen> createState() => _AccountsScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accountsAsync = ref.watch(accountsProvider);
+
+    return Scaffold(
+      backgroundColor: AikoColors.appBackgroundLight,
+      appBar: AppBar(title: const Text('Accounts')),
+      body: accountsAsync.when(
+        loading: () => const AikoScreenState.loading(),
+        error: (err, _) => AikoScreenState.error(
+          title: 'Accounts are unavailable',
+          message: 'Aiko could not load your accounts right now. $err',
+        ),
+        data: (accounts) {
+          if (accounts.isEmpty) {
+            return AikoScreenState.empty(
+              title: 'No accounts yet',
+              message: 'Add your cash, bank, card, or investment accounts.',
+              action: PrimaryActionButton(
+                label: 'Add account',
+                icon: Icons.add_card_outlined,
+                onPressed: () => _showAccountForm(context),
+              ),
+            );
+          }
+
+          return ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+            itemCount: accounts.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final account = accounts[index];
+              return _AccountListItem(
+                account: account,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => _AccountDetailScreen(account: account),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAccountForm(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Add'),
+      ),
+    );
+  }
 }
 
-class _AccountsScreenState extends ConsumerState<AccountsScreen> {
-  final _bankFeedService = const BankFeedService();
-  var _isLinking = false;
+void _showAccountForm(BuildContext context, {Account? account}) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) => _AccountFormSheet(account: account),
+  );
+}
 
-  void _showPlaidLinkDialog() {
-    final institutionController = TextEditingController(text: 'Chase Bank');
-    final usernameController = TextEditingController();
-    final passwordController = TextEditingController();
+class _AccountListItem extends StatelessWidget {
+  const _AccountListItem({required this.account, required this.onTap});
 
-    showModalBottomSheet<void>(
+  final Account account;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = _colorForAccount(account.type);
+
+    return Card(
+      child: ListTile(
+        onTap: onTap,
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(_iconForAccount(account.type), color: accent, size: 22),
+        ),
+        title: Text(
+          account.name,
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(_accountSubtitle(account)),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              account.currentBalance.format(),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.chevron_right, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountDetailScreen extends ConsumerStatefulWidget {
+  const _AccountDetailScreen({required this.account});
+
+  final Account account;
+
+  @override
+  ConsumerState<_AccountDetailScreen> createState() =>
+      _AccountDetailScreenState();
+}
+
+class _AccountDetailScreenState extends ConsumerState<_AccountDetailScreen> {
+  late Account _account;
+
+  @override
+  void initState() {
+    super.initState();
+    _account = widget.account;
+  }
+
+  Future<void> _editAccount() async {
+    final updated = await showModalBottomSheet<Account>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                20,
-                20,
-                MediaQuery.of(context).viewInsets.bottom + 40,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Link Bank via Plaid',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AikoColors.premiumPurple,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Securely link Chase, BofA, or other institutions in under 30 seconds.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  if (_isLinking) ...[
-                    const SizedBox(height: 40),
-                    const Center(child: CircularProgressIndicator()),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Connecting to institution APIs and running multi-device sync handshake...',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey, fontSize: 13),
-                    ),
-                    const SizedBox(height: 40),
-                  ] else ...[
-                    TextField(
-                      controller: institutionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Institution Name',
-                        hintText: 'e.g. Chase Bank, Bank of America',
-                        prefixIcon: Icon(Icons.account_balance_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: usernameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Online ID / Username',
-                        prefixIcon: Icon(Icons.person_outline),
-                      ),
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: passwordController,
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: Icon(Icons.lock_outline),
-                      ),
-                      obscureText: true,
-                      onSubmitted: (_) {
-                        // Submit link
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    FilledButton.icon(
-                      onPressed: () async {
-                        final inst = institutionController.text.trim();
-                        final user = usernameController.text.trim();
-                        final pass = passwordController.text;
-
-                        if (inst.isEmpty || user.isEmpty || pass.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please fill out all credentials.'),
-                              backgroundColor: AikoColors.dangerRed,
-                            ),
-                          );
-                          return;
-                        }
-
-                        setModalState(() => _isLinking = true);
-                        try {
-                          final accounts = await _bankFeedService.linkBankFeed(
-                            institution: inst,
-                            username: user,
-                            password: pass,
-                          );
-
-                          for (final acc in accounts) {
-                            await ref
-                                .read(accountsProvider.notifier)
-                                .addAccount(acc);
-                          }
-
-                          if (!mounted) return;
-                          Navigator.of(this.context).pop(); // Close sheet
-                          ScaffoldMessenger.of(this.context).showSnackBar(
-                            SnackBar(
-                              content: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.check_circle,
-                                    color: Colors.white,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Successfully linked ${accounts.length} bank feed accounts!',
-                                  ),
-                                ],
-                              ),
-                              backgroundColor: AikoColors.successGreen,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(this.context).showSnackBar(
-                              SnackBar(
-                                content: Text('API Integration Error: $e'),
-                                backgroundColor: AikoColors.dangerRed,
-                              ),
-                            );
-                          }
-                        } finally {
-                          if (mounted) {
-                            setModalState(() => _isLinking = false);
-                          }
-                        }
-                      },
-                      icon: const Icon(Icons.link),
-                      label: const Text('Authorize Secure Link'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AikoColors.premiumPurple,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            );
-          },
-        );
-      },
+      builder: (context) => _AccountFormSheet(account: _account),
     );
+
+    if (updated == null || !mounted) {
+      return;
+    }
+    setState(() => _account = updated);
   }
 
-  IconData _iconForAccount(AccountType type) {
-    return switch (type) {
-      AccountType.cash => Icons.wallet_outlined,
-      AccountType.bank => Icons.account_balance_outlined,
-      AccountType.creditCard => Icons.credit_card_outlined,
-      AccountType.investment => Icons.trending_up_outlined,
-      AccountType.loan => Icons.handshake_outlined,
-      _ => Icons.account_balance_wallet_outlined,
-    };
-  }
+  Future<void> _deleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete account?'),
+        content: Text(
+          'Are you sure you want to delete "${_account.name}"? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(context).pop(true),
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
 
-  Color _colorForAccount(AccountType type) {
-    return switch (type) {
-      AccountType.cash => AikoColors.successGreen,
-      AccountType.bank => AikoColors.deepBlue,
-      AccountType.creditCard => AikoColors.warningOrange,
-      AccountType.investment => AikoColors.analyticsTeal,
-      _ => AikoColors.primaryBlue,
-    };
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    try {
+      await ref.read(accountsProvider.notifier).deleteAccount(_account.id);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Account "${_account.name}" deleted.')),
+      );
+      Navigator.of(context).pop();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to delete account right now.')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final accountsAsync = ref.watch(accountsProvider);
+    final accent = _colorForAccount(_account.type);
 
     return Scaffold(
-      backgroundColor: AikoColors.appBackgroundLight,
-      appBar: AppBar(title: const Text('Accounts & Bank Feeds')),
+      appBar: AppBar(
+        title: const Text('Account details'),
+        actions: [
+          IconButton(
+            tooltip: 'Delete account',
+            onPressed: _deleteAccount,
+            icon: const Icon(Icons.delete_outline),
+          ),
+          IconButton(
+            tooltip: 'Edit account',
+            onPressed: _editAccount,
+            icon: const Icon(Icons.edit_outlined),
+          ),
+        ],
+      ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          // Premium bank link prompt card
-          FinanceCard(
-            title: 'Live Bank Connection',
-            icon: Icons.account_balance_wallet_outlined,
-            accentColor: AikoColors.premiumPurple,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Automate your money tracking by connecting to Chase, Bank of America, or credit cards in real-time.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: _showPlaidLinkDialog,
-                    icon: const Icon(Icons.link),
-                    label: const Text('Link Bank via Plaid Feed'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AikoColors.premiumPurple,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Dynamic accounts list
-          FinanceCard(
-            title: 'Active Accounts Workspace',
-            icon: Icons.account_balance_outlined,
-            accentColor: AikoColors.analyticsTeal,
-            child: accountsAsync.when(
-              data: (accounts) {
-                if (accounts.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(
-                      child: Text(
-                        'No accounts configured. Use the link or form below to get started!',
-                        style: TextStyle(color: Colors.grey, fontSize: 13),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  );
-                }
-                return Column(
-                  children: [
-                    for (final acc in accounts) ...[
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: _colorForAccount(
-                              acc.type,
-                            ).withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            _iconForAccount(acc.type),
-                            color: _colorForAccount(acc.type),
-                            size: 20,
-                          ),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        title: Text(
-                          acc.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                        subtitle: Text(
-                          acc.institution ??
-                              (acc.type == AccountType.cash
-                                  ? 'Cash wallet'
-                                  : 'Manual Entry'),
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                        trailing: Text(
-                          acc.currentBalance.format(),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
+                        child: Icon(
+                          _iconForAccount(_account.type),
+                          color: accent,
                         ),
                       ),
-                      if (acc != accounts.last) const Divider(),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _account.name,
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            Text(_accountSubtitle(_account)),
+                          ],
+                        ),
+                      ),
                     ],
-                  ],
-                );
-              },
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-              error: (err, _) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text(
-                    'Error loading accounts: $err',
-                    style: const TextStyle(color: AikoColors.dangerRed),
                   ),
-                ),
+                  const SizedBox(height: 18),
+                  Text(
+                    _account.currentBalance.format(),
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: accent,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _AccountDetailRow(
+                    label: 'Type',
+                    value: _accountTypeLabel(_account.type),
+                  ),
+                  const Divider(),
+                  _AccountDetailRow(
+                    label: 'Opening balance',
+                    value: _account.openingBalance.format(),
+                  ),
+                  const Divider(),
+                  _AccountDetailRow(
+                    label: 'Net worth',
+                    value: _account.includeInNetWorth ? 'Included' : 'Hidden',
+                  ),
+                  const Divider(),
+                  _AccountDetailRow(
+                    label: 'Status',
+                    value: _account.isActive ? 'Active' : 'Inactive',
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-
-          // Manual Add Account
-          const FinanceCard(
-            title: 'Add Account Manually',
-            icon: Icons.add_card_outlined,
-            child: OnboardingAccountForm(),
           ),
         ],
       ),
     );
   }
+}
+
+class _AccountFormSheet extends ConsumerStatefulWidget {
+  const _AccountFormSheet({this.account});
+
+  final Account? account;
+
+  @override
+  ConsumerState<_AccountFormSheet> createState() => _AccountFormSheetState();
+}
+
+class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _balanceController;
+  late final TextEditingController _institutionController;
+  late AccountType _selectedType;
+  var _isSubmitting = false;
+
+  bool get _isEditing => widget.account != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final account = widget.account;
+    _nameController = TextEditingController(text: account?.name ?? '');
+    _balanceController = TextEditingController(
+      text: account?.currentBalance.amount.toString() ?? '',
+    );
+    _institutionController = TextEditingController(
+      text: account?.institution ?? '',
+    );
+    _selectedType = account?.type ?? AccountType.cash;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _balanceController.dispose();
+    _institutionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final existing = widget.account;
+      final balance = Money(
+        amount: Decimal.parse(_balanceController.text.trim()),
+        currency: existing?.currentBalance.currency ?? 'THB',
+      );
+      final institution = _institutionController.text.trim();
+      final account = Account(
+        id: existing?.id ?? const Uuid().v4(),
+        userId: existing?.userId ?? '',
+        name: _nameController.text.trim(),
+        type: _selectedType,
+        openingBalance: existing?.openingBalance ?? balance,
+        currentBalance: balance,
+        institution: institution.isEmpty ? null : institution,
+        includeInNetWorth: existing?.includeInNetWorth ?? true,
+        isActive: existing?.isActive ?? true,
+      );
+
+      await ref.read(accountsProvider.notifier).saveAccount(account);
+
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(account);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isEditing
+                ? 'Account "${account.name}" updated.'
+                : 'Account "${account.name}" created.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to save account: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showInstitution =
+        _selectedType == AccountType.bank ||
+        _selectedType == AccountType.creditCard ||
+        _selectedType == AccountType.investment ||
+        _selectedType == AccountType.eWallet;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                _isEditing ? 'Edit account' : 'Add account',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Account Name',
+                  hintText: 'e.g. Daily Expenses, Savings Wallet',
+                  prefixIcon: Icon(Icons.badge_outlined),
+                ),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Please enter a name for the account.'
+                    : null,
+                enabled: !_isSubmitting,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<AccountType>(
+                initialValue: _selectedType,
+                decoration: const InputDecoration(
+                  labelText: 'Account Type',
+                  prefixIcon: Icon(Icons.account_balance_wallet_outlined),
+                ),
+                items: AccountType.values.map((type) {
+                  return DropdownMenuItem(
+                    value: type,
+                    child: Text(_accountTypeLabel(type)),
+                  );
+                }).toList(),
+                onChanged: _isSubmitting
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          setState(() => _selectedType = value);
+                        }
+                      },
+              ),
+              if (showInstitution) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _institutionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Institution Name',
+                    hintText: 'e.g. Chase, PayPal, Coinbase',
+                    prefixIcon: Icon(Icons.corporate_fare_outlined),
+                  ),
+                  enabled: !_isSubmitting,
+                ),
+              ],
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _balanceController,
+                decoration: InputDecoration(
+                  labelText: _isEditing ? 'Current Balance' : 'Opening Balance',
+                  prefixText: r'$ ',
+                  hintText: '0.00',
+                  prefixIcon: const Icon(Icons.attach_money_outlined),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a balance.';
+                  }
+                  if (Decimal.tryParse(value.trim()) == null) {
+                    return 'Please enter a valid decimal number.';
+                  }
+                  return null;
+                },
+                enabled: !_isSubmitting,
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: _isSubmitting ? null : _submit,
+                icon: _isSubmitting
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.check),
+                label: Text(_isEditing ? 'Save Changes' : 'Create Account'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountDetailRow extends StatelessWidget {
+  const _AccountDetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AikoColors.mutedText),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+IconData _iconForAccount(AccountType type) {
+  return switch (type) {
+    AccountType.cash => Icons.wallet_outlined,
+    AccountType.bank => Icons.account_balance_outlined,
+    AccountType.creditCard => Icons.credit_card_outlined,
+    AccountType.investment => Icons.trending_up_outlined,
+    AccountType.loan => Icons.handshake_outlined,
+    _ => Icons.account_balance_wallet_outlined,
+  };
+}
+
+Color _colorForAccount(AccountType type) {
+  return switch (type) {
+    AccountType.cash => AikoColors.successGreen,
+    AccountType.bank => AikoColors.deepBlue,
+    AccountType.creditCard => AikoColors.warningOrange,
+    AccountType.investment => AikoColors.analyticsTeal,
+    _ => AikoColors.primaryBlue,
+  };
+}
+
+String _accountSubtitle(Account account) {
+  return account.institution ??
+      (account.type == AccountType.cash ? 'Cash wallet' : 'Manual entry');
+}
+
+String _accountTypeLabel(AccountType type) {
+  final name = type.name;
+  final buffer = StringBuffer();
+  for (var i = 0; i < name.length; i++) {
+    final char = name[i];
+    if (i > 0 && char.toUpperCase() == char) {
+      buffer.write(' ');
+    }
+    buffer.write(i == 0 ? char.toUpperCase() : char);
+  }
+  return buffer.toString();
 }

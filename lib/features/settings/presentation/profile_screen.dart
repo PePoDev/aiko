@@ -222,7 +222,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: Column(
                   children: [
                     DropdownButtonFormField<String>(
-                      value: _currencies.contains(_baseCurrency) ? _baseCurrency : 'USD',
+                      initialValue: _currencies.contains(_baseCurrency) ? _baseCurrency : 'USD',
                       decoration: const InputDecoration(
                         labelText: 'Base currency',
                         prefixIcon: Icon(Icons.attach_money),
@@ -237,7 +237,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: _countries.containsKey(_country) ? _country : 'US',
+                      initialValue: _countries.containsKey(_country) ? _country : 'US',
                       decoration: const InputDecoration(
                         labelText: 'Country',
                         prefixIcon: Icon(Icons.flag_outlined),
@@ -265,20 +265,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 title: 'Appearance',
                 icon: Icons.palette_outlined,
                 accentColor: AikoColors.premiumPurple,
-                child: Column(
-                  children: [
-                    for (final theme in PreferredTheme.values)
-                      RadioListTile<PreferredTheme>(
-                        contentPadding: EdgeInsets.zero,
-                        value: theme,
-                        groupValue: _preferredTheme,
-                        onChanged: (value) {
-                          if (value != null) setState(() => _preferredTheme = value);
-                        },
-                        title: Text(_themeLabel(theme)),
-                        secondary: Icon(_themeIcon(theme)),
-                      ),
-                  ],
+                child: RadioGroup<PreferredTheme>(
+                  groupValue: _preferredTheme,
+                  onChanged: (value) {
+                    if (value != null) setState(() => _preferredTheme = value);
+                  },
+                  child: Column(
+                    children: [
+                      for (final theme in PreferredTheme.values)
+                        RadioListTile<PreferredTheme>(
+                          contentPadding: EdgeInsets.zero,
+                          value: theme,
+                          title: Text(_themeLabel(theme)),
+                          secondary: Icon(_themeIcon(theme)),
+                        ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 24),

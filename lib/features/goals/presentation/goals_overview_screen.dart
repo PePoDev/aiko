@@ -39,7 +39,8 @@ class GoalsOverviewScreen extends ConsumerWidget {
           if (goals.isEmpty) {
             return AikoScreenState.empty(
               title: 'No goals yet',
-              message: 'Create a SMART goal to track your progress and let Aiko guide you.',
+              message:
+                  'Create a SMART goal to track your progress and let Aiko guide you.',
               action: PrimaryActionButton(
                 label: 'Add SMART Goal',
                 icon: Icons.add_task,
@@ -57,7 +58,9 @@ class GoalsOverviewScreen extends ConsumerWidget {
               final goal = goals[index];
               final linkedAccount = accounts.isEmpty
                   ? null
-                  : accounts.where((a) => a.id == goal.linkedAccountId).firstOrNull;
+                  : accounts
+                        .where((a) => a.id == goal.linkedAccountId)
+                        .firstOrNull;
 
               final progressPercent = (goal.progress * 100).clamp(0, 100);
               final isCompleted = goal.progress >= 1.0;
@@ -71,7 +74,10 @@ class GoalsOverviewScreen extends ConsumerWidget {
                       ? AikoColors.successGreen
                       : AikoColors.primaryBlue,
                   trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline, color: AikoColors.dangerRed),
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: AikoColors.dangerRed,
+                    ),
                     onPressed: () => _confirmDeleteGoal(context, ref, goal),
                     tooltip: 'Delete Goal',
                   ),
@@ -83,7 +89,8 @@ class GoalsOverviewScreen extends ConsumerWidget {
                         children: [
                           Text(
                             '${progressPercent.toStringAsFixed(0)}% funded',
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: isCompleted
                                       ? AikoColors.successGreen
@@ -200,12 +207,18 @@ class GoalsOverviewScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmDeleteGoal(BuildContext context, WidgetRef ref, Goal goal) async {
+  Future<void> _confirmDeleteGoal(
+    BuildContext context,
+    WidgetRef ref,
+    Goal goal,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Goal?'),
-        content: Text('Are you sure you want to delete "${goal.name}"? This action cannot be undone.'),
+        content: Text(
+          'Are you sure you want to delete "${goal.name}"? This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -213,7 +226,9 @@ class GoalsOverviewScreen extends ConsumerWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: AikoColors.dangerRed),
+            style: FilledButton.styleFrom(
+              backgroundColor: AikoColors.dangerRed,
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -324,7 +339,8 @@ class _AddGoalBottomSheet extends ConsumerStatefulWidget {
   const _AddGoalBottomSheet();
 
   @override
-  ConsumerState<_AddGoalBottomSheet> createState() => _AddGoalBottomSheetState();
+  ConsumerState<_AddGoalBottomSheet> createState() =>
+      _AddGoalBottomSheetState();
 }
 
 class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
@@ -352,7 +368,8 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
   Future<void> _selectDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate ?? DateTime.now().add(const Duration(days: 365)),
+      initialDate:
+          _selectedDate ?? DateTime.now().add(const Duration(days: 365)),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365 * 30)),
       builder: (context, child) {
@@ -393,7 +410,7 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
 
     try {
       final profileAsync = ref.read(profileProvider);
-      final baseCurrency = profileAsync.value?.baseCurrency ?? 'USD';
+      final baseCurrency = profileAsync.value?.baseCurrency ?? 'THB';
 
       final targetStr = _targetAmountController.text.trim();
       final currentStr = _currentAmountController.text.trim();
@@ -404,7 +421,10 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
         name: _nameController.text.trim(),
         purpose: _selectedPurpose,
         targetAmount: Money.parse(targetStr, baseCurrency),
-        currentAmount: Money.parse(currentStr.isEmpty ? '0' : currentStr, baseCurrency),
+        currentAmount: Money.parse(
+          currentStr.isEmpty ? '0' : currentStr,
+          baseCurrency,
+        ),
         targetDate: _selectedDate!,
         linkedAccountId: _selectedAccountId,
         priority: _priority,
@@ -463,7 +483,7 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
   Widget build(BuildContext context) {
     final accountsAsync = ref.watch(accountsProvider);
     final profileAsync = ref.watch(profileProvider);
-    final baseCurrency = profileAsync.value?.baseCurrency ?? 'USD';
+    final baseCurrency = profileAsync.value?.baseCurrency ?? 'THB';
 
     return Container(
       decoration: const BoxDecoration(
@@ -512,8 +532,8 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
                   Text(
                     'Add SMART Goal',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -566,11 +586,15 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
                   Expanded(
                     child: TextFormField(
                       controller: _targetAmountController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: InputDecoration(
                         labelText: 'Target Amount',
                         prefixText: '$baseCurrency ',
-                        prefixStyle: const TextStyle(fontWeight: FontWeight.bold),
+                        prefixStyle: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -591,12 +615,16 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
                   Expanded(
                     child: TextFormField(
                       controller: _currentAmountController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: InputDecoration(
                         labelText: 'Current Savings',
                         hintText: '0',
                         prefixText: '$baseCurrency ',
-                        prefixStyle: const TextStyle(fontWeight: FontWeight.bold),
+                        prefixStyle: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -641,12 +669,16 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
                 loading: () => const LinearProgressIndicator(),
                 error: (e, s) => Text('Error loading accounts: $e'),
                 data: (accountsList) {
-                  final activeAccounts = accountsList.where((a) => a.isActive).toList();
+                  final activeAccounts = accountsList
+                      .where((a) => a.isActive)
+                      .toList();
                   return DropdownButtonFormField<String?>(
                     value: _selectedAccountId,
                     decoration: InputDecoration(
                       labelText: 'Linked Funding Account (Optional)',
-                      prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
+                      prefixIcon: const Icon(
+                        Icons.account_balance_wallet_outlined,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -659,7 +691,9 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
                       ...activeAccounts.map((account) {
                         return DropdownMenuItem<String?>(
                           value: account.id,
-                          child: Text('${account.name} (${account.currentBalance.format()})'),
+                          child: Text(
+                            '${account.name} (${account.currentBalance.format()})',
+                          ),
                         );
                       }),
                     ],

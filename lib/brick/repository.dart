@@ -81,4 +81,17 @@ class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
 
     await _singleton!.initialize();
   }
+
+  static Future<void> resetLocalData() async {
+    final repository = _singleton;
+    if (repository == null) {
+      return;
+    }
+
+    await repository.reset();
+
+    final queueManager = repository.offlineRequestQueue.client.requestManager;
+    final queueDb = await queueManager.getDb();
+    await queueDb.delete(queueManager.tableName);
+  }
 }

@@ -14,7 +14,7 @@ class TransactionDto {
       type: TransactionType.values.byName(json['type'] as String? ?? 'expense'),
       amount: Money.parse(
         '${json['amount'] ?? 0}',
-        json['currency'] as String? ?? 'USD',
+        json['currency'] as String? ?? 'THB',
       ),
       date: DateTime.parse(json['date'] as String),
       categoryId: json['category_id'] as String?,

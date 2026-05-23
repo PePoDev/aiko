@@ -7,7 +7,7 @@ class BudgetDto {
   final Map<String, dynamic> json;
 
   Budget toDomain() {
-    final currency = json['currency'] as String? ?? 'USD';
+    final currency = json['currency'] as String? ?? 'THB';
     return Budget(
       id: json['id'] as String,
       userId: json['user_id'] as String,

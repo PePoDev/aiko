@@ -83,7 +83,7 @@ class BillSubscriptionRepository {
           item.name == (row['cancellation_status'] as String? ?? 'active'),
       orElse: () => CancellationStatus.active,
     );
-    final currency = row['currency'] as String? ?? 'USD';
+    final currency = row['currency'] as String? ?? 'THB';
 
     return BillSubscription(
       id: row['id'] as String,

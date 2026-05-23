@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
@@ -28,6 +30,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _amountController = TextEditingController();
   final _merchantController = TextEditingController();
   final _noteController = TextEditingController();
+  final _imagePicker = ImagePicker();
   String _type = 'expense';
   DateTime _selectedDate = DateTime.now();
   final List<TransactionAttachment> _attachments = [];
@@ -71,78 +74,68 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     );
   }
 
-  void _showOcrScannerDialog() {
-    showModalBottomSheet<void>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Simulate AI Receipt Scan',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AikoColors.premiumPurple,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Select a mock transaction receipt to simulate scanning and autofill:',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              ListTile(
-                leading: const Icon(Icons.coffee, color: AikoColors.warningOrange),
-                title: const Text('Starbucks Receipt'),
-                subtitle: const Text('Total: \$12.45 | Today'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _runMockOcrProgress(
-                    text: 'STARBUCKS\n12/3/2026\nCOFFEE & TEA\nTOTAL: 12.45\nPAID WITH VISA',
-                    merchant: 'Starbucks',
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.shopping_bag_outlined, color: AikoColors.deepBlue),
-                title: const Text('Amazon Order invoice'),
-                subtitle: const Text('Total: \$89.99 | Yesterday'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _runMockOcrProgress(
-                    text: 'AMAZON.COM\n12/2/2026\nTEXTBOOKS\nAMOUNT DUE: 89.99\nDELIVERED',
-                    merchant: 'Amazon',
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.local_gas_station_outlined, color: AikoColors.successGreen),
-                title: const Text('Chevron Gas Station'),
-                subtitle: const Text('Total: \$45.50 | 2 Days Ago'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _runMockOcrProgress(
-                    text: 'CHEVRON PUMP 04\n12/1/2026\nREGULAR UNLEADED\nPAID: 45.50\nTHANK YOU',
-                    merchant: 'Chevron Gas',
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  Future<void> _scanReceiptWithCamera() async {
+    XFile? captured;
+    try {
+      captured = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 88,
+        preferredCameraDevice: CameraDevice.rear,
+        requestFullMetadata: false,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Unable to open camera right now.'),
+          backgroundColor: AikoColors.dangerRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+      return;
+    }
 
-  void _runMockOcrProgress({required String text, required String merchant}) async {
+    if (captured == null || !mounted) {
+      return;
+    }
+
+    final Uint8List imageBytes;
+    try {
+      imageBytes = await captured.readAsBytes();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Unable to read captured image.'),
+          backgroundColor: AikoColors.dangerRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+      return;
+    }
+
+    final ext = captured.name.toLowerCase().endsWith('.png')
+        ? 'png'
+        : (captured.name.toLowerCase().endsWith('.webp') ? 'webp' : 'jpg');
+    final mimeType = switch (ext) {
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      _ => 'image/jpeg',
+    };
+
+    final attachment = TransactionAttachment(
+      id: const Uuid().v4(),
+      userId: '',
+      transactionId: '',
+      fileName: captured.name,
+      storagePath: captured.path,
+      mimeType: mimeType,
+      sizeBytes: imageBytes.length,
+      createdAt: DateTime.now(),
+    );
+
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -152,7 +145,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             children: [
               CircularProgressIndicator(),
               SizedBox(width: 20),
-              Text('Aiko OCR recognizing text...'),
+              Text('Scanning receipt...'),
             ],
           ),
         );
@@ -160,18 +153,52 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     );
 
     const ocrService = ReceiptOcrService();
-    final autofill = await ocrService.scanWithCloudOcr(
-      imageBytes: [1, 2, 3, 4],
-      fileName: '${merchant.toLowerCase().replaceAll(' ', '_')}.png',
-    );
+    late final ReceiptAutofill autofill;
+    try {
+      autofill = await ocrService.scanWithCloudOcr(
+        imageBytes: imageBytes,
+        fileName: captured.name,
+        currency: 'THB',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Receipt scan failed. You can still enter manually.',
+          ),
+          backgroundColor: AikoColors.warningOrange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+      return;
+    }
 
     if (!mounted) return;
     Navigator.of(context).pop(); // Close spinner
 
+    setState(() {
+      _attachments.add(attachment);
+    });
+
+    if (!autofill.hasTransactionFields) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Receipt captured. OCR found limited fields.'),
+          backgroundColor: AikoColors.warningOrange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+      return;
+    }
+
     _autofillForm(
       amount: autofill.total?.amount.toDouble() ?? 0.0,
-      merchant: autofill.merchant ?? merchant,
-      note: 'Simulated OCR Receipt: ${autofill.merchant}',
+      merchant: autofill.merchant ?? 'Receipt Merchant',
+      note: 'Scanned receipt: ${autofill.merchant ?? captured.name}',
       type: 'expense',
       date: autofill.date ?? DateTime.now(),
     );
@@ -202,17 +229,19 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
             return AlertDialog(
               backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
               title: Row(
                 children: [
                   const Icon(Icons.mic, color: AikoColors.premiumPurple),
                   const SizedBox(width: 8),
                   Text(
                     'Voice Entry Assistant',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold, color: AikoColors.deepBlue),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AikoColors.deepBlue,
+                    ),
                   ),
                 ],
               ),
@@ -242,7 +271,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                             height: 32,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation(AikoColors.premiumPurple),
+                              valueColor: AlwaysStoppedAnimation(
+                                AikoColors.premiumPurple,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -266,7 +297,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                                 (i) => Container(
                                   width: 4,
                                   height: waveHeights[i],
-                                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: AikoColors.dangerRed,
                                     borderRadius: BorderRadius.circular(2),
@@ -285,7 +318,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                             ),
                           ),
                         ] else ...[
-                          const Icon(Icons.mic, size: 36, color: AikoColors.premiumPurple),
+                          const Icon(
+                            Icons.mic,
+                            size: 36,
+                            color: AikoColors.premiumPurple,
+                          ),
                           const SizedBox(height: 8),
                           const Text(
                             'Tap the mic to start speaking',
@@ -306,26 +343,32 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                                         isRecording = false;
                                         isTranscribing = true;
                                       });
-                                      
+
                                       // Call service
-                                      const voiceService = VoiceTranscriptionService();
-                                      voiceService.transcribe(
-                                        audioBytes: [1, 2, 3, 4],
-                                        defaultSimulationText: voiceTextController.text.trim(),
-                                      ).then((transcription) {
-                                        if (context.mounted) {
-                                          setModalState(() {
-                                            isTranscribing = false;
-                                            voiceTextController.text = transcription;
+                                      const voiceService =
+                                          VoiceTranscriptionService();
+                                      voiceService
+                                          .transcribe(
+                                            audioBytes: [1, 2, 3, 4],
+                                            defaultSimulationText:
+                                                voiceTextController.text.trim(),
+                                          )
+                                          .then((transcription) {
+                                            if (context.mounted) {
+                                              setModalState(() {
+                                                isTranscribing = false;
+                                                voiceTextController.text =
+                                                    transcription;
+                                              });
+                                            }
+                                          })
+                                          .catchError((_) {
+                                            if (context.mounted) {
+                                              setModalState(() {
+                                                isTranscribing = false;
+                                              });
+                                            }
                                           });
-                                        }
-                                      }).catchError((_) {
-                                        if (context.mounted) {
-                                          setModalState(() {
-                                            isTranscribing = false;
-                                          });
-                                        }
-                                      });
                                     } else {
                                       // Start recording
                                       setModalState(() {
@@ -346,7 +389,16 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                                           setModalState(() {
                                             waveHeights = List.generate(
                                               15,
-                                              (_) => 5.0 + (30.0 * (0.1 + 0.9 * (1.0 - (DateTime.now().millisecond % 500) / 500.0))),
+                                              (_) =>
+                                                  5.0 +
+                                                  (30.0 *
+                                                      (0.1 +
+                                                          0.9 *
+                                                              (1.0 -
+                                                                  (DateTime.now()
+                                                                              .millisecond %
+                                                                          500) /
+                                                                      500.0))),
                                             );
                                           });
                                         },
@@ -359,15 +411,20 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                               width: 64,
                               height: 64,
                               decoration: BoxDecoration(
-                                color: isRecording ? AikoColors.dangerRed : AikoColors.premiumPurple,
+                                color: isRecording
+                                    ? AikoColors.dangerRed
+                                    : AikoColors.premiumPurple,
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: (isRecording ? AikoColors.dangerRed : AikoColors.premiumPurple)
-                                        .withOpacity(0.3),
+                                    color:
+                                        (isRecording
+                                                ? AikoColors.dangerRed
+                                                : AikoColors.premiumPurple)
+                                            .withOpacity(0.3),
                                     blurRadius: isRecording ? 16 : 8,
                                     spreadRadius: isRecording ? 4 : 1,
-                                  )
+                                  ),
                                 ],
                               ),
                               child: Icon(
@@ -384,7 +441,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   const SizedBox(height: 16),
                   const Text(
                     'Edit transcription context if needed:',
-                    style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   TextField(
@@ -418,7 +479,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                           Navigator.of(context).pop();
                           _parseVoiceCommand(txt);
                         },
-                  style: FilledButton.styleFrom(backgroundColor: AikoColors.premiumPurple),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AikoColors.premiumPurple,
+                  ),
                   child: const Text('Parse Draft'),
                 ),
               ],
@@ -467,9 +530,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               Text(
                 'Simulate Document Upload',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AikoColors.premiumPurple,
-                    ),
+                  fontWeight: FontWeight.bold,
+                  color: AikoColors.premiumPurple,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
@@ -480,7 +543,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               ),
               const SizedBox(height: 20),
               ListTile(
-                leading: const Icon(Icons.picture_as_pdf, color: AikoColors.dangerRed),
+                leading: const Icon(
+                  Icons.picture_as_pdf,
+                  color: AikoColors.dangerRed,
+                ),
                 title: const Text('Starbucks_Receipt.pdf'),
                 subtitle: const Text('PDF | 1.2 MB'),
                 onTap: () {
@@ -506,7 +572,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.image, color: AikoColors.successGreen),
+                leading: const Icon(
+                  Icons.image,
+                  color: AikoColors.successGreen,
+                ),
                 title: const Text('Chevron_Gas_Receipt.jpg'),
                 subtitle: const Text('JPEG | 850 KB'),
                 onTap: () {
@@ -682,7 +751,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       userId: '',
       accountId: accountId,
       type: txType,
-      amount: Money(amount: amount, currency: 'USD'),
+      amount: Money(amount: amount, currency: 'THB'),
       date: _selectedDate,
       categoryId: categoryId,
       merchant: _merchantController.text.trim(),
@@ -711,7 +780,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           await attachmentRepo.save(updatedAttachment);
         }
       } catch (e) {
-        debugPrint('Offline/local session faked: attachment metadata bypass cloud ($e)');
+        debugPrint(
+          'Offline/local session faked: attachment metadata bypass cloud ($e)',
+        );
       }
     }
 
@@ -751,9 +822,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add transaction'),
-      ),
+      appBar: AppBar(title: const Text('Add transaction')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
@@ -763,7 +832,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: AikoColors.premiumPurple.withOpacity(0.3)),
+              side: BorderSide(
+                color: AikoColors.premiumPurple.withOpacity(0.3),
+              ),
             ),
             child: Container(
               padding: const EdgeInsets.all(16),
@@ -780,14 +851,18 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.auto_awesome, color: AikoColors.premiumPurple, size: 20),
+                      const Icon(
+                        Icons.auto_awesome,
+                        color: AikoColors.premiumPurple,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'Aiko Smart Entry Tools',
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AikoColors.premiumPurple,
-                            ),
+                          fontWeight: FontWeight.bold,
+                          color: AikoColors.premiumPurple,
+                        ),
                       ),
                     ],
                   ),
@@ -801,12 +876,20 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: _showOcrScannerDialog,
-                          icon: const Icon(Icons.receipt_long_outlined, size: 18),
-                          label: const Text('Scan Receipt', style: TextStyle(fontSize: 12)),
+                          onPressed: _scanReceiptWithCamera,
+                          icon: const Icon(
+                            Icons.receipt_long_outlined,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            'Scan Receipt',
+                            style: TextStyle(fontSize: 12),
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AikoColors.premiumPurple,
-                            side: const BorderSide(color: AikoColors.premiumPurple),
+                            side: const BorderSide(
+                              color: AikoColors.premiumPurple,
+                            ),
                           ),
                         ),
                       ),
@@ -815,7 +898,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                         child: OutlinedButton.icon(
                           onPressed: _showVoiceCommandDialog,
                           icon: const Icon(Icons.mic_none_outlined, size: 18),
-                          label: const Text('Voice Entry', style: TextStyle(fontSize: 12)),
+                          label: const Text(
+                            'Voice Entry',
+                            style: TextStyle(fontSize: 12),
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AikoColors.deepBlue,
                             side: const BorderSide(color: AikoColors.deepBlue),
@@ -866,7 +952,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             decoration: const InputDecoration(labelText: 'Note'),
           ),
           const SizedBox(height: 16),
-          
+
           // Date selection tile
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -888,7 +974,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             },
           ),
           const SizedBox(height: 16),
-          
+
           TransactionAttachmentSection(
             attachments: _attachments,
             onAddAttachment: _showAddAttachmentDialog,

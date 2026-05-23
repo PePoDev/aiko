@@ -7,7 +7,7 @@ class AccountDto {
   final Map<String, dynamic> json;
 
   Account toDomain() {
-    final currency = json['currency'] as String? ?? 'USD';
+    final currency = json['currency'] as String? ?? 'THB';
     return Account(
       id: json['id'] as String,
       userId: json['user_id'] as String,

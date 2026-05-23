@@ -5,7 +5,8 @@ import '../../../core/money/money.dart';
 class TravelState {
   const TravelState({
     this.activeTrip,
-    this.exchangeRate = 1.0, // Mock exchange rate, e.g. 1 HomeCurrency = exchangeRate LocalCurrency
+    this.exchangeRate =
+        1.0, // Mock exchange rate, e.g. 1 HomeCurrency = exchangeRate LocalCurrency
   });
 
   final Trip? activeTrip;
@@ -41,6 +42,17 @@ class TravelModeNotifier extends Notifier<TravelState> {
         'AUD' => 1.50,
         _ => 1.0,
       };
+    } else if (trip.homeCurrency == 'THB') {
+      rate = switch (trip.localCurrency) {
+        'USD' => 0.027,
+        'EUR' => 0.025,
+        'JPY' => 4.30,
+        'GBP' => 0.021,
+        'CAD' => 0.037,
+        'AUD' => 0.041,
+        'SGD' => 0.036,
+        _ => 1.0,
+      };
     }
     state = TravelState(activeTrip: trip, exchangeRate: rate);
   }
@@ -61,6 +73,8 @@ class TravelModeNotifier extends Notifier<TravelState> {
   }
 }
 
-final travelModeProvider = NotifierProvider<TravelModeNotifier, TravelState>(() {
-  return TravelModeNotifier();
-});
+final travelModeProvider = NotifierProvider<TravelModeNotifier, TravelState>(
+  () {
+    return TravelModeNotifier();
+  },
+);

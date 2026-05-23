@@ -21,10 +21,10 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
   // Custom Budget Mode controllers
   final _categoryController = TextEditingController();
   final _amountController = TextEditingController();
-  
+
   // Preset Mode controllers
   final _incomeController = TextEditingController(text: '3000');
-  
+
   // Dynamic allocators for Zero-Based & Envelope
   final Map<String, TextEditingController> _allocatorControllers = {};
 
@@ -112,12 +112,12 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
   void _reallocatePresets() async {
     final categories = await _ensurePresetCategories();
     double income = double.tryParse(_incomeController.text) ?? 0.0;
-    
+
     if (_presetType == 'zero_based') {
       // Divide equally among first 4 categories as default
       final targetCats = categories.take(4).toList();
       final split = income / (targetCats.isNotEmpty ? targetCats.length : 1);
-      
+
       for (final cat in targetCats) {
         if (!_allocatorControllers.containsKey(cat.id)) {
           _allocatorControllers[cat.id] = TextEditingController();
@@ -127,9 +127,25 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
       setState(() {});
     } else if (_presetType == 'envelope') {
       // Envelope preset standard envelopes: Groceries, Housing, Dining, Entertainment
-      final groceryCat = categories.firstWhere((c) => c.name.toLowerCase().contains('grocer') || c.group == CategoryGroup.needs, orElse: () => categories.first);
-      final housingCat = categories.firstWhere((c) => c.name.toLowerCase().contains('rent') || c.name.toLowerCase().contains('hous') || c.group == CategoryGroup.needs, orElse: () => categories.first);
-      final savingsCat = categories.firstWhere((c) => c.name.toLowerCase().contains('sav') || c.group == CategoryGroup.savings, orElse: () => categories.first);
+      final groceryCat = categories.firstWhere(
+        (c) =>
+            c.name.toLowerCase().contains('grocer') ||
+            c.group == CategoryGroup.needs,
+        orElse: () => categories.first,
+      );
+      final housingCat = categories.firstWhere(
+        (c) =>
+            c.name.toLowerCase().contains('rent') ||
+            c.name.toLowerCase().contains('hous') ||
+            c.group == CategoryGroup.needs,
+        orElse: () => categories.first,
+      );
+      final savingsCat = categories.firstWhere(
+        (c) =>
+            c.name.toLowerCase().contains('sav') ||
+            c.group == CategoryGroup.savings,
+        orElse: () => categories.first,
+      );
 
       final targets = [groceryCat, housingCat, savingsCat];
       final allocations = [income * 0.20, income * 0.50, income * 0.30];
@@ -190,7 +206,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
       userId: '',
       name: category,
       categoryId: matchingCategories.first.id,
-      amount: Money(amount: amount, currency: 'USD'),
+      amount: Money(amount: amount, currency: 'THB'),
       periodStart: periodStart,
       periodEnd: periodEnd,
     );
@@ -225,44 +241,58 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
     try {
       if (_presetType == '50_30_20') {
         // Needs category budget (50%)
-        final needsCat = categories.firstWhere((c) => c.group == CategoryGroup.needs);
+        final needsCat = categories.firstWhere(
+          (c) => c.group == CategoryGroup.needs,
+        );
         final needsBudget = Budget(
           id: const Uuid().v4(),
           userId: '',
           name: needsCat.name,
           categoryId: needsCat.id,
-          amount: Money(amount: Decimal.parse((income * 0.50).toStringAsFixed(2)), currency: 'USD'),
+          amount: Money(
+            amount: Decimal.parse((income * 0.50).toStringAsFixed(2)),
+            currency: 'THB',
+          ),
           periodStart: periodStart,
           periodEnd: periodEnd,
         );
         await ref.read(budgetsProvider.notifier).addBudget(needsBudget);
 
         // Wants category budget (30%)
-        final wantsCat = categories.firstWhere((c) => c.group == CategoryGroup.wants);
+        final wantsCat = categories.firstWhere(
+          (c) => c.group == CategoryGroup.wants,
+        );
         final wantsBudget = Budget(
           id: const Uuid().v4(),
           userId: '',
           name: wantsCat.name,
           categoryId: wantsCat.id,
-          amount: Money(amount: Decimal.parse((income * 0.30).toStringAsFixed(2)), currency: 'USD'),
+          amount: Money(
+            amount: Decimal.parse((income * 0.30).toStringAsFixed(2)),
+            currency: 'THB',
+          ),
           periodStart: periodStart,
           periodEnd: periodEnd,
         );
         await ref.read(budgetsProvider.notifier).addBudget(wantsBudget);
 
         // Savings category budget (20%)
-        final savingsCat = categories.firstWhere((c) => c.group == CategoryGroup.savings);
+        final savingsCat = categories.firstWhere(
+          (c) => c.group == CategoryGroup.savings,
+        );
         final savingsBudget = Budget(
           id: const Uuid().v4(),
           userId: '',
           name: savingsCat.name,
           categoryId: savingsCat.id,
-          amount: Money(amount: Decimal.parse((income * 0.20).toStringAsFixed(2)), currency: 'USD'),
+          amount: Money(
+            amount: Decimal.parse((income * 0.20).toStringAsFixed(2)),
+            currency: 'THB',
+          ),
           periodStart: periodStart,
           periodEnd: periodEnd,
         );
         await ref.read(budgetsProvider.notifier).addBudget(savingsBudget);
-
       } else {
         // Zero-Based or Envelope
         double totalAllocated = 0;
@@ -279,7 +309,10 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                 userId: '',
                 name: cat.name,
                 categoryId: cat.id,
-                amount: Money(amount: Decimal.parse(amt.toStringAsFixed(2)), currency: 'USD'),
+                amount: Money(
+                  amount: Decimal.parse(amt.toStringAsFixed(2)),
+                  currency: 'THB',
+                ),
                 periodStart: periodStart,
                 periodEnd: periodEnd,
               ),
@@ -287,9 +320,12 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
           }
         }
 
-        if (_presetType == 'zero_based' && (totalAllocated - income).abs() > 0.01) {
+        if (_presetType == 'zero_based' &&
+            (totalAllocated - income).abs() > 0.01) {
           setState(() => _isSubmitting = false);
-          _showMessage('In Zero-Based budgeting, total allocated must equal monthly income.');
+          _showMessage(
+            'In Zero-Based budgeting, total allocated must equal monthly income.',
+          );
           return;
         }
 
@@ -307,7 +343,9 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -324,8 +362,16 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
           // Mode Switcher Selector
           SegmentedButton<String>(
             segments: const [
-              ButtonSegment(value: 'custom', label: Text('Custom Entry'), icon: Icon(Icons.edit_note)),
-              ButtonSegment(value: 'preset', label: Text('Aiko Presets'), icon: Icon(Icons.auto_awesome)),
+              ButtonSegment(
+                value: 'custom',
+                label: Text('Custom Entry'),
+                icon: Icon(Icons.edit_note),
+              ),
+              ButtonSegment(
+                value: 'preset',
+                label: Text('Aiko Presets'),
+                icon: Icon(Icons.auto_awesome),
+              ),
             ],
             selected: {_mode},
             onSelectionChanged: (selection) {
@@ -365,7 +411,8 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                     ),
                     textInputAction: TextInputAction.done,
                     enabled: !_isSubmitting,
-                    onSubmitted: (_) => _isSubmitting ? null : _submitCustomBudget(),
+                    onSubmitted: (_) =>
+                        _isSubmitting ? null : _submitCustomBudget(),
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
@@ -392,11 +439,22 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                 children: [
                   DropdownButtonFormField<String>(
                     value: _presetType,
-                    decoration: const InputDecoration(labelText: 'Template Presets'),
+                    decoration: const InputDecoration(
+                      labelText: 'Template Presets',
+                    ),
                     items: const [
-                      DropdownMenuItem(value: '50_30_20', child: Text('50/30/20 Rule')),
-                      DropdownMenuItem(value: 'zero_based', child: Text('Zero-Based (Assign Every Dollar)')),
-                      DropdownMenuItem(value: 'envelope', child: Text('Envelope Allocation')),
+                      DropdownMenuItem(
+                        value: '50_30_20',
+                        child: Text('50/30/20 Rule'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'zero_based',
+                        child: Text('Zero-Based (Assign Every Dollar)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'envelope',
+                        child: Text('Envelope Allocation'),
+                      ),
                     ],
                     onChanged: (val) {
                       if (val != null) {
@@ -428,24 +486,45 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                 title: '50/30/20 Allocation Summary',
                 icon: Icons.pie_chart,
                 accentColor: AikoColors.successGreen,
-                child: Builder(builder: (context) {
-                  final inc = double.tryParse(_incomeController.text) ?? 0.0;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildPresetAllocationLine('Needs (50%)', inc * 0.5, AikoColors.deepBlue, textTheme),
-                      const SizedBox(height: 12),
-                      _buildPresetAllocationLine('Wants (30%)', inc * 0.3, AikoColors.warningOrange, textTheme),
-                      const SizedBox(height: 12),
-                      _buildPresetAllocationLine('Savings (20%)', inc * 0.2, AikoColors.successGreen, textTheme),
-                      const Divider(height: 32),
-                      const Text(
-                        'Aiko Advice: Splits your income into Needs (Housing/Food), Wants (Fun/Dining), and Savings/Debt payoff automatically.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
-                      ),
-                    ],
-                  );
-                }),
+                child: Builder(
+                  builder: (context) {
+                    final inc = double.tryParse(_incomeController.text) ?? 0.0;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildPresetAllocationLine(
+                          'Needs (50%)',
+                          inc * 0.5,
+                          AikoColors.deepBlue,
+                          textTheme,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildPresetAllocationLine(
+                          'Wants (30%)',
+                          inc * 0.3,
+                          AikoColors.warningOrange,
+                          textTheme,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildPresetAllocationLine(
+                          'Savings (20%)',
+                          inc * 0.2,
+                          AikoColors.successGreen,
+                          textTheme,
+                        ),
+                        const Divider(height: 32),
+                        const Text(
+                          'Aiko Advice: Splits your income into Needs (Housing/Food), Wants (Fun/Dining), and Savings/Debt payoff automatically.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ] else if (_presetType == 'zero_based') ...[
               FinanceCard(
@@ -455,12 +534,20 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                 child: FutureBuilder<List<Category>>(
                   future: ref.read(categoriesProvider.future),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                    final cats = snapshot.data!.where((c) => c.isActive).take(4).toList();
+                    if (!snapshot.hasData)
+                      return const Center(child: CircularProgressIndicator());
+                    final cats = snapshot.data!
+                        .where((c) => c.isActive)
+                        .take(4)
+                        .toList();
                     double inc = double.tryParse(_incomeController.text) ?? 0.0;
                     double allocated = _allocatorControllers.entries
                         .where((e) => cats.any((c) => c.id == e.key))
-                        .fold(0.0, (sum, e) => sum + (double.tryParse(e.value.text) ?? 0.0));
+                        .fold(
+                          0.0,
+                          (sum, e) =>
+                              sum + (double.tryParse(e.value.text) ?? 0.0),
+                        );
                     double remaining = inc - allocated;
 
                     return Column(
@@ -471,13 +558,17 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                           children: [
                             Text(
                               'Remaining to allocate:',
-                              style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                              style: textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             Text(
                               '\$${remaining.toStringAsFixed(0)}',
                               style: textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
-                                color: remaining == 0 ? AikoColors.successGreen : AikoColors.dangerRed,
+                                color: remaining == 0
+                                    ? AikoColors.successGreen
+                                    : AikoColors.dangerRed,
                               ),
                             ),
                           ],
@@ -491,7 +582,9 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                                 width: 100,
                                 child: TextField(
                                   controller: _allocatorControllers[cat.id],
-                                  decoration: const InputDecoration(prefixText: r'$ '),
+                                  decoration: const InputDecoration(
+                                    prefixText: r'$ ',
+                                  ),
                                   keyboardType: TextInputType.number,
                                   onChanged: (_) => setState(() {}),
                                 ),
@@ -513,8 +606,12 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                 child: FutureBuilder<List<Category>>(
                   future: ref.read(categoriesProvider.future),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                    final cats = snapshot.data!.where((c) => c.isActive).take(3).toList();
+                    if (!snapshot.hasData)
+                      return const Center(child: CircularProgressIndicator());
+                    final cats = snapshot.data!
+                        .where((c) => c.isActive)
+                        .take(3)
+                        .toList();
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -531,7 +628,9 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                                 width: 100,
                                 child: TextField(
                                   controller: _allocatorControllers[cat.id],
-                                  decoration: const InputDecoration(prefixText: r'$ '),
+                                  decoration: const InputDecoration(
+                                    prefixText: r'$ ',
+                                  ),
                                   keyboardType: TextInputType.number,
                                 ),
                               ),
@@ -551,10 +650,15 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
               icon: _isSubmitting
                   ? const SizedBox.square(
                       dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.done_all),
-              label: Text(_isSubmitting ? 'Saving Presets...' : 'Save Preset Budgets'),
+              label: Text(
+                _isSubmitting ? 'Saving Presets...' : 'Save Preset Budgets',
+              ),
             ),
           ],
         ],
@@ -562,7 +666,12 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
     );
   }
 
-  Widget _buildPresetAllocationLine(String title, double amount, Color color, TextTheme textTheme) {
+  Widget _buildPresetAllocationLine(
+    String title,
+    double amount,
+    Color color,
+    TextTheme textTheme,
+  ) {
     return Row(
       children: [
         Container(width: 8, height: 16, color: color),

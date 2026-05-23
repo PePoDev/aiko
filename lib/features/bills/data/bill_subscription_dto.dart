@@ -13,7 +13,7 @@ class BillSubscriptionDto {
       merchant: json['merchant'] as String,
       amount: Money.parse(
         '${json['amount'] ?? 0}',
-        json['currency'] as String? ?? 'USD',
+        json['currency'] as String? ?? 'THB',
       ),
       billingCycle: BillingCycle.values.byName(
         json['billing_cycle'] as String? ?? 'monthly',

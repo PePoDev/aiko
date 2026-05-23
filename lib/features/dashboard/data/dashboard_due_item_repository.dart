@@ -65,7 +65,7 @@ class DashboardDueItemRepository {
           item.name == (row['cancellation_status'] as String? ?? 'active'),
       orElse: () => CancellationStatus.active,
     );
-    final currency = row['currency'] as String? ?? 'USD';
+    final currency = row['currency'] as String? ?? 'THB';
 
     return BillSubscription(
       id: row['id'] as String,
@@ -83,7 +83,7 @@ class DashboardDueItemRepository {
     Map<String, dynamic> row,
     DateTime asOf,
   ) {
-    final currency = row['currency'] as String? ?? 'USD';
+    final currency = row['currency'] as String? ?? 'THB';
     final dueDay = row['due_day'] as int? ?? 1;
     final paymentDueDate = _nextDateForDay(asOf, dueDay);
 

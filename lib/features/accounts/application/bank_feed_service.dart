@@ -19,7 +19,7 @@ class BankFeedService {
       throw ArgumentError('Credentials cannot be empty.');
     }
 
-    const currency = 'USD';
+    const currency = 'THB';
     const uuid = Uuid();
 
     if (institution.toLowerCase().contains('chase')) {
@@ -29,8 +29,14 @@ class BankFeedService {
           userId: '',
           name: 'Chase Sapphire Checking',
           type: AccountType.bank,
-          openingBalance: Money(amount: Decimal.parse('1500.00'), currency: currency),
-          currentBalance: Money(amount: Decimal.parse('3842.50'), currency: currency),
+          openingBalance: Money(
+            amount: Decimal.parse('1500.00'),
+            currency: currency,
+          ),
+          currentBalance: Money(
+            amount: Decimal.parse('3842.50'),
+            currency: currency,
+          ),
           institution: 'Chase Bank',
         ),
         Account(
@@ -39,19 +45,29 @@ class BankFeedService {
           name: 'Chase Freedom Unlimited',
           type: AccountType.creditCard,
           openingBalance: Money(amount: Decimal.zero, currency: currency),
-          currentBalance: Money(amount: Decimal.parse('120.45'), currency: currency),
+          currentBalance: Money(
+            amount: Decimal.parse('120.45'),
+            currency: currency,
+          ),
           institution: 'Chase Bank',
         ),
       ];
-    } else if (institution.toLowerCase().contains('america') || institution.toLowerCase().contains('bofa')) {
+    } else if (institution.toLowerCase().contains('america') ||
+        institution.toLowerCase().contains('bofa')) {
       return [
         Account(
           id: uuid.v4(),
           userId: '',
           name: 'BofA Advantage Checking',
           type: AccountType.bank,
-          openingBalance: Money(amount: Decimal.parse('500.00'), currency: currency),
-          currentBalance: Money(amount: Decimal.parse('2150.10'), currency: currency),
+          openingBalance: Money(
+            amount: Decimal.parse('500.00'),
+            currency: currency,
+          ),
+          currentBalance: Money(
+            amount: Decimal.parse('2150.10'),
+            currency: currency,
+          ),
           institution: 'Bank of America',
         ),
       ];
@@ -62,8 +78,14 @@ class BankFeedService {
           userId: '',
           name: '$institution Everyday Checking',
           type: AccountType.bank,
-          openingBalance: Money(amount: Decimal.parse('100.00'), currency: currency),
-          currentBalance: Money(amount: Decimal.parse('750.00'), currency: currency),
+          openingBalance: Money(
+            amount: Decimal.parse('100.00'),
+            currency: currency,
+          ),
+          currentBalance: Money(
+            amount: Decimal.parse('750.00'),
+            currency: currency,
+          ),
           institution: institution,
         ),
       ];

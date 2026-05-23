@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../brick/repository.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../../../core/storage/secure_storage_service.dart';
 
@@ -108,7 +109,7 @@ class AuthRepository {
     if (client != null) {
       await client.auth.signOut();
     }
-    _session = null;
+    await _clearLocalData();
   }
 
   Future<void> resetPassword(String email) async {
@@ -118,8 +119,21 @@ class AuthRepository {
 
   Future<void> deleteAccount() async {
     final client = AikoSupabase.requireClient();
-    await client.auth.deleteUser();
-    _session = null;
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      throw StateError('Sign in before deleting your account.');
+    }
+
+    try {
+      // Full Auth user deletion requires service-role permissions.
+      await client.auth.admin.deleteUser(userId);
+    } on AuthException {
+      // In client apps with anon keys, fall back to deleting profile-owned data.
+      await client.from('profiles').delete().eq('id', userId);
+    }
+
+    await client.auth.signOut(scope: SignOutScope.global);
+    await _clearLocalData();
   }
 
   Future<AuthSession?> restoreSession() async {
@@ -144,6 +158,12 @@ class AuthRepository {
     }
   }
 
+  Future<void> _clearLocalData() async {
+    await AikoBrickRepository.resetLocalData();
+    await _storage.deleteAll();
+    _session = null;
+  }
+
   Future<void> _ensureProfileAndDefaultsExist(
     String userId,
     String email,
@@ -153,9 +173,9 @@ class AuthRepository {
       'id': userId,
       'email': email,
       'display_name': email.contains('@') ? email.split('@').first : email,
-      'base_currency': 'USD',
-      'country': 'US',
-      'timezone': 'UTC',
+      'base_currency': 'THB',
+      'country': 'TH',
+      'timezone': 'Asia/Bangkok',
       'preferred_theme': 'system',
       'aiko_character_visibility': 'full',
       'aiko_personality_setting': 'supportive',
@@ -194,7 +214,7 @@ class AuthRepository {
         'user_id': userId,
         'name': 'Cash Wallet',
         'type': 'cash',
-        'currency': 'USD',
+        'currency': 'THB',
         'opening_balance': '0',
         'current_balance': '0',
         'include_in_net_worth': true,

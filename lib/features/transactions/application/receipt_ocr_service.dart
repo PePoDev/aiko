@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/money/money.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
 
@@ -41,38 +40,23 @@ class ReceiptOcrService {
   Future<ReceiptAutofill> scanWithCloudOcr({
     required List<int> imageBytes,
     required String fileName,
-    String currency = 'USD',
+    String currency = 'THB',
   }) async {
     final client = AikoSupabase.tryClient();
     if (client == null) {
-      // Offline fallback: Use simulated OCR parser with mock texts based on filenames
-      await Future<void>.delayed(const Duration(milliseconds: 800));
-      final mockText = fileName.toLowerCase().contains('amazon')
-          ? 'AMAZON.COM\n12/2/2026\nTEXTBOOKS\nAMOUNT DUE: 89.99\nDELIVERED'
-          : fileName.toLowerCase().contains('chevron')
-              ? 'CHEVRON PUMP 04\n12/1/2026\nREGULAR UNLEADED\nPAID: 45.50\nTHANK YOU'
-              : 'STARBUCKS\n12/3/2026\nCOFFEE & TEA\nTOTAL: 12.45\nPAID WITH VISA';
-      return parseRecognizedText(mockText, currency: currency);
+      return parseRecognizedText('', currency: currency);
     }
 
     try {
       final response = await client.functions.invoke(
         'ocr-scanner',
-        body: {
-          'fileName': fileName,
-          'imageBytes': imageBytes,
-        },
+        body: {'fileName': fileName, 'imageBytes': imageBytes},
       );
       final data = response.data as Map<String, dynamic>;
       final recognizedText = data['recognizedText'] as String? ?? '';
       return parseRecognizedText(recognizedText, currency: currency);
     } catch (_) {
-      // Graceful degradation: Fall back to local parsing
-      await Future<void>.delayed(const Duration(milliseconds: 500));
-      return parseRecognizedText(
-        'STARBUCKS\n12/3/2026\nCOFFEE & TEA\nTOTAL: 12.45\nPAID WITH VISA',
-        currency: currency,
-      );
+      return parseRecognizedText('', currency: currency);
     }
   }
 
@@ -88,7 +72,7 @@ class ReceiptOcrService {
     );
   }
 
-  ReceiptAutofill parseRecognizedText(String text, {String currency = 'USD'}) {
+  ReceiptAutofill parseRecognizedText(String text, {String currency = 'THB'}) {
     final lines = text
         .split(RegExp(r'\r?\n'))
         .map((line) => line.trim())

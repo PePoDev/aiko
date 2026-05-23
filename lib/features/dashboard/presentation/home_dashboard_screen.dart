@@ -8,7 +8,6 @@ import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../budgets/presentation/budget_form_screen.dart';
-import '../../transactions/domain/transaction.dart';
 import '../../transactions/presentation/transaction_form_screen.dart';
 import '../domain/dashboard_summary.dart';
 import 'widgets/calculator_shortcuts_widget.dart';
@@ -20,7 +19,6 @@ class HomeDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
-    final transactionsAsync = ref.watch(transactionsProvider);
     final dueItemsAsync = ref.watch(dashboardDueItemsProvider);
 
     return Scaffold(
@@ -57,16 +55,6 @@ class HomeDashboardScreen extends ConsumerWidget {
               prominent: true,
               child: Text(
                 'You have ${summary.safeToSpend.format()} estimated safe to spend this week. This is an estimate, so keep bills and planned purchases in view.',
-              ),
-            ),
-            const SizedBox(height: 16),
-            FinanceCard(
-              title: 'Explore Aiko',
-              icon: Icons.apps_outlined,
-              accentColor: AikoColors.deepBlue,
-              onTap: () => context.go('/more'),
-              child: const Text(
-                'Open accounts, bills, goals, reports, portfolio, tax, learning, settings, and more.',
               ),
             ),
             const SizedBox(height: 16),
@@ -126,6 +114,8 @@ class HomeDashboardScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
+            _FinancialPyramidCard(summary: summary),
+            const SizedBox(height: 16),
             dueItemsAsync.when(
               loading: () => const FinanceCard(
                 title: 'Upcoming due dates',
@@ -139,8 +129,6 @@ class HomeDashboardScreen extends ConsumerWidget {
               ),
               data: (items) => DashboardDueItemsWidget(items: items),
             ),
-            const SizedBox(height: 16),
-            _RecentTransactionsCard(transactionsAsync: transactionsAsync),
             const SizedBox(height: 16),
             const CalculatorShortcutsWidget(),
           ],
@@ -159,59 +147,6 @@ class HomeDashboardScreen extends ConsumerWidget {
         summary.safeToSpend.amount.toDouble() /
         summary.monthlyIncome.amount.toDouble();
     return value.clamp(0.0, 1.0);
-  }
-}
-
-class _RecentTransactionsCard extends StatelessWidget {
-  const _RecentTransactionsCard({required this.transactionsAsync});
-
-  final AsyncValue<List<FinanceTransaction>> transactionsAsync;
-
-  @override
-  Widget build(BuildContext context) {
-    return transactionsAsync.when(
-      loading: () => const FinanceCard(
-        title: 'Recent transactions',
-        icon: Icons.receipt_long,
-        child: Text('Loading transactions...'),
-      ),
-      error: (error, stack) => const FinanceCard(
-        title: 'Recent transactions',
-        icon: Icons.receipt_long,
-        child: Text('Unable to load transactions right now.'),
-      ),
-      data: (transactions) {
-        if (transactions.isEmpty) {
-          return const FinanceCard(
-            title: 'Recent transactions',
-            icon: Icons.receipt_long,
-            child: Text('No transactions yet. Add one to start tracking.'),
-          );
-        }
-
-        final recent = transactions.take(4).toList();
-        return FinanceCard(
-          title: 'Recent transactions',
-          icon: Icons.receipt_long,
-          child: Column(
-            children: [
-              for (final tx in recent)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(tx.merchant ?? tx.note ?? 'Transaction'),
-                  subtitle: Text(tx.date.toString().substring(0, 10)),
-                  trailing: Text(_signedAmount(tx)),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  String _signedAmount(FinanceTransaction transaction) {
-    final sign = transaction.type == TransactionType.income ? '+' : '-';
-    return '$sign${transaction.amount.format()}';
   }
 }
 
@@ -331,5 +266,247 @@ class _MetricLine extends StatelessWidget {
         Text(value, style: theme.textTheme.titleSmall),
       ],
     );
+  }
+}
+
+class _FinancialPyramidCard extends StatelessWidget {
+  const _FinancialPyramidCard({required this.summary});
+
+  final DashboardSummary summary;
+
+  static const List<_PyramidLevel> _levels = [
+    _PyramidLevel(
+      level: 5,
+      title: 'Level 5 (Peak)',
+      description:
+          'Retire and build a retirement income strategy, fulfill your dreams, donate money, and plan your legacy.',
+    ),
+    _PyramidLevel(
+      level: 4,
+      title: 'Level 4',
+      description:
+          'Provide for aging parents, save for children\'s college, pay off your mortgage before retirement, maximize retirement savings, and consider long-term care insurance.',
+    ),
+    _PyramidLevel(
+      level: 3,
+      title: 'Level 3',
+      description:
+          'Buy a home, repay low-interest debt, provide for your children, and increase retirement savings.',
+    ),
+    _PyramidLevel(
+      level: 2,
+      title: 'Level 2',
+      description:
+          'Increase income, buy life and disability insurance, repay high-interest debt, and begin retirement savings.',
+    ),
+    _PyramidLevel(
+      level: 1,
+      title: 'Level 1 (Base)',
+      description:
+          'Earn enough income for monthly obligations, purchase health insurance, and establish an emergency fund.',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final health = _PyramidHealth.fromSummary(summary);
+    final currentLevel = _levels.firstWhere(
+      (item) => item.level == health.level,
+    );
+
+    return FinanceCard(
+      title: 'Financial Pyramid',
+      icon: Icons.change_history,
+      accentColor: AikoColors.analyticsTeal,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Current health: ${currentLevel.title}',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AikoColors.analyticsTeal.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${health.scorePercent}% fit',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: AikoColors.analyticsTeal,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text('Build the base first, then climb tier by tier.'),
+          const SizedBox(height: 14),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              for (var i = 0; i < _levels.length; i++)
+                _PyramidTier3D(
+                  level: _levels[i],
+                  isActive: _levels[i].level <= health.level,
+                  widthFactor: 0.56 + ((_levels.length - 1 - i) * 0.11),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            currentLevel.description,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PyramidTier3D extends StatelessWidget {
+  const _PyramidTier3D({
+    required this.level,
+    required this.isActive,
+    required this.widthFactor,
+  });
+
+  final _PyramidLevel level;
+  final bool isActive;
+  final double widthFactor;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor =
+        Color.lerp(
+          AikoColors.softBlue,
+          AikoColors.deepBlue,
+          (level.level - 1) / 4,
+        ) ??
+        AikoColors.primaryBlue;
+    final faceColor = isActive
+        ? activeColor.withValues(alpha: 0.94)
+        : AikoColors.border;
+    final shadowColor = isActive
+        ? activeColor.withValues(alpha: 0.45)
+        : AikoColors.mutedText.withValues(alpha: 0.2);
+    final topColor = isActive
+        ? activeColor.withValues(alpha: 0.72)
+        : AikoColors.borderSubtle;
+
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: SizedBox(
+          height: 44,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: 8,
+                right: 0,
+                top: 5,
+                bottom: 0,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: shadowColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 8,
+                top: 0,
+                bottom: 6,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [faceColor, topColor],
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isActive
+                          ? Colors.white.withValues(alpha: 0.18)
+                          : AikoColors.border,
+                    ),
+                  ),
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Text(
+                        level.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: isActive ? Colors.white : AikoColors.mutedText,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PyramidLevel {
+  const _PyramidLevel({
+    required this.level,
+    required this.title,
+    required this.description,
+  });
+
+  final int level;
+  final String title;
+  final String description;
+}
+
+class _PyramidHealth {
+  const _PyramidHealth({required this.level, required this.scorePercent});
+
+  final int level;
+  final int scorePercent;
+
+  static _PyramidHealth fromSummary(DashboardSummary summary) {
+    final income = summary.monthlyIncome.amount.toDouble();
+    final spending = summary.monthlySpending.amount.toDouble();
+    final safe = summary.safeToSpend.amount.toDouble();
+    final totalCash = summary.totalCash.amount.toDouble();
+
+    final incomeCoverage = income <= 0 ? 0.0 : (income - spending) / income;
+    final safeRatio = income <= 0 ? 0.0 : safe / income;
+    final cashBuffer = spending <= 0 ? 0.0 : totalCash / spending;
+    final paceScore = summary.paceStatus.isFast ? 0.15 : 1.0;
+
+    final normalized =
+        (incomeCoverage.clamp(0.0, 1.0) * 0.35) +
+        (safeRatio.clamp(0.0, 1.0) * 0.25) +
+        (cashBuffer.clamp(0.0, 1.0) * 0.25) +
+        (paceScore * 0.15);
+
+    final scorePercent = (normalized * 100).round().clamp(0, 100);
+    final level = ((normalized * 5).ceil()).clamp(1, 5);
+
+    return _PyramidHealth(level: level, scorePercent: scorePercent);
   }
 }

@@ -26,17 +26,24 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
     final nameController = TextEditingController(text: 'John Doe');
     final emailController = TextEditingController(text: 'johndoe@example.com');
     final idController = TextEditingController(text: 'SUB-123456');
-    final reasonController = TextEditingController(text: 'No longer using the service.');
+    final reasonController = TextEditingController(
+      text: 'No longer using the service.',
+    );
 
     showDialog<void>(
       context: context,
       builder: (context) {
         return AlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: Text(
             'Cancel $merchantName',
-            style: const TextStyle(fontWeight: FontWeight.bold, color: AikoColors.deepBlue),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AikoColors.deepBlue,
+            ),
           ),
           content: SingleChildScrollView(
             child: Column(
@@ -45,7 +52,11 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
               children: [
                 const Text(
                   'Aiko will generate a formal, legally structured cancellation letter and trigger the system share sheet to send it to the merchant.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey, height: 1.4),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    height: 1.4,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -105,7 +116,9 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
               },
               icon: const Icon(Icons.share, size: 16),
               label: const Text('Generate & Share'),
-              style: FilledButton.styleFrom(backgroundColor: AikoColors.deepBlue),
+              style: FilledButton.styleFrom(
+                backgroundColor: AikoColors.deepBlue,
+              ),
             ),
           ],
         );
@@ -128,10 +141,15 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: Text(
             'Remove ${bill.merchant}?',
-            style: const TextStyle(fontWeight: FontWeight.bold, color: AikoColors.darkNavy),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AikoColors.darkNavy,
+            ),
           ),
           content: Text(
             'Are you sure you want to stop tracking or delete the subscription for ${bill.merchant}? This does not automatically cancel it with the merchant.',
@@ -140,11 +158,16 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: AikoColors.mutedText)),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: AikoColors.mutedText),
+              ),
             ),
             FilledButton(
               onPressed: () {
-                ref.read(billSubscriptionsProvider.notifier).deleteBillSubscription(bill.id);
+                ref
+                    .read(billSubscriptionsProvider.notifier)
+                    .deleteBillSubscription(bill.id);
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -160,7 +183,9 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                   ),
                 );
               },
-              style: FilledButton.styleFrom(backgroundColor: AikoColors.dangerRed),
+              style: FilledButton.styleFrom(
+                backgroundColor: AikoColors.dangerRed,
+              ),
               child: const Text('Delete Tracker'),
             ),
           ],
@@ -180,11 +205,15 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
         onPressed: _showAddBillBottomSheet,
         backgroundColor: AikoColors.primaryBlue,
         icon: const Icon(Icons.calendar_month, color: Colors.white),
-        label: const Text('Add Bill / Subscription', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: const Text(
+          'Add Bill / Subscription',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
       body: billsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Error loading subscriptions: $err')),
+        error: (err, _) =>
+            Center(child: Text('Error loading subscriptions: $err')),
         data: (bills) {
           double monthlyTotal = 0;
           for (final bill in bills) {
@@ -203,15 +232,18 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
 
           if (monthlyTotal > 100) {
             aikoExpression = 'assets/images/aiko/aiko_warning.png';
-            aikoSpeech = "Aiko warning: Your monthly recurring subscriptions total \$${monthlyTotal.toStringAsFixed(0)}! Let's use the cancellation assistant below to clear unutilized services.";
+            aikoSpeech =
+                "Aiko warning: Your monthly recurring subscriptions total \$${monthlyTotal.toStringAsFixed(0)}! Let's use the cancellation assistant below to clear unutilized services.";
             aikoBubbleBorder = AikoColors.warningOrange;
           } else if (bills.isEmpty) {
             aikoExpression = 'assets/images/aiko/aiko_thinking.png';
-            aikoSpeech = "Aiko thoughts: You haven't added any recurring subscriptions yet. Add your Netflix, gym, or software plans to get proactive price alerts!";
+            aikoSpeech =
+                "Aiko thoughts: You haven't added any recurring subscriptions yet. Add your Netflix, gym, or software plans to get proactive price alerts!";
             aikoBubbleBorder = AikoColors.primaryBlue;
           } else {
             aikoExpression = 'assets/images/aiko/aiko_happy.png';
-            aikoSpeech = "Healthy recurring spending! Your total monthly bills are \$${monthlyTotal.toStringAsFixed(0)}. Keeping sub-items cataloged is a great way to avoid trial traps!";
+            aikoSpeech =
+                'Healthy recurring spending! Your total monthly bills are \$${monthlyTotal.toStringAsFixed(0)}. Keeping sub-items cataloged is a great way to avoid trial traps!';
             aikoBubbleBorder = AikoColors.successGreen;
           }
 
@@ -224,7 +256,9 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                 merchant: b.merchant,
                 amount: Money.parse('14', b.amount.currency),
                 billingCycle: b.billingCycle,
-                nextBillingDate: b.nextDueDate.subtract(const Duration(days: 30)),
+                nextBillingDate: b.nextDueDate.subtract(
+                  const Duration(days: 30),
+                ),
               );
             }
             return b;
@@ -247,14 +281,17 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                 decoration: BoxDecoration(
                   color: AikoColors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: aikoBubbleBorder.withOpacity(0.5), width: 1.5),
+                  border: Border.all(
+                    color: aikoBubbleBorder.withOpacity(0.5),
+                    width: 1.5,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: AikoColors.border.withOpacity(0.1),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
-                    )
-                  ]
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
@@ -262,7 +299,11 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                       aikoExpression,
                       width: 72,
                       height: 72,
-                      errorBuilder: (_, __, ___) => const Icon(Icons.face_3, size: 72, color: AikoColors.primaryBlue),
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.face_3,
+                        size: 72,
+                        color: AikoColors.primaryBlue,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -293,14 +334,20 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Text(
                           'No upcoming bills registered.',
-                          style: TextStyle(color: AikoColors.mutedText, fontSize: 13),
+                          style: TextStyle(
+                            color: AikoColors.mutedText,
+                            fontSize: 13,
+                          ),
                         ),
                       )
                     else
                       for (final bill in bills) ...[
                         ListTile(
                           contentPadding: EdgeInsets.zero,
-                          title: Text(bill.merchant, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          title: Text(
+                            bill.merchant,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                           subtitle: Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Row(
@@ -311,16 +358,25 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: AikoColors.primaryBlue.withOpacity(0.08),
+                                    color: AikoColors.primaryBlue.withOpacity(
+                                      0.08,
+                                    ),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
                                     bill.billingCycle.name.toUpperCase(),
-                                    style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AikoColors.primaryBlue),
+                                    style: const TextStyle(
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                      color: AikoColors.primaryBlue,
+                                    ),
                                   ),
-                                )
+                                ),
                               ],
                             ),
                           ),
@@ -329,13 +385,21 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                             children: [
                               Text(
                                 bill.amount.format(),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AikoColors.darkNavy),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: AikoColors.darkNavy,
+                                ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline, color: AikoColors.mutedText, size: 18),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: AikoColors.mutedText,
+                                  size: 18,
+                                ),
                                 onPressed: () => _confirmDeleteBill(bill),
                                 tooltip: 'Remove subscription',
-                              )
+                              ),
                             ],
                           ),
                         ),
@@ -350,7 +414,9 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                 title: 'Lower your bills',
                 icon: Icons.savings_outlined,
                 accentColor: AikoColors.successGreen,
-                child: Text('Aiko tracks price adjustments and identifies negotiation or lower bill tier opportunities.'),
+                child: Text(
+                  'Aiko tracks price adjustments and identifies negotiation or lower bill tier opportunities.',
+                ),
               ),
 
               const SizedBox(height: 16),
@@ -369,9 +435,19 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.check_circle_outline, color: AikoColors.successGreen, size: 18),
+                            Icon(
+                              Icons.check_circle_outline,
+                              color: AikoColors.successGreen,
+                              size: 18,
+                            ),
                             SizedBox(width: 8),
-                            Text('No pricing flags or trial ending alerts.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                            Text(
+                              'No pricing flags or trial ending alerts.',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 13,
+                              ),
+                            ),
                           ],
                         ),
                       )
@@ -379,10 +455,22 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                       for (final alert in alerts) ...[
                         ListTile(
                           contentPadding: EdgeInsets.zero,
-                          title: Text(alert.merchant, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          subtitle: Text(alert.message, style: const TextStyle(fontSize: 11)),
+                          title: Text(
+                            alert.merchant,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          subtitle: Text(
+                            alert.message,
+                            style: const TextStyle(fontSize: 11),
+                          ),
                           trailing: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: AikoColors.dangerRed.withOpacity(0.08),
                               borderRadius: BorderRadius.circular(6),
@@ -414,13 +502,23 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                   children: [
                     const Text(
                       'Select a merchant to review custom cancel strategies generated by Aiko:',
-                      style: TextStyle(fontSize: 12, color: AikoColors.mutedText, height: 1.4),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AikoColors.mutedText,
+                        height: 1.4,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     // Guide selector
                     Row(
                       children: [
-                        const Text('Guide for: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        const Text(
+                          'Guide for: ',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Container(
@@ -431,19 +529,30 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                             ),
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
-                                value: bills.any((b) => b.merchant == _selectedCancellationGuideMerchant)
+                                value:
+                                    bills.any(
+                                      (b) =>
+                                          b.merchant ==
+                                          _selectedCancellationGuideMerchant,
+                                    )
                                     ? _selectedCancellationGuideMerchant
-                                    : (bills.isNotEmpty ? bills.first.merchant : 'Streaming Plus'),
+                                    : (bills.isNotEmpty
+                                          ? bills.first.merchant
+                                          : 'Streaming Plus'),
                                 items: [
-                                  if (!bills.any((b) => b.merchant == 'Streaming Plus'))
+                                  if (!bills.any(
+                                    (b) => b.merchant == 'Streaming Plus',
+                                  ))
                                     const DropdownMenuItem<String>(
                                       value: 'Streaming Plus',
                                       child: Text('Streaming Plus'),
                                     ),
-                                  ...bills.map((b) => DropdownMenuItem<String>(
-                                    value: b.merchant,
-                                    child: Text(b.merchant),
-                                  ))
+                                  ...bills.map(
+                                    (b) => DropdownMenuItem<String>(
+                                      value: b.merchant,
+                                      child: Text(b.merchant),
+                                    ),
+                                  ),
                                 ],
                                 onChanged: (val) {
                                   if (val == null) return;
@@ -458,14 +567,30 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    for (final step in _service.cancellationGuide(_selectedCancellationGuideMerchant)) ...[
+                    for (final step in _service.cancellationGuide(
+                      _selectedCancellationGuideMerchant,
+                    )) ...[
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('• ', style: TextStyle(fontWeight: FontWeight.bold, color: AikoColors.primaryBlue)),
-                            Expanded(child: Text(step, style: const TextStyle(height: 1.3, fontSize: 12))),
+                            const Text(
+                              '• ',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AikoColors.primaryBlue,
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                step,
+                                style: const TextStyle(
+                                  height: 1.3,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -474,7 +599,10 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
-                        onPressed: () => _showCancellationDialog(context, _selectedCancellationGuideMerchant),
+                        onPressed: () => _showCancellationDialog(
+                          context,
+                          _selectedCancellationGuideMerchant,
+                        ),
                         icon: const Icon(Icons.mail_outline),
                         label: const Text('Generate Cancellation Email'),
                         style: FilledButton.styleFrom(
@@ -497,7 +625,8 @@ class _AddBillBottomSheet extends ConsumerStatefulWidget {
   const _AddBillBottomSheet();
 
   @override
-  ConsumerState<_AddBillBottomSheet> createState() => _AddBillBottomSheetState();
+  ConsumerState<_AddBillBottomSheet> createState() =>
+      _AddBillBottomSheetState();
 }
 
 class _AddBillBottomSheetState extends ConsumerState<_AddBillBottomSheet> {
@@ -574,7 +703,9 @@ class _AddBillBottomSheetState extends ConsumerState<_AddBillBottomSheet> {
         reminderEnabled: _reminderEnabled,
       );
 
-      await ref.read(billSubscriptionsProvider.notifier).addBillSubscription(bill);
+      await ref
+          .read(billSubscriptionsProvider.notifier)
+          .addBillSubscription(bill);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -613,7 +744,12 @@ class _AddBillBottomSheetState extends ConsumerState<_AddBillBottomSheet> {
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 30),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 30,
+      ),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -630,7 +766,11 @@ class _AddBillBottomSheetState extends ConsumerState<_AddBillBottomSheet> {
                 children: [
                   const Text(
                     'Create Bill or Subscription',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AikoColors.primaryBlue),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: AikoColors.primaryBlue,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -659,14 +799,18 @@ class _AddBillBottomSheetState extends ConsumerState<_AddBillBottomSheet> {
               // Amount
               TextFormField(
                 controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(
                   labelText: 'Amount Due (\$)',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.attach_money_outlined),
                 ),
                 validator: (val) {
-                  if (val == null || double.tryParse(val.trim()) == null || double.parse(val.trim()) <= 0) {
+                  if (val == null ||
+                      double.tryParse(val.trim()) == null ||
+                      double.parse(val.trim()) <= 0) {
                     return 'Please enter a valid positive decimal amount';
                   }
                   return null;
@@ -710,7 +854,10 @@ class _AddBillBottomSheetState extends ConsumerState<_AddBillBottomSheet> {
               const SizedBox(height: 16),
               // Categories dropdown
               categoriesAsync.when(
-                loading: () => const SizedBox(height: 50, child: Center(child: CircularProgressIndicator())),
+                loading: () => const SizedBox(
+                  height: 50,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
                 error: (_, __) => const SizedBox.shrink(),
                 data: (categories) {
                   return DropdownButtonFormField<String>(
@@ -737,7 +884,10 @@ class _AddBillBottomSheetState extends ConsumerState<_AddBillBottomSheet> {
               const SizedBox(height: 12),
               // Reminders toggle
               SwitchListTile(
-                title: const Text('Enable proactive notifications', style: TextStyle(fontSize: 14)),
+                title: const Text(
+                  'Enable proactive notifications',
+                  style: TextStyle(fontSize: 14),
+                ),
                 value: _reminderEnabled,
                 activeColor: AikoColors.primaryBlue,
                 contentPadding: EdgeInsets.zero,
@@ -756,11 +906,19 @@ class _AddBillBottomSheetState extends ConsumerState<_AddBillBottomSheet> {
                   icon: _isLoading
                       ? const SizedBox.square(
                           dimension: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.check),
-                  label: const Text('Schedule Bill Tracker', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  style: FilledButton.styleFrom(backgroundColor: AikoColors.primaryBlue),
+                  label: const Text(
+                    'Schedule Bill Tracker',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AikoColors.primaryBlue,
+                  ),
                 ),
               ),
             ],

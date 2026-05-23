@@ -7,7 +7,7 @@ class CreditCardDetailDto {
   final Map<String, dynamic> json;
 
   CreditCardDetail toDomain() {
-    final currency = json['currency'] as String? ?? 'USD';
+    final currency = json['currency'] as String? ?? 'THB';
     return CreditCardDetail(
       id: json['id'] as String,
       userId: json['user_id'] as String,

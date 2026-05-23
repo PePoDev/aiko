@@ -7,7 +7,7 @@ class GoalDto {
   final Map<String, dynamic> json;
 
   Goal toDomain() {
-    final currency = json['currency'] as String? ?? 'USD';
+    final currency = json['currency'] as String? ?? 'THB';
     return Goal(
       id: json['id'] as String,
       userId: json['user_id'] as String,

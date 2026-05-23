@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
-import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/transaction.dart';
@@ -101,26 +100,18 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
                     final accent = tx.type == TransactionType.income
                         ? AikoColors.successGreen
                         : AikoColors.deepBlue;
-                    final title =
-                        '${tx.merchant ?? tx.note ?? 'Transaction'} $sign\$${tx.amount.amount.toStringAsFixed(2)}';
 
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: FinanceCard(
-                        title: title,
-                        icon: tx.type == TransactionType.income
-                            ? Icons.south_west
-                            : Icons.north_east,
-                        accentColor: accent,
-                        trailing: const Icon(Icons.chevron_right),
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _CompactTransactionCard(
+                        transaction: tx,
+                        accent: accent,
+                        sign: sign,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) =>
                                 TransactionDetailScreen(transaction: tx),
                           ),
-                        ),
-                        child: Text(
-                          '${tx.type.name.toUpperCase()} - ${tx.date.toString().substring(0, 10)}',
                         ),
                       ),
                     );
@@ -139,6 +130,81 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
         ),
         icon: const Icon(Icons.add),
         label: const Text('Add'),
+      ),
+    );
+  }
+}
+
+class _CompactTransactionCard extends StatelessWidget {
+  const _CompactTransactionCard({
+    required this.transaction,
+    required this.accent,
+    required this.sign,
+    required this.onTap,
+  });
+
+  final FinanceTransaction transaction;
+  final Color accent;
+  final String sign;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = transaction.merchant ?? transaction.note ?? 'Transaction';
+    final amount = '$sign\$${transaction.amount.amount.toStringAsFixed(2)}';
+    final icon = transaction.type == TransactionType.income
+        ? Icons.south_west
+        : Icons.north_east;
+
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(icon, color: accent, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${transaction.type.name.toUpperCase()} - ${transaction.date.toString().substring(0, 10)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                amount,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.chevron_right, size: 18),
+            ],
+          ),
+        ),
       ),
     );
   }

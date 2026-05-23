@@ -7,7 +7,8 @@ import '../../../core/supabase/supabase_client_provider.dart';
 class TaxDocumentVaultService {
   const TaxDocumentVaultService();
 
-  bool get _isTesting => !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+  bool get _isTesting =>
+      !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
 
   /// Uploads a tax PDF document to the encrypted 'tax_documents' Supabase bucket.
   /// If offline, it simulates a successful upload and registers it in memory fallbacks.
@@ -30,11 +31,10 @@ class TaxDocumentVaultService {
 
     try {
       // Upload using Supabase Storage API
-      await client.storage.from('tax_documents').uploadBinary(
-        storagePath,
-        Uint8List.fromList(fileBytes),
-      );
-      
+      await client.storage
+          .from('tax_documents')
+          .uploadBinary(storagePath, Uint8List.fromList(fileBytes));
+
       // Get public URL or private signed URL
       return client.storage.from('tax_documents').getPublicUrl(storagePath);
     } catch (_) {
@@ -61,13 +61,12 @@ class TaxDocumentVaultService {
     }
 
     try {
-      final response = await client.storage.from('tax_documents').list(path: userId);
-      return response.map((file) => file.name as String).toList();
+      final response = await client.storage
+          .from('tax_documents')
+          .list(path: userId);
+      return response.map((file) => file.name).toList();
     } catch (_) {
-      return [
-        'W2_Form_2025.pdf',
-        '1099_NEC_Contracting.pdf',
-      ];
+      return ['W2_Form_2025.pdf', '1099_NEC_Contracting.pdf'];
     }
   }
 }

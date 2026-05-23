@@ -31,9 +31,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _showSecuritySettings() async {
     final status = await _lockService.currentStatus();
     final canUseBio = await _bioAdapter.canAuthenticate();
-    
+
     if (!mounted) return;
-    
+
     showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -43,7 +43,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             final pinController = TextEditingController();
-            
+
             return Container(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
               child: Column(
@@ -53,9 +53,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text(
                     'Security & PIN Lock',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AikoColors.primaryBlue,
-                        ),
+                      fontWeight: FontWeight.bold,
+                      color: AikoColors.primaryBlue,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
@@ -109,9 +109,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 20),
                     if (canUseBio) ...[
                       ListTile(
-                        leading: const Icon(Icons.fingerprint, color: AikoColors.primaryBlue),
+                        leading: const Icon(
+                          Icons.fingerprint,
+                          color: AikoColors.primaryBlue,
+                        ),
                         title: const Text('Biometric Authentication'),
-                        subtitle: const Text('Unlock securely using Face ID / Touch ID'),
+                        subtitle: const Text(
+                          'Unlock securely using Face ID / Touch ID',
+                        ),
                         trailing: Switch(
                           value: true,
                           onChanged: (value) async {
@@ -121,7 +126,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             if (success) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Hardware biometrics verified successfully!'),
+                                  content: Text(
+                                    'Hardware biometrics verified successfully!',
+                                  ),
                                   backgroundColor: AikoColors.successGreen,
                                 ),
                               );
@@ -132,7 +139,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const Divider(),
                     ],
                     ListTile(
-                      leading: const Icon(Icons.lock_reset, color: AikoColors.warningOrange),
+                      leading: const Icon(
+                        Icons.lock_reset,
+                        color: AikoColors.warningOrange,
+                      ),
                       title: const Text('Change PIN Lock'),
                       onTap: () {
                         // Reset PIN
@@ -144,7 +154,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       },
                     ),
                     ListTile(
-                      leading: const Icon(Icons.delete_outline, color: AikoColors.dangerRed),
+                      leading: const Icon(
+                        Icons.delete_outline,
+                        color: AikoColors.dangerRed,
+                      ),
                       title: const Text('Disable PIN Lock'),
                       onTap: () async {
                         await _lockService.disablePin();
@@ -174,7 +187,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) {
         return;
       }
-      context.go('/auth');
+      context.go('/');
     } catch (_) {
       if (!mounted) {
         return;
@@ -202,7 +215,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: AikoColors.dangerRed),
+            style: FilledButton.styleFrom(
+              backgroundColor: AikoColors.dangerRed,
+            ),
             child: const Text('Delete Account'),
           ),
         ],
@@ -215,7 +230,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       await _authRepository.deleteAccount();
       if (!mounted) return;
-      context.go('/auth');
+      context.go('/');
     } catch (_) {
       if (!mounted) return;
       setState(() => _isDeleting = false);

@@ -12,7 +12,8 @@ class OnboardingAccountForm extends ConsumerStatefulWidget {
   const OnboardingAccountForm({super.key});
 
   @override
-  ConsumerState<OnboardingAccountForm> createState() => _OnboardingAccountFormState();
+  ConsumerState<OnboardingAccountForm> createState() =>
+      _OnboardingAccountFormState();
 }
 
 class _OnboardingAccountFormState extends ConsumerState<OnboardingAccountForm> {
@@ -44,7 +45,7 @@ class _OnboardingAccountFormState extends ConsumerState<OnboardingAccountForm> {
       final balanceVal = Decimal.parse(_balanceController.text.trim());
       final institution = _institutionController.text.trim();
 
-      final money = Money(amount: balanceVal, currency: 'USD');
+      final money = Money(amount: balanceVal, currency: 'THB');
 
       final account = Account(
         id: const Uuid().v4(),
@@ -98,7 +99,8 @@ class _OnboardingAccountFormState extends ConsumerState<OnboardingAccountForm> {
 
   @override
   Widget build(BuildContext context) {
-    final showInstitution = _selectedType == AccountType.bank ||
+    final showInstitution =
+        _selectedType == AccountType.bank ||
         _selectedType == AccountType.creditCard ||
         _selectedType == AccountType.investment ||
         _selectedType == AccountType.eWallet;
@@ -132,10 +134,7 @@ class _OnboardingAccountFormState extends ConsumerState<OnboardingAccountForm> {
             ),
             items: AccountType.values.map((type) {
               final label = type.name[0].toUpperCase() + type.name.substring(1);
-              return DropdownMenuItem(
-                value: type,
-                child: Text(label),
-              );
+              return DropdownMenuItem(value: type, child: Text(label));
             }).toList(),
             onChanged: _isSubmitting
                 ? null
@@ -196,7 +195,9 @@ class _OnboardingAccountFormState extends ConsumerState<OnboardingAccountForm> {
                     ),
                   )
                 : const Icon(Icons.add_task),
-            label: Text(_isSubmitting ? 'Creating Account...' : 'Create Account'),
+            label: Text(
+              _isSubmitting ? 'Creating Account...' : 'Create Account',
+            ),
             style: FilledButton.styleFrom(
               backgroundColor: AikoColors.primaryBlue,
               padding: const EdgeInsets.symmetric(vertical: 14),

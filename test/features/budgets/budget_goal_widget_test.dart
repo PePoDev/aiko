@@ -75,7 +75,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Groceries'), findsOneWidget);
-    expect(find.text(r'$500.00'), findsOneWidget);
+    expect(find.textContaining('500.00'), findsOneWidget);
   });
 }
 

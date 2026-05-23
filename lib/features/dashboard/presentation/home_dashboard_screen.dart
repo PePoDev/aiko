@@ -41,7 +41,7 @@ class HomeDashboardScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         children: summaryAsync.when(
-          loading: () => [AikoScreenState.loading(message: l10n.loading)],
+          loading: () => [const AikoScreenState.loading()],
           error: (error, stack) => [
             AikoScreenState.error(
               title: l10n.dashboardUnavailable,

@@ -30,12 +30,6 @@ const aikoNavigationGroups = [
     title: 'Daily Money',
     items: [
       AikoNavigationItem(
-        label: 'Transactions',
-        path: '/transactions',
-        icon: Icons.receipt_long_outlined,
-        description: 'Search, filter, split, and review money movement.',
-      ),
-      AikoNavigationItem(
         label: 'Accounts',
         path: '/accounts',
         icon: Icons.account_balance_wallet_outlined,
@@ -60,12 +54,6 @@ const aikoNavigationGroups = [
   AikoNavigationGroup(
     title: 'Planning',
     items: [
-      AikoNavigationItem(
-        label: 'Budget',
-        path: '/budget',
-        icon: Icons.pie_chart_outline,
-        description: 'Track envelopes, zero-based budgets, and 50/30/20 plans.',
-      ),
       AikoNavigationItem(
         label: 'Goals',
         path: '/goals',
@@ -128,20 +116,6 @@ const aikoNavigationGroups = [
   AikoNavigationGroup(
     title: 'Insights and AI',
     items: [
-      AikoNavigationItem(
-        label: 'Insights',
-        path: '/insights',
-        icon: Icons.insights_outlined,
-        description: 'Review spending analysis and predictive insights.',
-        accentColor: AikoColors.analyticsTeal,
-      ),
-      AikoNavigationItem(
-        label: 'Aiko Assistant',
-        path: '/aiko',
-        icon: Icons.auto_awesome_outlined,
-        description: 'Ask questions and get explainable estimates.',
-        accentColor: AikoColors.premiumPurple,
-      ),
       AikoNavigationItem(
         label: 'Aiko Optimize',
         path: '/aiko-optimize',

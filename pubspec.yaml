@@ -50,6 +50,13 @@ dependencies:
   collection: ^1.19.1
   decimal: ^3.2.4
   google_fonts: ^8.1.0
+  brick_offline_first_with_supabase: ^2.1.0
+  brick_sqlite: ^4.1.0+1
+  brick_supabase: ^2.1.1
+  sqflite: ^2.4.2+1
+  http: ^1.6.0
+  brick_offline_first: ^4.0.2
+  brick_core: ^2.1.0
 
 dev_dependencies:
   flutter_test:
@@ -64,6 +71,8 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  brick_offline_first_with_supabase_build: ^2.1.0
+  build_runner: ^2.15.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

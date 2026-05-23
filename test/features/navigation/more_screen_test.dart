@@ -15,8 +15,8 @@ void main() {
     await tester.scrollUntilVisible(find.text('Portfolio'), 300);
     expect(find.text('Portfolio'), findsOneWidget);
 
-    await tester.scrollUntilVisible(find.text('Aiko Assistant'), 300);
-    expect(find.text('Aiko Assistant'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Aiko Optimize'), 300);
+    expect(find.text('Aiko Optimize'), findsOneWidget);
 
     await tester.scrollUntilVisible(find.text('Settings'), 300);
     expect(find.text('Settings'), findsOneWidget);

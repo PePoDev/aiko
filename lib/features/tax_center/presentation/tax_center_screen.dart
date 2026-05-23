@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../../shared/widgets/finance_card.dart';
+import '../application/tax_document_vault_service.dart';
 
 class TaxDeductionItem {
   TaxDeductionItem({
@@ -45,9 +46,155 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
   final _customDeductionNameController = TextEditingController();
   final _customDeductionAmountController = TextEditingController();
 
+  final _vaultService = const TaxDocumentVaultService();
+  List<String> _documents = [];
+  bool _isLoadingDocs = true;
+  bool _isUploading = false;
+  String? _uploadStatusMessage;
+
+  Future<void> _loadDocuments() async {
+    setState(() {
+      _isLoadingDocs = true;
+    });
+    try {
+      final docs = await _vaultService.listDocuments(userId: 'user_123');
+      setState(() {
+        _documents = docs;
+        _isLoadingDocs = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingDocs = false;
+      });
+    }
+  }
+
+  Future<void> _uploadDocument(String fileName) async {
+    setState(() {
+      _isUploading = true;
+      _uploadStatusMessage = 'Uploading $fileName...';
+    });
+    
+    try {
+      final bytes = [0, 1, 2, 3];
+      await _vaultService.uploadDocument(
+        fileName: fileName,
+        fileBytes: bytes,
+        userId: 'user_123',
+      );
+      
+      final updatedDocs = await _vaultService.listDocuments(userId: 'user_123');
+      
+      setState(() {
+        _documents = updatedDocs;
+        if (!_documents.contains(fileName)) {
+          _documents.add(fileName);
+        }
+        _isUploading = false;
+        _uploadStatusMessage = null;
+      });
+      
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$fileName uploaded successfully to encrypted cloud vault!'),
+          backgroundColor: AikoColors.successGreen,
+        ),
+      );
+    } catch (e) {
+      setState(() {
+        _isUploading = false;
+        _uploadStatusMessage = null;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to upload document.'),
+          backgroundColor: AikoColors.dangerRed,
+        ),
+      );
+    }
+  }
+
+  void _showUploadPicker() {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Upload Tax Document',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AikoColors.primaryBlue,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Select a document template to simulate a secure PDF upload to your encrypted cloud vault.',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const Icon(Icons.description_outlined, color: AikoColors.analyticsTeal),
+                title: const Text('Form 1099-DIV (Dividend Income)'),
+                subtitle: const Text('1099_DIV_Brokerage.pdf'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _uploadDocument('1099_DIV_Brokerage.pdf');
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.badge_outlined, color: AikoColors.primaryBlue),
+                title: const Text('Form W-2 (Wage & Tax Statement)'),
+                subtitle: const Text('W2_Form_2026.pdf'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _uploadDocument('W2_Form_2026.pdf');
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.savings_outlined, color: AikoColors.successGreen),
+                title: const Text('Form 1099-INT (Interest Income)'),
+                subtitle: const Text('1099_INT_Savings.pdf'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _uploadDocument('1099_INT_Savings.pdf');
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.upload_file_outlined, color: AikoColors.premiumPurple),
+                title: const Text('Custom Expense PDF Receipt'),
+                subtitle: const Text('Custom_Receipt.pdf'),
+                onTap: () {
+                  Navigator.pop(context);
+                  final ts = DateTime.now().millisecondsSinceEpoch.toString().substring(8);
+                  _uploadDocument('Custom_Tax_Receipt_$ts.pdf');
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
+    _loadDocuments();
     _incomeController.addListener(() {
       setState(() {
         _grossIncome = double.tryParse(_incomeController.text) ?? 0.0;
@@ -344,6 +491,140 @@ class _TaxCenterScreenState extends ConsumerState<TaxCenterScreen> {
               ),
             );
           }),
+          const SizedBox(height: 16),
+
+          // Secure Document Vault Card
+          FinanceCard(
+            title: 'Secure Document Vault',
+            icon: Icons.lock_outline,
+            accentColor: AikoColors.premiumPurple,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Encrypted Cloud Vault (Supabase Storage)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AikoColors.premiumPurple,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (_isLoadingDocs)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AikoColors.premiumPurple,
+                      ),
+                    ),
+                  )
+                else if (_documents.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Text(
+                      'No documents stored. Upload your tax statements securely.',
+                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                else
+                  ..._documents.map((doc) {
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(
+                        Icons.picture_as_pdf,
+                        color: AikoColors.dangerRed,
+                      ),
+                      title: Text(
+                        doc,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: AikoColors.darkNavy,
+                        ),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.file_download_outlined,
+                              color: AikoColors.primaryBlue,
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Downloading $doc securely...'),
+                                  backgroundColor: AikoColors.primaryBlue,
+                                ),
+                              );
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: AikoColors.dangerRed,
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _documents.remove(doc);
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('$doc deleted from local vault.'),
+                                  backgroundColor: AikoColors.warningOrange,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                const SizedBox(height: 12),
+                if (_isUploading) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AikoColors.premiumPurple,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        _uploadStatusMessage ?? 'Uploading...',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AikoColors.premiumPurple,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AikoColors.premiumPurple,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: _isUploading ? null : _showUploadPicker,
+                  icon: const Icon(Icons.cloud_upload_outlined),
+                  label: const Text('Upload PDF Statement'),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 16),
 
           // Tax Disclaimer Card

@@ -162,6 +162,15 @@ class GoalsNotifier extends AsyncNotifier<List<Goal>> {
       return repo.list();
     });
   }
+
+  Future<void> deleteGoal(String id) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(goalRepositoryProvider);
+      await repo.delete(id);
+      return repo.list();
+    });
+  }
 }
 
 final goalsProvider =

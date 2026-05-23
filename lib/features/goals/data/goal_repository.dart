@@ -43,6 +43,15 @@ class GoalRepository {
     return goalWithUser;
   }
 
+  Future<void> delete(String id) async {
+    final session = AikoSupabase.requireSession();
+    await session.client
+        .from('goals')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', session.userId);
+  }
+
   static Goal _fromRow(Map<String, dynamic> row) {
     final purpose = GoalPurpose.values.firstWhere(
       (item) => item.name == (row['purpose'] as String? ?? 'custom'),

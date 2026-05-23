@@ -8,7 +8,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: DevicesScreen()));
-    expect(find.text('Trusted devices'), findsOneWidget);
+    expect(find.text('Trusted Devices'), findsOneWidget);
     await tester.pumpWidget(const MaterialApp(home: TravelModeScreen()));
     expect(find.text('Trip budget'), findsOneWidget);
   });

@@ -18,7 +18,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _emailController = TextEditingController();
   String _baseCurrency = 'THB';
   String _country = 'TH';
-  PreferredTheme _preferredTheme = PreferredTheme.system;
   bool _initialised = false;
   bool _saving = false;
 
@@ -86,7 +85,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _emailController.text = profile.email;
     _baseCurrency = profile.baseCurrency;
     _country = profile.country;
-    _preferredTheme = profile.preferredTheme;
     _initialised = true;
   }
 
@@ -97,10 +95,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       await repo.save(
         current.copyWith(
           displayName: _displayNameController.text.trim(),
-          email: _emailController.text.trim(),
+          email: current.email,
           baseCurrency: _baseCurrency,
           country: _country,
-          preferredTheme: _preferredTheme,
         ),
       );
       // Invalidate the profile provider to propagate changes
@@ -238,9 +235,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     const SizedBox(height: 16),
                     TextField(
                       controller: _emailController,
+                      readOnly: true,
+                      enableInteractiveSelection: true,
                       decoration: const InputDecoration(
                         labelText: 'Email',
                         prefixIcon: Icon(Icons.email_outlined),
+                        suffixIcon: Icon(Icons.lock_outline),
+                        helperText: 'Email is managed by your sign-in account',
                         border: OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.emailAddress,
@@ -304,29 +305,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Appearance
-              FinanceCard(
-                title: 'Appearance',
-                icon: Icons.palette_outlined,
-                accentColor: AikoColors.premiumPurple,
-                child: RadioGroup<PreferredTheme>(
-                  groupValue: _preferredTheme,
-                  onChanged: (value) {
-                    if (value != null) setState(() => _preferredTheme = value);
-                  },
-                  child: Column(
-                    children: [
-                      for (final theme in PreferredTheme.values)
-                        RadioListTile<PreferredTheme>(
-                          contentPadding: EdgeInsets.zero,
-                          value: theme,
-                          title: Text(_themeLabel(theme)),
-                          secondary: Icon(_themeIcon(theme)),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
               const SizedBox(height: 24),
 
               // Save button
@@ -358,27 +336,5 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (parts.isEmpty || parts.first.isEmpty) return '?';
     if (parts.length == 1) return parts.first[0].toUpperCase();
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
-  }
-
-  String _themeLabel(PreferredTheme theme) {
-    switch (theme) {
-      case PreferredTheme.system:
-        return 'System default';
-      case PreferredTheme.light:
-        return 'Light';
-      case PreferredTheme.dark:
-        return 'Dark';
-    }
-  }
-
-  IconData _themeIcon(PreferredTheme theme) {
-    switch (theme) {
-      case PreferredTheme.system:
-        return Icons.brightness_auto;
-      case PreferredTheme.light:
-        return Icons.light_mode;
-      case PreferredTheme.dark:
-        return Icons.dark_mode;
-    }
   }
 }

@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../accounts/domain/account.dart';
 import '../domain/transaction.dart';
 import '../domain/transaction_attachment.dart';
 import '../data/transaction_attachment_repository.dart';
@@ -18,6 +19,21 @@ import '../application/receipt_ocr_service.dart';
 import '../application/voice_transaction_parser.dart';
 import '../application/voice_transcription_service.dart';
 import 'transaction_attachment_section.dart';
+
+enum _SmartEntryAction { scanReceipt, voiceEntry }
+
+const _supportedCurrencies = [
+  'THB',
+  'USD',
+  'EUR',
+  'GBP',
+  'JPY',
+  'SGD',
+  'AUD',
+  'CAD',
+  'CNY',
+  'HKD',
+];
 
 class TransactionFormScreen extends ConsumerStatefulWidget {
   const TransactionFormScreen({super.key});
@@ -28,10 +44,13 @@ class TransactionFormScreen extends ConsumerStatefulWidget {
 }
 
 class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
+  final _titleController = TextEditingController();
   final _amountController = TextEditingController();
+  final _exchangeRateController = TextEditingController(text: '1.00');
   final _noteController = TextEditingController();
   final _imagePicker = ImagePicker();
   String _type = 'expense';
+  String _selectedCurrency = 'THB';
   DateTime _selectedDate = DateTime.now();
   String? _selectedCategoryId;
   String? _selectedAccountId;
@@ -40,7 +59,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
   @override
   void dispose() {
+    _titleController.dispose();
     _amountController.dispose();
+    _exchangeRateController.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -50,9 +71,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     required String note,
     required String type,
     required DateTime date,
+    String title = '',
+    String currency = 'THB',
   }) {
     setState(() {
+      _titleController.text = title;
       _amountController.text = amount.toStringAsFixed(2);
+      _selectedCurrency = _normalizeCurrency(currency);
       _noteController.text = note;
       _type = type;
       _selectedDate = date;
@@ -202,6 +227,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       note: 'Scanned receipt: ${autofill.merchant ?? captured.name}',
       type: 'expense',
       date: autofill.date ?? DateTime.now(),
+      title: autofill.merchant ?? '',
+      currency: autofill.total?.currency ?? 'THB',
     );
   }
 
@@ -503,6 +530,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         note: draft.note ?? 'Voice command parser',
         type: draft.type == TransactionType.income ? 'income' : 'expense',
         date: draft.date,
+        title: draft.merchant ?? '',
+        currency: draft.amount.currency,
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -512,6 +541,62 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ),
       );
     }
+  }
+
+  List<String> _currencyOptionsFor(List<Account> accounts) {
+    return {
+      _selectedCurrency,
+      ..._supportedCurrencies,
+      for (final account in accounts) account.currency.toUpperCase(),
+    }.toList(growable: false);
+  }
+
+  String? _accountCurrencyFor(List<Account> accounts, String? accountId) {
+    if (accountId == null) {
+      return null;
+    }
+    for (final account in accounts) {
+      if (account.id == accountId) {
+        return account.currency.toUpperCase();
+      }
+    }
+    return null;
+  }
+
+  String _normalizeCurrency(String currency) {
+    return currency.trim().toUpperCase();
+  }
+
+  void _convertAmountToAccountCurrency(String accountCurrency) {
+    final amount = Decimal.tryParse(_amountController.text.trim());
+    final rate = Decimal.tryParse(_exchangeRateController.text.trim());
+
+    if (amount == null || amount <= Decimal.zero) {
+      _showConversionError('Enter a positive amount before converting.');
+      return;
+    }
+    if (rate == null || rate <= Decimal.zero) {
+      _showConversionError('Enter a positive exchange rate.');
+      return;
+    }
+
+    final convertedAmount = amount * rate;
+    setState(() {
+      _amountController.text = convertedAmount.toStringAsFixed(2);
+      _selectedCurrency = accountCurrency;
+      _exchangeRateController.text = '1.00';
+    });
+  }
+
+  void _showConversionError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AikoColors.warningOrange,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
   }
 
   void _showAddAttachmentDialog() {
@@ -827,10 +912,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       userId: '',
       accountId: _selectedAccountId!,
       type: txType,
-      amount: Money(amount: amount, currency: 'THB'),
+      amount: Money(amount: amount, currency: _selectedCurrency),
       date: _selectedDate,
       categoryId: _selectedCategoryId,
-      merchant: null,
+      merchant: _titleController.text.trim().isEmpty
+          ? null
+          : _titleController.text.trim(),
       note: _noteController.text.trim(),
     );
 
@@ -899,6 +986,17 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
     final accountsAsync = ref.watch(accountsProvider);
+    final accountSnapshot =
+        accountsAsync.whenOrNull(data: (accounts) => accounts) ??
+        const <Account>[];
+    final currencyOptions = _currencyOptionsFor(accountSnapshot);
+    final selectedAccountCurrency = _accountCurrencyFor(
+      accountSnapshot,
+      _selectedAccountId,
+    );
+    final showCurrencyConversion =
+        selectedAccountCurrency != null &&
+        selectedAccountCurrency != _selectedCurrency;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Add transaction')),
@@ -929,19 +1027,51 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.auto_awesome,
-                        color: AikoColors.premiumPurple,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Aiko Smart Entry Tools',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AikoColors.premiumPurple,
+                      Expanded(
+                        child: Text(
+                          'Aiko Smart Entry Tools',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: AikoColors.premiumPurple,
+                              ),
                         ),
+                      ),
+                      PopupMenuButton<_SmartEntryAction>(
+                        tooltip: 'Smart entry tools',
+                        icon: const Icon(Icons.auto_awesome),
+                        color: Theme.of(context).colorScheme.surface,
+                        iconColor: AikoColors.premiumPurple,
+                        onSelected: (action) {
+                          switch (action) {
+                            case _SmartEntryAction.scanReceipt:
+                              _scanReceiptWithCamera();
+                              break;
+                            case _SmartEntryAction.voiceEntry:
+                              _showVoiceCommandDialog();
+                              break;
+                          }
+                        },
+                        itemBuilder: (context) => const [
+                          PopupMenuItem(
+                            value: _SmartEntryAction.scanReceipt,
+                            child: ListTile(
+                              leading: Icon(Icons.receipt_long_outlined),
+                              title: Text('Scan receipt'),
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: _SmartEntryAction.voiceEntry,
+                            child: ListTile(
+                              leading: Icon(Icons.mic_none_outlined),
+                              title: Text('Voice entry'),
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -949,45 +1079,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   const Text(
                     'Autofill this transaction instantly using scanned receipt OCR or voice text patterns.',
                     style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _scanReceiptWithCamera,
-                          icon: const Icon(
-                            Icons.receipt_long_outlined,
-                            size: 18,
-                          ),
-                          label: const Text(
-                            'Scan Receipt',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AikoColors.premiumPurple,
-                            side: const BorderSide(
-                              color: AikoColors.premiumPurple,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _showVoiceCommandDialog,
-                          icon: const Icon(Icons.mic_none_outlined, size: 18),
-                          label: const Text(
-                            'Voice Entry',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AikoColors.deepBlue,
-                            side: const BorderSide(color: AikoColors.deepBlue),
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
@@ -997,12 +1088,46 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
           // Standard Entry Fields
           TextField(
-            controller: _amountController,
+            controller: _titleController,
             decoration: const InputDecoration(
-              labelText: 'Amount',
-              prefixText: '\$ ',
+              labelText: 'Title',
+              hintText: 'Item name',
             ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: TextField(
+                  key: const Key('transaction-amount-field'),
+                  controller: _amountController,
+                  decoration: const InputDecoration(labelText: 'Amount'),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 124,
+                child: DropdownMenu<String>(
+                  key: ValueKey(_selectedCurrency),
+                  initialSelection: _selectedCurrency,
+                  expandedInsets: EdgeInsets.zero,
+                  label: const Text('Currency'),
+                  dropdownMenuEntries: [
+                    for (final currency in currencyOptions)
+                      DropdownMenuEntry(value: currency, label: currency),
+                  ],
+                  onSelected: (value) {
+                    if (value != null) {
+                      setState(() => _selectedCurrency = value);
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           DropdownMenu<String>(
@@ -1126,6 +1251,16 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             },
           ),
           const SizedBox(height: 16),
+          if (showCurrencyConversion) ...[
+            _CurrencyConversionPrompt(
+              selectedCurrency: _selectedCurrency,
+              accountCurrency: selectedAccountCurrency,
+              exchangeRateController: _exchangeRateController,
+              onConvert: () =>
+                  _convertAmountToAccountCurrency(selectedAccountCurrency),
+            ),
+            const SizedBox(height: 16),
+          ],
 
           TextField(
             controller: _noteController,
@@ -1151,14 +1286,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 lastDate: DateTime(now.year + 5),
               );
               if (pickedDate == null) return;
-              if (!mounted) return;
+              if (!context.mounted) return;
 
               final pickedTime = await showTimePicker(
                 context: context,
                 initialTime: TimeOfDay.fromDateTime(_selectedDate),
               );
               if (pickedTime == null) return;
-              if (!mounted) return;
+              if (!context.mounted) return;
 
               setState(() {
                 _selectedDate = DateTime(
@@ -1184,6 +1319,93 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             label: const Text('Save Transaction'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CurrencyConversionPrompt extends StatelessWidget {
+  const _CurrencyConversionPrompt({
+    required this.selectedCurrency,
+    required this.accountCurrency,
+    required this.exchangeRateController,
+    required this.onConvert,
+  });
+
+  final String selectedCurrency;
+  final String accountCurrency;
+  final TextEditingController exchangeRateController;
+  final VoidCallback onConvert;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      color: AikoColors.warningOrange.withValues(alpha: 0.08),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.currency_exchange,
+                  color: AikoColors.warningOrange,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Convert to $accountCurrency?',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'The selected account tracks $accountCurrency, but this amount is in $selectedCurrency.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const Key('transaction-exchange-rate-field'),
+                    controller: exchangeRateController,
+                    decoration: InputDecoration(
+                      labelText: '1 $selectedCurrency equals',
+                      suffixText: accountCurrency,
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    key: const Key('convert-currency-button'),
+                    onPressed: onConvert,
+                    icon: const Icon(Icons.swap_horiz),
+                    label: Text(
+                      'Convert to $accountCurrency',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 56),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

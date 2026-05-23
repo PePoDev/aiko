@@ -5,9 +5,12 @@ import 'package:go_router/go_router.dart';
 
 import '../core/config/app_config.dart';
 import '../features/auth/data/auth_repository.dart';
+import '../features/settings/domain/profile.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/aiko_theme.dart';
 import 'app_router.dart';
+import 'locale_controller.dart';
+import 'providers.dart';
 
 class AikoApp extends StatefulWidget {
   const AikoApp({required this.config, super.key});
@@ -35,20 +38,43 @@ class _AikoAppState extends State<AikoApp> {
   @override
   Widget build(BuildContext context) {
     return ProviderScope(
-      child: MaterialApp.router(
-        title: 'Aiko',
-        theme: AikoTheme.light(),
-        darkTheme: AikoTheme.dark(),
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [Locale('th'), Locale('en')],
-        locale: const Locale('th'),
-        routerConfig: _router,
+      child: Consumer(
+        builder: (context, ref, child) {
+          final locale =
+              ref.watch(appLocaleControllerProvider).asData?.value ??
+              AppLocaleController.fallbackLocale;
+          final preferredTheme = ref
+              .watch(profileProvider)
+              .maybeWhen(
+                data: (profile) => profile.preferredTheme,
+                orElse: () => PreferredTheme.system,
+              );
+
+          return MaterialApp.router(
+            title: 'Aiko',
+            theme: AikoTheme.light(),
+            darkTheme: AikoTheme.dark(),
+            themeMode: themeModeForPreferredTheme(preferredTheme),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: locale,
+            routerConfig: _router,
+          );
+        },
       ),
     );
   }
+}
+
+ThemeMode themeModeForPreferredTheme(PreferredTheme preferredTheme) {
+  return switch (preferredTheme) {
+    PreferredTheme.system => ThemeMode.system,
+    PreferredTheme.light => ThemeMode.light,
+    PreferredTheme.dark => ThemeMode.dark,
+  };
 }

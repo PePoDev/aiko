@@ -1,22 +1,58 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../app/providers.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/transaction.dart';
 
-class TransactionDetailScreen extends StatelessWidget {
+class TransactionDetailScreen extends ConsumerWidget {
   const TransactionDetailScreen({required this.transaction, super.key});
 
   final FinanceTransaction transaction;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final title = transaction.merchant ?? transaction.note ?? 'Transaction';
     final accent = transaction.type == TransactionType.income
         ? AikoColors.successGreen
         : AikoColors.deepBlue;
-    final date = DateFormat.yMMMd().format(transaction.date);
+    final dateTime = DateFormat('yyyy-MM-dd HH:mm').format(transaction.date);
+
+    final accountsAsync = ref.watch(accountsProvider);
+    final categoriesAsync = ref.watch(categoriesProvider);
+
+    final accountName =
+        accountsAsync.whenOrNull(
+          data: (accounts) {
+            try {
+              final account = accounts.firstWhere(
+                (a) => a.id == transaction.accountId,
+              );
+              return account.name;
+            } catch (_) {
+              return transaction.accountId;
+            }
+          },
+        ) ??
+        transaction.accountId;
+
+    final categoryName = transaction.categoryId != null
+        ? categoriesAsync.whenOrNull(
+                data: (categories) {
+                  try {
+                    final category = categories.firstWhere(
+                      (c) => c.id == transaction.categoryId,
+                    );
+                    return category.name;
+                  } catch (_) {
+                    return transaction.categoryId;
+                  }
+                },
+              ) ??
+              transaction.categoryId
+        : null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Transaction details')),
@@ -35,7 +71,10 @@ class TransactionDetailScreen extends StatelessWidget {
               children: [
                 AmountText(_signedAmount(transaction)),
                 const SizedBox(height: 8),
-                Text('${_labelFor(transaction.type.name)} - $date'),
+                Text(
+                  '${_labelFor(transaction.type.name)} - $dateTime',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
               ],
             ),
           ),
@@ -45,19 +84,36 @@ class TransactionDetailScreen extends StatelessWidget {
             icon: Icons.receipt_long_outlined,
             child: Column(
               children: [
+                _DetailRow(label: 'Transaction ID', value: transaction.id),
+                const Divider(),
                 _DetailRow(
                   label: 'Status',
                   value: _labelFor(transaction.status.name),
                 ),
                 const Divider(),
-                _DetailRow(label: 'Account', value: transaction.accountId),
-                if (transaction.categoryId != null) ...[
+                _DetailRow(
+                  label: 'Type',
+                  value: _labelFor(transaction.type.name),
+                ),
+                const Divider(),
+                _DetailRow(label: 'Account', value: accountName),
+                if (categoryName != null) ...[
                   const Divider(),
-                  _DetailRow(label: 'Category', value: transaction.categoryId!),
+                  _DetailRow(label: 'Category', value: categoryName),
                 ],
-                if (transaction.merchant != null) ...[
+                const Divider(),
+                _DetailRow(label: 'Amount', value: transaction.amount.format()),
+                const Divider(),
+                _DetailRow(
+                  label: 'Currency',
+                  value: transaction.amount.currency,
+                ),
+                const Divider(),
+                _DetailRow(label: 'Date & Time', value: dateTime),
+                if (transaction.merchant != null &&
+                    transaction.merchant!.isNotEmpty) ...[
                   const Divider(),
-                  _DetailRow(label: 'Merchant', value: transaction.merchant!),
+                  _DetailRow(label: 'Title', value: transaction.merchant!),
                 ],
                 if (transaction.note != null &&
                     transaction.note!.isNotEmpty) ...[
@@ -80,10 +136,7 @@ class TransactionDetailScreen extends StatelessWidget {
               child: Column(
                 children: [
                   for (final split in transaction.splits) ...[
-                    _DetailRow(
-                      label: split.categoryId,
-                      value: split.amount.format(),
-                    ),
+                    _SplitRow(split: split, categoriesAsync: categoriesAsync),
                     if (split != transaction.splits.last) const Divider(),
                   ],
                 ],
@@ -148,5 +201,31 @@ class _DetailRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _SplitRow extends StatelessWidget {
+  const _SplitRow({required this.split, required this.categoriesAsync});
+
+  final TransactionSplit split;
+  final AsyncValue categoriesAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    final categoryName = (categoriesAsync.whenOrNull(
+          data: (categories) {
+            try {
+              final category = categories.firstWhere(
+                (c) => c.id == split.categoryId,
+              );
+              return category.name;
+            } catch (_) {
+              return split.categoryId;
+            }
+          },
+        ) ??
+        split.categoryId) as String;
+
+    return _DetailRow(label: categoryName, value: split.amount.format());
   }
 }

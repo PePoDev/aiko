@@ -76,46 +76,9 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
                 message: 'Aiko could not load this list right now. $err',
               ),
               data: (transactions) {
-                final filtered = transactions.where((tx) {
-                  if (_searchQuery.isEmpty) return true;
-                  final query = _searchQuery.toLowerCase();
-                  return (tx.merchant ?? '').toLowerCase().contains(query) ||
-                      (tx.note ?? '').toLowerCase().contains(query);
-                }).toList();
-
-                if (filtered.isEmpty) {
-                  return const AikoScreenState.empty(
-                    title: 'No transactions found',
-                    message:
-                        'Try another search, or add your first money move.',
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) {
-                    final tx = filtered[index];
-                    final sign = tx.type == TransactionType.income ? '+' : '-';
-                    final accent = tx.type == TransactionType.income
-                        ? AikoColors.successGreen
-                        : AikoColors.deepBlue;
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _CompactTransactionCard(
-                        transaction: tx,
-                        accent: accent,
-                        sign: sign,
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) =>
-                                TransactionDetailScreen(transaction: tx),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                return _MonthlyTransactionTabs(
+                  transactions: transactions,
+                  searchQuery: _searchQuery,
                 );
               },
             ),
@@ -135,7 +98,195 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
   }
 }
 
-class _CompactTransactionCard extends StatelessWidget {
+class _MonthlyTransactionTabs extends StatelessWidget {
+  const _MonthlyTransactionTabs({
+    required this.transactions,
+    required this.searchQuery,
+  });
+
+  final List<FinanceTransaction> transactions;
+  final String searchQuery;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentMonth = _MonthKey.fromDate(DateTime.now());
+    final months = _monthKeysFor(transactions, currentMonth);
+    final initialIndex = months.indexOf(currentMonth);
+
+    return DefaultTabController(
+      length: months.length,
+      initialIndex: initialIndex < 0 ? 0 : initialIndex,
+      child: Column(
+        children: [
+          Material(
+            color: Theme.of(context).colorScheme.surface,
+            child: TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.center,
+              tabs: [for (final month in months) Tab(text: month.label)],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                for (final month in months)
+                  _TransactionMonthPage(
+                    transactions: _transactionsForMonth(month, transactions),
+                    searchQuery: searchQuery,
+                    monthLabel: month.label,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static List<_MonthKey> _monthKeysFor(
+    List<FinanceTransaction> transactions,
+    _MonthKey currentMonth,
+  ) {
+    var firstMonth = currentMonth.addMonths(-120);
+    var lastMonth = currentMonth.addMonths(120);
+
+    for (final transaction in transactions) {
+      final transactionMonth = _MonthKey.fromDate(transaction.date);
+      if (transactionMonth.compareTo(firstMonth) < 0) {
+        firstMonth = transactionMonth.addMonths(-12);
+      }
+      if (transactionMonth.compareTo(lastMonth) > 0) {
+        lastMonth = transactionMonth.addMonths(12);
+      }
+    }
+
+    return [
+      for (
+        var month = firstMonth;
+        month.compareTo(lastMonth) <= 0;
+        month = month.addMonths(1)
+      )
+        month,
+    ];
+  }
+
+  static List<FinanceTransaction> _transactionsForMonth(
+    _MonthKey month,
+    List<FinanceTransaction> transactions,
+  ) {
+    return transactions
+        .where((transaction) => _MonthKey.fromDate(transaction.date) == month)
+        .toList(growable: false);
+  }
+}
+
+class _TransactionMonthPage extends StatelessWidget {
+  const _TransactionMonthPage({
+    required this.transactions,
+    required this.searchQuery,
+    required this.monthLabel,
+  });
+
+  final List<FinanceTransaction> transactions;
+  final String searchQuery;
+  final String monthLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = transactions.where((tx) {
+      if (searchQuery.isEmpty) return true;
+      final query = searchQuery.toLowerCase();
+      return (tx.merchant ?? '').toLowerCase().contains(query) ||
+          (tx.note ?? '').toLowerCase().contains(query);
+    }).toList();
+
+    if (filtered.isEmpty) {
+      return AikoScreenState.empty(
+        title: 'No transactions in $monthLabel',
+        message: searchQuery.isEmpty
+            ? 'Add a transaction for this month when you are ready.'
+            : 'Try another search, or switch to another month.',
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
+      itemCount: filtered.length,
+      itemBuilder: (context, index) {
+        final tx = filtered[index];
+        final sign = tx.type == TransactionType.income ? '+' : '-';
+        final accent = tx.type == TransactionType.income
+            ? AikoColors.successGreen
+            : AikoColors.deepBlue;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _CompactTransactionCard(
+            transaction: tx,
+            accent: accent,
+            sign: sign,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => TransactionDetailScreen(transaction: tx),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MonthKey {
+  const _MonthKey(this.year, this.month);
+
+  factory _MonthKey.fromDate(DateTime date) {
+    return _MonthKey(date.year, date.month);
+  }
+
+  final int year;
+  final int month;
+
+  String get label => '${_monthLabels[month - 1]} $year';
+
+  _MonthKey addMonths(int offset) {
+    final zeroBasedMonth = (year * 12) + (month - 1) + offset;
+    return _MonthKey(zeroBasedMonth ~/ 12, (zeroBasedMonth % 12) + 1);
+  }
+
+  int compareTo(_MonthKey other) {
+    final yearCompare = year.compareTo(other.year);
+    if (yearCompare != 0) {
+      return yearCompare;
+    }
+    return month.compareTo(other.month);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _MonthKey && other.year == year && other.month == month;
+  }
+
+  @override
+  int get hashCode => Object.hash(year, month);
+}
+
+const _monthLabels = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+class _CompactTransactionCard extends ConsumerWidget {
   const _CompactTransactionCard({
     required this.transaction,
     required this.accent,
@@ -149,12 +300,26 @@ class _CompactTransactionCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final title = transaction.merchant ?? transaction.note ?? 'Transaction';
     final amount = '$sign\$${transaction.amount.amount.toStringAsFixed(2)}';
     final icon = transaction.type == TransactionType.income
         ? Icons.south_west
         : Icons.north_east;
+
+    final accountsAsync = ref.watch(accountsProvider);
+    final accountName =
+        accountsAsync.whenOrNull(
+          data: (accounts) {
+            for (final account in accounts) {
+              if (account.id == transaction.accountId) {
+                return account.name;
+              }
+            }
+            return 'Unknown';
+          },
+        ) ??
+        'Unknown';
 
     return Card(
       child: InkWell(
@@ -186,7 +351,9 @@ class _CompactTransactionCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${transaction.type.name.toUpperCase()} - ${transaction.date.toString().substring(0, 10)}',
+                      '$accountName • ${transaction.type.name.toUpperCase()} • ${transaction.date.toString().substring(0, 10)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],

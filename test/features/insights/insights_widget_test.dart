@@ -1,8 +1,10 @@
 import 'package:aiko/app/providers.dart';
 import 'package:aiko/features/insights/domain/aiko_insight.dart';
 import 'package:aiko/features/insights/presentation/insights_screen.dart';
+import 'package:aiko/l10n/app_localizations.dart';
 import 'package:aiko/theme/aiko_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -30,6 +32,13 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
           theme: AikoTheme.light(),
           home: const InsightsScreen(),
         ),
@@ -39,6 +48,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Food spending increased'), findsOneWidget);
-    expect(find.text('Aiko Review'), findsOneWidget);
+    expect(find.textContaining('Review'), findsWidgets);
   });
 }

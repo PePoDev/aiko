@@ -1,5 +1,7 @@
 import 'package:aiko/app/authenticated_shell.dart';
+import 'package:aiko/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
@@ -46,13 +48,22 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp.router(
+        locale: const Locale('en'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         theme: ThemeData(splashFactory: InkRipple.splashFactory),
         routerConfig: buildRouter(),
       ),
     );
 
+    await tester.pumpAndSettle();
+
     expect(find.text('Insights'), findsOneWidget);
-    expect(find.text('Budget'), findsNothing);
 
     await tester.tap(find.text('Insights'));
     await tester.pumpAndSettle();

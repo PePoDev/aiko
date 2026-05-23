@@ -10,28 +10,28 @@ class AuthenticatedShell extends StatelessWidget {
 
   static const _items = [
     _AikoNavItem(
+      label: 'Home',
+      path: '/home',
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home_rounded,
+    ),
+    _AikoNavItem(
       label: 'Transactions',
       path: '/transactions',
       icon: Icons.receipt_long_outlined,
       selectedIcon: Icons.receipt_long,
     ),
     _AikoNavItem(
+      label: 'Ask Aiko',
+      path: '/aiko',
+      icon: Icons.face_retouching_natural_outlined,
+      selectedIcon: Icons.face_retouching_natural,
+    ),
+    _AikoNavItem(
       label: 'Budget',
       path: '/budget',
       icon: Icons.pie_chart_outline,
       selectedIcon: Icons.pie_chart,
-    ),
-    _AikoNavItem(
-      label: 'Overview',
-      path: '/home',
-      icon: Icons.home_outlined,
-      selectedIcon: Icons.home_rounded,
-    ),
-    _AikoNavItem(
-      label: 'Insights',
-      path: '/insights',
-      icon: Icons.insights_outlined,
-      selectedIcon: Icons.insights,
     ),
     _AikoNavItem(
       label: 'Aiko Hub',
@@ -57,22 +57,22 @@ class AuthenticatedShell extends StatelessWidget {
   }
 
   int _indexFor(String location) {
-    if (location.startsWith('/transactions')) {
+    if (location.startsWith('/home')) {
       return 0;
     }
-    if (location.startsWith('/budget')) {
+    if (location.startsWith('/transactions')) {
       return 1;
     }
-    if (location.startsWith('/home')) {
+    if (location.startsWith('/aiko')) {
       return 2;
     }
-    if (location.startsWith('/insights')) {
+    if (location.startsWith('/budget')) {
       return 3;
     }
     if (location.startsWith('/more') || _isSecondaryRoute(location)) {
       return 4;
     }
-    return 2;
+    return 0;
   }
 
   bool _isSecondaryRoute(String location) {
@@ -83,7 +83,7 @@ class AuthenticatedShell extends StatelessWidget {
         location.startsWith('/aiko-review') ||
         location.startsWith('/reports') ||
         location.startsWith('/export') ||
-        location.startsWith('/aiko') ||
+        location.startsWith('/insights') ||
         location.startsWith('/calculators') ||
         location.startsWith('/settings') ||
         location.startsWith('/aiko-character') ||
@@ -187,7 +187,14 @@ class _AikoBottomNavigationItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final foreground = selected ? colorScheme.primary : colorScheme.onSurface;
+    final isAiko = item.path == '/aiko';
+
+    Color foreground;
+    if (isAiko) {
+      foreground = selected ? Colors.white : AikoColors.premiumPurple;
+    } else {
+      foreground = selected ? colorScheme.primary : colorScheme.onSurface;
+    }
 
     return Semantics(
       button: true,
@@ -206,16 +213,42 @@ class _AikoBottomNavigationItem extends StatelessWidget {
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
-                  width: 44,
-                  height: 44,
+                  width: isAiko ? 50 : 44,
+                  height: isAiko ? 50 : 44,
                   decoration: BoxDecoration(
-                    color: selected ? colorScheme.primary : Colors.transparent,
                     shape: BoxShape.circle,
+                    gradient: isAiko && selected
+                        ? const LinearGradient(
+                            colors: [
+                              AikoColors.premiumPurple,
+                              Color(0xFF9B67F2),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null,
+                    color: isAiko
+                        ? (selected
+                            ? null
+                            : AikoColors.premiumPurple.withValues(alpha: 0.12))
+                        : (selected ? colorScheme.primary : Colors.transparent),
+                    boxShadow: isAiko
+                        ? [
+                            BoxShadow(
+                              color: AikoColors.premiumPurple.withValues(
+                                  alpha: selected ? 0.3 : 0.08),
+                              blurRadius: selected ? 12 : 6,
+                              offset: Offset(0, selected ? 4 : 2),
+                            ),
+                          ]
+                        : null,
                   ),
                   child: Icon(
                     selected ? item.selectedIcon : item.icon,
-                    color: selected ? colorScheme.onPrimary : foreground,
-                    size: 24,
+                    color: selected
+                        ? (isAiko ? Colors.white : colorScheme.onPrimary)
+                        : foreground,
+                    size: isAiko ? 26 : 24,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -224,8 +257,10 @@ class _AikoBottomNavigationItem extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: foreground,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    color: isAiko ? AikoColors.premiumPurple : foreground,
+                    fontWeight: selected || isAiko
+                        ? FontWeight.w700
+                        : FontWeight.w600,
                   ),
                 ),
               ],

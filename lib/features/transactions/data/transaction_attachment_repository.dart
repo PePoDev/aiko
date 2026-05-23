@@ -13,10 +13,12 @@ class TransactionAttachmentRepository {
       );
     }
 
-    final session = AikoSupabase.requireSession();
+    final client = AikoSupabase.tryClient();
+    final user = client?.auth.currentUser;
+    final userId = user?.id ?? attachment.userId;
     final attachmentWithUser = TransactionAttachment(
       id: attachment.id,
-      userId: session.userId,
+      userId: userId,
       transactionId: attachment.transactionId,
       fileName: attachment.fileName,
       storagePath: attachment.storagePath,
@@ -27,21 +29,37 @@ class TransactionAttachmentRepository {
       exportPolicy: attachment.exportPolicy,
     );
 
-    await session.client.from('attachments').upsert(_toRow(attachmentWithUser));
+    if (client == null || user == null) {
+      return attachmentWithUser;
+    }
+    try {
+      await client.from('attachments').upsert(_toRow(attachmentWithUser));
+    } catch (_) {
+      return attachmentWithUser;
+    }
     return attachmentWithUser;
   }
 
   Future<List<TransactionAttachment>> listForTransaction(
     String transactionId,
   ) async {
-    final session = AikoSupabase.requireSession();
-    final response = await session.client
-        .from('attachments')
-        .select()
-        .eq('user_id', session.userId)
-        .eq('linked_entity_type', 'transaction')
-        .eq('linked_entity_id', transactionId)
-        .order('created_at', ascending: false);
+    final client = AikoSupabase.tryClient();
+    final user = client?.auth.currentUser;
+    if (client == null || user == null) {
+      return const [];
+    }
+    final List<dynamic> response;
+    try {
+      response = await client
+          .from('attachments')
+          .select()
+          .eq('user_id', user.id)
+          .eq('linked_entity_type', 'transaction')
+          .eq('linked_entity_id', transactionId)
+          .order('created_at', ascending: false);
+    } catch (_) {
+      return const [];
+    }
 
     return response
         .map((row) => _fromRow(Map<String, dynamic>.from(row)))

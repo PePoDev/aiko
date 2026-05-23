@@ -9,13 +9,23 @@ class AikoInsightRepository {
       return const [];
     }
 
-    final session = AikoSupabase.requireSession();
-    final response = await session.client
-        .from('aiko_insights')
-        .select()
-        .eq('user_id', session.userId)
-        .neq('status', 'dismissed')
-        .order('created_at', ascending: false);
+    final client = AikoSupabase.tryClient();
+    final user = client?.auth.currentUser;
+    if (client == null || user == null) {
+      return const [];
+    }
+
+    final List<dynamic> response;
+    try {
+      response = await client
+          .from('aiko_insights')
+          .select()
+          .eq('user_id', user.id)
+          .neq('status', 'dismissed')
+          .order('created_at', ascending: false);
+    } catch (_) {
+      return const [];
+    }
 
     return response
         .map((row) => _fromRow(Map<String, dynamic>.from(row)))
@@ -23,15 +33,23 @@ class AikoInsightRepository {
   }
 
   Future<void> dismiss(String id) async {
-    final session = AikoSupabase.requireSession();
-    await session.client
-        .from('aiko_insights')
-        .update({
-          'status': 'dismissed',
-          'dismissed_at': DateTime.now().toUtc().toIso8601String(),
-        })
-        .eq('id', id)
-        .eq('user_id', session.userId);
+    final client = AikoSupabase.tryClient();
+    final user = client?.auth.currentUser;
+    if (client == null || user == null) {
+      return;
+    }
+    try {
+      await client
+          .from('aiko_insights')
+          .update({
+            'status': 'dismissed',
+            'dismissed_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('id', id)
+          .eq('user_id', user.id);
+    } catch (_) {
+      return;
+    }
   }
 
   static AikoInsight _fromRow(Map<String, dynamic> row) {

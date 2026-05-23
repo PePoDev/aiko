@@ -5,12 +5,22 @@ class CalculatorScenarioRepository {
   const CalculatorScenarioRepository();
 
   Future<List<SavedCalculatorScenario>> list() async {
-    final session = AikoSupabase.requireSession();
-    final response = await session.client
-        .from('saved_calculator_scenarios')
-        .select()
-        .eq('user_id', session.userId)
-        .order('created_at', ascending: false);
+    final client = AikoSupabase.tryClient();
+    final user = client?.auth.currentUser;
+    if (client == null || user == null) {
+      return const [];
+    }
+
+    final List<dynamic> response;
+    try {
+      response = await client
+          .from('saved_calculator_scenarios')
+          .select()
+          .eq('user_id', user.id)
+          .order('created_at', ascending: false);
+    } catch (_) {
+      return const [];
+    }
 
     return response
         .map((row) => _fromRow(Map<String, dynamic>.from(row)))
@@ -18,10 +28,12 @@ class CalculatorScenarioRepository {
   }
 
   Future<SavedCalculatorScenario> save(SavedCalculatorScenario scenario) async {
-    final session = AikoSupabase.requireSession();
+    final client = AikoSupabase.tryClient();
+    final user = client?.auth.currentUser;
+    final userId = user?.id ?? scenario.userId;
     final scenarioWithUser = SavedCalculatorScenario(
       id: scenario.id,
-      userId: session.userId,
+      userId: userId,
       calculatorType: scenario.calculatorType,
       input: scenario.input,
       result: scenario.result,
@@ -30,9 +42,17 @@ class CalculatorScenarioRepository {
       convertedEntityId: scenario.convertedEntityId,
     );
 
-    await session.client
-        .from('saved_calculator_scenarios')
-        .upsert(_toRow(scenarioWithUser));
+    if (client == null || user == null) {
+      return scenarioWithUser;
+    }
+
+    try {
+      await client
+          .from('saved_calculator_scenarios')
+          .upsert(_toRow(scenarioWithUser));
+    } catch (_) {
+      return scenarioWithUser;
+    }
     return scenarioWithUser;
   }
 

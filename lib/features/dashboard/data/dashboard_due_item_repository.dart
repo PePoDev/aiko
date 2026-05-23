@@ -13,20 +13,34 @@ class DashboardDueItemRepository {
   final DashboardDueItemService _service;
 
   Future<List<DashboardDueItem>> loadUpcomingItems(DateTime asOf) async {
-    final session = AikoSupabase.requireSession();
+    final client = AikoSupabase.tryClient();
+    final user = client?.auth.currentUser;
+    if (client == null || user == null) {
+      return const [];
+    }
+
     final windowEnd = asOf.add(const Duration(days: 30));
-    final billsResponse = await session.client
-        .from('bill_subscriptions')
-        .select()
-        .eq('user_id', session.userId)
-        .neq('cancellation_status', 'canceled')
-        .gte('next_billing_date', asOf.toIso8601String().substring(0, 10))
-        .lte('next_billing_date', windowEnd.toIso8601String().substring(0, 10))
-        .order('next_billing_date');
-    final cardsResponse = await session.client
-        .from('credit_card_profiles')
-        .select()
-        .eq('user_id', session.userId);
+    final List<dynamic> billsResponse;
+    final List<dynamic> cardsResponse;
+    try {
+      billsResponse = await client
+          .from('bill_subscriptions')
+          .select()
+          .eq('user_id', user.id)
+          .neq('cancellation_status', 'canceled')
+          .gte('next_billing_date', asOf.toIso8601String().substring(0, 10))
+          .lte(
+            'next_billing_date',
+            windowEnd.toIso8601String().substring(0, 10),
+          )
+          .order('next_billing_date');
+      cardsResponse = await client
+          .from('credit_card_profiles')
+          .select()
+          .eq('user_id', user.id);
+    } catch (_) {
+      return const [];
+    }
 
     return _service.upcomingItems(
       bills: billsResponse

@@ -197,9 +197,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.privacy_tip_outlined,
             child: Column(
               children: [
-                const _SettingsRow(
+                _SettingsRow(
                   icon: Icons.person_outline,
                   title: 'Profile',
+                  onTap: () => context.push('/profile'),
                 ),
                 const Divider(),
                 _SettingsRow(

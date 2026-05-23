@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../brick/repository.dart';
 import '../core/config/app_config.dart';
-import '../core/supabase/supabase_client_provider.dart';
 import 'aiko_app.dart';
 
 class AppBootstrap {
@@ -14,7 +14,7 @@ class AppBootstrap {
   final AppConfig config;
 
   Future<void> initialize() async {
-    await AikoSupabase.initialize(config);
+    await AikoBrickRepository.configure(config);
   }
 
   Widget buildApp() => AikoApp(config: config);

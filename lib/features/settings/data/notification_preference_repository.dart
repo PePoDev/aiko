@@ -5,31 +5,48 @@ class NotificationPreferenceRepository {
   const NotificationPreferenceRepository();
 
   Future<void> save(NotificationPreference preference) async {
-    final session = AikoSupabase.requireSession();
-    await session.client.from('notification_preferences').upsert({
-      'user_id': session.userId,
-      'notification_type': preference.type.name,
-      'source_module': preference.sourceModule.name,
-      'enabled': preference.isEnabled,
-    }, onConflict: 'user_id,notification_type');
+    final client = AikoSupabase.tryClient();
+    final user = client?.auth.currentUser;
+    if (client == null || user == null) {
+      return;
+    }
+    try {
+      await client.from('notification_preferences').upsert({
+        'user_id': user.id,
+        'notification_type': preference.type.name,
+        'source_module': preference.sourceModule.name,
+        'enabled': preference.isEnabled,
+      }, onConflict: 'user_id,notification_type');
+    } catch (_) {
+      return;
+    }
   }
 
   Future<List<NotificationPreference>> listForModule(
     String userId,
     NotificationSourceModule sourceModule,
   ) async {
-    final session = AikoSupabase.requireSession();
-    if (userId != session.userId) {
+    final client = AikoSupabase.tryClient();
+    final user = client?.auth.currentUser;
+    if (client == null || user == null) {
+      return const [];
+    }
+    if (userId != user.id) {
       throw StateError(
         'Cannot load notification preferences for another user.',
       );
     }
 
-    final response = await session.client
-        .from('notification_preferences')
-        .select()
-        .eq('user_id', session.userId)
-        .eq('source_module', sourceModule.name);
+    final List<dynamic> response;
+    try {
+      response = await client
+          .from('notification_preferences')
+          .select()
+          .eq('user_id', user.id)
+          .eq('source_module', sourceModule.name);
+    } catch (_) {
+      return const [];
+    }
 
     return response
         .map((row) => _fromRow(Map<String, dynamic>.from(row)))

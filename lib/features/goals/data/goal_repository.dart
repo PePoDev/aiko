@@ -1,21 +1,24 @@
 import '../../../core/money/money.dart';
-import '../../../core/supabase/supabase_client_provider.dart';
+import '../../../brick/offline_model_mappers.dart';
+import '../../../brick/repository.dart';
+import '../../../brick/models/goal.model.dart';
+import '../../../core/offline/offline_store.dart';
+import '../../../core/offline/offline_user_context.dart';
 import '../domain/goal.dart';
 
 class GoalRepository {
   const GoalRepository();
 
   Future<List<Goal>> list() async {
-    final session = AikoSupabase.requireSession();
-    final response = await session.client
-        .from('goals')
-        .select()
-        .eq('user_id', session.userId)
-        .order('target_date');
+    final userId = await OfflineUserContext().resolveUserId();
+    final goals = await OfflineStore().get<OfflineGoal>(
+      query: Query(
+        where: [Where.exact('userId', userId)],
+        orderBy: const [OrderBy.asc('targetDate')],
+      ),
+    );
 
-    return response
-        .map((row) => _fromRow(Map<String, dynamic>.from(row)))
-        .toList(growable: false);
+    return goals.map((goal) => goal.toDomain()).toList(growable: false);
   }
 
   Future<Goal> save(Goal goal) async {
@@ -24,74 +27,22 @@ class GoalRepository {
       throw ArgumentError('Target amount must be greater than zero.');
     }
 
-    final session = AikoSupabase.requireSession();
-    final goalWithUser = Goal(
-      id: goal.id,
-      userId: session.userId,
-      name: goal.name,
-      purpose: goal.purpose,
-      targetAmount: goal.targetAmount,
-      currentAmount: goal.currentAmount,
-      targetDate: goal.targetDate,
-      linkedAccountId: goal.linkedAccountId,
-      priority: goal.priority,
-      successProbability: goal.successProbability,
-      status: goal.status,
-    );
-
-    await session.client.from('goals').upsert(_toRow(goalWithUser));
-    return goalWithUser;
+    final userId = await OfflineUserContext().resolveUserId();
+    final saved = await OfflineStore().upsert(goal.toOffline(userId: userId));
+    return saved.toDomain();
   }
 
   Future<void> delete(String id) async {
-    final session = AikoSupabase.requireSession();
-    await session.client
-        .from('goals')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', session.userId);
-  }
-
-  static Goal _fromRow(Map<String, dynamic> row) {
-    final purpose = GoalPurpose.values.firstWhere(
-      (item) => item.name == (row['purpose'] as String? ?? 'custom'),
-      orElse: () => GoalPurpose.custom,
+    final userId = await OfflineUserContext().resolveUserId();
+    final goals = await OfflineStore().get<OfflineGoal>(
+      query: Query(
+        where: [Where.exact('id', id), Where.exact('userId', userId)],
+        limit: 1,
+      ),
     );
-    final status = GoalStatus.values.firstWhere(
-      (item) => item.name == (row['status'] as String? ?? 'active'),
-      orElse: () => GoalStatus.active,
-    );
-    final currency = row['currency'] as String? ?? 'USD';
-
-    return Goal(
-      id: row['id'] as String,
-      userId: row['user_id'] as String,
-      name: row['name'] as String,
-      purpose: purpose,
-      targetAmount: Money.parse('${row['target_amount'] ?? 0}', currency),
-      currentAmount: Money.parse('${row['current_amount'] ?? 0}', currency),
-      targetDate: DateTime.parse(row['target_date'] as String),
-      linkedAccountId: row['linked_account_id'] as String?,
-      priority: row['priority'] as int? ?? 1,
-      successProbability: (row['success_probability'] as num?)?.toDouble(),
-      status: status,
-    );
-  }
-
-  static Map<String, dynamic> _toRow(Goal goal) {
-    return {
-      'id': goal.id,
-      'user_id': goal.userId,
-      'name': goal.name,
-      'purpose': goal.purpose.name,
-      'target_amount': goal.targetAmount.amount.toString(),
-      'current_amount': goal.currentAmount.amount.toString(),
-      'currency': goal.targetAmount.currency,
-      'target_date': goal.targetDate.toIso8601String().substring(0, 10),
-      'linked_account_id': goal.linkedAccountId,
-      'priority': goal.priority,
-      'success_probability': goal.successProbability,
-      'status': goal.status.name,
-    };
+    if (goals.isEmpty) {
+      return;
+    }
+    await OfflineStore().delete(goals.first);
   }
 }

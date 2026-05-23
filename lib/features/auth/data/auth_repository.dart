@@ -94,7 +94,12 @@ class AuthRepository {
   Future<AuthSession?> restoreSession() async {
     final user = AikoSupabase.tryClient()?.auth.currentUser;
     if (user != null) {
-      await _ensureProfileAndDefaultsExist(user.id, user.email ?? '');
+      try {
+        await _ensureProfileAndDefaultsExist(user.id, user.email ?? '');
+      } catch (_) {
+        // A cached Supabase session is enough to continue offline. Local data
+        // will be read from Brick and queued writes will sync when online.
+      }
       await _markKnownAccount();
       _session = AuthSession(
         userId: user.id,

@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
 
@@ -16,7 +17,10 @@ class AikoSupabase {
 
   static bool _initialized = false;
 
-  static Future<void> initialize(AppConfig config) async {
+  static Future<void> initialize(
+    AppConfig config, {
+    http.Client? httpClient,
+  }) async {
     if (!config.enableSupabase || _initialized) {
       return;
     }
@@ -28,6 +32,7 @@ class AikoSupabase {
     await Supabase.initialize(
       url: config.supabaseUrl,
       anonKey: config.supabaseAnonKey,
+      httpClient: httpClient,
     );
     _initialized = true;
   }

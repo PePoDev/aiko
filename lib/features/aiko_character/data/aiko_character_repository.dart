@@ -5,12 +5,28 @@ class AikoCharacterRepository {
   const AikoCharacterRepository();
 
   Future<AikoCharacterProfile> load() async {
-    final session = AikoSupabase.requireSession();
-    final row = await session.client
-        .from('aiko_character_profiles')
-        .select()
-        .eq('user_id', session.userId)
-        .maybeSingle();
+    final client = AikoSupabase.tryClient();
+    final user = client?.auth.currentUser;
+    if (client == null || user == null) {
+      return const AikoCharacterProfile(
+        visibility: AikoCharacterVisibility.full,
+        tone: AikoCharacterTone.supportive,
+      );
+    }
+
+    final Map<String, dynamic>? row;
+    try {
+      row = await client
+          .from('aiko_character_profiles')
+          .select()
+          .eq('user_id', user.id)
+          .maybeSingle();
+    } catch (_) {
+      return const AikoCharacterProfile(
+        visibility: AikoCharacterVisibility.full,
+        tone: AikoCharacterTone.supportive,
+      );
+    }
 
     if (row == null) {
       const profile = AikoCharacterProfile(
@@ -25,16 +41,24 @@ class AikoCharacterRepository {
   }
 
   Future<void> save(AikoCharacterProfile profile) async {
-    final session = AikoSupabase.requireSession();
-    await session.client.from('aiko_character_profiles').upsert({
-      'user_id': session.userId,
-      'visibility': profile.visibility.name,
-      'tone': profile.tone.name,
-      'reduce_motion': profile.reduceMotion,
-      'serious_warning_style': profile.seriousWarningMode
-          ? 'professional'
-          : 'friendly',
-    }, onConflict: 'user_id');
+    final client = AikoSupabase.tryClient();
+    final user = client?.auth.currentUser;
+    if (client == null || user == null) {
+      return;
+    }
+    try {
+      await client.from('aiko_character_profiles').upsert({
+        'user_id': user.id,
+        'visibility': profile.visibility.name,
+        'tone': profile.tone.name,
+        'reduce_motion': profile.reduceMotion,
+        'serious_warning_style': profile.seriousWarningMode
+            ? 'professional'
+            : 'friendly',
+      }, onConflict: 'user_id');
+    } catch (_) {
+      return;
+    }
   }
 
   static AikoCharacterProfile _fromRow(Map<String, dynamic> row) {

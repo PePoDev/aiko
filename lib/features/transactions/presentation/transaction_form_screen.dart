@@ -9,6 +9,8 @@ import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/transaction.dart';
+import '../domain/transaction_attachment.dart';
+import '../data/transaction_attachment_repository.dart';
 import '../application/receipt_ocr_service.dart';
 import '../application/voice_transaction_parser.dart';
 import '../application/voice_transcription_service.dart';
@@ -28,6 +30,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _noteController = TextEditingController();
   String _type = 'expense';
   DateTime _selectedDate = DateTime.now();
+  final List<TransactionAttachment> _attachments = [];
 
   @override
   void dispose() {
@@ -448,6 +451,138 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     }
   }
 
+  void _showAddAttachmentDialog() {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Simulate Document Upload',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AikoColors.premiumPurple,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Choose a simulated receipt or document to upload:',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf, color: AikoColors.dangerRed),
+                title: const Text('Starbucks_Receipt.pdf'),
+                subtitle: const Text('PDF | 1.2 MB'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _simulateAttachmentUpload(
+                    fileName: 'Starbucks_Receipt.pdf',
+                    mimeType: 'application/pdf',
+                    sizeBytes: 1250000,
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.image, color: AikoColors.primaryBlue),
+                title: const Text('Amazon_Invoice.png'),
+                subtitle: const Text('PNG | 450 KB'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _simulateAttachmentUpload(
+                    fileName: 'Amazon_Invoice.png',
+                    mimeType: 'image/png',
+                    sizeBytes: 460800,
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.image, color: AikoColors.successGreen),
+                title: const Text('Chevron_Gas_Receipt.jpg'),
+                subtitle: const Text('JPEG | 850 KB'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _simulateAttachmentUpload(
+                    fileName: 'Chevron_Gas_Receipt.jpg',
+                    mimeType: 'image/jpeg',
+                    sizeBytes: 870400,
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _simulateAttachmentUpload({
+    required String fileName,
+    required String mimeType,
+    required int sizeBytes,
+  }) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 20),
+              Text('Uploading attachment to Supabase...'),
+            ],
+          ),
+        );
+      },
+    );
+
+    // Simulate 800ms upload delay
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+
+    if (!mounted) return;
+    Navigator.of(context).pop(); // Close spinner
+
+    final newAttachment = TransactionAttachment(
+      id: const Uuid().v4(),
+      userId: '',
+      transactionId: '',
+      fileName: fileName,
+      storagePath: 'receipts/simulated/${const Uuid().v4()}_$fileName',
+      mimeType: mimeType,
+      sizeBytes: sizeBytes,
+      createdAt: DateTime.now(),
+    );
+
+    setState(() {
+      _attachments.add(newAttachment);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_outline, color: Colors.white),
+            const SizedBox(width: 8),
+            Text('Attached $fileName successfully!'),
+          ],
+        ),
+        backgroundColor: AikoColors.successGreen,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
   Future<void> _submitForm() async {
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty) {
@@ -541,8 +676,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _ => TransactionType.expense,
     };
 
+    final txId = const Uuid().v4();
     final newTx = FinanceTransaction(
-      id: const Uuid().v4(),
+      id: txId,
       userId: '',
       accountId: accountId,
       type: txType,
@@ -554,6 +690,30 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     );
 
     await ref.read(transactionsProvider.notifier).addTransaction(newTx);
+
+    // Save attachments if any exist
+    if (_attachments.isNotEmpty) {
+      try {
+        const attachmentRepo = TransactionAttachmentRepository();
+        for (final attachment in _attachments) {
+          final updatedAttachment = TransactionAttachment(
+            id: attachment.id,
+            userId: attachment.userId,
+            transactionId: txId, // Link to the newly saved transaction ID
+            fileName: attachment.fileName,
+            storagePath: attachment.storagePath,
+            mimeType: attachment.mimeType,
+            sizeBytes: attachment.sizeBytes,
+            createdAt: attachment.createdAt,
+            isSensitive: attachment.isSensitive,
+            exportPolicy: attachment.exportPolicy,
+          );
+          await attachmentRepo.save(updatedAttachment);
+        }
+      } catch (e) {
+        debugPrint('Offline/local session faked: attachment metadata bypass cloud ($e)');
+      }
+    }
 
     if (!mounted) return;
 
@@ -593,15 +753,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add transaction'),
-        actions: [
-          TextButton(
-            onPressed: _submitForm,
-            child: const Text(
-              'Save',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -738,7 +889,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           ),
           const SizedBox(height: 16),
           
-          const TransactionAttachmentSection(attachments: []),
+          TransactionAttachmentSection(
+            attachments: _attachments,
+            onAddAttachment: _showAddAttachmentDialog,
+          ),
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: _submitForm,

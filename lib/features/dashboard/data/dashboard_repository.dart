@@ -2,6 +2,12 @@ import 'package:decimal/decimal.dart';
 
 import '../../../core/money/money.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
+import '../../accounts/data/account_repository.dart';
+import '../../accounts/domain/account.dart';
+import '../../budgets/data/budget_repository.dart';
+import '../../budgets/domain/budget.dart';
+import '../../transactions/data/transaction_repository.dart';
+import '../../transactions/domain/transaction.dart';
 import '../domain/dashboard_summary.dart';
 import '../domain/dashboard_widget_preference.dart';
 
@@ -9,57 +15,56 @@ class DashboardRepository {
   const DashboardRepository();
 
   Future<DashboardSummary> loadSummary() async {
-    final session = AikoSupabase.requireSession();
     final now = DateTime.now();
     final periodStart = DateTime(now.year, now.month);
     final periodEnd = DateTime(now.year, now.month + 1, 0);
 
-    final accounts = await session.client
-        .from('accounts')
-        .select('current_balance,currency,include_in_net_worth,type')
-        .eq('user_id', session.userId)
-        .eq('is_active', true);
-    final transactions = await session.client
-        .from('transactions')
-        .select('type,amount,currency,date')
-        .eq('user_id', session.userId)
-        .gte('date', periodStart.toIso8601String().substring(0, 10))
-        .lte('date', periodEnd.toIso8601String().substring(0, 10));
-    final budgets = await session.client
-        .from('budgets')
-        .select('amount,currency')
-        .eq('user_id', session.userId)
-        .eq('status', 'active')
-        .lte('period_start', periodEnd.toIso8601String().substring(0, 10))
-        .gte('period_end', periodStart.toIso8601String().substring(0, 10));
+    final accounts = (await const AccountRepository().list())
+        .where((account) => account.isActive)
+        .toList(growable: false);
+    final transactions = (await const TransactionRepository().list())
+        .where(
+          (transaction) =>
+              !transaction.date.isBefore(periodStart) &&
+              !transaction.date.isAfter(periodEnd),
+        )
+        .toList(growable: false);
+    final budgets = (await const BudgetRepository().list())
+        .where(
+          (budget) =>
+              budget.status.name == 'active' &&
+              !budget.periodStart.isAfter(periodEnd) &&
+              !budget.periodEnd.isBefore(periodStart),
+        )
+        .toList(growable: false);
 
     final currency = _firstCurrency(accounts, transactions, budgets);
     var netWorth = Decimal.zero;
     var totalCash = Decimal.zero;
-    for (final row in accounts) {
-      final amount = Decimal.parse('${row['current_balance'] ?? 0}');
-      if (row['include_in_net_worth'] as bool? ?? true) {
+    for (final account in accounts) {
+      final amount = account.currentBalance.amount;
+      if (account.includeInNetWorth) {
         netWorth += amount;
       }
-      if (row['type'] == 'cash' || row['type'] == 'bank') {
+      if (account.type.name == 'cash' || account.type.name == 'bank') {
         totalCash += amount;
       }
     }
 
     var monthlyIncome = Decimal.zero;
     var monthlySpending = Decimal.zero;
-    for (final row in transactions) {
-      final amount = Decimal.parse('${row['amount'] ?? 0}');
-      if (row['type'] == 'income') {
+    for (final transaction in transactions) {
+      final amount = transaction.amount.amount;
+      if (transaction.type.name == 'income') {
         monthlyIncome += amount;
-      } else if (row['type'] == 'expense') {
+      } else if (transaction.type.name == 'expense') {
         monthlySpending += amount;
       }
     }
 
     var totalBudget = Decimal.zero;
-    for (final row in budgets) {
-      totalBudget += Decimal.parse('${row['amount'] ?? 0}');
+    for (final budget in budgets) {
+      totalBudget += budget.amount.amount;
     }
 
     final weeklyFlow =
@@ -86,17 +91,26 @@ class DashboardRepository {
   }
 
   Future<List<DashboardWidgetPreference>> loadPreferences() async {
-    final session = AikoSupabase.requireSession();
-    final response = await session.client
-        .from('dashboard_widget_preferences')
-        .select()
-        .eq('user_id', session.userId)
-        .eq('dashboard_mode', 'personal')
-        .order('position');
+    final session = AikoSupabase.tryClient()?.auth.currentUser;
+    final client = AikoSupabase.tryClient();
+    if (client == null || session == null) {
+      return _defaultPreferences();
+    }
 
-    return response
-        .map((row) => _preferenceFromRow(Map<String, dynamic>.from(row)))
-        .toList(growable: false);
+    try {
+      final response = await client
+          .from('dashboard_widget_preferences')
+          .select()
+          .eq('user_id', session.id)
+          .eq('dashboard_mode', 'personal')
+          .order('position');
+
+      return response
+          .map((row) => _preferenceFromRow(Map<String, dynamic>.from(row)))
+          .toList(growable: false);
+    } catch (_) {
+      return _defaultPreferences();
+    }
   }
 
   static DashboardWidgetPreference _preferenceFromRow(
@@ -116,18 +130,48 @@ class DashboardRepository {
   }
 
   static String _firstCurrency(
-    List<dynamic> accounts,
-    List<dynamic> transactions,
-    List<dynamic> budgets,
+    Iterable<Account> accounts,
+    Iterable<FinanceTransaction> transactions,
+    Iterable<Budget> budgets,
   ) {
-    for (final rows in [accounts, transactions, budgets]) {
-      for (final row in rows) {
-        final currency = row['currency'] as String?;
-        if (currency != null && currency.isNotEmpty) {
-          return currency;
-        }
+    for (final account in accounts) {
+      if (account.currentBalance.currency.isNotEmpty) {
+        return account.currentBalance.currency;
+      }
+    }
+    for (final transaction in transactions) {
+      if (transaction.amount.currency.isNotEmpty) {
+        return transaction.amount.currency;
+      }
+    }
+    for (final budget in budgets) {
+      if (budget.amount.currency.isNotEmpty) {
+        return budget.amount.currency;
       }
     }
     return 'USD';
+  }
+
+  static List<DashboardWidgetPreference> _defaultPreferences() {
+    return const [
+      DashboardWidgetPreference(
+        widgetKey: 'summary',
+        isVisible: true,
+        position: 0,
+        size: DashboardWidgetSize.expanded,
+      ),
+      DashboardWidgetPreference(
+        widgetKey: 'pace',
+        isVisible: true,
+        position: 1,
+        size: DashboardWidgetSize.compact,
+      ),
+      DashboardWidgetPreference(
+        widgetKey: 'goals',
+        isVisible: true,
+        position: 2,
+        size: DashboardWidgetSize.compact,
+      ),
+    ];
   }
 }

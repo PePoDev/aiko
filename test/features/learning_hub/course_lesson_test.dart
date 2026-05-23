@@ -17,13 +17,10 @@ void main() {
     );
   });
 
-  test('course progress repository requires Supabase', () async {
+  test('course progress repository falls back offline', () async {
     const repo = CourseProgressRepository();
 
-    await expectLater(
-      repo.saveProgress('budgeting', LessonProgress.completed),
-      throwsStateError,
-    );
-    await expectLater(repo.progressFor('budgeting'), throwsStateError);
+    await repo.saveProgress('budgeting', LessonProgress.completed);
+    expect(await repo.progressFor('budgeting'), LessonProgress.notStarted);
   });
 }

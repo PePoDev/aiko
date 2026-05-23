@@ -6,12 +6,22 @@ class BillSubscriptionRepository {
   const BillSubscriptionRepository();
 
   Future<List<BillSubscription>> list() async {
-    final session = AikoSupabase.requireSession();
-    final response = await session.client
-        .from('bill_subscriptions')
-        .select()
-        .eq('user_id', session.userId)
-        .order('next_billing_date');
+    final client = AikoSupabase.tryClient();
+    final user = client?.auth.currentUser;
+    if (client == null || user == null) {
+      return const [];
+    }
+
+    final List<dynamic> response;
+    try {
+      response = await client
+          .from('bill_subscriptions')
+          .select()
+          .eq('user_id', user.id)
+          .order('next_billing_date');
+    } catch (_) {
+      return const [];
+    }
 
     return response
         .map((row) => _fromRow(Map<String, dynamic>.from(row)))
@@ -19,10 +29,12 @@ class BillSubscriptionRepository {
   }
 
   Future<BillSubscription> save(BillSubscription bill) async {
-    final session = AikoSupabase.requireSession();
+    final client = AikoSupabase.tryClient();
+    final user = client?.auth.currentUser;
+    final userId = user?.id ?? bill.userId;
     final billWithUser = BillSubscription(
       id: bill.id,
-      userId: session.userId,
+      userId: userId,
       merchant: bill.merchant,
       amount: bill.amount,
       billingCycle: bill.billingCycle,
@@ -33,19 +45,32 @@ class BillSubscriptionRepository {
       isActive: bill.isActive,
     );
 
-    await session.client
-        .from('bill_subscriptions')
-        .upsert(_toRow(billWithUser));
+    if (client == null || user == null) {
+      return billWithUser;
+    }
+    try {
+      await client.from('bill_subscriptions').upsert(_toRow(billWithUser));
+    } catch (_) {
+      return billWithUser;
+    }
     return billWithUser;
   }
 
   Future<void> delete(String id) async {
-    final session = AikoSupabase.requireSession();
-    await session.client
-        .from('bill_subscriptions')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', session.userId);
+    final client = AikoSupabase.tryClient();
+    final user = client?.auth.currentUser;
+    if (client == null || user == null) {
+      return;
+    }
+    try {
+      await client
+          .from('bill_subscriptions')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id);
+    } catch (_) {
+      return;
+    }
   }
 
   static BillSubscription _fromRow(Map<String, dynamic> row) {

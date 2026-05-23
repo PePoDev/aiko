@@ -19,7 +19,7 @@ void main() {
     expect(attachment.isExportable, isTrue);
   });
 
-  test('repository requires Supabase for attachment persistence', () async {
+  test('repository falls back offline for attachment metadata', () async {
     const repository = TransactionAttachmentRepository();
     final attachment = TransactionAttachment(
       id: 'receipt',
@@ -32,11 +32,10 @@ void main() {
       createdAt: DateTime(2026, 5, 19),
     );
 
-    await expectLater(repository.save(attachment), throwsStateError);
-    await expectLater(repository.listForTransaction('txn'), throwsStateError);
-    await expectLater(
-      repository.exportableForTransaction('txn'),
-      throwsStateError,
-    );
+    final saved = await repository.save(attachment);
+
+    expect(saved.userId, 'user');
+    expect(await repository.listForTransaction('txn'), isEmpty);
+    expect(await repository.exportableForTransaction('txn'), isEmpty);
   });
 }

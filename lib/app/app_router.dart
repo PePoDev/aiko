@@ -27,6 +27,7 @@ import '../features/onboarding/presentation/onboarding_screens.dart';
 import '../features/portfolio/presentation/portfolio_screen.dart';
 import '../features/reports/presentation/aiko_review_screen.dart';
 import '../features/reports/presentation/reports_screen.dart';
+import '../features/settings/presentation/profile_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/settings/presentation/notification_settings_screen.dart';
 import '../features/tax_center/presentation/tax_center_screen.dart';
@@ -131,6 +132,10 @@ GoRouter createAikoRouter() {
           GoRoute(
             path: '/settings',
             builder: (context, state) => const SettingsScreen(),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const ProfileScreen(),
           ),
           GoRoute(
             path: '/aiko-character',

@@ -14,6 +14,7 @@ void main() {
     await tester.pumpWidget(buildScreen());
 
     expect(find.text('Open'), findsNothing);
+    expect(find.byType(GridView), findsOneWidget);
 
     await tester.tap(find.text('Loan'));
     await tester.pumpAndSettle();

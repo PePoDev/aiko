@@ -55,6 +55,13 @@ const aikoNavigationGroups = [
     title: 'Planning',
     items: [
       AikoNavigationItem(
+        label: 'Budget',
+        path: '/budget',
+        icon: Icons.pie_chart_outline,
+        description: 'Plan category limits, alerts, and monthly spending pace.',
+        accentColor: AikoColors.warningOrange,
+      ),
+      AikoNavigationItem(
         label: 'Goals',
         path: '/goals',
         icon: Icons.flag_outlined,

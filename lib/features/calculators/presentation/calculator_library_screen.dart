@@ -51,61 +51,182 @@ class _CalculatorLibraryScreenState extends State<CalculatorLibraryScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Calculators')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-        children: [
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              labelText: 'Search calculator',
-              suffixIcon: _query.isEmpty
-                  ? null
-                  : IconButton(
-                      tooltip: 'Clear search',
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() => _query = '');
-                      },
-                      icon: const Icon(Icons.close),
-                    ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1180),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    labelText: 'Search calculator',
+                    suffixIcon: _query.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear search',
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _query = '');
+                            },
+                            icon: const Icon(Icons.close),
+                          ),
+                  ),
+                  textInputAction: TextInputAction.search,
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: filteredCalculators.isEmpty
+                      ? const Align(
+                          alignment: Alignment.topCenter,
+                          child: FinanceCard(
+                            title: 'No calculators found',
+                            icon: Icons.search_off_outlined,
+                            child: Text('Try a different search term.'),
+                          ),
+                        )
+                      : _CalculatorGrid(
+                          calculators: filteredCalculators,
+                          onOpen: _openCalculator,
+                        ),
+                ),
+              ],
             ),
-            textInputAction: TextInputAction.search,
-            onChanged: (value) => setState(() => _query = value),
           ),
-          const SizedBox(height: 16),
-          if (filteredCalculators.isEmpty)
-            const FinanceCard(
-              title: 'No calculators found',
-              icon: Icons.search_off_outlined,
-              child: Text('Try a different search term.'),
-            )
-          else
-            for (final calculator in filteredCalculators)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: FinanceCard(
-                  title: calculator.title,
-                  icon: calculator.icon,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _openCalculator(calculator),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(calculator.description),
-                      const SizedBox(height: 8),
-                      Text(
-                        calculator.category,
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CalculatorGrid extends StatelessWidget {
+  const _CalculatorGrid({required this.calculators, required this.onOpen});
+
+  final List<_CalculatorItem> calculators;
+  final ValueChanged<_CalculatorItem> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = _crossAxisCountForWidth(constraints.maxWidth);
+
+        return GridView.builder(
+          padding: const EdgeInsets.only(bottom: 112),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            mainAxisExtent: 188,
+          ),
+          itemCount: calculators.length,
+          itemBuilder: (context, index) {
+            final calculator = calculators[index];
+            return _CalculatorTile(
+              calculator: calculator,
+              onTap: () => onOpen(calculator),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  int _crossAxisCountForWidth(double width) {
+    if (width < 340) {
+      return 1;
+    }
+    if (width < 700) {
+      return 2;
+    }
+    if (width < 980) {
+      return 3;
+    }
+    return 4;
+  }
+}
+
+class _CalculatorTile extends StatelessWidget {
+  const _CalculatorTile({required this.calculator, required this.onTap});
+
+  final _CalculatorItem calculator;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final borderRadius = BorderRadius.circular(12);
+
+    return Semantics(
+      button: true,
+      label: '${calculator.title} calculator',
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: borderRadius,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    ],
+                      child: Icon(
+                        calculator.icon,
+                        color: colorScheme.primary,
+                        size: 22,
+                      ),
+                    ),
+                    const Spacer(),
+                    Icon(
+                      Icons.chevron_right,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  calculator.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  calculator.category,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colorScheme.primary,
                   ),
                 ),
-              ),
-        ],
+                const SizedBox(height: 8),
+                Expanded(
+                  child: Text(
+                    calculator.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

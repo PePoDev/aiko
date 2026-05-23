@@ -28,10 +28,10 @@ class AuthenticatedShell extends StatelessWidget {
       selectedIcon: Icons.face_retouching_natural,
     ),
     _AikoNavItem(
-      label: 'Budget',
-      path: '/budget',
-      icon: Icons.pie_chart_outline,
-      selectedIcon: Icons.pie_chart,
+      label: 'Insights',
+      path: '/insights',
+      icon: Icons.insights_outlined,
+      selectedIcon: Icons.insights,
     ),
     _AikoNavItem(
       label: 'Aiko Hub',
@@ -66,7 +66,7 @@ class AuthenticatedShell extends StatelessWidget {
     if (location.startsWith('/aiko')) {
       return 2;
     }
-    if (location.startsWith('/budget')) {
+    if (location.startsWith('/insights')) {
       return 3;
     }
     if (location.startsWith('/more') || _isSecondaryRoute(location)) {
@@ -79,11 +79,11 @@ class AuthenticatedShell extends StatelessWidget {
     return location.startsWith('/accounts') ||
         location.startsWith('/transaction-rules') ||
         location.startsWith('/categories') ||
+        location.startsWith('/budget') ||
         location.startsWith('/goals') ||
         location.startsWith('/aiko-review') ||
         location.startsWith('/reports') ||
         location.startsWith('/export') ||
-        location.startsWith('/insights') ||
         location.startsWith('/calculators') ||
         location.startsWith('/settings') ||
         location.startsWith('/aiko-character') ||
@@ -229,14 +229,17 @@ class _AikoBottomNavigationItem extends StatelessWidget {
                         : null,
                     color: isAiko
                         ? (selected
-                            ? null
-                            : AikoColors.premiumPurple.withValues(alpha: 0.12))
+                              ? null
+                              : AikoColors.premiumPurple.withValues(
+                                  alpha: 0.12,
+                                ))
                         : (selected ? colorScheme.primary : Colors.transparent),
                     boxShadow: isAiko
                         ? [
                             BoxShadow(
                               color: AikoColors.premiumPurple.withValues(
-                                  alpha: selected ? 0.3 : 0.08),
+                                alpha: selected ? 0.3 : 0.08,
+                              ),
                               blurRadius: selected ? 12 : 6,
                               offset: Offset(0, selected ? 4 : 2),
                             ),

@@ -11,6 +11,7 @@ void main() {
 
     await tester.scrollUntilVisible(find.text('Bills'), 300);
     expect(find.text('Bills'), findsOneWidget);
+    expect(find.text('Budget'), findsOneWidget);
 
     await tester.scrollUntilVisible(find.text('Portfolio'), 300);
     expect(find.text('Portfolio'), findsOneWidget);

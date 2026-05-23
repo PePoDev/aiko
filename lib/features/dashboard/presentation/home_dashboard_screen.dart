@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
@@ -19,18 +20,19 @@ class HomeDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
     final dueItemsAsync = ref.watch(dashboardDueItemsProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Overview'),
+        title: Text(l10n.overview),
         actions: [
           IconButton(
-            tooltip: 'Aiko Hub',
+            tooltip: l10n.aikoHub,
             onPressed: () => context.push('/more'),
             icon: const Icon(Icons.grid_view_outlined),
           ),
           IconButton(
-            tooltip: 'Settings',
+            tooltip: l10n.settingsTitle,
             onPressed: () => context.push('/settings'),
             icon: const Icon(Icons.settings_outlined),
           ),
@@ -39,26 +41,26 @@ class HomeDashboardScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         children: summaryAsync.when(
-          loading: () => [const AikoScreenState.loading()],
+          loading: () => [AikoScreenState.loading(message: l10n.loading)],
           error: (error, stack) => [
             AikoScreenState.error(
-              title: 'Dashboard is unavailable',
-              message: 'Aiko could not load your Supabase workspace.',
+              title: l10n.dashboardUnavailable,
+              message: l10n.dashboardUnavailableMessage,
             ),
           ],
           data: (summary) => [
             FinanceCard(
-              title: 'Hi, I am Aiko',
+              title: l10n.hiAiko,
               icon: Icons.auto_awesome,
               accentColor: AikoColors.premiumPurple,
               prominent: true,
               child: Text(
-                'You have ${summary.safeToSpend.format()} estimated safe to spend this week. This is an estimate, so keep bills and planned purchases in view.',
+                l10n.safeToSpendDescription(summary.safeToSpend.format()),
               ),
             ),
             const SizedBox(height: 16),
             FinanceCard(
-              title: 'Safe to spend',
+              title: l10n.safeToSpend,
               icon: Icons.savings_outlined,
               prominent: true,
               child: Column(
@@ -74,7 +76,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Weekly cushion calculated from your posted transactions.',
+                    l10n.safeToSpendWeekly,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -82,19 +84,19 @@ class HomeDashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             FinanceCard(
-              title: 'Monthly cash flow',
+              title: l10n.monthlyCashFlow,
               icon: Icons.trending_up,
               accentColor: AikoColors.analyticsTeal,
               child: Column(
                 children: [
                   _MetricLine(
-                    label: 'Income',
+                    label: l10n.income,
                     value: summary.monthlyIncome.format(),
                     color: AikoColors.successGreen,
                   ),
                   const SizedBox(height: 8),
                   _MetricLine(
-                    label: 'Spending',
+                    label: l10n.spending,
                     value: summary.monthlySpending.format(),
                     color: AikoColors.warningOrange,
                   ),
@@ -103,28 +105,28 @@ class HomeDashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             FinanceCard(
-              title: 'Pace',
+              title: l10n.pace,
               icon: Icons.speed,
               accentColor: AikoColors.deepBlue,
               child: Text(
                 summary.paceStatus.isFast
-                    ? 'Spending is ahead of the current budget pace.'
-                    : 'Spending is on pace for the current budget period.',
+                    ? l10n.paceAhead
+                    : l10n.paceOnTrack,
               ),
             ),
             const SizedBox(height: 16),
             _FinancialPyramidCard(summary: summary),
             const SizedBox(height: 16),
             dueItemsAsync.when(
-              loading: () => const FinanceCard(
-                title: 'Upcoming due dates',
+              loading: () => FinanceCard(
+                title: l10n.upcomingDueDates,
                 icon: Icons.event_available_outlined,
-                child: Text('Loading bills and card payments...'),
+                child: Text(l10n.loadingBills),
               ),
-              error: (error, stack) => const FinanceCard(
-                title: 'Upcoming due dates',
+              error: (error, stack) => FinanceCard(
+                title: l10n.upcomingDueDates,
                 icon: Icons.event_available_outlined,
-                child: Text('Unable to load due dates right now.'),
+                child: Text(l10n.unableToLoadDueDates),
               ),
               data: (items) => DashboardDueItemsWidget(items: items),
             ),
@@ -168,6 +170,8 @@ class _QuickAddMenuState extends State<_QuickAddMenu> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -185,7 +189,7 @@ class _QuickAddMenuState extends State<_QuickAddMenu> {
                     _QuickAddOption(
                       heroTag: 'quick-add-transaction',
                       icon: Icons.receipt_long_outlined,
-                      label: 'Transaction',
+                      label: l10n.addTransaction,
                       onPressed: () =>
                           _openAddPage(const TransactionFormScreen()),
                     ),
@@ -193,7 +197,7 @@ class _QuickAddMenuState extends State<_QuickAddMenu> {
                     _QuickAddOption(
                       heroTag: 'quick-add-budget',
                       icon: Icons.pie_chart_outline,
-                      label: 'Budget',
+                      label: l10n.addBudget,
                       onPressed: () => _openAddPage(const BudgetFormScreen()),
                     ),
                     const SizedBox(height: 12),
@@ -205,7 +209,7 @@ class _QuickAddMenuState extends State<_QuickAddMenu> {
           heroTag: 'quick-add-main',
           onPressed: _toggle,
           icon: Icon(_isOpen ? Icons.close : Icons.add),
-          label: Text(_isOpen ? 'Close' : 'Quick add'),
+          label: Text(_isOpen ? l10n.close : l10n.quickAdd),
         ),
       ],
     );

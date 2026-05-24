@@ -1003,6 +1003,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       ..._tags,
       if (pendingTagText.isNotEmpty) pendingTagText,
     }.toList(growable: false);
+    final itemName = _titleController.text.trim();
+    final categoryName = _categoryNameFor(
+      ref
+              .read(categoriesProvider)
+              .whenOrNull(data: (categories) => categories) ??
+          const [],
+      _selectedCategoryId,
+    );
     final savedTx = FinanceTransaction(
       id: txId,
       userId: existingTransaction?.userId ?? '',
@@ -1011,9 +1019,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       amount: Money(amount: amount, currency: _selectedCurrency),
       date: _selectedDate,
       categoryId: _selectedCategoryId,
-      merchant: _titleController.text.trim().isEmpty
-          ? null
-          : _titleController.text.trim(),
+      merchant: itemName.isEmpty ? categoryName : itemName,
       note: _noteController.text.trim(),
       tags: tags,
       splits: existingTransaction?.splits ?? const [],
@@ -2199,6 +2205,19 @@ CategoryType _categoryTypeFor(String type) {
     'transfer' => CategoryType.transfer,
     _ => CategoryType.expense,
   };
+}
+
+String? _categoryNameFor(List<Category> categories, String? categoryId) {
+  if (categoryId == null) {
+    return null;
+  }
+  for (final category in categories) {
+    if (category.id == categoryId) {
+      final name = category.name.trim();
+      return name.isEmpty ? null : name;
+    }
+  }
+  return null;
 }
 
 List<String> _tagSuggestionsFrom(

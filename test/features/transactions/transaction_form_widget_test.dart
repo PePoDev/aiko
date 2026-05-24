@@ -535,7 +535,11 @@ void main() {
     await tester.pumpAndSettle();
 
     final saveButton = find.widgetWithText(FilledButton, 'Save Transaction');
-    await tester.ensureVisible(saveButton);
+    await tester.scrollUntilVisible(
+      saveButton,
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(saveButton);
     await tester.pumpAndSettle();

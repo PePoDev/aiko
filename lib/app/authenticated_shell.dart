@@ -55,7 +55,16 @@ class AuthenticatedShell extends StatelessWidget {
       body: SafeArea(bottom: false, child: child),
       bottomNavigationBar: _AikoBottomNavigation(
         selectedIndex: selectedIndex,
-        onSelected: (index) => context.go(items[index].path),
+        onSelected: (index) {
+          final item = items[index];
+          if (index == selectedIndex && item.path == '/transactions') {
+            context.go(
+              '${item.path}?reset=${DateTime.now().microsecondsSinceEpoch}',
+            );
+            return;
+          }
+          context.go(item.path);
+        },
         items: items,
       ),
     );
@@ -208,7 +217,7 @@ class _AikoBottomNavigationItem extends StatelessWidget {
       child: Tooltip(
         message: item.label,
         child: InkWell(
-          onTap: selected ? null : onTap,
+          onTap: onTap,
           borderRadius: BorderRadius.circular(24),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),

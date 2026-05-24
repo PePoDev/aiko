@@ -327,69 +327,17 @@ class _OverviewMiniCard extends StatelessWidget {
   }
 }
 
-class _QuickAddMenu extends StatefulWidget {
+class _QuickAddMenu extends StatelessWidget {
   const _QuickAddMenu();
 
   @override
-  State<_QuickAddMenu> createState() => _QuickAddMenuState();
-}
-
-class _QuickAddMenuState extends State<_QuickAddMenu> {
-  var _isOpen = false;
-
-  void _toggle() {
-    setState(() => _isOpen = !_isOpen);
-  }
-
-  void _openAddPage(Widget page) {
-    setState(() => _isOpen = false);
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
-          switchInCurve: Curves.easeOut,
-          switchOutCurve: Curves.easeIn,
-          child: _isOpen
-              ? Column(
-                  key: const ValueKey('quick-add-options'),
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    _QuickAddOption(
-                      heroTag: 'quick-add-transaction',
-                      icon: Icons.receipt_long_outlined,
-                      label: l10n.addTransaction,
-                      onPressed: () =>
-                          _openAddPage(const TransactionFormScreen()),
-                    ),
-                    const SizedBox(height: 8),
-                    _QuickAddOption(
-                      heroTag: 'quick-add-budget',
-                      icon: Icons.pie_chart_outline,
-                      label: l10n.addBudget,
-                      onPressed: () => _openAddPage(const BudgetFormScreen()),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                )
-              : const SizedBox.shrink(key: ValueKey('quick-add-empty')),
-        ),
-        FloatingActionButton.extended(
-          heroTag: 'quick-add-main',
-          onPressed: _toggle,
-          icon: Icon(_isOpen ? Icons.close : Icons.add),
-          label: Text(_isOpen ? l10n.close : l10n.quickAdd),
-        ),
-      ],
+    return FloatingActionButton(
+      heroTag: 'quick-add-main',
+      onPressed: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const TransactionFormScreen()),
+      ),
+      child: const Icon(Icons.add),
     );
   }
 }
@@ -1325,30 +1273,6 @@ class _CategoryUsage {
   final double used;
   final double budget;
   final Color color;
-}
-
-class _QuickAddOption extends StatelessWidget {
-  const _QuickAddOption({
-    required this.heroTag,
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
-
-  final String heroTag;
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return FloatingActionButton.extended(
-      heroTag: heroTag,
-      onPressed: onPressed,
-      icon: Icon(icon),
-      label: Text(label),
-    );
-  }
 }
 
 class _MetricLine extends StatelessWidget {

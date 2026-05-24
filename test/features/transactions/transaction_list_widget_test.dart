@@ -111,6 +111,36 @@ void main() {
     expect(find.text('No categories yet'), findsOneWidget);
   });
 
+  testWidgets('transaction list plus opens transaction form directly', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(
+            const _FakeTransactionRepository([]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const TransactionListScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.add), findsOneWidget);
+    expect(find.text('Add'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Title'), findsOneWidget);
+    expect(find.text('Amount'), findsOneWidget);
+  });
+
   testWidgets('transaction item opens detail screen', (tester) async {
     final now = DateTime.now();
 

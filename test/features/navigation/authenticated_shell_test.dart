@@ -6,7 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  var transactionsBuildCount = 0;
+
   GoRouter buildRouter() {
+    transactionsBuildCount = 0;
     return GoRouter(
       initialLocation: '/home',
       routes: [
@@ -19,7 +22,10 @@ void main() {
             ),
             GoRoute(
               path: '/transactions',
-              builder: (context, state) => const Text('Transactions page'),
+              builder: (context, state) {
+                transactionsBuildCount++;
+                return Text('Transactions page $transactionsBuildCount');
+              },
             ),
             GoRoute(
               path: '/aiko',
@@ -69,5 +75,35 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Insights page'), findsOneWidget);
+  });
+
+  testWidgets('tapping active transactions tab reopens transactions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp.router(
+        locale: const Locale('en'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: ThemeData(splashFactory: InkRipple.splashFactory),
+        routerConfig: buildRouter(),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Transactions'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Transactions page 1'), findsOneWidget);
+
+    await tester.tap(find.text('Transactions'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Transactions page 2'), findsOneWidget);
   });
 }

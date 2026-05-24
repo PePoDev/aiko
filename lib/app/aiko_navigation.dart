@@ -36,19 +36,6 @@ const aikoNavigationGroups = [
         description:
             'Manage bank, cash, wallet, credit, loan, and asset accounts.',
       ),
-      AikoNavigationItem(
-        label: 'Categories',
-        path: '/categories',
-        icon: Icons.category_outlined,
-        description: 'Organize transaction categories and groups.',
-      ),
-      AikoNavigationItem(
-        label: 'Rules',
-        path: '/transaction-rules',
-        icon: Icons.rule_outlined,
-        description:
-            'Automate categorization by merchant, amount, and account.',
-      ),
     ],
   ),
   AikoNavigationGroup(

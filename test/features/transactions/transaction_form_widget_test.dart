@@ -44,14 +44,15 @@ void main() {
     expect(find.text('Expense'), findsOneWidget);
     expect(find.text('Income'), findsOneWidget);
     expect(find.text('Transfer'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'Title'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Item name'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Title'), findsNothing);
     expect(find.widgetWithText(TextField, 'Amount'), findsOneWidget);
 
     final typeSelectorTop = tester
         .getTopLeft(find.byKey(const Key('transaction-type-selector')))
         .dy;
     final titleTop = tester
-        .getTopLeft(find.widgetWithText(TextField, 'Title'))
+        .getTopLeft(find.widgetWithText(TextField, 'Item name'))
         .dy;
     expect(typeSelectorTop, lessThan(titleTop));
   });
@@ -275,7 +276,10 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'Title'), 'Coffee');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Item name'),
+      'Coffee',
+    );
     await tester.enterText(
       find.byKey(const Key('transaction-amount-field')),
       '4.50',

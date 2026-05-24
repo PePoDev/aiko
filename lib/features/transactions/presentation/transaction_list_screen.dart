@@ -118,14 +118,13 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => const TransactionFormScreen(),
           ),
         ),
-        icon: const Icon(Icons.add),
-        label: const Text('Add'),
+        child: const Icon(Icons.add),
       ),
     );
   }

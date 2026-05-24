@@ -105,33 +105,7 @@ void main() {
     expect(find.text('Active accounts'), findsOneWidget);
   });
 
-  testWidgets('quick add opens a floating add menu', (tester) async {
-    await tester.pumpWidget(
-      _dashboardScope(
-        child: MaterialApp(
-          locale: const Locale('en'),
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          theme: AikoTheme.light(),
-          home: const HomeDashboardScreen(),
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Quick add'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Transaction'), findsOneWidget);
-    expect(find.text('Budget'), findsOneWidget);
-  });
-
-  testWidgets('quick add transaction opens the transaction form directly', (
+  testWidgets('quick add plus opens the transaction form directly', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -152,43 +126,12 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Quick add'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Transaction'));
+    await tester.tap(find.byIcon(Icons.add));
     await tester.pumpAndSettle();
 
-    // Check that we're on the transaction form
     expect(find.text('Title'), findsOneWidget);
     expect(find.text('Amount'), findsOneWidget);
-  });
-
-  testWidgets('quick add budget opens the budget form directly', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _dashboardScope(
-        child: MaterialApp(
-          locale: const Locale('en'),
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          theme: AikoTheme.light(),
-          home: const HomeDashboardScreen(),
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Quick add'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Budget'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('New budget'), findsOneWidget);
+    expect(find.text('Budget'), findsNothing);
   });
 
   testWidgets('overview shows transaction analytics widgets', (tester) async {

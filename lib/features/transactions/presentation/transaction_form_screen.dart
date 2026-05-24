@@ -1117,10 +1117,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           const SizedBox(height: 16),
           TextField(
             controller: _titleController,
-            decoration: const InputDecoration(
-              labelText: 'Title',
-              hintText: 'Item name',
-            ),
+            decoration: const InputDecoration(labelText: 'Item name'),
           ),
           const SizedBox(height: 16),
           Row(

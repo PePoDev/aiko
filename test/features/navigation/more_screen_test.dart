@@ -24,6 +24,9 @@ void main() {
 
     // Check for key navigation items
     expect(find.textContaining('Account'), findsWidgets);
+    expect(find.text('Budget'), findsNothing);
+    expect(find.text('Goals'), findsNothing);
+    expect(find.text('Bills'), findsNothing);
     expect(find.text('Categories'), findsNothing);
     expect(find.text('Rules'), findsNothing);
     await tester.scrollUntilVisible(find.text('Settings'), 500);

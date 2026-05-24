@@ -19,10 +19,10 @@ import '../features/debt_loans/presentation/debt_payoff_plan_screen.dart';
 import '../features/devices/presentation/devices_screen.dart';
 import '../features/goals/presentation/goals_overview_screen.dart';
 import '../features/import_export/presentation/import_export_screen.dart';
-import '../features/insights/presentation/insights_screen.dart';
 import '../features/learning_hub/presentation/learning_hub_screen.dart';
 import '../features/monetization/presentation/plan_matrix_screen.dart';
 import '../features/navigation/presentation/more_screen.dart';
+import '../features/navigation/presentation/planning_screen.dart';
 import '../features/onboarding/presentation/onboarding_screens.dart';
 import '../features/portfolio/presentation/portfolio_screen.dart';
 import '../features/reports/presentation/aiko_review_screen.dart';
@@ -95,9 +95,9 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             builder: (context, state) => const GoalsOverviewScreen(),
           ),
           GoRoute(
-            path: '/insights',
+            path: '/planning',
             pageBuilder: (context, state) =>
-                _fadePage(context, state, const InsightsScreen()),
+                _fadePage(context, state, const PlanningScreen()),
           ),
           GoRoute(
             path: '/aiko-review',

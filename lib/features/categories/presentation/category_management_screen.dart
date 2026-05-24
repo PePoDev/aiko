@@ -14,8 +14,11 @@ class CategoryManagementScreen extends ConsumerWidget {
   IconData _getIconData(String iconName) {
     switch (iconName) {
       case 'food':
+      case 'groceries':
+      case 'dining':
         return Icons.restaurant_outlined;
       case 'housing':
+      case 'home':
         return Icons.home_outlined;
       case 'travel':
         return Icons.flight_outlined;
@@ -26,6 +29,7 @@ class CategoryManagementScreen extends ConsumerWidget {
       case 'savings':
         return Icons.savings_outlined;
       case 'investing':
+      case 'investment':
         return Icons.trending_up_outlined;
       case 'gym':
         return Icons.fitness_center_outlined;
@@ -33,6 +37,35 @@ class CategoryManagementScreen extends ConsumerWidget {
         return Icons.attach_money_outlined;
       case 'entertainment':
         return Icons.movie_outlined;
+      case 'gift':
+        return Icons.card_giftcard_outlined;
+      case 'work':
+      case 'business':
+        return Icons.work_outline;
+      case 'refund':
+        return Icons.replay_outlined;
+      case 'transport':
+        return Icons.directions_bus_outlined;
+      case 'fuel':
+        return Icons.local_gas_station_outlined;
+      case 'utilities':
+        return Icons.bolt_outlined;
+      case 'phone':
+        return Icons.phone_android_outlined;
+      case 'internet':
+        return Icons.wifi_outlined;
+      case 'subscriptions':
+        return Icons.subscriptions_outlined;
+      case 'health':
+        return Icons.health_and_safety_outlined;
+      case 'insurance':
+        return Icons.verified_user_outlined;
+      case 'education':
+        return Icons.school_outlined;
+      case 'fee':
+        return Icons.receipt_long_outlined;
+      case 'tax':
+        return Icons.request_quote_outlined;
       default:
         return Icons.category_outlined;
     }
@@ -81,69 +114,41 @@ class CategoryManagementScreen extends ConsumerWidget {
             );
           }
 
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-            itemCount: categories.length,
-            itemBuilder: (context, index) {
-              final category = categories[index];
-              final categoryColor = _parseHexColor(category.color);
-              final categoryIcon = _getIconData(category.icon);
+          final incomeCategories = _sortedForDisplay(
+            categories
+                .where((category) => category.type == CategoryType.income)
+                .toList(growable: false),
+          );
+          final expenseCategories = _sortedForDisplay(
+            categories
+                .where((category) => category.type == CategoryType.expense)
+                .toList(growable: false),
+          );
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12.0),
-                child: FinanceCard(
-                  title: category.name,
-                  icon: categoryIcon,
-                  accentColor: categoryColor,
-                  trailing: const Icon(
-                    Icons.chevron_right,
-                    color: AikoColors.mutedText,
-                  ),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => CategoryDetailScreen(
-                        category: category,
-                        categoryIcon: categoryIcon,
-                        categoryColor: categoryColor,
-                        typeLabel: _getTypeLabel(category.type),
-                        groupLabel: _getGroupLabel(category.group),
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${_getGroupLabel(category.group)} • ${_getTypeLabel(category.type)}',
-                        style: const TextStyle(color: AikoColors.mutedText),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: category.budgetEnabled
-                              ? AikoColors.successGreen.withValues(alpha: 0.1)
-                              : AikoColors.mutedText.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          category.budgetEnabled ? 'Budget On' : 'Budget Off',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: category.budgetEnabled
-                                ? AikoColors.successGreen
-                                : AikoColors.mutedText,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+            children: [
+              if (incomeCategories.isNotEmpty)
+                _CategoryTypeSection(
+                  title: 'Income',
+                  categories: incomeCategories,
+                  accentColor: AikoColors.successGreen,
+                  getIconData: _getIconData,
+                  parseHexColor: _parseHexColor,
+                  getGroupLabel: _getGroupLabel,
+                  getTypeLabel: _getTypeLabel,
                 ),
-              );
-            },
+              if (expenseCategories.isNotEmpty)
+                _CategoryTypeSection(
+                  title: 'Expense',
+                  categories: expenseCategories,
+                  accentColor: AikoColors.dangerRed,
+                  getIconData: _getIconData,
+                  parseHexColor: _parseHexColor,
+                  getGroupLabel: _getGroupLabel,
+                  getTypeLabel: _getTypeLabel,
+                ),
+            ],
           );
         },
       ),
@@ -155,6 +160,17 @@ class CategoryManagementScreen extends ConsumerWidget {
         foregroundColor: Colors.white,
       ),
     );
+  }
+
+  List<Category> _sortedForDisplay(List<Category> categories) {
+    final sorted = [...categories];
+    sorted.sort((a, b) {
+      if (a.isDefault != b.isDefault) {
+        return a.isDefault ? -1 : 1;
+      }
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    return sorted;
   }
 
   void _showAddCategorySheet(BuildContext context) {
@@ -240,6 +256,145 @@ class CategoryManagementScreen extends ConsumerWidget {
   }
 }
 
+class _CategoryTypeSection extends StatelessWidget {
+  const _CategoryTypeSection({
+    required this.title,
+    required this.categories,
+    required this.accentColor,
+    required this.getIconData,
+    required this.parseHexColor,
+    required this.getGroupLabel,
+    required this.getTypeLabel,
+  });
+
+  final String title;
+  final List<Category> categories;
+  final Color accentColor;
+  final IconData Function(String iconName) getIconData;
+  final Color Function(String hexColor) parseHexColor;
+  final String Function(CategoryGroup group) getGroupLabel;
+  final String Function(CategoryType type) getTypeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final defaultCategories = categories
+        .where((category) => category.isDefault)
+        .toList(growable: false);
+    final customCategories = categories
+        .where((category) => !category.isDefault)
+        .toList(growable: false);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                title == 'Income'
+                    ? Icons.arrow_downward_outlined
+                    : Icons.arrow_upward_outlined,
+                color: accentColor,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...defaultCategories.map(
+            (category) => _CategoryListCard(
+              category: category,
+              categoryIcon: getIconData(category.icon),
+              categoryColor: parseHexColor(category.color),
+              groupLabel: getGroupLabel(category.group),
+              typeLabel: getTypeLabel(category.type),
+            ),
+          ),
+          if (defaultCategories.isNotEmpty && customCategories.isNotEmpty)
+            const SizedBox(height: 4),
+          ...customCategories.map(
+            (category) => _CategoryListCard(
+              category: category,
+              categoryIcon: getIconData(category.icon),
+              categoryColor: parseHexColor(category.color),
+              groupLabel: getGroupLabel(category.group),
+              typeLabel: getTypeLabel(category.type),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryListCard extends StatelessWidget {
+  const _CategoryListCard({
+    required this.category,
+    required this.categoryIcon,
+    required this.categoryColor,
+    required this.groupLabel,
+    required this.typeLabel,
+  });
+
+  final Category category;
+  final IconData categoryIcon;
+  final Color categoryColor;
+  final String groupLabel;
+  final String typeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final originColor = category.isDefault
+        ? AikoColors.primaryBlue
+        : AikoColors.analyticsTeal;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: FinanceCard(
+        title: category.name,
+        icon: categoryIcon,
+        accentColor: category.isDefault
+            ? categoryColor.withValues(alpha: 0.72)
+            : categoryColor,
+        trailing: const Icon(Icons.chevron_right, color: AikoColors.mutedText),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => CategoryDetailScreen(
+              category: category,
+              categoryIcon: categoryIcon,
+              categoryColor: categoryColor,
+              typeLabel: typeLabel,
+              groupLabel: groupLabel,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '$groupLabel - $typeLabel',
+                style: const TextStyle(color: AikoColors.mutedText),
+              ),
+            ),
+            const SizedBox(width: 12),
+            _CategoryStatusPill(
+              label: category.isDefault ? 'Default' : 'Custom',
+              color: originColor,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class CategoryDetailScreen extends ConsumerWidget {
   const CategoryDetailScreen({
     required this.category,
@@ -263,18 +418,20 @@ class CategoryDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Category details'),
-        actions: [
-          IconButton(
-            tooltip: 'Edit category',
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () => _showEditCategorySheet(context),
-          ),
-          IconButton(
-            tooltip: 'Delete category',
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _confirmDelete(context, ref),
-          ),
-        ],
+        actions: category.isDefault
+            ? null
+            : [
+                IconButton(
+                  tooltip: 'Edit category',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => _showEditCategorySheet(context),
+                ),
+                IconButton(
+                  tooltip: 'Delete category',
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => _confirmDelete(context, ref),
+                ),
+              ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -288,8 +445,12 @@ class CategoryDetailScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _CategoryStatusPill(
-                  label: category.isActive ? 'Active' : 'Archived',
-                  color: category.isActive
+                  label: category.isDefault
+                      ? 'Default category'
+                      : (category.isActive ? 'Active' : 'Archived'),
+                  color: category.isDefault
+                      ? AikoColors.primaryBlue
+                      : category.isActive
                       ? AikoColors.successGreen
                       : AikoColors.mutedText,
                 ),
@@ -322,6 +483,10 @@ class CategoryDetailScreen extends ConsumerWidget {
   }
 
   Future<void> _showEditCategorySheet(BuildContext context) async {
+    if (category.isDefault) {
+      return;
+    }
+
     final updated = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -335,6 +500,10 @@ class CategoryDetailScreen extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    if (category.isDefault) {
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -536,6 +705,10 @@ class _AddCategoryBottomSheetState
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (widget.initialCategory?.isDefault ?? false) {
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
@@ -713,6 +886,7 @@ class _AddCategoryBottomSheetState
                   if (list.any(
                     (c) =>
                         c.id != widget.initialCategory?.id &&
+                        c.type == _selectedType &&
                         c.name.toLowerCase() == value.trim().toLowerCase(),
                   )) {
                     return 'A category with this name already exists';

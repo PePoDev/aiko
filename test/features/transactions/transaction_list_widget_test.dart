@@ -528,6 +528,9 @@ class _FakeCategoryRepository extends CategoryRepository {
 
   @override
   Future<List<Category>> list() async => categories;
+
+  @override
+  Future<Category> save(Category category) async => category;
 }
 
 class _StaleListAfterDeleteTransactionRepository extends TransactionRepository {

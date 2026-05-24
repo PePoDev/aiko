@@ -31,10 +31,10 @@ class AuthenticatedShell extends StatelessWidget {
         selectedIcon: Icons.face_retouching_natural,
       ),
       _AikoNavItem(
-        label: l10n.insightsTab,
-        path: '/insights',
-        icon: Icons.insights_outlined,
-        selectedIcon: Icons.insights,
+        label: 'Planning',
+        path: '/planning',
+        icon: Icons.route_outlined,
+        selectedIcon: Icons.route,
       ),
       _AikoNavItem(
         label: l10n.aikoHub,
@@ -80,7 +80,10 @@ class AuthenticatedShell extends StatelessWidget {
     if (location.startsWith('/aiko')) {
       return 2;
     }
-    if (location.startsWith('/insights')) {
+    if (location.startsWith('/planning') ||
+        location.startsWith('/budget') ||
+        location.startsWith('/goals') ||
+        location.startsWith('/bills')) {
       return 3;
     }
     if (location.startsWith('/more') || _isSecondaryRoute(location)) {
@@ -93,8 +96,6 @@ class AuthenticatedShell extends StatelessWidget {
     return location.startsWith('/accounts') ||
         location.startsWith('/transaction-rules') ||
         location.startsWith('/categories') ||
-        location.startsWith('/budget') ||
-        location.startsWith('/goals') ||
         location.startsWith('/aiko-review') ||
         location.startsWith('/reports') ||
         location.startsWith('/export') ||
@@ -102,7 +103,6 @@ class AuthenticatedShell extends StatelessWidget {
         location.startsWith('/settings') ||
         location.startsWith('/aiko-character') ||
         location.startsWith('/import-export-backup') ||
-        location.startsWith('/bills') ||
         location.startsWith('/notification-settings') ||
         location.startsWith('/credit-cards') ||
         location.startsWith('/debt-loans') ||

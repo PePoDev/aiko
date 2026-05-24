@@ -16,7 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() {
   testWidgets(
-    'home dashboard shows weekly leftover estimate and Aiko welcome',
+    'home dashboard shows Aiko welcome without duplicate weekly leftover card',
     (tester) async {
       await tester.pumpWidget(
         _dashboardScope(
@@ -38,8 +38,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Hi, I am Aiko'), findsOneWidget);
-      expect(find.text('Weekly leftover estimate'), findsOneWidget);
-      expect(find.textContaining('estimated weekly leftover'), findsOneWidget);
+      expect(find.text('Weekly leftover estimate'), findsNothing);
+      expect(find.text('Safe this week'), findsOneWidget);
     },
   );
 
@@ -111,7 +111,7 @@ void main() {
       expect(find.text('Accounts'), findsNothing);
       expect(find.text('Today'), findsNothing);
       expect(find.text('Safe this week'), findsOneWidget);
-      expect(find.text('\$300.00'), findsNWidgets(2));
+      expect(find.text('\$300.00'), findsOneWidget);
       expect(find.text('Estimate'), findsOneWidget);
     },
   );

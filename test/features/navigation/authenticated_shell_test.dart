@@ -32,8 +32,8 @@ void main() {
               builder: (context, state) => const Text('Ask Aiko page'),
             ),
             GoRoute(
-              path: '/insights',
-              builder: (context, state) => const Text('Insights page'),
+              path: '/planning',
+              builder: (context, state) => const Text('Planning page'),
             ),
             GoRoute(
               path: '/more',
@@ -49,7 +49,7 @@ void main() {
     );
   }
 
-  testWidgets('bottom navigation uses insights instead of budget', (
+  testWidgets('bottom navigation uses planning instead of insights', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -69,12 +69,13 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Insights'), findsOneWidget);
+    expect(find.text('Planning'), findsOneWidget);
+    expect(find.text('Insights'), findsNothing);
 
-    await tester.tap(find.text('Insights'));
+    await tester.tap(find.text('Planning'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Insights page'), findsOneWidget);
+    expect(find.text('Planning page'), findsOneWidget);
   });
 
   testWidgets('tapping active transactions tab reopens transactions', (

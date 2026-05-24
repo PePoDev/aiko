@@ -299,19 +299,19 @@ abstract class AppLocalizations {
   /// No description provided for @safeToSpend.
   ///
   /// In en, this message translates to:
-  /// **'Safe to spend'**
+  /// **'Weekly leftover estimate'**
   String get safeToSpend;
 
   /// No description provided for @safeToSpendDescription.
   ///
   /// In en, this message translates to:
-  /// **'You have {amount} estimated safe to spend this week. This is an estimate, so keep bills and planned purchases in view.'**
+  /// **'You have {amount} estimated weekly leftover. This is an estimate from posted income and spending, so keep bills and planned purchases in view.'**
   String safeToSpendDescription(String amount);
 
   /// No description provided for @safeToSpendWeekly.
   ///
   /// In en, this message translates to:
-  /// **'Weekly cushion calculated from your posted transactions.'**
+  /// **'Estimate from posted income and spending.'**
   String get safeToSpendWeekly;
 
   /// No description provided for @monthlyCashFlow.

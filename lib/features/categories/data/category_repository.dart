@@ -24,10 +24,16 @@ class CategoryRepository {
 
   Future<Category> save(Category category) async {
     final currentList = await list();
+    if (category.isDefault &&
+        currentList.any((item) => item.id == category.id)) {
+      throw StateError('Default categories cannot be edited.');
+    }
+
     final duplicate = currentList.any(
       (item) =>
           item.id != category.id &&
           item.parentId == category.parentId &&
+          item.type == category.type &&
           item.name.toLowerCase() == category.name.toLowerCase(),
     );
     if (duplicate) {
@@ -42,6 +48,10 @@ class CategoryRepository {
   }
 
   Future<void> delete(String id) async {
+    if (id.startsWith('default-')) {
+      throw StateError('Default categories cannot be deleted.');
+    }
+
     final userId = await OfflineUserContext().resolveUserId();
     final categories = await OfflineStore().get<OfflineCategory>(
       query: Query(

@@ -39,4 +39,23 @@ void main() {
     expect(incomeNames, containsAll(['Salary', 'Freelance', 'Dividends']));
     expect(expenseNames, containsAll(['Groceries', 'Rent', 'Subscriptions']));
   });
+
+  test('default categories are app-defined by id', () {
+    const service = CategoryService();
+
+    final defaults = service.defaultCategoriesFor('user');
+    final custom = const Category(
+      id: 'custom-food',
+      userId: 'user',
+      name: 'Food',
+      type: CategoryType.expense,
+      group: CategoryGroup.wants,
+    );
+
+    expect(
+      defaults,
+      everyElement(predicate<Category>((category) => category.isDefault)),
+    );
+    expect(custom.isDefault, isFalse);
+  });
 }

@@ -42,27 +42,6 @@ const aikoNavigationGroups = [
     title: 'Planning',
     items: [
       AikoNavigationItem(
-        label: 'Budget',
-        path: '/budget',
-        icon: Icons.pie_chart_outline,
-        description: 'Plan category limits, alerts, and monthly spending pace.',
-        accentColor: AikoColors.warningOrange,
-      ),
-      AikoNavigationItem(
-        label: 'Goals',
-        path: '/goals',
-        icon: Icons.flag_outlined,
-        description: 'Plan SMART goals and saving milestones.',
-        accentColor: AikoColors.successGreen,
-      ),
-      AikoNavigationItem(
-        label: 'Bills',
-        path: '/bills',
-        icon: Icons.event_available_outlined,
-        description: 'Watch renewals, subscriptions, and cancellation steps.',
-        accentColor: AikoColors.warningOrange,
-      ),
-      AikoNavigationItem(
         label: 'Debt and Loans',
         path: '/debt-loans',
         icon: Icons.payments_outlined,

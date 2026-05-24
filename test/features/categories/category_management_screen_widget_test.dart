@@ -8,6 +8,114 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('categories are grouped by transaction type and origin', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              const Category(
+                id: 'default-income-salary',
+                userId: 'user',
+                name: 'Salary',
+                type: CategoryType.income,
+                group: CategoryGroup.custom,
+                icon: 'salary',
+                color: '#22C55E',
+                budgetEnabled: false,
+              ),
+              const Category(
+                id: 'default-expense-groceries',
+                userId: 'user',
+                name: 'Groceries',
+                type: CategoryType.expense,
+                group: CategoryGroup.needs,
+                icon: 'food',
+                color: '#F97316',
+                budgetEnabled: true,
+              ),
+              const Category(
+                id: 'side-hustle',
+                userId: 'user',
+                name: 'Side Hustle',
+                type: CategoryType.income,
+                group: CategoryGroup.business,
+                icon: 'salary',
+                color: '#14B8A6',
+                budgetEnabled: false,
+              ),
+              const Category(
+                id: 'custom-coffee',
+                userId: 'user',
+                name: 'Coffee',
+                type: CategoryType.expense,
+                group: CategoryGroup.wants,
+                icon: 'coffee',
+                color: '#8B5CF6',
+                budgetEnabled: true,
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const CategoryManagementScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Income'), findsOneWidget);
+    expect(find.text('Expense'), findsOneWidget);
+    expect(find.text('Default'), findsNWidgets(2));
+    expect(find.text('Custom'), findsNWidgets(2));
+    expect(find.text('Salary'), findsOneWidget);
+    expect(find.text('Side Hustle'), findsOneWidget);
+    expect(find.text('Groceries'), findsOneWidget);
+    expect(find.text('Coffee'), findsOneWidget);
+  });
+
+  testWidgets('default category details cannot be edited or deleted', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              const Category(
+                id: 'default-income-salary',
+                userId: 'user',
+                name: 'Salary',
+                type: CategoryType.income,
+                group: CategoryGroup.custom,
+                icon: 'salary',
+                color: '#22C55E',
+                budgetEnabled: false,
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const CategoryManagementScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Salary'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Category details'), findsOneWidget);
+    expect(find.byIcon(Icons.edit_outlined), findsNothing);
+    expect(find.byIcon(Icons.delete_outline), findsNothing);
+    expect(find.text('Default category'), findsOneWidget);
+  });
+
   testWidgets('category item opens details screen', (tester) async {
     await tester.pumpWidget(
       ProviderScope(

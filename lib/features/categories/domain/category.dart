@@ -44,6 +44,8 @@ class Category {
   final bool budgetEnabled;
   final bool isActive;
 
+  bool get isDefault => id.startsWith('default-');
+
   Category copyWith({
     String? name,
     CategoryType? type,

@@ -109,16 +109,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hiAiko => 'Hi, I am Aiko';
 
   @override
-  String get safeToSpend => 'Safe to spend';
+  String get safeToSpend => 'Weekly leftover estimate';
 
   @override
   String safeToSpendDescription(String amount) {
-    return 'You have $amount estimated safe to spend this week. This is an estimate, so keep bills and planned purchases in view.';
+    return 'You have $amount estimated weekly leftover. This is an estimate from posted income and spending, so keep bills and planned purchases in view.';
   }
 
   @override
-  String get safeToSpendWeekly =>
-      'Weekly cushion calculated from your posted transactions.';
+  String get safeToSpendWeekly => 'Estimate from posted income and spending.';
 
   @override
   String get monthlyCashFlow => 'Monthly cash flow';

@@ -33,14 +33,14 @@
   "aikoHub": "Aiko Hub",
   "aikoHubDescription": "Every feature area is grouped here so secondary pages stay reachable without crowding the main tabs.",
   "hiAiko": "Hi, I am Aiko",
-  "safeToSpend": "Safe to spend",
-  "safeToSpendDescription": "You have {amount} estimated safe to spend this week. This is an estimate, so keep bills and planned purchases in view.",
+  "safeToSpend": "Weekly leftover estimate",
+  "safeToSpendDescription": "You have {amount} estimated weekly leftover. This is an estimate from posted income and spending, so keep bills and planned purchases in view.",
   "@safeToSpendDescription": {
     "placeholders": {
       "amount": {"type": "String"}
     }
   },
-  "safeToSpendWeekly": "Weekly cushion calculated from your posted transactions.",
+  "safeToSpendWeekly": "Estimate from posted income and spending.",
   "monthlyCashFlow": "Monthly cash flow",
   "income": "Income",
   "spending": "Spending",

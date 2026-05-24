@@ -160,6 +160,7 @@ class _OverviewQuickStatsRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final budgetsAsync = ref.watch(budgetsProvider);
     final transactionsAsync = ref.watch(transactionsProvider);
+    final summaryAsync = ref.watch(dashboardSummaryProvider);
 
     return IntrinsicHeight(
       child: Row(
@@ -247,44 +248,28 @@ class _OverviewQuickStatsRow extends ConsumerWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: transactionsAsync.when(
+            child: summaryAsync.when(
               loading: () => const _OverviewMiniCard(
-                title: 'Today',
+                title: 'Safe this week',
                 value: 'Loading',
-                caption: 'Transactions',
-                icon: Icons.receipt_long_outlined,
+                caption: 'Estimate',
+                icon: Icons.savings_outlined,
                 accentColor: AikoColors.analyticsTeal,
               ),
               error: (_, _) => const _OverviewMiniCard(
-                title: 'Today',
+                title: 'Safe this week',
                 value: 'Unavailable',
-                caption: 'Transactions',
-                icon: Icons.receipt_long_outlined,
+                caption: 'Estimate',
+                icon: Icons.savings_outlined,
                 accentColor: AikoColors.analyticsTeal,
               ),
-              data: (transactions) {
-                final summary = _todayTransactionSummary(transactions);
-                if (summary.count == 0) {
-                  return _OverviewMiniCard(
-                    title: 'Today',
-                    value: 'No transactions today',
-                    caption: '',
-                    icon: Icons.receipt_long_outlined,
-                    accentColor: AikoColors.analyticsTeal,
-                    valueMaxLines: 2,
-                    onTap: () => context.push('/transactions'),
-                  );
-                }
-
-                return _OverviewMiniCard(
-                  title: 'Today',
-                  value: '${summary.count}',
-                  caption: '${summary.net.format()} net',
-                  icon: Icons.receipt_long_outlined,
-                  accentColor: AikoColors.analyticsTeal,
-                  onTap: () => context.push('/transactions'),
-                );
-              },
+              data: (summary) => _OverviewMiniCard(
+                title: 'Safe this week',
+                value: summary.safeToSpend.format(),
+                caption: 'Estimate',
+                icon: Icons.savings_outlined,
+                accentColor: AikoColors.analyticsTeal,
+              ),
             ),
           ),
         ],
@@ -323,57 +308,6 @@ class _OverviewQuickStatsRow extends ConsumerWidget {
     }
     return (used.amount.toDouble() / limit.amount.toDouble()).clamp(0.0, 1.0);
   }
-
-  _TodayTransactionSummary _todayTransactionSummary(
-    List<FinanceTransaction> transactions,
-  ) {
-    final today = DateTime.now();
-    var count = 0;
-    Money? net;
-
-    for (final transaction in transactions) {
-      final isToday =
-          transaction.date.year == today.year &&
-          transaction.date.month == today.month &&
-          transaction.date.day == today.day;
-      if (!isToday || transaction.status != TransactionStatus.posted) {
-        continue;
-      }
-
-      count++;
-      final signedAmount = switch (transaction.type) {
-        TransactionType.income ||
-        TransactionType.refund ||
-        TransactionType.dividend ||
-        TransactionType.interest => transaction.amount,
-        TransactionType.expense ||
-        TransactionType.fee ||
-        TransactionType.taxPayment ||
-        TransactionType.loanPayment ||
-        TransactionType.creditCardPayment =>
-          Money.zero(transaction.amount.currency) - transaction.amount,
-        _ => Money.zero(transaction.amount.currency),
-      };
-
-      if (net == null) {
-        net = signedAmount;
-      } else if (net.currency == signedAmount.currency) {
-        net = net + signedAmount;
-      }
-    }
-
-    return _TodayTransactionSummary(
-      count: count,
-      net: net ?? Money.zero('USD'),
-    );
-  }
-}
-
-class _TodayTransactionSummary {
-  const _TodayTransactionSummary({required this.count, required this.net});
-
-  final int count;
-  final Money net;
 }
 
 class _OverviewMiniCard extends StatelessWidget {

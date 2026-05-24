@@ -15,140 +15,106 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() {
-  testWidgets('home dashboard shows safe-to-spend and Aiko welcome', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _dashboardScope(
-        child: MaterialApp(
-          locale: const Locale('en'),
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          theme: AikoTheme.light(),
-          home: const HomeDashboardScreen(),
+  testWidgets(
+    'home dashboard shows weekly leftover estimate and Aiko welcome',
+    (tester) async {
+      await tester.pumpWidget(
+        _dashboardScope(
+          child: MaterialApp(
+            locale: const Locale('en'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AikoTheme.light(),
+            home: const HomeDashboardScreen(),
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(find.text('Hi, I am Aiko'), findsOneWidget);
-    expect(find.text('Safe to spend'), findsOneWidget);
-  });
+      expect(find.text('Hi, I am Aiko'), findsOneWidget);
+      expect(find.text('Weekly leftover estimate'), findsOneWidget);
+      expect(find.textContaining('estimated weekly leftover'), findsOneWidget);
+    },
+  );
 
-  testWidgets('home dashboard shows daily spending gauge and today summary', (
-    tester,
-  ) async {
-    final now = DateTime.now();
+  testWidgets(
+    'home dashboard shows daily spending gauge and safe week summary',
+    (tester) async {
+      final now = DateTime.now();
 
-    await tester.pumpWidget(
-      _dashboardScope(
-        transactions: [
-          FinanceTransaction(
-            id: 'groceries-today',
-            userId: 'user',
-            accountId: 'cash',
-            categoryId: 'groceries',
-            type: TransactionType.expense,
-            amount: Money.parse('40', 'USD'),
-            date: DateTime(now.year, now.month, now.day, 12),
-          ),
-          FinanceTransaction(
-            id: 'coffee-today',
-            userId: 'user',
-            accountId: 'cash',
-            categoryId: 'coffee',
-            type: TransactionType.expense,
-            amount: Money.parse('10', 'USD'),
-            date: DateTime(now.year, now.month, now.day, 12),
-          ),
-        ],
-        budgets: [
-          Budget(
-            id: Budget.dailySpendingId,
-            userId: 'user',
-            name: 'Daily Spending',
-            categoryId: 'groceries',
-            amount: Money.parse('250', 'USD'),
-            periodStart: DateTime(now.year, now.month, now.day),
-            periodEnd: DateTime(now.year, now.month, now.day, 23, 59, 59),
-            period: BudgetPeriod.daily,
-            includedCategoryIds: const ['groceries'],
-            isAppDefined: true,
-          ),
-        ],
-        child: MaterialApp(
-          locale: const Locale('en'),
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+      await tester.pumpWidget(
+        _dashboardScope(
+          transactions: [
+            FinanceTransaction(
+              id: 'groceries-today',
+              userId: 'user',
+              accountId: 'cash',
+              categoryId: 'groceries',
+              type: TransactionType.expense,
+              amount: Money.parse('40', 'USD'),
+              date: DateTime(now.year, now.month, now.day, 12),
+            ),
+            FinanceTransaction(
+              id: 'coffee-today',
+              userId: 'user',
+              accountId: 'cash',
+              categoryId: 'coffee',
+              type: TransactionType.expense,
+              amount: Money.parse('10', 'USD'),
+              date: DateTime(now.year, now.month, now.day, 12),
+            ),
           ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          theme: AikoTheme.light(),
-          home: const HomeDashboardScreen(),
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    expect(find.text('Daily spending'), findsOneWidget);
-    expect(find.text('\$40.00 / \$250.00'), findsOneWidget);
-    expect(find.text('Current / limit'), findsOneWidget);
-    final indicator = tester.widget<LinearProgressIndicator>(
-      find.byType(LinearProgressIndicator).first,
-    );
-    expect(indicator.value, 0.16);
-    expect(find.text('Accounts'), findsNothing);
-    expect(find.text('Today'), findsOneWidget);
-    expect(find.text('2'), findsOneWidget);
-    expect(find.text('-\$50.00 net'), findsOneWidget);
-  });
-
-  testWidgets('home dashboard shows empty state for no transactions today', (
-    tester,
-  ) async {
-    final yesterday = DateTime.now().subtract(const Duration(days: 1));
-
-    await tester.pumpWidget(
-      _dashboardScope(
-        transactions: [
-          FinanceTransaction(
-            id: 'old-expense',
-            userId: 'user',
-            accountId: 'cash',
-            type: TransactionType.expense,
-            amount: Money.parse('15', 'USD'),
-            date: DateTime(yesterday.year, yesterday.month, yesterday.day, 12),
-          ),
-        ],
-        child: MaterialApp(
-          locale: const Locale('en'),
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+          budgets: [
+            Budget(
+              id: Budget.dailySpendingId,
+              userId: 'user',
+              name: 'Daily Spending',
+              categoryId: 'groceries',
+              amount: Money.parse('250', 'USD'),
+              periodStart: DateTime(now.year, now.month, now.day),
+              periodEnd: DateTime(now.year, now.month, now.day, 23, 59, 59),
+              period: BudgetPeriod.daily,
+              includedCategoryIds: const ['groceries'],
+              isAppDefined: true,
+            ),
           ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          theme: AikoTheme.light(),
-          home: const HomeDashboardScreen(),
+          child: MaterialApp(
+            locale: const Locale('en'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AikoTheme.light(),
+            home: const HomeDashboardScreen(),
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(find.text('Today'), findsOneWidget);
-    expect(find.text('No transactions today'), findsOneWidget);
-  });
+      expect(find.text('Daily spending'), findsOneWidget);
+      expect(find.text('\$40.00 / \$250.00'), findsOneWidget);
+      expect(find.text('Current / limit'), findsOneWidget);
+      final indicator = tester.widget<LinearProgressIndicator>(
+        find.byType(LinearProgressIndicator).first,
+      );
+      expect(indicator.value, 0.16);
+      expect(find.text('Accounts'), findsNothing);
+      expect(find.text('Today'), findsNothing);
+      expect(find.text('Safe this week'), findsOneWidget);
+      expect(find.text('\$300.00'), findsNWidgets(2));
+      expect(find.text('Estimate'), findsOneWidget);
+    },
+  );
 
   testWidgets('home dashboard asks user to set up daily spending budget', (
     tester,

@@ -75,6 +75,100 @@ void main() {
     expect(find.byIcon(Icons.coffee_outlined), findsOneWidget);
   });
 
+  testWidgets('account row opens account details', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(
+            _FakeTransactionRepository(),
+          ),
+          accountsProvider.overrideWith(
+            () => _AccountsNotifier([
+              Account(
+                id: 'cash',
+                userId: 'user',
+                name: 'Cash Wallet',
+                type: AccountType.cash,
+                openingBalance: Money.zero('USD'),
+                currentBalance: Money.parse('120', 'USD'),
+              ),
+            ]),
+          ),
+          categoriesProvider.overrideWith(() => _CategoriesNotifier(const [])),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: TransactionDetailScreen(
+            transaction: FinanceTransaction(
+              id: 'tx-1',
+              userId: 'user',
+              accountId: 'cash',
+              type: TransactionType.expense,
+              amount: Money.parse('4.50', 'USD'),
+              date: DateTime(2026, 5, 23, 9, 30),
+              merchant: 'Cafe',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cash Wallet'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Account details'), findsOneWidget);
+    expect(find.text('\$120.00'), findsOneWidget);
+  });
+
+  testWidgets('category row opens category details', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(
+            _FakeTransactionRepository(),
+          ),
+          accountsProvider.overrideWith(() => _AccountsNotifier(const [])),
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              const Category(
+                id: 'coffee',
+                userId: 'user',
+                name: 'Coffee',
+                type: CategoryType.expense,
+                group: CategoryGroup.wants,
+                icon: 'coffee',
+                color: '#8B5CF6',
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: TransactionDetailScreen(
+            transaction: FinanceTransaction(
+              id: 'tx-1',
+              userId: 'user',
+              accountId: 'cash',
+              categoryId: 'coffee',
+              type: TransactionType.expense,
+              amount: Money.parse('4.50', 'USD'),
+              date: DateTime(2026, 5, 23, 9, 30),
+              merchant: 'Cafe',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Coffee'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Category details'), findsOneWidget);
+    expect(find.text('Wants'), findsOneWidget);
+  });
+
   testWidgets('details screen can edit a transaction', (tester) async {
     final repository = _FakeTransactionRepository();
 
@@ -129,7 +223,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Edit transaction'), findsOneWidget);
-    await tester.enterText(find.widgetWithText(TextField, 'Title'), 'Tea Bar');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Item name'),
+      'Tea Bar',
+    );
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
     final saveButton = find.widgetWithText(FilledButton, 'Save Changes');

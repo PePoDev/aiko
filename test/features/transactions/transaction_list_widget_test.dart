@@ -317,7 +317,7 @@ void main() {
                 userId: 'user',
                 name: 'Cash Wallet',
                 type: AccountType.cash,
-                openingBalance: Money.zero('USD'),
+                openingBalance: Money.parse('124.50', 'USD'),
                 currentBalance: Money.parse('120.00', 'USD'),
               ),
             ]),
@@ -350,61 +350,82 @@ void main() {
     expect(find.textContaining('09:30'), findsNothing);
   });
 
-  testWidgets('transaction cards show account balance after each transaction', (
-    tester,
-  ) async {
-    final now = DateTime.now();
+  testWidgets(
+    'transaction cards show forward account balance after each transaction',
+    (tester) async {
+      final now = DateTime.now();
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          transactionRepositoryProvider.overrideWithValue(
-            _FakeTransactionRepository([
-              FinanceTransaction(
-                id: 'older-income',
-                userId: 'user',
-                accountId: 'cash',
-                type: TransactionType.income,
-                amount: Money.parse('50.00', 'USD'),
-                date: DateTime(now.year, now.month, 18, 9),
-                merchant: 'Paycheck',
-              ),
-              FinanceTransaction(
-                id: 'newer-expense',
-                userId: 'user',
-                accountId: 'cash',
-                type: TransactionType.expense,
-                amount: Money.parse('20.00', 'USD'),
-                date: DateTime(now.year, now.month, 19, 9),
-                merchant: 'Groceries',
-              ),
-            ]),
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            transactionRepositoryProvider.overrideWithValue(
+              _FakeTransactionRepository([
+                FinanceTransaction(
+                  id: 'income-50000',
+                  userId: 'user',
+                  accountId: 'cash',
+                  type: TransactionType.income,
+                  amount: Money.parse('50000.00', 'USD'),
+                  date: DateTime(now.year, now.month, 18, 9),
+                  merchant: 'Salary',
+                ),
+                FinanceTransaction(
+                  id: 'expense-500-a',
+                  userId: 'user',
+                  accountId: 'cash',
+                  type: TransactionType.expense,
+                  amount: Money.parse('500.00', 'USD'),
+                  date: DateTime(now.year, now.month, 19, 9),
+                  merchant: 'Groceries',
+                ),
+                FinanceTransaction(
+                  id: 'expense-500-b',
+                  userId: 'user',
+                  accountId: 'cash',
+                  type: TransactionType.expense,
+                  amount: Money.parse('500.00', 'USD'),
+                  date: DateTime(now.year, now.month, 20, 9),
+                  merchant: 'Fuel',
+                ),
+                FinanceTransaction(
+                  id: 'income-200',
+                  userId: 'user',
+                  accountId: 'cash',
+                  type: TransactionType.income,
+                  amount: Money.parse('200.00', 'USD'),
+                  date: DateTime(now.year, now.month, 21, 9),
+                  merchant: 'Refund',
+                ),
+              ]),
+            ),
+            accountsProvider.overrideWith(
+              () => _AccountsNotifier([
+                Account(
+                  id: 'cash',
+                  userId: 'user',
+                  name: 'Cash Wallet',
+                  type: AccountType.cash,
+                  openingBalance: Money.zero('USD'),
+                  currentBalance: Money.zero('USD'),
+                ),
+              ]),
+            ),
+          ],
+          child: MaterialApp(
+            theme: AikoTheme.light(),
+            home: const TransactionListScreen(),
           ),
-          accountsProvider.overrideWith(
-            () => _AccountsNotifier([
-              Account(
-                id: 'cash',
-                userId: 'user',
-                name: 'Cash Wallet',
-                type: AccountType.cash,
-                openingBalance: Money.zero('USD'),
-                currentBalance: Money.parse('100.00', 'USD'),
-              ),
-            ]),
-          ),
-        ],
-        child: MaterialApp(
-          theme: AikoTheme.light(),
-          home: const TransactionListScreen(),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(find.text('Cash Wallet (\$100.00)'), findsOneWidget);
-    expect(find.text('Cash Wallet (\$120.00)'), findsOneWidget);
-  });
+      expect(find.text('Cash Wallet (\$50,000.00)'), findsOneWidget);
+      expect(find.text('Cash Wallet (\$49,500.00)'), findsOneWidget);
+      expect(find.text('Cash Wallet (\$49,000.00)'), findsOneWidget);
+      expect(find.text('Cash Wallet (\$49,200.00)'), findsOneWidget);
+    },
+  );
 
   testWidgets('transactions are grouped by date and sorted by time', (
     tester,

@@ -101,7 +101,7 @@ class CategoryManagementScreen extends ConsumerWidget {
                   ),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => _CategoryDetailScreen(
+                      builder: (_) => CategoryDetailScreen(
                         category: category,
                         categoryIcon: categoryIcon,
                         categoryColor: categoryColor,
@@ -240,13 +240,14 @@ class CategoryManagementScreen extends ConsumerWidget {
   }
 }
 
-class _CategoryDetailScreen extends ConsumerWidget {
-  const _CategoryDetailScreen({
+class CategoryDetailScreen extends ConsumerWidget {
+  const CategoryDetailScreen({
     required this.category,
     required this.categoryIcon,
     required this.categoryColor,
     required this.typeLabel,
     required this.groupLabel,
+    super.key,
   });
 
   final Category category;
@@ -257,6 +258,8 @@ class _CategoryDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final detailColor = _categoryTypeColor(category.type);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Category details'),
@@ -279,7 +282,7 @@ class _CategoryDetailScreen extends ConsumerWidget {
           FinanceCard(
             title: category.name,
             icon: categoryIcon,
-            accentColor: categoryColor,
+            accentColor: detailColor,
             prominent: true,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -445,6 +448,18 @@ class _CategoryDetailRow extends StatelessWidget {
       ),
     );
   }
+}
+
+Color _categoryTypeColor(CategoryType type) {
+  return switch (type) {
+    CategoryType.income => AikoColors.successGreen,
+    CategoryType.expense => AikoColors.dangerRed,
+    CategoryType.transfer => AikoColors.primaryBlue,
+    CategoryType.finance => AikoColors.primaryBlue,
+    CategoryType.tax => AikoColors.warningOrange,
+    CategoryType.investment => AikoColors.analyticsTeal,
+    CategoryType.adjustment => AikoColors.mutedText,
+  };
 }
 
 class _AddCategoryBottomSheet extends ConsumerStatefulWidget {

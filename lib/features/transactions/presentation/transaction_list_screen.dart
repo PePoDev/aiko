@@ -327,40 +327,41 @@ Map<String, String> _accountLabelsForTransactions({
 }) {
   final accountsById = {for (final account in accounts) account.id: account};
   final balancesByAccountId = {
-    for (final account in accounts) account.id: account.currentBalance,
+    for (final account in accounts) account.id: account.openingBalance,
   };
   final visibleIds = transactions.map((transaction) => transaction.id).toSet();
   final labels = <String, String>{};
-  final sorted = [...allTransactions]..sort((a, b) => b.date.compareTo(a.date));
+  final sorted = [...allTransactions]..sort((a, b) => a.date.compareTo(b.date));
 
   for (final transaction in sorted) {
     final account = accountsById[transaction.accountId];
-    final balanceAfterTransaction = balancesByAccountId[transaction.accountId];
-    if (account != null &&
-        balanceAfterTransaction != null &&
-        visibleIds.contains(transaction.id)) {
+    final balanceBeforeTransaction = balancesByAccountId[transaction.accountId];
+    if (balanceBeforeTransaction == null) {
+      continue;
+    }
+    final balanceAfterTransaction = _balanceAfterTransaction(
+      balanceBeforeTransaction,
+      transaction,
+    );
+    balancesByAccountId[transaction.accountId] = balanceAfterTransaction;
+
+    if (account != null && visibleIds.contains(transaction.id)) {
       labels[transaction.id] =
           '${account.name} (${balanceAfterTransaction.format()})';
-    }
-    if (balanceAfterTransaction != null) {
-      balancesByAccountId[transaction.accountId] = _balanceBeforeTransaction(
-        balanceAfterTransaction,
-        transaction,
-      );
     }
   }
 
   return labels;
 }
 
-Money _balanceBeforeTransaction(
-  Money balanceAfterTransaction,
+Money _balanceAfterTransaction(
+  Money balanceBeforeTransaction,
   FinanceTransaction transaction,
 ) {
   if (transaction.type == TransactionType.income) {
-    return balanceAfterTransaction - transaction.amount;
+    return balanceBeforeTransaction + transaction.amount;
   }
-  return balanceAfterTransaction + transaction.amount;
+  return balanceBeforeTransaction - transaction.amount;
 }
 
 class _TransactionDateHeader extends StatelessWidget {

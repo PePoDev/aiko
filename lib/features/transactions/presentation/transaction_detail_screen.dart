@@ -5,6 +5,10 @@ import 'package:intl/intl.dart';
 import '../../../app/providers.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../accounts/domain/account.dart';
+import '../../accounts/presentation/accounts_screen.dart';
+import '../../categories/domain/category.dart';
+import '../../categories/presentation/category_management_screen.dart';
 import '../domain/transaction.dart';
 import 'transaction_form_screen.dart';
 
@@ -100,65 +104,29 @@ class _TransactionDetailScreenState
     final accountsAsync = ref.watch(accountsProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
 
-    final accountName =
-        accountsAsync.whenOrNull(
-          data: (accounts) {
-            try {
-              final account = accounts.firstWhere(
-                (a) => a.id == transaction.accountId,
-              );
-              return account.name;
-            } catch (_) {
-              return transaction.accountId;
-            }
-          },
-        ) ??
-        transaction.accountId;
+    final account = accountsAsync.whenOrNull(
+      data: (accounts) => _accountFor(accounts, transaction.accountId),
+    );
+    final accountName = account?.name ?? transaction.accountId;
 
-    final categoryName = transaction.categoryId != null
-        ? categoriesAsync.whenOrNull(
-                data: (categories) {
-                  try {
-                    final category = categories.firstWhere(
-                      (c) => c.id == transaction.categoryId,
-                    );
-                    return category.name;
-                  } catch (_) {
-                    return transaction.categoryId;
-                  }
-                },
-              ) ??
-              transaction.categoryId
-        : null;
+    final category = transaction.categoryId == null
+        ? null
+        : categoriesAsync.whenOrNull(
+            data: (categories) =>
+                _categoryFor(categories, transaction.categoryId!),
+          );
+    final categoryName = transaction.categoryId == null
+        ? null
+        : category?.name ?? transaction.categoryId;
     final categoryIcon = transaction.categoryId != null
-        ? categoriesAsync.whenOrNull(
-                data: (categories) {
-                  try {
-                    final category = categories.firstWhere(
-                      (c) => c.id == transaction.categoryId,
-                    );
-                    return _categoryIconFor(category.icon);
-                  } catch (_) {
-                    return Icons.category_outlined;
-                  }
-                },
-              ) ??
-              Icons.category_outlined
+        ? (category == null
+              ? Icons.category_outlined
+              : _categoryIconFor(category.icon))
         : null;
     final categoryColor = transaction.categoryId != null
-        ? categoriesAsync.whenOrNull(
-                data: (categories) {
-                  try {
-                    final category = categories.firstWhere(
-                      (c) => c.id == transaction.categoryId,
-                    );
-                    return _parseHexColor(category.color);
-                  } catch (_) {
-                    return AikoColors.primaryBlue;
-                  }
-                },
-              ) ??
-              AikoColors.primaryBlue
+        ? (category == null
+              ? AikoColors.primaryBlue
+              : _parseHexColor(category.color))
         : null;
 
     return Scaffold(
@@ -197,7 +165,18 @@ class _TransactionDetailScreenState
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 12),
-                _DetailRow(label: 'Account', value: accountName),
+                _DetailRow(
+                  label: 'Account',
+                  value: accountName,
+                  onTap: account == null
+                      ? null
+                      : () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                AccountDetailScreen(account: account),
+                          ),
+                        ),
+                ),
                 if (categoryName != null) ...[
                   const Divider(),
                   _DetailRow(
@@ -205,6 +184,19 @@ class _TransactionDetailScreenState
                     value: categoryName,
                     valueIcon: categoryIcon,
                     valueIconColor: categoryColor,
+                    onTap: category == null
+                        ? null
+                        : () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => CategoryDetailScreen(
+                                category: category,
+                                categoryIcon: categoryIcon!,
+                                categoryColor: categoryColor!,
+                                typeLabel: _categoryTypeLabel(category.type),
+                                groupLabel: _categoryGroupLabel(category.group),
+                              ),
+                            ),
+                          ),
                   ),
                 ],
                 if (transaction.note != null &&
@@ -292,6 +284,49 @@ class _TransactionDetailScreenState
       return AikoColors.primaryBlue;
     }
   }
+
+  Account? _accountFor(List<Account> accounts, String accountId) {
+    for (final account in accounts) {
+      if (account.id == accountId) {
+        return account;
+      }
+    }
+    return null;
+  }
+
+  Category? _categoryFor(List<Category> categories, String categoryId) {
+    for (final category in categories) {
+      if (category.id == categoryId) {
+        return category;
+      }
+    }
+    return null;
+  }
+
+  String _categoryTypeLabel(CategoryType type) {
+    return switch (type) {
+      CategoryType.income => 'Income',
+      CategoryType.expense => 'Expense',
+      CategoryType.transfer => 'Transfer',
+      CategoryType.finance => 'Finance',
+      CategoryType.tax => 'Tax',
+      CategoryType.investment => 'Investment',
+      CategoryType.adjustment => 'Adjustment',
+    };
+  }
+
+  String _categoryGroupLabel(CategoryGroup group) {
+    return switch (group) {
+      CategoryGroup.needs => 'Needs',
+      CategoryGroup.wants => 'Wants',
+      CategoryGroup.savings => 'Savings',
+      CategoryGroup.debt => 'Debt',
+      CategoryGroup.investment => 'Investment',
+      CategoryGroup.tax => 'Tax',
+      CategoryGroup.business => 'Business',
+      CategoryGroup.custom => 'Custom',
+    };
+  }
 }
 
 class _DetailRow extends StatelessWidget {
@@ -300,18 +335,20 @@ class _DetailRow extends StatelessWidget {
     required this.value,
     this.valueIcon,
     this.valueIconColor,
+    this.onTap,
   });
 
   final String label;
   final String value;
   final IconData? valueIcon;
   final Color? valueIconColor;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,11 +384,24 @@ class _DetailRow extends StatelessWidget {
                     style: theme.textTheme.bodyMedium,
                   ),
                 ),
+                if (onTap != null) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right, size: 18),
+                ],
               ],
             ),
           ),
         ],
       ),
+    );
+
+    if (onTap == null) {
+      return row;
+    }
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: row,
     );
   }
 }

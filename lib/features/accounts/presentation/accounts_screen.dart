@@ -50,7 +50,7 @@ class AccountsScreen extends ConsumerWidget {
                 account: account,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => _AccountDetailScreen(account: account),
+                    builder: (_) => AccountDetailScreen(account: account),
                   ),
                 ),
               );
@@ -137,17 +137,17 @@ class _AccountListItem extends StatelessWidget {
   }
 }
 
-class _AccountDetailScreen extends ConsumerStatefulWidget {
-  const _AccountDetailScreen({required this.account});
+class AccountDetailScreen extends ConsumerStatefulWidget {
+  const AccountDetailScreen({required this.account, super.key});
 
   final Account account;
 
   @override
-  ConsumerState<_AccountDetailScreen> createState() =>
+  ConsumerState<AccountDetailScreen> createState() =>
       _AccountDetailScreenState();
 }
 
-class _AccountDetailScreenState extends ConsumerState<_AccountDetailScreen> {
+class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
   late Account _account;
 
   @override

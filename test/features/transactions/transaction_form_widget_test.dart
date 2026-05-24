@@ -216,12 +216,7 @@ void main() {
 
     await tester.tap(find.text('Transfer'));
     await tester.pumpAndSettle();
-    categoryMenu = tester.widget<DropdownMenu<String>>(
-      find.widgetWithText(DropdownMenu<String>, 'Category'),
-    );
-    expect(categoryMenu.dropdownMenuEntries.map((entry) => entry.label), [
-      'Move Money',
-    ]);
+    expect(find.widgetWithText(DropdownMenu<String>, 'Category'), findsNothing);
   });
 
   testWidgets('transfer type hides category field and empty category message', (

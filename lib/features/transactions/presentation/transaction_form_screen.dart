@@ -1230,41 +1230,43 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           const SizedBox(height: 16),
 
           // Category dropdown
-          categoriesAsync.when(
-            loading: () => const CircularProgressIndicator(),
-            error: (_, _) => const Text('Error loading categories'),
-            data: (categories) {
-              final selectedCategoryType = _categoryTypeFor(_type);
-              final activeCategories = categories
-                  .where(
-                    (category) =>
-                        category.isActive &&
-                        category.type == selectedCategoryType,
-                  )
-                  .toList();
-              if (activeCategories.isEmpty) {
-                return const Text('No categories available');
-              }
-              return DropdownMenu<String>(
-                key: ValueKey('transaction-category-$_type'),
-                initialSelection: _selectedCategoryId,
-                expandedInsets: EdgeInsets.zero,
-                label: const Text('Category'),
-                dropdownMenuEntries: activeCategories
-                    .map(
-                      (category) => DropdownMenuEntry(
-                        value: category.id,
-                        label: category.name,
-                      ),
+          if (_type != 'transfer') ...[
+            categoriesAsync.when(
+              loading: () => const CircularProgressIndicator(),
+              error: (_, _) => const Text('Error loading categories'),
+              data: (categories) {
+                final selectedCategoryType = _categoryTypeFor(_type);
+                final activeCategories = categories
+                    .where(
+                      (category) =>
+                          category.isActive &&
+                          category.type == selectedCategoryType,
                     )
-                    .toList(),
-                onSelected: (value) {
-                  setState(() => _selectedCategoryId = value);
-                },
-              );
-            },
-          ),
-          const SizedBox(height: 16),
+                    .toList();
+                if (activeCategories.isEmpty) {
+                  return const Text('No categories available');
+                }
+                return DropdownMenu<String>(
+                  key: ValueKey('transaction-category-$_type'),
+                  initialSelection: _selectedCategoryId,
+                  expandedInsets: EdgeInsets.zero,
+                  label: const Text('Category'),
+                  dropdownMenuEntries: activeCategories
+                      .map(
+                        (category) => DropdownMenuEntry(
+                          value: category.id,
+                          label: category.name,
+                        ),
+                      )
+                      .toList(),
+                  onSelected: (value) {
+                    setState(() => _selectedCategoryId = value);
+                  },
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
 
           // Account dropdown(s)
           accountsAsync.when(

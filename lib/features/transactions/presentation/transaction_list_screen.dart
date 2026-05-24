@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../app/providers.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../accounts/presentation/accounts_screen.dart';
 import '../../categories/presentation/category_management_screen.dart';
 import '../domain/transaction.dart';
 import 'transaction_detail_screen.dart';
@@ -85,6 +86,13 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
               onPressed: _startSearch,
               icon: const Icon(Icons.search),
             ),
+          IconButton(
+            tooltip: 'Accounts',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const AccountsScreen()),
+            ),
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+          ),
           IconButton(
             tooltip: 'Categories',
             onPressed: () => Navigator.of(context).push(

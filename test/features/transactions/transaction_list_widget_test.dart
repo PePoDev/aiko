@@ -103,7 +103,12 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    expect(find.byTooltip('Accounts'), findsOneWidget);
     expect(find.byTooltip('Categories'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byTooltip('Accounts')).dx,
+      lessThan(tester.getTopLeft(find.byTooltip('Categories')).dx),
+    );
     await tester.tap(find.byTooltip('Categories'));
     await tester.pumpAndSettle();
 
@@ -176,6 +181,49 @@ void main() {
     expect(find.text('Coffee Shop'), findsWidgets);
     expect(find.text('-\$4.50'), findsOneWidget);
   });
+
+  testWidgets(
+    'deleted transaction is removed from the list after details pop',
+    (tester) async {
+      final now = DateTime.now();
+      final repository = _StaleListAfterDeleteTransactionRepository([
+        FinanceTransaction(
+          id: 'receipt',
+          userId: 'user',
+          accountId: 'cash',
+          type: TransactionType.expense,
+          amount: Money.parse('4.50', 'USD'),
+          date: DateTime(now.year, now.month, 18),
+          merchant: 'Coffee Shop',
+        ),
+      ]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            transactionRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: MaterialApp(
+            theme: AikoTheme.light(),
+            home: const TransactionListScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Coffee Shop'), findsOneWidget);
+      await tester.tap(find.text('Coffee Shop'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Delete transaction'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.pumpAndSettle();
+
+      expect(repository.deletedId, 'receipt');
+      expect(find.text('Coffee Shop'), findsNothing);
+    },
+  );
 
   testWidgets('transactions are grouped by month tabs with current selected', (
     tester,
@@ -403,6 +451,22 @@ class _FakeCategoryRepository extends CategoryRepository {
 
   @override
   Future<List<Category>> list() async => categories;
+}
+
+class _StaleListAfterDeleteTransactionRepository extends TransactionRepository {
+  _StaleListAfterDeleteTransactionRepository(
+    List<FinanceTransaction> transactions,
+  ) : _transactions = List.of(transactions);
+
+  final List<FinanceTransaction> _transactions;
+  String? deletedId;
+
+  @override
+  Future<List<FinanceTransaction>> list() async =>
+      List<FinanceTransaction>.unmodifiable(_transactions);
+
+  @override
+  Future<void> delete(String id) async => deletedId = id;
 }
 
 class _AccountsNotifier extends AccountsNotifier {

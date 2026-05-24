@@ -93,11 +93,15 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
   }
 
   Future<void> deleteTransaction(String id) async {
+    final previousTransactions = state.hasValue ? state.value : null;
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(transactionRepositoryProvider);
       await repo.delete(id);
-      return repo.list();
+      final transactions = previousTransactions ?? await repo.list();
+      return transactions
+          .where((transaction) => transaction.id != id)
+          .toList(growable: false);
     });
     if (state.hasError) {
       Error.throwWithStackTrace(state.error!, state.stackTrace!);

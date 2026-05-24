@@ -39,6 +39,9 @@ void main() {
       find.widgetWithText(TextFormField, 'Opening Balance'),
       '120.50',
     );
+    await tester.ensureVisible(
+      find.widgetWithText(FilledButton, 'Create Account'),
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Create Account'));
     await tester.pumpAndSettle();
 
@@ -68,6 +71,9 @@ void main() {
       find.widgetWithText(TextFormField, 'Current Balance'),
       '40',
     );
+    await tester.ensureVisible(
+      find.widgetWithText(FilledButton, 'Save Changes'),
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Save Changes'));
     await tester.pumpAndSettle();
 
@@ -83,6 +89,91 @@ void main() {
 
     expect(notifier.accounts, isEmpty);
     expect(find.text('No accounts yet'), findsOneWidget);
+  });
+
+  testWidgets('account edit popup can edit every account model field', (
+    tester,
+  ) async {
+    final notifier = _AccountsNotifier([
+      Account(
+        id: 'bank',
+        userId: 'user',
+        name: 'Old Checking',
+        type: AccountType.bank,
+        openingBalance: Money.parse('100', 'USD'),
+        currentBalance: Money.parse('150', 'USD'),
+        institution: 'Old Bank',
+        includeInNetWorth: true,
+        isActive: true,
+      ),
+    ]);
+
+    await tester.pumpWidget(_accountsApp(notifier));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Old Checking'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Edit account'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Account Name'),
+      'Updated Brokerage',
+    );
+    await tester.tap(
+      find.widgetWithText(DropdownButtonFormField<AccountType>, 'Bank'),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Investment').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Institution Name'),
+      'Updated Broker',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Currency'),
+      'EUR',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Opening Balance'),
+      '200',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Current Balance'),
+      '275.25',
+    );
+    await tester.ensureVisible(
+      find.widgetWithText(SwitchListTile, 'Include in net worth'),
+    );
+    await tester.tap(
+      find.widgetWithText(SwitchListTile, 'Include in net worth'),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.widgetWithText(SwitchListTile, 'Active account'),
+    );
+    await tester.tap(find.widgetWithText(SwitchListTile, 'Active account'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.widgetWithText(FilledButton, 'Save Changes'),
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Save Changes'));
+    await tester.pumpAndSettle();
+
+    final account = notifier.accounts.single;
+    expect(account.id, 'bank');
+    expect(account.userId, 'user');
+    expect(account.name, 'Updated Brokerage');
+    expect(account.type, AccountType.investment);
+    expect(account.openingBalance.amount.toString(), '200');
+    expect(account.openingBalance.currency, 'EUR');
+    expect(account.currentBalance.amount.toString(), '275.25');
+    expect(account.currentBalance.currency, 'EUR');
+    expect(account.institution, 'Updated Broker');
+    expect(account.includeInNetWorth, isFalse);
+    expect(account.isActive, isFalse);
+    expect(find.text('Hidden'), findsOneWidget);
+    expect(find.text('Inactive'), findsOneWidget);
   });
 }
 

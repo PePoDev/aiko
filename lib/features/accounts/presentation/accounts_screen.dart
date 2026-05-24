@@ -313,9 +313,13 @@ class _AccountFormSheet extends ConsumerStatefulWidget {
 class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
-  late final TextEditingController _balanceController;
+  late final TextEditingController _openingBalanceController;
+  late final TextEditingController _currentBalanceController;
+  late final TextEditingController _currencyController;
   late final TextEditingController _institutionController;
   late AccountType _selectedType;
+  late bool _includeInNetWorth;
+  late bool _isActive;
   var _isSubmitting = false;
 
   bool get _isEditing => widget.account != null;
@@ -325,19 +329,29 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
     super.initState();
     final account = widget.account;
     _nameController = TextEditingController(text: account?.name ?? '');
-    _balanceController = TextEditingController(
+    _openingBalanceController = TextEditingController(
+      text: account?.openingBalance.amount.toString() ?? '',
+    );
+    _currentBalanceController = TextEditingController(
       text: account?.currentBalance.amount.toString() ?? '',
+    );
+    _currencyController = TextEditingController(
+      text: account?.currentBalance.currency ?? 'THB',
     );
     _institutionController = TextEditingController(
       text: account?.institution ?? '',
     );
     _selectedType = account?.type ?? AccountType.cash;
+    _includeInNetWorth = account?.includeInNetWorth ?? true;
+    _isActive = account?.isActive ?? true;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _balanceController.dispose();
+    _openingBalanceController.dispose();
+    _currentBalanceController.dispose();
+    _currencyController.dispose();
     _institutionController.dispose();
     super.dispose();
   }
@@ -351,9 +365,19 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
 
     try {
       final existing = widget.account;
-      final balance = Money(
-        amount: Decimal.parse(_balanceController.text.trim()),
-        currency: existing?.currentBalance.currency ?? 'THB',
+      final currency = _currencyController.text.trim().toUpperCase();
+      final openingBalance = Money(
+        amount: Decimal.parse(_openingBalanceController.text.trim()),
+        currency: currency,
+      );
+      final currentBalanceText = _currentBalanceController.text.trim();
+      final currentBalance = Money(
+        amount: Decimal.parse(
+          currentBalanceText.isEmpty
+              ? _openingBalanceController.text.trim()
+              : currentBalanceText,
+        ),
+        currency: currency,
       );
       final institution = _institutionController.text.trim();
       final account = Account(
@@ -361,11 +385,11 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
         userId: existing?.userId ?? '',
         name: _nameController.text.trim(),
         type: _selectedType,
-        openingBalance: existing?.openingBalance ?? balance,
-        currentBalance: balance,
+        openingBalance: openingBalance,
+        currentBalance: currentBalance,
         institution: institution.isEmpty ? null : institution,
-        includeInNetWorth: existing?.includeInNetWorth ?? true,
-        isActive: existing?.isActive ?? true,
+        includeInNetWorth: _includeInNetWorth,
+        isActive: _isActive,
       );
 
       await ref.read(accountsProvider.notifier).saveAccount(account);
@@ -399,12 +423,6 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final showInstitution =
-        _selectedType == AccountType.bank ||
-        _selectedType == AccountType.creditCard ||
-        _selectedType == AccountType.investment ||
-        _selectedType == AccountType.eWallet;
-
     return Padding(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -460,40 +478,100 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                         }
                       },
               ),
-              if (showInstitution) ...[
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _institutionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Institution Name',
-                    hintText: 'e.g. Chase, PayPal, Coinbase',
-                    prefixIcon: Icon(Icons.corporate_fare_outlined),
-                  ),
-                  enabled: !_isSubmitting,
-                ),
-              ],
               const SizedBox(height: 12),
               TextFormField(
-                controller: _balanceController,
-                decoration: InputDecoration(
-                  labelText: _isEditing ? 'Current Balance' : 'Opening Balance',
+                controller: _institutionController,
+                decoration: const InputDecoration(
+                  labelText: 'Institution Name',
+                  hintText: 'e.g. Chase, PayPal, Coinbase',
+                  prefixIcon: Icon(Icons.corporate_fare_outlined),
+                ),
+                enabled: !_isSubmitting,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _currencyController,
+                decoration: const InputDecoration(
+                  labelText: 'Currency',
+                  hintText: 'USD',
+                  prefixIcon: Icon(Icons.payments_outlined),
+                ),
+                textCapitalization: TextCapitalization.characters,
+                validator: (value) {
+                  final currency = value?.trim() ?? '';
+                  if (currency.length != 3) {
+                    return 'Please enter a 3-letter currency code.';
+                  }
+                  return null;
+                },
+                enabled: !_isSubmitting,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _openingBalanceController,
+                decoration: const InputDecoration(
+                  labelText: 'Opening Balance',
                   prefixText: r'$ ',
                   hintText: '0.00',
-                  prefixIcon: const Icon(Icons.attach_money_outlined),
+                  prefixIcon: Icon(Icons.account_balance_wallet_outlined),
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
+                  final text = value?.trim() ?? '';
+                  if (text.isEmpty) {
                     return 'Please enter a balance.';
                   }
-                  if (Decimal.tryParse(value.trim()) == null) {
+                  if (Decimal.tryParse(text) == null) {
                     return 'Please enter a valid decimal number.';
                   }
                   return null;
                 },
                 enabled: !_isSubmitting,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _currentBalanceController,
+                decoration: const InputDecoration(
+                  labelText: 'Current Balance',
+                  prefixText: r'$ ',
+                  hintText: '0.00',
+                  prefixIcon: Icon(Icons.attach_money_outlined),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (value) {
+                  final text = value?.trim() ?? '';
+                  if (_isEditing && text.isEmpty) {
+                    return 'Please enter a balance.';
+                  }
+                  if (!_isEditing && text.isEmpty) {
+                    return null;
+                  }
+                  if (Decimal.tryParse(text) == null) {
+                    return 'Please enter a valid decimal number.';
+                  }
+                  return null;
+                },
+                enabled: !_isSubmitting,
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Include in net worth'),
+                value: _includeInNetWorth,
+                onChanged: _isSubmitting
+                    ? null
+                    : (value) => setState(() => _includeInNetWorth = value),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Active account'),
+                value: _isActive,
+                onChanged: _isSubmitting
+                    ? null
+                    : (value) => setState(() => _isActive = value),
               ),
               const SizedBox(height: 20),
               FilledButton.icon(

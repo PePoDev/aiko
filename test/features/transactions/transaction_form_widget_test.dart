@@ -479,6 +479,70 @@ void main() {
     ]);
   });
 
+  testWidgets('blank item name saves selected category name as merchant', (
+    tester,
+  ) async {
+    final repository = _FakeTransactionRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(repository),
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              _category('groceries', 'Groceries', CategoryType.expense),
+            ]),
+          ),
+          accountsProvider.overrideWith(
+            () => _AccountsNotifier([
+              Account(
+                id: 'cash',
+                userId: 'user',
+                name: 'Cash',
+                type: AccountType.cash,
+                openingBalance: Money.zero('USD'),
+                currentBalance: Money.zero('USD'),
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('transaction-amount-field')),
+      '4.50',
+    );
+    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Category'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Groceries').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Account'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cash').last);
+    await tester.pumpAndSettle();
+
+    final saveButton = find.widgetWithText(FilledButton, 'Save Transaction');
+    await tester.ensureVisible(saveButton);
+    await tester.pumpAndSettle();
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.savedTransaction?.merchant, 'Groceries');
+  });
+
   testWidgets('note field is multiline for longer notes', (tester) async {
     await tester.pumpWidget(
       ProviderScope(

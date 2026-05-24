@@ -154,6 +154,65 @@ void main() {
     expect(find.text('No accounts yet'), findsOneWidget);
   });
 
+  testWidgets('account details balance is calculated from transactions', (
+    tester,
+  ) async {
+    final accountsNotifier = _AccountsNotifier([
+      Account(
+        id: 'cash',
+        userId: 'user',
+        name: 'Cash Wallet',
+        type: AccountType.cash,
+        openingBalance: Money.zero('USD'),
+        currentBalance: Money.zero('USD'),
+      ),
+    ]);
+    final transactionsNotifier = _TransactionsNotifier([
+      FinanceTransaction(
+        id: 'income-50000',
+        userId: 'user',
+        accountId: 'cash',
+        type: TransactionType.income,
+        amount: Money.parse('50000', 'USD'),
+        date: DateTime(2026, 5, 1),
+      ),
+      FinanceTransaction(
+        id: 'expense-500-a',
+        userId: 'user',
+        accountId: 'cash',
+        type: TransactionType.expense,
+        amount: Money.parse('500', 'USD'),
+        date: DateTime(2026, 5, 2),
+      ),
+      FinanceTransaction(
+        id: 'expense-500-b',
+        userId: 'user',
+        accountId: 'cash',
+        type: TransactionType.expense,
+        amount: Money.parse('500', 'USD'),
+        date: DateTime(2026, 5, 3),
+      ),
+      FinanceTransaction(
+        id: 'income-200',
+        userId: 'user',
+        accountId: 'cash',
+        type: TransactionType.income,
+        amount: Money.parse('200', 'USD'),
+        date: DateTime(2026, 5, 4),
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      _accountsApp(accountsNotifier, transactionsNotifier),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cash Wallet'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('\$0.00'), findsNothing);
+    expect(find.text('\$49,200.00'), findsOneWidget);
+  });
+
   testWidgets('account edit popup can edit every account model field', (
     tester,
   ) async {
@@ -297,7 +356,10 @@ class _AccountsNotifier extends AccountsNotifier {
 }
 
 class _TransactionsNotifier extends TransactionsNotifier {
-  final List<FinanceTransaction> transactions = [];
+  _TransactionsNotifier([List<FinanceTransaction>? initialTransactions])
+    : transactions = initialTransactions ?? [];
+
+  final List<FinanceTransaction> transactions;
 
   @override
   Future<List<FinanceTransaction>> build() async => transactions;

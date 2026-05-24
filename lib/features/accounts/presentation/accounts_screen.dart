@@ -216,6 +216,12 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final accent = _colorForAccount(_account.type);
+    final transactions =
+        ref
+            .watch(transactionsProvider)
+            .whenOrNull(data: (transactions) => transactions) ??
+        const <FinanceTransaction>[];
+    final ledgerBalance = _ledgerBalanceForAccount(_account, transactions);
 
     return Scaffold(
       appBar: AppBar(
@@ -274,7 +280,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                   ),
                   const SizedBox(height: 18),
                   Text(
-                    _account.currentBalance.format(),
+                    ledgerBalance.format(),
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                       color: accent,
@@ -303,6 +309,27 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
       ),
     );
   }
+}
+
+Money _ledgerBalanceForAccount(
+  Account account,
+  List<FinanceTransaction> transactions,
+) {
+  var balance = account.openingBalance;
+  final accountTransactions =
+      transactions
+          .where((transaction) => transaction.accountId == account.id)
+          .toList()
+        ..sort((a, b) => a.date.compareTo(b.date));
+
+  for (final transaction in accountTransactions) {
+    balance = switch (transaction.type) {
+      TransactionType.income => balance + transaction.amount,
+      _ => balance - transaction.amount,
+    };
+  }
+
+  return balance;
 }
 
 class _AccountFormSheet extends ConsumerStatefulWidget {

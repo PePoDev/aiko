@@ -36,7 +36,7 @@ Future<Map<String, dynamic>> _$OfflineTransactionToSupabase(
     'type': instance.type,
     'amount': instance.amount,
     'currency': instance.currency,
-    'date': instance.date.toIso8601String().substring(0, 10),
+    'date': instance.date.toIso8601String(),
     'category_id': instance.categoryId,
     'merchant': instance.merchant,
     'note': instance.note,

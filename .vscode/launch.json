@@ -5,13 +5,6 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "aiko (Android emulator)",
-      "type": "dart",
-      "request": "launch",
-      "deviceId": "emulator-5554",
-      "toolArgs": ["--dart-define-from-file=.env"]
-    },
-    {
       "name": "aiko",
       "type": "dart",
       "request": "launch",

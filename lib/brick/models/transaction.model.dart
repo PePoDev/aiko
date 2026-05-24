@@ -38,7 +38,6 @@ class OfflineTransaction extends OfflineFirstWithSupabaseModel {
 
   final String currency;
 
-  @Supabase(toGenerator: 'instance.date.toIso8601String().substring(0, 10)')
   final DateTime date;
 
   final String? categoryId;

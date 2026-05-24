@@ -142,7 +142,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('Title'), findsOneWidget);
+    expect(find.text('Item name'), findsOneWidget);
     expect(find.text('Amount'), findsOneWidget);
   });
 
@@ -348,6 +348,62 @@ void main() {
     expect(find.text('Cash Wallet (\$120.00)'), findsOneWidget);
     expect(find.byIcon(Icons.coffee_outlined), findsOneWidget);
     expect(find.textContaining('09:30'), findsNothing);
+  });
+
+  testWidgets('transaction cards show account balance after each transaction', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(
+            _FakeTransactionRepository([
+              FinanceTransaction(
+                id: 'older-income',
+                userId: 'user',
+                accountId: 'cash',
+                type: TransactionType.income,
+                amount: Money.parse('50.00', 'USD'),
+                date: DateTime(now.year, now.month, 18, 9),
+                merchant: 'Paycheck',
+              ),
+              FinanceTransaction(
+                id: 'newer-expense',
+                userId: 'user',
+                accountId: 'cash',
+                type: TransactionType.expense,
+                amount: Money.parse('20.00', 'USD'),
+                date: DateTime(now.year, now.month, 19, 9),
+                merchant: 'Groceries',
+              ),
+            ]),
+          ),
+          accountsProvider.overrideWith(
+            () => _AccountsNotifier([
+              Account(
+                id: 'cash',
+                userId: 'user',
+                name: 'Cash Wallet',
+                type: AccountType.cash,
+                openingBalance: Money.zero('USD'),
+                currentBalance: Money.parse('100.00', 'USD'),
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const TransactionListScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cash Wallet (\$100.00)'), findsOneWidget);
+    expect(find.text('Cash Wallet (\$120.00)'), findsOneWidget);
   });
 
   testWidgets('transactions are grouped by date and sorted by time', (

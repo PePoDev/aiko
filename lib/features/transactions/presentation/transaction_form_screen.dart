@@ -12,6 +12,7 @@ import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
+import '../../categories/domain/category.dart';
 import '../domain/transaction.dart';
 import '../domain/transaction_attachment.dart';
 import '../data/transaction_attachment_repository.dart';
@@ -48,8 +49,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _amountController = TextEditingController();
   final _exchangeRateController = TextEditingController(text: '1.00');
   final _noteController = TextEditingController();
-  final _tagsController = TextEditingController();
+  final _tagInputController = TextEditingController();
+  final _tagFocusNode = FocusNode();
   final _imagePicker = ImagePicker();
+  final List<String> _tags = [];
   String _type = 'expense';
   String _selectedCurrency = 'THB';
   DateTime _selectedDate = DateTime.now();
@@ -64,7 +67,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _amountController.dispose();
     _exchangeRateController.dispose();
     _noteController.dispose();
-    _tagsController.dispose();
+    _tagInputController.dispose();
+    _tagFocusNode.dispose();
     super.dispose();
   }
 
@@ -86,7 +90,36 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _selectedDate = transaction.date;
     _selectedCategoryId = transaction.categoryId;
     _selectedAccountId = transaction.accountId;
-    _tagsController.text = transaction.tags.join(', ');
+    _tags.addAll(transaction.tags);
+  }
+
+  void _addTag(String value) {
+    final tag = value.trim();
+    if (tag.isEmpty || _tags.contains(tag)) {
+      _tagInputController.clear();
+      return;
+    }
+    setState(() {
+      _tags.add(tag);
+      _tagInputController.clear();
+    });
+  }
+
+  void _addTagsFromInput(String value) {
+    final tags = value
+        .split(',')
+        .map((tag) => tag.trim())
+        .where((tag) => tag.isNotEmpty);
+    for (final tag in tags) {
+      if (!_tags.contains(tag)) {
+        _tags.add(tag);
+      }
+    }
+    setState(_tagInputController.clear);
+  }
+
+  void _removeTag(String tag) {
+    setState(() => _tags.remove(tag));
   }
 
   void _autofillForm({
@@ -965,11 +998,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     final existingTransaction = widget.initialTransaction;
     final txId = existingTransaction?.id ?? const Uuid().v4();
-    final tags = _tagsController.text
-        .split(',')
-        .map((tag) => tag.trim())
-        .where((tag) => tag.isNotEmpty)
-        .toList(growable: false);
+    final pendingTagText = _tagInputController.text.trim();
+    final tags = {
+      ..._tags,
+      if (pendingTagText.isNotEmpty) pendingTagText,
+    }.toList(growable: false);
     final savedTx = FinanceTransaction(
       id: txId,
       userId: existingTransaction?.userId ?? '',
@@ -1054,6 +1087,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
     final accountsAsync = ref.watch(accountsProvider);
+    final transactionsAsync = ref.watch(transactionsProvider);
     final accountSnapshot =
         accountsAsync.whenOrNull(data: (accounts) => accounts) ??
         const <Account>[];
@@ -1065,6 +1099,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     final showCurrencyConversion =
         selectedAccountCurrency != null &&
         selectedAccountCurrency != _selectedCurrency;
+    final selectedTypeColor = _transactionTypeColor(_type);
 
     return Scaffold(
       appBar: AppBar(
@@ -1092,6 +1127,26 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           // Standard Entry Fields
           SegmentedButton<String>(
             key: const Key('transaction-type-selector'),
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return selectedTypeColor;
+                }
+                return null;
+              }),
+              foregroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return AikoColors.white;
+                }
+                return null;
+              }),
+              iconColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return AikoColors.white;
+                }
+                return null;
+              }),
+            ),
             segments: const [
               ButtonSegment(
                 value: 'expense',
@@ -1111,13 +1166,16 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             ],
             selected: {_type},
             onSelectionChanged: (selection) {
-              setState(() => _type = selection.first);
+              setState(() {
+                _type = selection.first;
+                _selectedCategoryId = null;
+              });
             },
           ),
           const SizedBox(height: 16),
-          TextField(
+          _ItemNameInput(
             controller: _titleController,
-            decoration: const InputDecoration(labelText: 'Item name'),
+            suggestions: _itemNameSuggestionsFrom(transactionsAsync),
           ),
           const SizedBox(height: 16),
           Row(
@@ -1169,8 +1227,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             loading: () => const CircularProgressIndicator(),
             error: (_, _) => const Text('Error loading categories'),
             data: (categories) {
+              final selectedCategoryType = _categoryTypeFor(_type);
               final activeCategories = categories
-                  .where((c) => c.isActive)
+                  .where(
+                    (category) =>
+                        category.isActive &&
+                        category.type == selectedCategoryType,
+                  )
                   .toList();
               if (activeCategories.isEmpty) {
                 return const Text('No categories available');
@@ -1279,19 +1342,22 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             const SizedBox(height: 16),
           ],
 
-          TextField(
-            key: const Key('transaction-tags-field'),
-            controller: _tagsController,
-            decoration: const InputDecoration(
-              labelText: 'Tags',
-              hintText: 'food, work, reimbursable',
-              prefixIcon: Icon(Icons.sell_outlined),
-            ),
+          _TagInput(
+            tags: _tags,
+            suggestions: _tagSuggestionsFrom(transactionsAsync),
+            inputController: _tagInputController,
+            focusNode: _tagFocusNode,
+            onAddTag: _addTag,
+            onAddTagsFromInput: _addTagsFromInput,
+            onRemoveTag: _removeTag,
           ),
           const SizedBox(height: 16),
 
           TextField(
+            key: const Key('transaction-note-field'),
             controller: _noteController,
+            minLines: 3,
+            maxLines: 4,
             decoration: const InputDecoration(labelText: 'Note'),
           ),
           const SizedBox(height: 16),
@@ -1352,6 +1418,176 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TagInput extends StatelessWidget {
+  const _TagInput({
+    required this.tags,
+    required this.suggestions,
+    required this.inputController,
+    required this.focusNode,
+    required this.onAddTag,
+    required this.onAddTagsFromInput,
+    required this.onRemoveTag,
+  });
+
+  final List<String> tags;
+  final List<String> suggestions;
+  final TextEditingController inputController;
+  final FocusNode focusNode;
+  final ValueChanged<String> onAddTag;
+  final ValueChanged<String> onAddTagsFromInput;
+  final ValueChanged<String> onRemoveTag;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RawAutocomplete<String>(
+          textEditingController: inputController,
+          focusNode: focusNode,
+          displayStringForOption: (option) => option,
+          optionsBuilder: (value) {
+            final query = value.text.trim().toLowerCase();
+            if (query.isEmpty) {
+              return const Iterable<String>.empty();
+            }
+            return suggestions.where(
+              (tag) => !tags.contains(tag) && tag.toLowerCase().contains(query),
+            );
+          },
+          onSelected: onAddTag,
+          fieldViewBuilder:
+              (context, textController, textFocusNode, onFieldSubmitted) {
+                return TextField(
+                  key: const Key('transaction-tags-field'),
+                  controller: textController,
+                  focusNode: textFocusNode,
+                  decoration: const InputDecoration(
+                    labelText: 'Tags',
+                    hintText: 'food, work, reimbursable',
+                    prefixIcon: Icon(Icons.sell_outlined),
+                  ),
+                  textInputAction: TextInputAction.done,
+                  onChanged: (value) {
+                    if (value.endsWith(',')) {
+                      onAddTagsFromInput(value);
+                    }
+                  },
+                  onSubmitted: onAddTagsFromInput,
+                );
+              },
+          optionsViewBuilder: (context, onSelected, options) {
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(8),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    children: [
+                      for (final option in options)
+                        ListTile(
+                          dense: true,
+                          title: Text(option),
+                          onTap: () => onSelected(option),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        if (tags.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final tag in tags)
+                InputChip(
+                  key: Key('transaction-tag-chip-$tag'),
+                  label: Text(tag),
+                  labelStyle: theme.textTheme.labelMedium,
+                  onDeleted: () => onRemoveTag(tag),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ItemNameInput extends StatefulWidget {
+  const _ItemNameInput({required this.controller, required this.suggestions});
+
+  final TextEditingController controller;
+  final List<String> suggestions;
+
+  @override
+  State<_ItemNameInput> createState() => _ItemNameInputState();
+}
+
+class _ItemNameInputState extends State<_ItemNameInput> {
+  final _focusNode = FocusNode();
+  bool _showSuggestions = false;
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final options = _filteredItemNameSuggestions(
+      widget.suggestions,
+      widget.controller.text,
+    );
+
+    return Column(
+      children: [
+        TextField(
+          controller: widget.controller,
+          focusNode: _focusNode,
+          decoration: const InputDecoration(labelText: 'Item name'),
+          onTap: () => setState(() => _showSuggestions = true),
+          onChanged: (_) => setState(() => _showSuggestions = true),
+        ),
+        if (_showSuggestions && options.isNotEmpty)
+          Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(8),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: ListView(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                children: [
+                  for (final option in options)
+                    ListTile(
+                      dense: true,
+                      title: Text(option),
+                      onTap: () {
+                        widget.controller.text = option;
+                        setState(() => _showSuggestions = false);
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -1947,4 +2183,64 @@ String _calculatorKeyName(String label) {
     'backspace' => 'calculator-key-backspace',
     _ => 'calculator-key-$label',
   };
+}
+
+Color _transactionTypeColor(String type) {
+  return switch (type) {
+    'income' => AikoColors.successGreen,
+    'transfer' => AikoColors.primaryBlue,
+    _ => AikoColors.dangerRed,
+  };
+}
+
+CategoryType _categoryTypeFor(String type) {
+  return switch (type) {
+    'income' => CategoryType.income,
+    'transfer' => CategoryType.transfer,
+    _ => CategoryType.expense,
+  };
+}
+
+List<String> _tagSuggestionsFrom(
+  AsyncValue<List<FinanceTransaction>> transactionsAsync,
+) {
+  final tags =
+      transactionsAsync
+          .whenOrNull(data: (transactions) => transactions)
+          ?.expand((transaction) => transaction.tags)
+          .map((tag) => tag.trim())
+          .where((tag) => tag.isNotEmpty)
+          .toSet()
+          .toList() ??
+      <String>[];
+  tags.sort();
+  return tags;
+}
+
+List<String> _itemNameSuggestionsFrom(
+  AsyncValue<List<FinanceTransaction>> transactionsAsync,
+) {
+  final names =
+      transactionsAsync
+          .whenOrNull(data: (transactions) => transactions)
+          ?.map((transaction) => transaction.merchant?.trim() ?? '')
+          .where((name) => name.isNotEmpty)
+          .toSet()
+          .toList() ??
+      <String>[];
+  names.sort();
+  return names;
+}
+
+List<String> _filteredItemNameSuggestions(
+  List<String> suggestions,
+  String input,
+) {
+  final query = input.trim().toLowerCase();
+  if (query.isEmpty) {
+    return suggestions;
+  }
+  return suggestions
+      .where((item) => item.toLowerCase().contains(query))
+      .toList(growable: false);
 }

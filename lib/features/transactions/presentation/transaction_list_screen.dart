@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/money/money.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../accounts/domain/account.dart';
 import '../../accounts/presentation/accounts_screen.dart';
 import '../../categories/presentation/category_management_screen.dart';
 import '../domain/transaction.dart';
@@ -172,6 +174,7 @@ class _MonthlyTransactionTabs extends StatelessWidget {
                 for (final month in months)
                   _TransactionMonthPage(
                     transactions: _transactionsForMonth(month, transactions),
+                    allTransactions: transactions,
                     searchQuery: searchQuery,
                     monthLabel: month.label,
                   ),
@@ -220,19 +223,21 @@ class _MonthlyTransactionTabs extends StatelessWidget {
   }
 }
 
-class _TransactionMonthPage extends StatelessWidget {
+class _TransactionMonthPage extends ConsumerWidget {
   const _TransactionMonthPage({
     required this.transactions,
+    required this.allTransactions,
     required this.searchQuery,
     required this.monthLabel,
   });
 
   final List<FinanceTransaction> transactions;
+  final List<FinanceTransaction> allTransactions;
   final String searchQuery;
   final String monthLabel;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final filtered = transactions.where((tx) {
       if (searchQuery.isEmpty) return true;
       final query = searchQuery.toLowerCase();
@@ -251,6 +256,14 @@ class _TransactionMonthPage extends StatelessWidget {
     }
 
     final groups = _groupTransactionsByDate(filtered);
+    final accounts =
+        ref.watch(accountsProvider).whenOrNull(data: (accounts) => accounts) ??
+        const <Account>[];
+    final accountLabels = _accountLabelsForTransactions(
+      transactions: filtered,
+      allTransactions: allTransactions,
+      accounts: accounts,
+    );
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
@@ -262,6 +275,7 @@ class _TransactionMonthPage extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 8),
               child: _CompactTransactionCard(
                 transaction: tx,
+                accountLabel: accountLabels[tx.id] ?? 'Unknown',
                 accent: tx.type == TransactionType.income
                     ? AikoColors.successGreen
                     : AikoColors.dangerRed,
@@ -304,6 +318,49 @@ class _TransactionDateGroup {
 
   final DateTime date;
   final List<FinanceTransaction> transactions;
+}
+
+Map<String, String> _accountLabelsForTransactions({
+  required List<FinanceTransaction> transactions,
+  required List<FinanceTransaction> allTransactions,
+  required List<Account> accounts,
+}) {
+  final accountsById = {for (final account in accounts) account.id: account};
+  final balancesByAccountId = {
+    for (final account in accounts) account.id: account.currentBalance,
+  };
+  final visibleIds = transactions.map((transaction) => transaction.id).toSet();
+  final labels = <String, String>{};
+  final sorted = [...allTransactions]..sort((a, b) => b.date.compareTo(a.date));
+
+  for (final transaction in sorted) {
+    final account = accountsById[transaction.accountId];
+    final balanceAfterTransaction = balancesByAccountId[transaction.accountId];
+    if (account != null &&
+        balanceAfterTransaction != null &&
+        visibleIds.contains(transaction.id)) {
+      labels[transaction.id] =
+          '${account.name} (${balanceAfterTransaction.format()})';
+    }
+    if (balanceAfterTransaction != null) {
+      balancesByAccountId[transaction.accountId] = _balanceBeforeTransaction(
+        balanceAfterTransaction,
+        transaction,
+      );
+    }
+  }
+
+  return labels;
+}
+
+Money _balanceBeforeTransaction(
+  Money balanceAfterTransaction,
+  FinanceTransaction transaction,
+) {
+  if (transaction.type == TransactionType.income) {
+    return balanceAfterTransaction - transaction.amount;
+  }
+  return balanceAfterTransaction + transaction.amount;
 }
 
 class _TransactionDateHeader extends StatelessWidget {
@@ -378,12 +435,14 @@ const _monthLabels = [
 class _CompactTransactionCard extends ConsumerWidget {
   const _CompactTransactionCard({
     required this.transaction,
+    required this.accountLabel,
     required this.accent,
     required this.sign,
     required this.onTap,
   });
 
   final FinanceTransaction transaction;
+  final String accountLabel;
   final Color accent;
   final String sign;
   final VoidCallback onTap;
@@ -393,22 +452,6 @@ class _CompactTransactionCard extends ConsumerWidget {
     final title = transaction.merchant ?? transaction.note ?? 'Transaction';
     final amount = '$sign${transaction.amount.format()}';
     final tagsLabel = transaction.tags.map((tag) => '#$tag').join(' ');
-
-    final accountsAsync = ref.watch(accountsProvider);
-    final accountLabel =
-        accountsAsync.whenOrNull(
-          data: (accounts) {
-            final matches = accounts.where(
-              (account) => account.id == transaction.accountId,
-            );
-            if (matches.isEmpty) {
-              return 'Unknown';
-            }
-            final account = matches.first;
-            return '${account.name} (${account.currentBalance.format()})';
-          },
-        ) ??
-        'Unknown';
     final categoriesAsync = ref.watch(categoriesProvider);
     final categoryIcon =
         categoriesAsync.whenOrNull(

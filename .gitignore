@@ -24,6 +24,7 @@ Thumbs.db
 *.tmp
 
 supabase/.temp
+.superpowers
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line

@@ -6,6 +6,7 @@ import 'package:aiko/features/transactions/data/transaction_repository.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
 import 'package:aiko/features/transactions/presentation/transaction_form_screen.dart';
 import 'package:aiko/l10n/app_localizations.dart';
+import 'package:aiko/theme/aiko_colors.dart';
 import 'package:aiko/theme/aiko_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -97,6 +98,99 @@ void main() {
 
     expect(find.text('From Account'), findsOneWidget);
     expect(find.text('To Account'), findsOneWidget);
+  });
+
+  testWidgets('transaction type selector uses semantic selected colors', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+          accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(_selectedSelectorColor(tester), AikoColors.dangerRed);
+
+    await tester.tap(find.text('Income'));
+    await tester.pumpAndSettle();
+    expect(_selectedSelectorColor(tester), AikoColors.successGreen);
+
+    await tester.tap(find.text('Transfer'));
+    await tester.pumpAndSettle();
+    expect(_selectedSelectorColor(tester), AikoColors.primaryBlue);
+  });
+
+  testWidgets('category options follow selected transaction type', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              _category('groceries', 'Groceries', CategoryType.expense),
+              _category('salary', 'Salary', CategoryType.income),
+              _category('move', 'Move Money', CategoryType.transfer),
+            ]),
+          ),
+          accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    var categoryMenu = tester.widget<DropdownMenu<String>>(
+      find.widgetWithText(DropdownMenu<String>, 'Category'),
+    );
+    expect(categoryMenu.dropdownMenuEntries.map((entry) => entry.label), [
+      'Groceries',
+    ]);
+
+    await tester.tap(find.text('Income'));
+    await tester.pumpAndSettle();
+    categoryMenu = tester.widget<DropdownMenu<String>>(
+      find.widgetWithText(DropdownMenu<String>, 'Category'),
+    );
+    expect(categoryMenu.dropdownMenuEntries.map((entry) => entry.label), [
+      'Salary',
+    ]);
+
+    await tester.tap(find.text('Transfer'));
+    await tester.pumpAndSettle();
+    categoryMenu = tester.widget<DropdownMenu<String>>(
+      find.widgetWithText(DropdownMenu<String>, 'Category'),
+    );
+    expect(categoryMenu.dropdownMenuEntries.map((entry) => entry.label), [
+      'Move Money',
+    ]);
   });
 
   testWidgets('smart entry tools are app bar actions', (tester) async {
@@ -240,8 +334,58 @@ void main() {
     expect(find.text('Convert to USD?'), findsNothing);
   });
 
-  testWidgets('transaction form saves comma separated tags', (tester) async {
-    final repository = _FakeTransactionRepository();
+  testWidgets('item name input suggests existing item names on focus', (
+    tester,
+  ) async {
+    final repository = _FakeTransactionRepository([
+      _transaction(merchant: 'Coffee Beans'),
+      _transaction(id: 'tx-2', merchant: 'Monthly Rent'),
+    ]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(repository),
+          categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+          accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextField, 'Item name'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Coffee Beans'), findsOneWidget);
+    expect(find.text('Monthly Rent'), findsOneWidget);
+
+    await tester.tap(find.text('Coffee Beans').last);
+    await tester.pumpAndSettle();
+
+    final itemField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Item name'),
+    );
+    expect(itemField.controller?.text, 'Coffee Beans');
+  });
+
+  testWidgets('tag input suggests existing tags and saves chips', (
+    tester,
+  ) async {
+    final repository = _FakeTransactionRepository([
+      _transaction(tags: const ['coffee', 'work']),
+      _transaction(id: 'tx-2', tags: const ['cashback']),
+    ]);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -295,14 +439,36 @@ void main() {
     );
     await tester.enterText(
       find.byKey(const Key('transaction-tags-field')),
-      'coffee, work,  reimbursable ',
+      'co',
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('coffee').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('transaction-tags-field')),
+      'work',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('transaction-tags-field')),
+      'reimbursable,',
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('transaction-tag-chip-coffee')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('transaction-tag-chip-work')), findsOneWidget);
+    expect(
+      find.byKey(const Key('transaction-tag-chip-reimbursable')),
+      findsOneWidget,
+    );
+
     final saveButton = find.widgetWithText(FilledButton, 'Save Transaction');
-    await tester.scrollUntilVisible(
-      saveButton,
-      320,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.ensureVisible(saveButton);
+    await tester.pumpAndSettle();
     await tester.tap(saveButton);
     await tester.pumpAndSettle();
 
@@ -312,11 +478,62 @@ void main() {
       'reimbursable',
     ]);
   });
+
+  testWidgets('note field is multiline for longer notes', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+          accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('transaction-note-field')),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    final noteField = tester.widget<TextField>(
+      find.byKey(const Key('transaction-note-field')),
+    );
+    expect(noteField.minLines, 3);
+    expect(noteField.maxLines, 4);
+  });
+}
+
+Color? _selectedSelectorColor(WidgetTester tester) {
+  final selector = tester.widget<SegmentedButton<String>>(
+    find.byKey(const Key('transaction-type-selector')),
+  );
+  return selector.style?.backgroundColor?.resolve({WidgetState.selected});
 }
 
 class _EmptyCategoriesNotifier extends CategoriesNotifier {
   @override
   Future<List<Category>> build() async => const [];
+}
+
+class _CategoriesNotifier extends CategoriesNotifier {
+  _CategoriesNotifier(this.categories);
+
+  final List<Category> categories;
+
+  @override
+  Future<List<Category>> build() async => categories;
 }
 
 class _EmptyAccountsNotifier extends AccountsNotifier {
@@ -334,11 +551,17 @@ class _AccountsNotifier extends AccountsNotifier {
 }
 
 class _FakeTransactionRepository extends TransactionRepository {
+  _FakeTransactionRepository([List<FinanceTransaction>? transactions])
+    : _transactions = transactions ?? [];
+
+  final List<FinanceTransaction> _transactions;
   FinanceTransaction? savedTransaction;
 
   @override
   Future<List<FinanceTransaction>> list() async {
-    return savedTransaction == null ? const [] : [savedTransaction!];
+    return savedTransaction == null
+        ? _transactions
+        : [..._transactions, savedTransaction!];
   }
 
   @override
@@ -346,4 +569,31 @@ class _FakeTransactionRepository extends TransactionRepository {
     savedTransaction = transaction;
     return transaction;
   }
+}
+
+Category _category(String id, String name, CategoryType type) {
+  return Category(
+    id: id,
+    userId: 'user',
+    name: name,
+    type: type,
+    group: CategoryGroup.custom,
+  );
+}
+
+FinanceTransaction _transaction({
+  String id = 'tx-1',
+  String? merchant,
+  List<String> tags = const [],
+}) {
+  return FinanceTransaction(
+    id: id,
+    userId: 'user',
+    accountId: 'cash',
+    type: TransactionType.expense,
+    amount: Money.parse('1', 'USD'),
+    date: DateTime(2026, 1, 1),
+    merchant: merchant,
+    tags: tags,
+  );
 }

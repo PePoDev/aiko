@@ -224,6 +224,37 @@ void main() {
     ]);
   });
 
+  testWidgets('transfer type hides category field and empty category message', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(() => _CategoriesNotifier([])),
+          accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Transfer'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No categories available'), findsNothing);
+    expect(find.widgetWithText(DropdownMenu<String>, 'Category'), findsNothing);
+  });
+
   testWidgets(
     'changing transaction type clears the visible category selection',
     (tester) async {

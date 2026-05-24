@@ -41,13 +41,33 @@ void main() {
     expect(find.text('Safe to spend'), findsOneWidget);
   });
 
-  testWidgets('home dashboard shows daily spending and account count widgets', (
+  testWidgets('home dashboard shows daily spending gauge and today summary', (
     tester,
   ) async {
     final now = DateTime.now();
 
     await tester.pumpWidget(
       _dashboardScope(
+        transactions: [
+          FinanceTransaction(
+            id: 'groceries-today',
+            userId: 'user',
+            accountId: 'cash',
+            categoryId: 'groceries',
+            type: TransactionType.expense,
+            amount: Money.parse('40', 'USD'),
+            date: DateTime(now.year, now.month, now.day, 12),
+          ),
+          FinanceTransaction(
+            id: 'coffee-today',
+            userId: 'user',
+            accountId: 'cash',
+            categoryId: 'coffee',
+            type: TransactionType.expense,
+            amount: Money.parse('10', 'USD'),
+            date: DateTime(now.year, now.month, now.day, 12),
+          ),
+        ],
         budgets: [
           Budget(
             id: Budget.dailySpendingId,
@@ -60,24 +80,6 @@ void main() {
             period: BudgetPeriod.daily,
             includedCategoryIds: const ['groceries'],
             isAppDefined: true,
-          ),
-        ],
-        accounts: [
-          Account(
-            id: 'cash',
-            userId: 'user',
-            name: 'Cash',
-            type: AccountType.cash,
-            openingBalance: Money.zero('USD'),
-            currentBalance: Money.parse('100', 'USD'),
-          ),
-          Account(
-            id: 'bank',
-            userId: 'user',
-            name: 'Bank',
-            type: AccountType.bank,
-            openingBalance: Money.zero('USD'),
-            currentBalance: Money.parse('500', 'USD'),
           ),
         ],
         child: MaterialApp(
@@ -98,11 +100,83 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Daily spending'), findsOneWidget);
-    expect(find.text('\$250.00'), findsOneWidget);
-    expect(find.text('Daily limit'), findsOneWidget);
-    expect(find.text('Accounts'), findsOneWidget);
+    expect(find.text('\$40.00 / \$250.00'), findsOneWidget);
+    expect(find.text('Current / limit'), findsOneWidget);
+    final indicator = tester.widget<LinearProgressIndicator>(
+      find.byType(LinearProgressIndicator).first,
+    );
+    expect(indicator.value, 0.16);
+    expect(find.text('Accounts'), findsNothing);
+    expect(find.text('Today'), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
-    expect(find.text('Active accounts'), findsOneWidget);
+    expect(find.text('-\$50.00 net'), findsOneWidget);
+  });
+
+  testWidgets('home dashboard shows empty state for no transactions today', (
+    tester,
+  ) async {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+
+    await tester.pumpWidget(
+      _dashboardScope(
+        transactions: [
+          FinanceTransaction(
+            id: 'old-expense',
+            userId: 'user',
+            accountId: 'cash',
+            type: TransactionType.expense,
+            amount: Money.parse('15', 'USD'),
+            date: DateTime(yesterday.year, yesterday.month, yesterday.day, 12),
+          ),
+        ],
+        child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const HomeDashboardScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('No transactions today'), findsOneWidget);
+  });
+
+  testWidgets('home dashboard asks user to set up daily spending budget', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _dashboardScope(
+        child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const HomeDashboardScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Daily spending'), findsOneWidget);
+    expect(
+      find.text('Set up Daily Spending to track today\'s limit'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('quick add plus opens the transaction form directly', (
@@ -129,7 +203,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.add));
     await tester.pumpAndSettle();
 
-    expect(find.text('Title'), findsOneWidget);
+    expect(find.text('Item name'), findsOneWidget);
     expect(find.text('Amount'), findsOneWidget);
     expect(find.text('Budget'), findsNothing);
   });

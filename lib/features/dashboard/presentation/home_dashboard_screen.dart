@@ -159,7 +159,7 @@ class _OverviewQuickStatsRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final budgetsAsync = ref.watch(budgetsProvider);
-    final accountsAsync = ref.watch(accountsProvider);
+    final transactionsAsync = ref.watch(transactionsProvider);
 
     return IntrinsicHeight(
       child: Row(
@@ -189,54 +189,100 @@ class _OverviewQuickStatsRow extends ConsumerWidget {
                     break;
                   }
                 }
-                return _OverviewMiniCard(
-                  title: 'Daily spending',
-                  value: dailyBudget?.amount.format() ?? 'Not set',
-                  caption: 'Daily limit',
-                  icon: Icons.today_outlined,
-                  accentColor: AikoColors.warningOrange,
-                  onTap: dailyBudget == null
-                      ? null
-                      : () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) =>
-                                BudgetFormScreen(initialBudget: dailyBudget),
-                          ),
+                if (dailyBudget == null) {
+                  return const _OverviewMiniCard(
+                    title: 'Daily spending',
+                    value: 'Set up Daily Spending to track today\'s limit',
+                    caption: '',
+                    icon: Icons.today_outlined,
+                    accentColor: AikoColors.warningOrange,
+                    valueMaxLines: 2,
+                  );
+                }
+
+                return transactionsAsync.when(
+                  loading: () => const _OverviewMiniCard(
+                    title: 'Daily spending',
+                    value: 'Loading',
+                    caption: 'Current / limit',
+                    icon: Icons.today_outlined,
+                    accentColor: AikoColors.warningOrange,
+                  ),
+                  error: (_, _) => const _OverviewMiniCard(
+                    title: 'Daily spending',
+                    value: 'Unavailable',
+                    caption: 'Current / limit',
+                    icon: Icons.today_outlined,
+                    accentColor: AikoColors.warningOrange,
+                  ),
+                  data: (transactions) {
+                    final current = _dailySpendingUsed(
+                      budget: dailyBudget!,
+                      transactions: transactions,
+                    );
+                    final progress = _budgetProgressValue(
+                      used: current,
+                      limit: dailyBudget.amount,
+                    );
+
+                    return _OverviewMiniCard(
+                      title: 'Daily spending',
+                      value:
+                          '${current.format()} / ${dailyBudget.amount.format()}',
+                      caption: 'Current / limit',
+                      icon: Icons.today_outlined,
+                      accentColor: AikoColors.warningOrange,
+                      progressValue: progress,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              BudgetFormScreen(initialBudget: dailyBudget),
                         ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: accountsAsync.when(
+            child: transactionsAsync.when(
               loading: () => const _OverviewMiniCard(
-                title: 'Accounts',
+                title: 'Today',
                 value: 'Loading',
-                caption: 'Connected accounts',
-                icon: Icons.account_balance_wallet_outlined,
+                caption: 'Transactions',
+                icon: Icons.receipt_long_outlined,
                 accentColor: AikoColors.analyticsTeal,
               ),
               error: (_, _) => const _OverviewMiniCard(
-                title: 'Accounts',
+                title: 'Today',
                 value: 'Unavailable',
-                caption: 'Connected accounts',
-                icon: Icons.account_balance_wallet_outlined,
+                caption: 'Transactions',
+                icon: Icons.receipt_long_outlined,
                 accentColor: AikoColors.analyticsTeal,
               ),
-              data: (accounts) {
-                final activeCount = accounts
-                    .where((account) => account.isActive)
-                    .length;
+              data: (transactions) {
+                final summary = _todayTransactionSummary(transactions);
+                if (summary.count == 0) {
+                  return _OverviewMiniCard(
+                    title: 'Today',
+                    value: 'No transactions today',
+                    caption: '',
+                    icon: Icons.receipt_long_outlined,
+                    accentColor: AikoColors.analyticsTeal,
+                    valueMaxLines: 2,
+                    onTap: () => context.push('/transactions'),
+                  );
+                }
+
                 return _OverviewMiniCard(
-                  title: 'Accounts',
-                  value: '$activeCount',
-                  caption: activeCount == 1
-                      ? 'Active account'
-                      : 'Active accounts',
-                  icon: Icons.account_balance_wallet_outlined,
+                  title: 'Today',
+                  value: '${summary.count}',
+                  caption: '${summary.net.format()} net',
+                  icon: Icons.receipt_long_outlined,
                   accentColor: AikoColors.analyticsTeal,
-                  onTap: () => context.push('/accounts'),
+                  onTap: () => context.push('/transactions'),
                 );
               },
             ),
@@ -245,6 +291,89 @@ class _OverviewQuickStatsRow extends ConsumerWidget {
       ),
     );
   }
+
+  Money _dailySpendingUsed({
+    required Budget budget,
+    required List<FinanceTransaction> transactions,
+  }) {
+    final today = DateTime.now();
+    var used = Money.zero(budget.amount.currency);
+
+    for (final transaction in transactions) {
+      final isToday =
+          transaction.date.year == today.year &&
+          transaction.date.month == today.month &&
+          transaction.date.day == today.day;
+      if (!isToday ||
+          !transaction.isExpense ||
+          transaction.status != TransactionStatus.posted ||
+          !budget.includesCategory(transaction.categoryId) ||
+          transaction.amount.currency != budget.amount.currency) {
+        continue;
+      }
+      used = used + transaction.amount;
+    }
+
+    return used;
+  }
+
+  double _budgetProgressValue({required Money used, required Money limit}) {
+    if (limit.amount == Money.zero(limit.currency).amount) {
+      return 0;
+    }
+    return (used.amount.toDouble() / limit.amount.toDouble()).clamp(0.0, 1.0);
+  }
+
+  _TodayTransactionSummary _todayTransactionSummary(
+    List<FinanceTransaction> transactions,
+  ) {
+    final today = DateTime.now();
+    var count = 0;
+    Money? net;
+
+    for (final transaction in transactions) {
+      final isToday =
+          transaction.date.year == today.year &&
+          transaction.date.month == today.month &&
+          transaction.date.day == today.day;
+      if (!isToday || transaction.status != TransactionStatus.posted) {
+        continue;
+      }
+
+      count++;
+      final signedAmount = switch (transaction.type) {
+        TransactionType.income ||
+        TransactionType.refund ||
+        TransactionType.dividend ||
+        TransactionType.interest => transaction.amount,
+        TransactionType.expense ||
+        TransactionType.fee ||
+        TransactionType.taxPayment ||
+        TransactionType.loanPayment ||
+        TransactionType.creditCardPayment =>
+          Money.zero(transaction.amount.currency) - transaction.amount,
+        _ => Money.zero(transaction.amount.currency),
+      };
+
+      if (net == null) {
+        net = signedAmount;
+      } else if (net.currency == signedAmount.currency) {
+        net = net + signedAmount;
+      }
+    }
+
+    return _TodayTransactionSummary(
+      count: count,
+      net: net ?? Money.zero('USD'),
+    );
+  }
+}
+
+class _TodayTransactionSummary {
+  const _TodayTransactionSummary({required this.count, required this.net});
+
+  final int count;
+  final Money net;
 }
 
 class _OverviewMiniCard extends StatelessWidget {
@@ -255,6 +384,8 @@ class _OverviewMiniCard extends StatelessWidget {
     required this.icon,
     required this.accentColor,
     this.onTap,
+    this.progressValue,
+    this.valueMaxLines = 1,
   });
 
   final String title;
@@ -263,6 +394,8 @@ class _OverviewMiniCard extends StatelessWidget {
   final IconData icon;
   final Color accentColor;
   final VoidCallback? onTap;
+  final double? progressValue;
+  final int valueMaxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -297,22 +430,35 @@ class _OverviewMiniCard extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             value,
-            maxLines: 1,
+            maxLines: valueMaxLines,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w700,
               color: accentColor,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            caption,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: AikoColors.mutedText,
+          if (progressValue != null) ...[
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: progressValue,
+                minHeight: 8,
+                color: accentColor,
+                backgroundColor: accentColor.withValues(alpha: 0.16),
+              ),
             ),
-          ),
+          ],
+          const SizedBox(height: 4),
+          if (caption.isNotEmpty)
+            Text(
+              caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AikoColors.mutedText,
+              ),
+            ),
         ],
       ),
     );

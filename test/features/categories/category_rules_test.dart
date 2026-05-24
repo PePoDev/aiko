@@ -22,4 +22,21 @@ void main() {
 
     expect(() => service.mergeInto(expense, income), throwsArgumentError);
   });
+
+  test('default categories include useful income and expense options', () {
+    const service = CategoryService();
+
+    final defaults = service.defaultCategoriesFor('user');
+    final incomeNames = defaults
+        .where((category) => category.type == CategoryType.income)
+        .map((category) => category.name)
+        .toSet();
+    final expenseNames = defaults
+        .where((category) => category.type == CategoryType.expense)
+        .map((category) => category.name)
+        .toSet();
+
+    expect(incomeNames, containsAll(['Salary', 'Freelance', 'Dividends']));
+    expect(expenseNames, containsAll(['Groceries', 'Rent', 'Subscriptions']));
+  });
 }

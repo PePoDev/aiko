@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/transactions/data/transaction_repository.dart';
 import '../features/accounts/data/account_repository.dart';
+import '../features/categories/application/category_service.dart';
 import '../features/budgets/data/budget_repository.dart';
 import '../features/categories/data/category_repository.dart';
 import '../features/dashboard/data/dashboard_due_item_repository.dart';
@@ -162,6 +163,15 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
   @override
   Future<List<Category>> build() async {
     final repo = ref.watch(categoryRepositoryProvider);
+    final categories = await repo.list();
+    if (categories.isNotEmpty) {
+      return categories;
+    }
+
+    final defaults = const CategoryService().defaultCategoriesFor('local-user');
+    for (final category in defaults) {
+      await repo.save(category);
+    }
     return repo.list();
   }
 

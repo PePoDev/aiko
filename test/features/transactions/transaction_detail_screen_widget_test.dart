@@ -72,7 +72,7 @@ void main() {
     expect(find.text('Category'), findsOneWidget);
     expect(find.text('Coffee'), findsOneWidget);
     expect(find.byKey(const Key('transaction-category-icon')), findsOneWidget);
-    expect(find.byIcon(Icons.coffee_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.coffee_outlined), findsNWidgets(2));
   });
 
   testWidgets('account row opens account details', (tester) async {

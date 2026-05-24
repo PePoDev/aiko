@@ -9,6 +9,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('accounts screen uses the design system scaffold background', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_accountsApp(_AccountsNotifier([_cashAccount()])));
+    await tester.pumpAndSettle();
+
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
+
+    expect(scaffold.backgroundColor, isNull);
+  });
+
   testWidgets('accounts screen shows direct account list', (tester) async {
     await tester.pumpWidget(_accountsApp(_AccountsNotifier([_cashAccount()])));
     await tester.pumpAndSettle();

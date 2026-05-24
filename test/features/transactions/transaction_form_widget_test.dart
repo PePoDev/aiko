@@ -136,6 +136,37 @@ void main() {
     expect(_selectedSelectorColor(tester), AikoColors.primaryBlue);
   });
 
+  testWidgets('transaction type selector keeps segment icons when selected', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+          accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final selector = tester.widget<SegmentedButton<String>>(
+      find.byKey(const Key('transaction-type-selector')),
+    );
+    expect(selector.showSelectedIcon, isFalse);
+  });
+
   testWidgets('category options follow selected transaction type', (
     tester,
   ) async {
@@ -192,6 +223,49 @@ void main() {
       'Move Money',
     ]);
   });
+
+  testWidgets(
+    'changing transaction type clears the visible category selection',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            categoriesProvider.overrideWith(
+              () => _CategoriesNotifier([
+                _category('groceries', 'Groceries', CategoryType.expense),
+                _category('salary', 'Salary', CategoryType.income),
+              ]),
+            ),
+            accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AikoTheme.light(),
+            home: const TransactionFormScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Category'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Groceries').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Groceries'), findsOneWidget);
+
+      await tester.tap(find.text('Income'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Groceries'), findsNothing);
+    },
+  );
 
   testWidgets('smart entry tools are app bar actions', (tester) async {
     await tester.pumpWidget(
@@ -545,6 +619,155 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.savedTransaction?.merchant, 'Groceries');
+  });
+
+  testWidgets('blank income item name saves selected income category name', (
+    tester,
+  ) async {
+    final repository = _FakeTransactionRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(repository),
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              _category('groceries', 'Groceries', CategoryType.expense),
+              _category('salary', 'Salary', CategoryType.income),
+            ]),
+          ),
+          accountsProvider.overrideWith(
+            () => _AccountsNotifier([
+              Account(
+                id: 'cash',
+                userId: 'user',
+                name: 'Cash',
+                type: AccountType.cash,
+                openingBalance: Money.zero('USD'),
+                currentBalance: Money.zero('USD'),
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Income'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('transaction-amount-field')),
+      '1000',
+    );
+    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Category'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Salary').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Account'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cash').last);
+    await tester.pumpAndSettle();
+
+    final saveButton = find.widgetWithText(FilledButton, 'Save Transaction');
+    await tester.scrollUntilVisible(
+      saveButton,
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.savedTransaction?.type, TransactionType.income);
+    expect(repository.savedTransaction?.categoryId, 'salary');
+    expect(repository.savedTransaction?.merchant, 'Salary');
+  });
+
+  testWidgets('income category fallback works after switching from expense', (
+    tester,
+  ) async {
+    final repository = _FakeTransactionRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(repository),
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              _category('groceries', 'Groceries', CategoryType.expense),
+              _category('salary', 'Salary', CategoryType.income),
+            ]),
+          ),
+          accountsProvider.overrideWith(
+            () => _AccountsNotifier([
+              Account(
+                id: 'cash',
+                userId: 'user',
+                name: 'Cash',
+                type: AccountType.cash,
+                openingBalance: Money.zero('USD'),
+                currentBalance: Money.zero('USD'),
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Category'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Groceries').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Income'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('transaction-amount-field')),
+      '1000',
+    );
+    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Category'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Salary').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Account'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cash').last);
+    await tester.pumpAndSettle();
+
+    final saveButton = find.widgetWithText(FilledButton, 'Save Transaction');
+    await tester.scrollUntilVisible(
+      saveButton,
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.savedTransaction?.type, TransactionType.income);
+    expect(repository.savedTransaction?.categoryId, 'salary');
+    expect(repository.savedTransaction?.merchant, 'Salary');
   });
 
   testWidgets('note field is multiline for longer notes', (tester) async {

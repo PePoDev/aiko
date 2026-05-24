@@ -96,9 +96,6 @@ class _TransactionDetailScreenState
   Widget build(BuildContext context) {
     final transaction = _transaction;
     final title = transaction.merchant ?? transaction.note ?? 'Transaction';
-    final accent = transaction.type == TransactionType.income
-        ? AikoColors.successGreen
-        : AikoColors.deepBlue;
     final dateTime = DateFormat('yyyy-MM-dd HH:mm').format(transaction.date);
 
     final accountsAsync = ref.watch(accountsProvider);
@@ -128,6 +125,14 @@ class _TransactionDetailScreenState
               ? AikoColors.primaryBlue
               : _parseHexColor(category.color))
         : null;
+    final fallbackIcon = transaction.type == TransactionType.income
+        ? Icons.south_west
+        : Icons.north_east;
+    final accent =
+        categoryColor ??
+        (transaction.type == TransactionType.income
+            ? AikoColors.successGreen
+            : AikoColors.deepBlue);
 
     return Scaffold(
       appBar: AppBar(
@@ -150,9 +155,7 @@ class _TransactionDetailScreenState
         children: [
           FinanceCard(
             title: title,
-            icon: transaction.type == TransactionType.income
-                ? Icons.south_west
-                : Icons.north_east,
+            icon: categoryIcon ?? fallbackIcon,
             accentColor: accent,
             prominent: true,
             child: Column(

@@ -1133,6 +1133,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           // Standard Entry Fields
           SegmentedButton<String>(
             key: const Key('transaction-type-selector'),
+            showSelectedIcon: false,
             style: ButtonStyle(
               backgroundColor: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.selected)) {
@@ -1245,6 +1246,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 return const Text('No categories available');
               }
               return DropdownMenu<String>(
+                key: ValueKey('transaction-category-$_type'),
                 initialSelection: _selectedCategoryId,
                 expandedInsets: EdgeInsets.zero,
                 label: const Text('Category'),

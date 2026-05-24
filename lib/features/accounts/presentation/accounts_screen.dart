@@ -19,7 +19,6 @@ class AccountsScreen extends ConsumerWidget {
     final accountsAsync = ref.watch(accountsProvider);
 
     return Scaffold(
-      backgroundColor: AikoColors.appBackgroundLight,
       appBar: AppBar(title: const Text('Accounts')),
       body: accountsAsync.when(
         loading: () => const AikoScreenState.loading(),

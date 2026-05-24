@@ -240,7 +240,7 @@ class CategoryManagementScreen extends ConsumerWidget {
   }
 }
 
-class _CategoryDetailScreen extends StatelessWidget {
+class _CategoryDetailScreen extends ConsumerWidget {
   const _CategoryDetailScreen({
     required this.category,
     required this.categoryIcon,
@@ -256,9 +256,23 @@ class _CategoryDetailScreen extends StatelessWidget {
   final String groupLabel;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Category details')),
+      appBar: AppBar(
+        title: const Text('Category details'),
+        actions: [
+          IconButton(
+            tooltip: 'Edit category',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => _showEditCategorySheet(context),
+          ),
+          IconButton(
+            tooltip: 'Delete category',
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () => _confirmDelete(context, ref),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
@@ -302,6 +316,73 @@ class _CategoryDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _showEditCategorySheet(BuildContext context) async {
+    final updated = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AddCategoryBottomSheet(initialCategory: category),
+    );
+
+    if (updated == true && context.mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete category?'),
+        content: Text(
+          'This removes "${category.name}" from your category list.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AikoColors.dangerRed,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    try {
+      await ref.read(categoriesProvider.notifier).deleteCategory(category.id);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Category "${category.name}" deleted.'),
+          backgroundColor: AikoColors.successGreen,
+        ),
+      );
+      if (context.mounted) {
+        navigator.pop();
+      }
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete category: $e'),
+          backgroundColor: AikoColors.dangerRed,
+        ),
+      );
+    }
   }
 }
 
@@ -367,7 +448,9 @@ class _CategoryDetailRow extends StatelessWidget {
 }
 
 class _AddCategoryBottomSheet extends ConsumerStatefulWidget {
-  const _AddCategoryBottomSheet();
+  const _AddCategoryBottomSheet({this.initialCategory});
+
+  final Category? initialCategory;
 
   @override
   ConsumerState<_AddCategoryBottomSheet> createState() =>
@@ -411,6 +494,24 @@ class _AddCategoryBottomSheetState
     {'key': 'entertainment', 'icon': Icons.movie_outlined},
   ];
 
+  bool get _isEditing => widget.initialCategory != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialCategory = widget.initialCategory;
+    if (initialCategory == null) {
+      return;
+    }
+
+    _nameController.text = initialCategory.name;
+    _selectedType = initialCategory.type;
+    _selectedGroup = initialCategory.group;
+    _budgetEnabled = initialCategory.budgetEnabled;
+    _selectedColorHex = initialCategory.color;
+    _selectedIconKey = initialCategory.icon;
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -423,24 +524,38 @@ class _AddCategoryBottomSheetState
     setState(() => _isSubmitting = true);
 
     try {
-      final category = Category(
-        id: const Uuid().v4(),
-        userId: '', // Populated by repository
-        name: _nameController.text.trim(),
-        type: _selectedType,
-        group: _selectedGroup,
-        color: _selectedColorHex,
-        icon: _selectedIconKey,
-        budgetEnabled: _budgetEnabled,
-      );
+      final initialCategory = widget.initialCategory;
+      final category = initialCategory == null
+          ? Category(
+              id: const Uuid().v4(),
+              userId: '', // Populated by repository
+              name: _nameController.text.trim(),
+              type: _selectedType,
+              group: _selectedGroup,
+              color: _selectedColorHex,
+              icon: _selectedIconKey,
+              budgetEnabled: _budgetEnabled,
+            )
+          : initialCategory.copyWith(
+              name: _nameController.text.trim(),
+              type: _selectedType,
+              group: _selectedGroup,
+              color: _selectedColorHex,
+              icon: _selectedIconKey,
+              budgetEnabled: _budgetEnabled,
+            );
 
-      await ref.read(categoriesProvider.notifier).addCategory(category);
+      await ref.read(categoriesProvider.notifier).saveCategory(category);
 
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Category "${category.name}" added successfully!'),
+            content: Text(
+              _isEditing
+                  ? 'Category "${category.name}" updated successfully!'
+                  : 'Category "${category.name}" added successfully!',
+            ),
             backgroundColor: AikoColors.successGreen,
           ),
         );
@@ -450,7 +565,11 @@ class _AddCategoryBottomSheetState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to add category: $e'),
+            content: Text(
+              _isEditing
+                  ? 'Failed to update category: $e'
+                  : 'Failed to add category: $e',
+            ),
             backgroundColor: AikoColors.dangerRed,
           ),
         );
@@ -551,7 +670,7 @@ class _AddCategoryBottomSheetState
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'Add Category',
+                    _isEditing ? 'Edit Category' : 'Add Category',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -577,7 +696,9 @@ class _AddCategoryBottomSheetState
                   }
                   final list = categoriesAsync.value ?? [];
                   if (list.any(
-                    (c) => c.name.toLowerCase() == value.trim().toLowerCase(),
+                    (c) =>
+                        c.id != widget.initialCategory?.id &&
+                        c.name.toLowerCase() == value.trim().toLowerCase(),
                   )) {
                     return 'A category with this name already exists';
                   }
@@ -767,7 +888,11 @@ class _AddCategoryBottomSheetState
                       )
                     : const Icon(Icons.check),
                 label: Text(
-                  _isSubmitting ? 'Adding Category...' : 'Save Category',
+                  _isSubmitting
+                      ? (_isEditing
+                            ? 'Updating Category...'
+                            : 'Adding Category...')
+                      : (_isEditing ? 'Update Category' : 'Save Category'),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

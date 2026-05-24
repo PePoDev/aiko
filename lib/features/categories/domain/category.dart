@@ -44,17 +44,26 @@ class Category {
   final bool budgetEnabled;
   final bool isActive;
 
-  Category copyWith({String? name, bool? isActive}) {
+  Category copyWith({
+    String? name,
+    CategoryType? type,
+    CategoryGroup? group,
+    String? parentId,
+    String? icon,
+    String? color,
+    bool? budgetEnabled,
+    bool? isActive,
+  }) {
     return Category(
       id: id,
       userId: userId,
       name: name ?? this.name,
-      type: type,
-      group: group,
-      parentId: parentId,
-      icon: icon,
-      color: color,
-      budgetEnabled: budgetEnabled,
+      type: type ?? this.type,
+      group: group ?? this.group,
+      parentId: parentId ?? this.parentId,
+      icon: icon ?? this.icon,
+      color: color ?? this.color,
+      budgetEnabled: budgetEnabled ?? this.budgetEnabled,
       isActive: isActive ?? this.isActive,
     );
   }

@@ -127,7 +127,7 @@ void main() {
     expect(find.byTooltip('Voice entry'), findsOneWidget);
   });
 
-  testWidgets('amount field calculator applies quantity times unit price', (
+  testWidgets('amount field calculator applies keypad expression', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -155,14 +155,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Amount calculator'), findsOneWidget);
-    await tester.enterText(
-      find.byKey(const Key('calculator-quantity-field')),
-      '4',
-    );
-    await tester.enterText(
-      find.byKey(const Key('calculator-unit-price-field')),
-      '3.50',
-    );
+    await tester.tap(find.byKey(const Key('calculator-key-4')));
+    await tester.tap(find.byKey(const Key('calculator-key-multiply')));
+    await tester.tap(find.byKey(const Key('calculator-key-3')));
+    await tester.tap(find.byKey(const Key('calculator-key-decimal')));
+    await tester.tap(find.byKey(const Key('calculator-key-5')));
+    await tester.tap(find.byKey(const Key('calculator-key-equals')));
     await tester.pumpAndSettle();
 
     expect(find.text('14.00 THB'), findsOneWidget);

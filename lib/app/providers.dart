@@ -162,12 +162,31 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
   }
 
   Future<void> addCategory(Category category) async {
+    await saveCategory(category);
+  }
+
+  Future<void> saveCategory(Category category) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(categoryRepositoryProvider);
       await repo.save(category);
       return repo.list();
     });
+    if (state.hasError) {
+      Error.throwWithStackTrace(state.error!, state.stackTrace!);
+    }
+  }
+
+  Future<void> deleteCategory(String id) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(categoryRepositoryProvider);
+      await repo.delete(id);
+      return repo.list();
+    });
+    if (state.hasError) {
+      Error.throwWithStackTrace(state.error!, state.stackTrace!);
+    }
   }
 }
 

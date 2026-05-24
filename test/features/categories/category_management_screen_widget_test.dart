@@ -38,6 +38,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Category details'), findsOneWidget);
+    expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
     expect(find.text('Coffee'), findsWidgets);
     expect(find.text('Type'), findsOneWidget);
     expect(find.text('Expense'), findsOneWidget);

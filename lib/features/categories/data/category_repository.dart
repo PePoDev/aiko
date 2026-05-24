@@ -40,4 +40,18 @@ class CategoryRepository {
     );
     return saved.toDomain();
   }
+
+  Future<void> delete(String id) async {
+    final userId = await OfflineUserContext().resolveUserId();
+    final categories = await OfflineStore().get<OfflineCategory>(
+      query: Query(
+        where: [Where.exact('id', id), Where.exact('userId', userId)],
+        limit: 1,
+      ),
+    );
+    if (categories.isEmpty) {
+      return;
+    }
+    await OfflineStore().delete(categories.first);
+  }
 }

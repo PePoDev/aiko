@@ -1132,7 +1132,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   controller: _amountController,
                   decoration: InputDecoration(
                     labelText: 'Amount',
-                    prefixIcon: IconButton(
+                    suffixIcon: IconButton(
                       key: const Key('amount-calculator-button'),
                       tooltip: 'Open amount calculator',
                       onPressed: _showAmountCalculator,
@@ -1460,51 +1460,220 @@ class _AmountCalculatorSheet extends StatefulWidget {
 }
 
 class _AmountCalculatorSheetState extends State<_AmountCalculatorSheet> {
-  late final TextEditingController _quantityController;
-  late final TextEditingController _unitPriceController;
+  late String _currentInput;
+  Decimal? _storedValue;
+  String? _pendingOperator;
+  String _expression = '';
+  String? _errorText;
+  bool _waitingForOperand = false;
+  bool _justEvaluated = false;
 
-  Decimal get _quantity =>
-      Decimal.tryParse(_quantityController.text.trim()) ?? Decimal.zero;
-
-  Decimal get _unitPrice =>
-      Decimal.tryParse(_unitPriceController.text.trim()) ?? Decimal.zero;
-
-  Decimal get _total => _quantity * _unitPrice;
+  Decimal get _currentAmount => _parseInput(_currentInput);
 
   @override
   void initState() {
     super.initState();
-    _quantityController = TextEditingController(text: '1');
-    _unitPriceController = TextEditingController(text: widget.initialUnitPrice);
-    _quantityController.addListener(_refresh);
-    _unitPriceController.addListener(_refresh);
+    final initialAmount = Decimal.tryParse(widget.initialUnitPrice.trim());
+    _currentInput = initialAmount == null ? '0' : _formatDecimal(initialAmount);
   }
 
-  @override
-  void dispose() {
-    _quantityController.removeListener(_refresh);
-    _unitPriceController.removeListener(_refresh);
-    _quantityController.dispose();
-    _unitPriceController.dispose();
-    super.dispose();
-  }
-
-  void _refresh() {
-    if (mounted) {
-      setState(() {});
-    }
+  Decimal _parseInput(String input) {
+    final normalized = input.endsWith('.') ? '${input}0' : input;
+    return Decimal.tryParse(normalized) ?? Decimal.zero;
   }
 
   void _apply() {
-    if (_total <= Decimal.zero) {
+    final amount = _currentAmount;
+    if (_errorText != null || amount <= Decimal.zero) {
       return;
     }
-    Navigator.of(context).pop(_total);
+    Navigator.of(context).pop(amount);
+  }
+
+  void _clear() {
+    setState(_clearState);
+  }
+
+  void _backspace() {
+    setState(() {
+      if (_errorText != null || _justEvaluated) {
+        _clearState();
+        return;
+      }
+
+      if (_waitingForOperand || _currentInput.length <= 1) {
+        _currentInput = '0';
+        _waitingForOperand = false;
+        return;
+      }
+
+      _currentInput = _currentInput.substring(0, _currentInput.length - 1);
+    });
+  }
+
+  void _pressDigit(String digit) {
+    setState(() {
+      if (_errorText != null) {
+        _clearState();
+      }
+
+      if (_waitingForOperand || _justEvaluated) {
+        _currentInput = digit;
+        _waitingForOperand = false;
+        if (_justEvaluated) {
+          _storedValue = null;
+          _pendingOperator = null;
+          _expression = '';
+          _justEvaluated = false;
+        }
+        return;
+      }
+
+      if (_currentInput == '0') {
+        _currentInput = digit;
+        return;
+      }
+
+      if (_currentInput.replaceAll('.', '').length < 12) {
+        _currentInput += digit;
+      }
+    });
+  }
+
+  void _pressDecimal() {
+    setState(() {
+      if (_errorText != null) {
+        _clearState();
+      }
+
+      if (_waitingForOperand || _justEvaluated) {
+        _currentInput = '0.';
+        _waitingForOperand = false;
+        if (_justEvaluated) {
+          _storedValue = null;
+          _pendingOperator = null;
+          _expression = '';
+          _justEvaluated = false;
+        }
+        return;
+      }
+
+      if (!_currentInput.contains('.')) {
+        _currentInput += '.';
+      }
+    });
+  }
+
+  void _pressOperator(String operator) {
+    setState(() {
+      if (_errorText != null) {
+        _clearState();
+      }
+
+      final currentValue = _currentAmount;
+      if (_pendingOperator != null &&
+          !_waitingForOperand &&
+          _storedValue != null) {
+        final result = _calculate(
+          _storedValue!,
+          currentValue,
+          _pendingOperator!,
+        );
+        if (result == null) {
+          _showCalculationError();
+          return;
+        }
+        _storedValue = result;
+        _currentInput = _formatDecimal(result);
+      } else {
+        _storedValue = currentValue;
+      }
+
+      _pendingOperator = operator;
+      _waitingForOperand = true;
+      _justEvaluated = false;
+      _expression = '${_formatDecimal(_storedValue!)} $operator';
+    });
+  }
+
+  void _pressEquals() {
+    setState(() {
+      if (_pendingOperator == null ||
+          _storedValue == null ||
+          _waitingForOperand) {
+        return;
+      }
+
+      final left = _storedValue!;
+      final right = _currentAmount;
+      final operator = _pendingOperator!;
+      final result = _calculate(left, right, operator);
+      if (result == null) {
+        _showCalculationError();
+        return;
+      }
+
+      _currentInput = _formatDecimal(result);
+      _expression =
+          '${_formatDecimal(left)} $operator ${_formatDecimal(right)} =';
+      _storedValue = null;
+      _pendingOperator = null;
+      _waitingForOperand = false;
+      _justEvaluated = true;
+    });
+  }
+
+  void _clearState() {
+    _currentInput = '0';
+    _storedValue = null;
+    _pendingOperator = null;
+    _expression = '';
+    _errorText = null;
+    _waitingForOperand = false;
+    _justEvaluated = false;
+  }
+
+  void _showCalculationError() {
+    _currentInput = '0';
+    _storedValue = null;
+    _pendingOperator = null;
+    _expression = '';
+    _errorText = 'Cannot divide by zero';
+    _waitingForOperand = false;
+    _justEvaluated = true;
+  }
+
+  Decimal? _calculate(Decimal left, Decimal right, String operator) {
+    switch (operator) {
+      case '+':
+        return left + right;
+      case '-':
+        return left - right;
+      case '*':
+        return left * right;
+      case '/':
+        if (right == Decimal.zero) {
+          return null;
+        }
+        return (left / right).toDecimal(scaleOnInfinitePrecision: 8);
+      default:
+        return right;
+    }
+  }
+
+  String _formatDecimal(Decimal value) {
+    final fixed = value.toStringAsFixed(8);
+    final trimmed = fixed.replaceFirst(RegExp(r'\.?0+$'), '');
+    if (trimmed.isEmpty || trimmed == '-0') {
+      return '0';
+    }
+    return trimmed;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final canApply = _errorText == null && _currentAmount > Decimal.zero;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1518,29 +1687,8 @@ class _AmountCalculatorSheetState extends State<_AmountCalculatorSheet> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
-        TextField(
-          key: const Key('calculator-quantity-field'),
-          controller: _quantityController,
-          decoration: const InputDecoration(
-            labelText: 'Quantity',
-            prefixIcon: Icon(Icons.tag_outlined),
-          ),
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          key: const Key('calculator-unit-price-field'),
-          controller: _unitPriceController,
-          decoration: InputDecoration(
-            labelText: 'Unit price',
-            prefixIcon: const Icon(Icons.local_cafe_outlined),
-            suffixText: widget.currency,
-          ),
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        ),
-        const SizedBox(height: 16),
         Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: AikoColors.primaryBlue.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
@@ -1548,23 +1696,44 @@ class _AmountCalculatorSheetState extends State<_AmountCalculatorSheet> {
               color: AikoColors.primaryBlue.withValues(alpha: 0.16),
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(
-                Icons.functions_outlined,
-                color: AikoColors.primaryBlue,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '${_quantity.toString()} × ${_unitPrice.toString()}',
-                  style: theme.textTheme.bodyMedium,
+              Text(
+                _errorText ??
+                    (_expression.isEmpty ? widget.currency : _expression),
+                textAlign: TextAlign.end,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: _errorText == null
+                      ? AikoColors.mutedText
+                      : AikoColors.dangerRed,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
+              const SizedBox(height: 8),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(
+                  _errorText ?? _currentInput,
+                  key: const Key('calculator-display-value'),
+                  textAlign: TextAlign.end,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: _errorText == null
+                        ? theme.colorScheme.onSurface
+                        : AikoColors.dangerRed,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               Text(
-                '${_total.toStringAsFixed(2)} ${widget.currency}',
+                '${_currentAmount.toStringAsFixed(2)} ${widget.currency}',
                 key: const Key('calculator-total-value'),
-                style: theme.textTheme.titleSmall?.copyWith(
+                textAlign: TextAlign.end,
+                style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: AikoColors.primaryBlue,
                 ),
@@ -1572,14 +1741,213 @@ class _AmountCalculatorSheetState extends State<_AmountCalculatorSheet> {
             ],
           ),
         ),
+        const SizedBox(height: 14),
+        _CalculatorKeypad(
+          onDigit: _pressDigit,
+          onDecimal: _pressDecimal,
+          onOperator: _pressOperator,
+          onEquals: _pressEquals,
+          onClear: _clear,
+          onBackspace: _backspace,
+        ),
         const SizedBox(height: 16),
         FilledButton.icon(
           key: const Key('apply-calculated-amount-button'),
-          onPressed: _total > Decimal.zero ? _apply : null,
+          onPressed: canApply ? _apply : null,
           icon: const Icon(Icons.check),
           label: const Text('Use amount'),
         ),
       ],
     );
   }
+}
+
+class _CalculatorKeypad extends StatelessWidget {
+  const _CalculatorKeypad({
+    required this.onDigit,
+    required this.onDecimal,
+    required this.onOperator,
+    required this.onEquals,
+    required this.onClear,
+    required this.onBackspace,
+  });
+
+  final ValueChanged<String> onDigit;
+  final VoidCallback onDecimal;
+  final ValueChanged<String> onOperator;
+  final VoidCallback onEquals;
+  final VoidCallback onClear;
+  final VoidCallback onBackspace;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _CalculatorKeyRow(
+          children: [
+            _CalculatorKey(label: '7', onPressed: () => onDigit('7')),
+            _CalculatorKey(label: '8', onPressed: () => onDigit('8')),
+            _CalculatorKey(label: '9', onPressed: () => onDigit('9')),
+            _CalculatorKey(
+              label: '/',
+              onPressed: () => onOperator('/'),
+              kind: _CalculatorKeyKind.operator,
+            ),
+          ],
+        ),
+        _CalculatorKeyRow(
+          children: [
+            _CalculatorKey(label: '4', onPressed: () => onDigit('4')),
+            _CalculatorKey(label: '5', onPressed: () => onDigit('5')),
+            _CalculatorKey(label: '6', onPressed: () => onDigit('6')),
+            _CalculatorKey(
+              label: '*',
+              onPressed: () => onOperator('*'),
+              kind: _CalculatorKeyKind.operator,
+            ),
+          ],
+        ),
+        _CalculatorKeyRow(
+          children: [
+            _CalculatorKey(label: '1', onPressed: () => onDigit('1')),
+            _CalculatorKey(label: '2', onPressed: () => onDigit('2')),
+            _CalculatorKey(label: '3', onPressed: () => onDigit('3')),
+            _CalculatorKey(
+              label: '-',
+              onPressed: () => onOperator('-'),
+              kind: _CalculatorKeyKind.operator,
+            ),
+          ],
+        ),
+        _CalculatorKeyRow(
+          children: [
+            _CalculatorKey(label: 'C', onPressed: onClear),
+            _CalculatorKey(label: '0', onPressed: () => onDigit('0')),
+            _CalculatorKey(label: '.', onPressed: onDecimal),
+            _CalculatorKey(
+              label: '+',
+              onPressed: () => onOperator('+'),
+              kind: _CalculatorKeyKind.operator,
+            ),
+          ],
+        ),
+        _CalculatorKeyRow(
+          children: [
+            _CalculatorKey(
+              label: 'backspace',
+              icon: Icons.backspace_outlined,
+              onPressed: onBackspace,
+            ),
+            _CalculatorKey(
+              label: '=',
+              onPressed: onEquals,
+              kind: _CalculatorKeyKind.primary,
+              flex: 3,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CalculatorKeyRow extends StatelessWidget {
+  const _CalculatorKeyRow({required this.children});
+
+  final List<_CalculatorKey> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(flex: children[i].flex, child: children[i]),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+enum _CalculatorKeyKind { normal, operator, primary }
+
+class _CalculatorKey extends StatelessWidget {
+  const _CalculatorKey({
+    required this.label,
+    required this.onPressed,
+    this.icon,
+    this.kind = _CalculatorKeyKind.normal,
+    this.flex = 1,
+  });
+
+  final String label;
+  final IconData? icon;
+  final VoidCallback onPressed;
+  final _CalculatorKeyKind kind;
+  final int flex;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final background = switch (kind) {
+      _CalculatorKeyKind.primary => AikoColors.primaryBlue,
+      _CalculatorKeyKind.operator => AikoColors.primaryBlue.withValues(
+        alpha: 0.12,
+      ),
+      _CalculatorKeyKind.normal => theme.colorScheme.surface,
+    };
+    final foreground = switch (kind) {
+      _CalculatorKeyKind.primary => Colors.white,
+      _CalculatorKeyKind.operator => AikoColors.primaryBlue,
+      _CalculatorKeyKind.normal => theme.colorScheme.onSurface,
+    };
+
+    return SizedBox(
+      height: 52,
+      child: Material(
+        color: background,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(
+            color: kind == _CalculatorKeyKind.normal
+                ? AikoColors.borderSubtle
+                : Colors.transparent,
+          ),
+        ),
+        child: InkWell(
+          key: Key(_calculatorKeyName(label)),
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(8),
+          child: Center(
+            child: icon == null
+                ? Text(
+                    label,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: foreground,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  )
+                : Icon(icon, color: foreground),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _calculatorKeyName(String label) {
+  return switch (label) {
+    '.' => 'calculator-key-decimal',
+    '+' => 'calculator-key-add',
+    '-' => 'calculator-key-subtract',
+    '*' => 'calculator-key-multiply',
+    '/' => 'calculator-key-divide',
+    '=' => 'calculator-key-equals',
+    'C' => 'calculator-key-clear',
+    'backspace' => 'calculator-key-backspace',
+    _ => 'calculator-key-$label',
+  };
 }

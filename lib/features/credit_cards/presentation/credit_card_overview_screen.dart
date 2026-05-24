@@ -282,7 +282,7 @@ class _CreditCardOverviewScreenState
     return Scaffold(
       backgroundColor: AikoColors.appBackgroundLight,
       appBar: AppBar(
-        title: const Text('Credit Cards & Utilization'),
+        title: const Text('Credit Cards'),
         actions: [
           IconButton(
             icon: const Icon(Icons.add_card),

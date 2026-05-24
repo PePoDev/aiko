@@ -24,6 +24,7 @@ void main() {
 
     // Check for key navigation items
     expect(find.textContaining('Account'), findsWidgets);
+    await tester.scrollUntilVisible(find.text('Settings'), 500);
     expect(find.textContaining('Setting'), findsWidgets);
   });
 }

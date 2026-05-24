@@ -22,12 +22,18 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Check for key navigation items
-    expect(find.textContaining('Account'), findsWidgets);
+    // Planning-owned workspaces are not duplicated in Aiko Hub.
+    expect(find.text('Accounts'), findsNothing);
+    expect(find.text('Debt and Loans'), findsNothing);
+    expect(find.text('Credit Cards'), findsNothing);
+    expect(find.text('Categories'), findsNothing);
+    expect(find.text('Assets'), findsNothing);
+    expect(find.text('Tax Center'), findsNothing);
+    expect(find.text('Accounting'), findsNothing);
+    expect(find.text('Portfolio'), findsNothing);
     expect(find.text('Budget'), findsNothing);
     expect(find.text('Goals'), findsNothing);
     expect(find.text('Bills'), findsNothing);
-    expect(find.text('Categories'), findsNothing);
     expect(find.text('Rules'), findsNothing);
     await tester.scrollUntilVisible(find.text('Settings'), 500);
     expect(find.textContaining('Setting'), findsWidgets);

@@ -2,6 +2,7 @@ import 'package:aiko/app/providers.dart';
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/accounts/presentation/accounts_screen.dart';
+import 'package:aiko/features/transactions/domain/transaction.dart';
 import 'package:aiko/theme/aiko_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,19 +25,25 @@ void main() {
 
   testWidgets('floating action opens account creation popup', (tester) async {
     final notifier = _AccountsNotifier([]);
-    await tester.pumpWidget(_accountsApp(notifier));
+    final transactionsNotifier = _TransactionsNotifier();
+    await tester.pumpWidget(_accountsApp(notifier, transactionsNotifier));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
 
     expect(find.text('Add account'), findsWidgets);
+    expect(find.widgetWithText(TextFormField, 'Opening Balance'), findsNothing);
+    expect(
+      find.widgetWithText(TextFormField, 'Current Balance'),
+      findsOneWidget,
+    );
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Account Name'),
       'Travel Cash',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Opening Balance'),
+      find.widgetWithText(TextFormField, 'Current Balance'),
       '120.50',
     );
     await tester.ensureVisible(
@@ -46,8 +53,64 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(notifier.accounts.single.name, 'Travel Cash');
+    expect(notifier.accounts.single.openingBalance.amount.toString(), '120.5');
     expect(notifier.accounts.single.currentBalance.amount.toString(), '120.5');
+    expect(
+      transactionsNotifier.transactions.single.accountId,
+      notifier.accounts.single.id,
+    );
+    expect(
+      transactionsNotifier.transactions.single.type,
+      TransactionType.income,
+    );
+    expect(
+      transactionsNotifier.transactions.single.amount.amount.toString(),
+      '120.5',
+    );
     expect(find.text('Travel Cash'), findsOneWidget);
+    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+    final margin = snackBar.margin as EdgeInsets?;
+    expect(margin?.bottom, greaterThanOrEqualTo(88));
+  });
+
+  testWidgets('negative new account balance creates an expense transaction', (
+    tester,
+  ) async {
+    final accountsNotifier = _AccountsNotifier([]);
+    final transactionsNotifier = _TransactionsNotifier();
+    await tester.pumpWidget(
+      _accountsApp(accountsNotifier, transactionsNotifier),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Account Name'),
+      'Card Balance',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Current Balance'),
+      '-45.25',
+    );
+    await tester.ensureVisible(
+      find.widgetWithText(FilledButton, 'Create Account'),
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Create Account'));
+    await tester.pumpAndSettle();
+
+    expect(
+      accountsNotifier.accounts.single.currentBalance.amount.toString(),
+      '-45.25',
+    );
+    expect(
+      transactionsNotifier.transactions.single.type,
+      TransactionType.expense,
+    );
+    expect(
+      transactionsNotifier.transactions.single.amount.amount.toString(),
+      '45.25',
+    );
   });
 
   testWidgets('account item opens details, edits, and deletes', (tester) async {
@@ -59,7 +122,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Account details'), findsOneWidget);
-    expect(find.text('Opening balance'), findsOneWidget);
+    expect(find.text('Opening balance'), findsNothing);
 
     await tester.tap(find.byTooltip('Edit account'));
     await tester.pumpAndSettle();
@@ -135,10 +198,6 @@ void main() {
       'EUR',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Opening Balance'),
-      '200',
-    );
-    await tester.enterText(
       find.widgetWithText(TextFormField, 'Current Balance'),
       '275.25',
     );
@@ -165,7 +224,7 @@ void main() {
     expect(account.userId, 'user');
     expect(account.name, 'Updated Brokerage');
     expect(account.type, AccountType.investment);
-    expect(account.openingBalance.amount.toString(), '200');
+    expect(account.openingBalance.amount.toString(), '275.25');
     expect(account.openingBalance.currency, 'EUR');
     expect(account.currentBalance.amount.toString(), '275.25');
     expect(account.currentBalance.currency, 'EUR');
@@ -177,9 +236,16 @@ void main() {
   });
 }
 
-Widget _accountsApp(_AccountsNotifier notifier) {
+Widget _accountsApp(
+  _AccountsNotifier notifier, [
+  _TransactionsNotifier? transactionsNotifier,
+]) {
   return ProviderScope(
-    overrides: [accountsProvider.overrideWith(() => notifier)],
+    overrides: [
+      accountsProvider.overrideWith(() => notifier),
+      if (transactionsNotifier != null)
+        transactionsProvider.overrideWith(() => transactionsNotifier),
+    ],
     child: MaterialApp(theme: AikoTheme.light(), home: const AccountsScreen()),
   );
 }
@@ -227,5 +293,18 @@ class _AccountsNotifier extends AccountsNotifier {
         if (account.id != id) account,
     ];
     state = AsyncData(accounts);
+  }
+}
+
+class _TransactionsNotifier extends TransactionsNotifier {
+  final List<FinanceTransaction> transactions = [];
+
+  @override
+  Future<List<FinanceTransaction>> build() async => transactions;
+
+  @override
+  Future<void> addTransaction(FinanceTransaction transaction) async {
+    transactions.add(transaction);
+    state = AsyncData(transactions);
   }
 }

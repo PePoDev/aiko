@@ -8,6 +8,7 @@ import '../../../core/money/money.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../transactions/domain/transaction.dart';
 import '../domain/account.dart';
 
 class AccountsScreen extends ConsumerWidget {
@@ -74,6 +75,18 @@ void _showAccountForm(BuildContext context, {Account? account}) {
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (context) => _AccountFormSheet(account: account),
+  );
+}
+
+void _showAccountSnackBar(BuildContext context, String message) {
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.hideCurrentSnackBar();
+  messenger.showSnackBar(
+    SnackBar(
+      content: Text(message),
+      behavior: SnackBarBehavior.floating,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+    ),
   );
 }
 
@@ -190,17 +203,13 @@ class _AccountDetailScreenState extends ConsumerState<_AccountDetailScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Account "${_account.name}" deleted.')),
-      );
+      _showAccountSnackBar(context, 'Account "${_account.name}" deleted.');
       Navigator.of(context).pop();
     } catch (_) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to delete account right now.')),
-      );
+      _showAccountSnackBar(context, 'Unable to delete account right now.');
     }
   }
 
@@ -278,11 +287,6 @@ class _AccountDetailScreenState extends ConsumerState<_AccountDetailScreen> {
                   ),
                   const Divider(),
                   _AccountDetailRow(
-                    label: 'Opening balance',
-                    value: _account.openingBalance.format(),
-                  ),
-                  const Divider(),
-                  _AccountDetailRow(
                     label: 'Net worth',
                     value: _account.includeInNetWorth ? 'Included' : 'Hidden',
                   ),
@@ -313,7 +317,6 @@ class _AccountFormSheet extends ConsumerStatefulWidget {
 class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
-  late final TextEditingController _openingBalanceController;
   late final TextEditingController _currentBalanceController;
   late final TextEditingController _currencyController;
   late final TextEditingController _institutionController;
@@ -329,9 +332,6 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
     super.initState();
     final account = widget.account;
     _nameController = TextEditingController(text: account?.name ?? '');
-    _openingBalanceController = TextEditingController(
-      text: account?.openingBalance.amount.toString() ?? '',
-    );
     _currentBalanceController = TextEditingController(
       text: account?.currentBalance.amount.toString() ?? '',
     );
@@ -349,7 +349,6 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
   @override
   void dispose() {
     _nameController.dispose();
-    _openingBalanceController.dispose();
     _currentBalanceController.dispose();
     _currencyController.dispose();
     _institutionController.dispose();
@@ -366,17 +365,9 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
     try {
       final existing = widget.account;
       final currency = _currencyController.text.trim().toUpperCase();
-      final openingBalance = Money(
-        amount: Decimal.parse(_openingBalanceController.text.trim()),
-        currency: currency,
-      );
       final currentBalanceText = _currentBalanceController.text.trim();
       final currentBalance = Money(
-        amount: Decimal.parse(
-          currentBalanceText.isEmpty
-              ? _openingBalanceController.text.trim()
-              : currentBalanceText,
-        ),
+        amount: Decimal.parse(currentBalanceText),
         currency: currency,
       );
       final institution = _institutionController.text.trim();
@@ -385,7 +376,7 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
         userId: existing?.userId ?? '',
         name: _nameController.text.trim(),
         type: _selectedType,
-        openingBalance: openingBalance,
+        openingBalance: currentBalance,
         currentBalance: currentBalance,
         institution: institution.isEmpty ? null : institution,
         includeInNetWorth: _includeInNetWorth,
@@ -393,32 +384,58 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
       );
 
       await ref.read(accountsProvider.notifier).saveAccount(account);
+      if (!_isEditing) {
+        await _createInitialBalanceTransaction(account);
+      }
 
       if (!mounted) {
         return;
       }
       Navigator.of(context).pop(account);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _isEditing
-                ? 'Account "${account.name}" updated.'
-                : 'Account "${account.name}" created.',
-          ),
-        ),
+      _showAccountSnackBar(
+        context,
+        _isEditing
+            ? 'Account "${account.name}" updated.'
+            : 'Account "${account.name}" created.',
       );
     } catch (e) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Unable to save account: $e')));
+      _showAccountSnackBar(context, 'Unable to save account: $e');
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  Future<void> _createInitialBalanceTransaction(Account account) async {
+    final amount = account.currentBalance.amount;
+    if (amount == Decimal.zero) {
+      return;
+    }
+
+    final isNegative = amount < Decimal.zero;
+    final transactionAmount = Money(
+      amount: isNegative ? Decimal.zero - amount : amount,
+      currency: account.currentBalance.currency,
+    );
+
+    await ref
+        .read(transactionsProvider.notifier)
+        .addTransaction(
+          FinanceTransaction(
+            id: const Uuid().v4(),
+            userId: account.userId,
+            accountId: account.id,
+            type: isNegative ? TransactionType.expense : TransactionType.income,
+            amount: transactionAmount,
+            date: DateTime.now(),
+            merchant: 'Initial balance',
+            note: 'Created from account starting balance',
+          ),
+        );
   }
 
   @override
@@ -508,30 +525,6 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: _openingBalanceController,
-                decoration: const InputDecoration(
-                  labelText: 'Opening Balance',
-                  prefixText: r'$ ',
-                  hintText: '0.00',
-                  prefixIcon: Icon(Icons.account_balance_wallet_outlined),
-                ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                validator: (value) {
-                  final text = value?.trim() ?? '';
-                  if (text.isEmpty) {
-                    return 'Please enter a balance.';
-                  }
-                  if (Decimal.tryParse(text) == null) {
-                    return 'Please enter a valid decimal number.';
-                  }
-                  return null;
-                },
-                enabled: !_isSubmitting,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
                 controller: _currentBalanceController,
                 decoration: const InputDecoration(
                   labelText: 'Current Balance',
@@ -544,11 +537,8 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                 ),
                 validator: (value) {
                   final text = value?.trim() ?? '';
-                  if (_isEditing && text.isEmpty) {
+                  if (text.isEmpty) {
                     return 'Please enter a balance.';
-                  }
-                  if (!_isEditing && text.isEmpty) {
-                    return null;
                   }
                   if (Decimal.tryParse(text) == null) {
                     return 'Please enter a valid decimal number.';

@@ -116,6 +116,78 @@ void main() {
     );
   });
 
+  testWidgets(
+    'transfer account pickers swap when selecting duplicate account',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+            accountsProvider.overrideWith(
+              () => _AccountsNotifier([
+                Account(
+                  id: 'cash',
+                  userId: 'user',
+                  name: 'Cash',
+                  type: AccountType.cash,
+                  openingBalance: Money.zero('USD'),
+                  currentBalance: Money.zero('USD'),
+                ),
+                Account(
+                  id: 'bank',
+                  userId: 'user',
+                  name: 'Bank',
+                  type: AccountType.bank,
+                  openingBalance: Money.zero('USD'),
+                  currentBalance: Money.zero('USD'),
+                ),
+              ]),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AikoTheme.light(),
+            home: const TransactionFormScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Transfer'));
+      await tester.pumpAndSettle();
+
+      await _selectAccount(tester, 'cash', field: 'from-account');
+      _expectSelectedAccountLabel(tester, field: 'from-account', label: 'Cash');
+      _expectSelectedAccountLabel(
+        tester,
+        field: 'to-account',
+        label: 'Select account',
+      );
+
+      await _selectAccount(tester, 'cash', field: 'to-account');
+      _expectSelectedAccountLabel(
+        tester,
+        field: 'from-account',
+        label: 'Select account',
+      );
+      _expectSelectedAccountLabel(tester, field: 'to-account', label: 'Cash');
+
+      await _selectAccount(tester, 'bank', field: 'from-account');
+      _expectSelectedAccountLabel(tester, field: 'from-account', label: 'Bank');
+      _expectSelectedAccountLabel(tester, field: 'to-account', label: 'Cash');
+
+      await _selectAccount(tester, 'cash', field: 'from-account');
+      _expectSelectedAccountLabel(tester, field: 'from-account', label: 'Cash');
+      _expectSelectedAccountLabel(tester, field: 'to-account', label: 'Bank');
+    },
+  );
+
   testWidgets('transaction type selector uses semantic selected colors', (
     tester,
   ) async {
@@ -967,6 +1039,18 @@ Future<void> _selectAccount(
   await _openAccountPicker(tester, field: field);
   await tester.tap(find.byKey(Key('transaction-$field-option-$accountId')));
   await tester.pumpAndSettle();
+}
+
+void _expectSelectedAccountLabel(
+  WidgetTester tester, {
+  required String field,
+  required String label,
+}) {
+  final selectedLabelFinder = find.byKey(
+    Key('transaction-$field-selected-account-name'),
+  );
+  expect(selectedLabelFinder, findsOneWidget);
+  expect(tester.widget<Text>(selectedLabelFinder).data, label);
 }
 
 class _EmptyCategoriesNotifier extends CategoriesNotifier {

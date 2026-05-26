@@ -122,6 +122,24 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     setState(() => _tags.remove(tag));
   }
 
+  void _onTransferFromAccountSelected(String selectedAccountId) {
+    setState(() {
+      if (_selectedToAccountId == selectedAccountId) {
+        _selectedToAccountId = _selectedAccountId;
+      }
+      _selectedAccountId = selectedAccountId;
+    });
+  }
+
+  void _onTransferToAccountSelected(String selectedAccountId) {
+    setState(() {
+      if (_selectedAccountId == selectedAccountId) {
+        _selectedAccountId = _selectedToAccountId;
+      }
+      _selectedToAccountId = selectedAccountId;
+    });
+  }
+
   void _autofillForm({
     required double amount,
     required String note,
@@ -1279,8 +1297,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                       fieldKey: 'from-account',
                       accounts: activeAccounts,
                       selectedAccountId: _selectedAccountId,
-                      onSelected: (value) =>
-                          setState(() => _selectedAccountId = value),
+                      onSelected: _onTransferFromAccountSelected,
                     ),
                     const SizedBox(height: 16),
                     _AccountPicker(
@@ -1288,8 +1305,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                       fieldKey: 'to-account',
                       accounts: activeAccounts,
                       selectedAccountId: _selectedToAccountId,
-                      onSelected: (value) =>
-                          setState(() => _selectedToAccountId = value),
+                      onSelected: _onTransferToAccountSelected,
                     ),
                   ],
                 );
@@ -1706,6 +1722,7 @@ class _AccountPicker extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
+                      key: Key('transaction-$fieldKey-selected-account-name'),
                       selectedAccount?.name ?? 'Select account',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

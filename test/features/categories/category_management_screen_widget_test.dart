@@ -154,8 +154,8 @@ void main() {
     expect(find.text('Expense'), findsOneWidget);
     expect(find.text('Group'), findsOneWidget);
     expect(find.text('Wants'), findsOneWidget);
-    expect(find.text('Budget'), findsOneWidget);
-    expect(find.text('Enabled'), findsOneWidget);
+    expect(find.text('Budget'), findsNothing);
+    expect(find.text('Enabled'), findsNothing);
     expect(find.text('#8B5CF6'), findsOneWidget);
     expect(find.byIcon(Icons.coffee_outlined), findsWidgets);
   });
@@ -257,6 +257,59 @@ void main() {
       expect(icon.color, testCase.expected);
     }
   });
+
+  testWidgets('add category sheet does not expose budget membership toggle', (
+    tester,
+  ) async {
+    final notifier = _SavingCategoriesNotifier([
+      const Category(
+        id: 'coffee',
+        userId: 'user',
+        name: 'Coffee',
+        type: CategoryType.expense,
+        group: CategoryGroup.wants,
+        icon: 'coffee',
+        color: '#8B5CF6',
+        budgetEnabled: true,
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [categoriesProvider.overrideWith(() => notifier)],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const CategoryManagementScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FloatingActionButton, 'Add Category'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Include in Budgets'), findsNothing);
+    expect(
+      find.text('Enables setting up spending budget rules for this category'),
+      findsNothing,
+    );
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Category Name'),
+      'Gym',
+    );
+    final saveButton = find.widgetWithText(FilledButton, 'Save Category');
+    await tester.scrollUntilVisible(
+      saveButton,
+      180,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(notifier.savedCategory?.name, 'Gym');
+    expect(notifier.savedCategory?.budgetEnabled, isTrue);
+  });
 }
 
 class _CategoriesNotifier extends CategoriesNotifier {
@@ -266,4 +319,16 @@ class _CategoriesNotifier extends CategoriesNotifier {
 
   @override
   Future<List<Category>> build() async => categories;
+}
+
+class _SavingCategoriesNotifier extends _CategoriesNotifier {
+  _SavingCategoriesNotifier(super.categories);
+
+  Category? savedCategory;
+
+  @override
+  Future<void> saveCategory(Category category) async {
+    savedCategory = category;
+    state = AsyncValue.data([...categories, category]);
+  }
 }

@@ -98,6 +98,22 @@ void main() {
 
     expect(find.text('From Account'), findsOneWidget);
     expect(find.text('To Account'), findsOneWidget);
+    expect(
+      find.byKey(const Key('transaction-from-account-picker')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('transaction-to-account-picker')),
+      findsOneWidget,
+    );
+    expect(
+      find.widgetWithText(DropdownMenu<String>, 'From Account'),
+      findsNothing,
+    );
+    expect(
+      find.widgetWithText(DropdownMenu<String>, 'To Account'),
+      findsNothing,
+    );
   });
 
   testWidgets('transaction type selector uses semantic selected colors', (
@@ -198,25 +214,126 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    var categoryMenu = tester.widget<DropdownMenu<String>>(
-      find.widgetWithText(DropdownMenu<String>, 'Category'),
+    expect(
+      find.byKey(const Key('transaction-category-picker')),
+      findsOneWidget,
     );
-    expect(categoryMenu.dropdownMenuEntries.map((entry) => entry.label), [
-      'Groceries',
-    ]);
+    expect(find.widgetWithText(DropdownMenu<String>, 'Category'), findsNothing);
+
+    await _openCategoryPicker(tester);
+    expect(find.text('Groceries'), findsOneWidget);
+    expect(find.text('Salary'), findsNothing);
+    await _closeCategoryPicker(tester);
 
     await tester.tap(find.text('Income'));
     await tester.pumpAndSettle();
-    categoryMenu = tester.widget<DropdownMenu<String>>(
-      find.widgetWithText(DropdownMenu<String>, 'Category'),
-    );
-    expect(categoryMenu.dropdownMenuEntries.map((entry) => entry.label), [
-      'Salary',
-    ]);
+    await _openCategoryPicker(tester);
+    expect(find.text('Salary'), findsOneWidget);
+    expect(find.text('Groceries'), findsNothing);
+    await _closeCategoryPicker(tester);
 
     await tester.tap(find.text('Transfer'));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(DropdownMenu<String>, 'Category'), findsNothing);
+    expect(find.byKey(const Key('transaction-category-picker')), findsNothing);
+  });
+
+  testWidgets('category picker shows selected category as a designed tile', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              _category(
+                'groceries',
+                'Groceries',
+                CategoryType.expense,
+                group: CategoryGroup.needs,
+                icon: 'food',
+                color: '#F97316',
+              ),
+            ]),
+          ),
+          accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('transaction-category-picker')),
+      findsOneWidget,
+    );
+    expect(find.text('Select category'), findsOneWidget);
+    expect(find.byIcon(Icons.restaurant_outlined), findsNothing);
+
+    await _selectCategory(tester, 'groceries');
+
+    expect(find.text('Groceries'), findsOneWidget);
+    expect(find.text('Needs'), findsOneWidget);
+    expect(find.byIcon(Icons.restaurant_outlined), findsOneWidget);
+  });
+
+  testWidgets('account picker shows selected account as a designed tile', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+          accountsProvider.overrideWith(
+            () => _AccountsNotifier([
+              Account(
+                id: 'cash',
+                userId: 'user',
+                name: 'Cash',
+                type: AccountType.cash,
+                openingBalance: Money.zero('USD'),
+                currentBalance: Money.zero('USD'),
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('transaction-account-picker')), findsOneWidget);
+    expect(find.text('Select account'), findsOneWidget);
+    expect(find.widgetWithText(DropdownMenu<String>, 'Account'), findsNothing);
+    expect(find.byIcon(Icons.wallet_outlined), findsOneWidget);
+
+    await _selectAccount(tester, 'cash');
+
+    expect(find.text('Cash'), findsOneWidget);
+    expect(find.text('Cash wallet'), findsOneWidget);
+    expect(find.text(r'$0.00'), findsOneWidget);
   });
 
   testWidgets('transfer type hides category field and empty category message', (
@@ -248,6 +365,7 @@ void main() {
 
     expect(find.text('No categories available'), findsNothing);
     expect(find.widgetWithText(DropdownMenu<String>, 'Category'), findsNothing);
+    expect(find.byKey(const Key('transaction-category-picker')), findsNothing);
   });
 
   testWidgets(
@@ -279,10 +397,7 @@ void main() {
       );
 
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Category'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Groceries').last);
-      await tester.pumpAndSettle();
+      await _selectCategory(tester, 'groceries');
 
       expect(find.text('Groceries'), findsOneWidget);
 
@@ -407,10 +522,7 @@ void main() {
     expect(find.text('Currency'), findsOneWidget);
     expect(find.text('THB'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Account'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('USD Wallet').last);
-    await tester.pumpAndSettle();
+    await _selectAccount(tester, 'usd-wallet');
 
     expect(find.text('Convert to USD?'), findsOneWidget);
 
@@ -528,10 +640,7 @@ void main() {
       find.byKey(const Key('transaction-amount-field')),
       '4.50',
     );
-    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Account'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Cash').last);
-    await tester.pumpAndSettle();
+    await _selectAccount(tester, 'cash');
     await tester.scrollUntilVisible(
       find.byKey(const Key('transaction-tags-field')),
       240,
@@ -625,14 +734,8 @@ void main() {
       find.byKey(const Key('transaction-amount-field')),
       '4.50',
     );
-    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Category'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Groceries').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Account'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Cash').last);
-    await tester.pumpAndSettle();
+    await _selectCategory(tester, 'groceries');
+    await _selectAccount(tester, 'cash');
 
     final saveButton = find.widgetWithText(FilledButton, 'Save Transaction');
     await tester.scrollUntilVisible(
@@ -696,14 +799,8 @@ void main() {
       find.byKey(const Key('transaction-amount-field')),
       '1000',
     );
-    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Category'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Salary').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Account'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Cash').last);
-    await tester.pumpAndSettle();
+    await _selectCategory(tester, 'salary');
+    await _selectAccount(tester, 'cash');
 
     final saveButton = find.widgetWithText(FilledButton, 'Save Transaction');
     await tester.scrollUntilVisible(
@@ -762,24 +859,15 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Category'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Groceries').last);
-    await tester.pumpAndSettle();
+    await _selectCategory(tester, 'groceries');
     await tester.tap(find.text('Income'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('transaction-amount-field')),
       '1000',
     );
-    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Category'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Salary').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Account'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Cash').last);
-    await tester.pumpAndSettle();
+    await _selectCategory(tester, 'salary');
+    await _selectAccount(tester, 'cash');
 
     final saveButton = find.widgetWithText(FilledButton, 'Save Transaction');
     await tester.scrollUntilVisible(
@@ -839,6 +927,48 @@ Color? _selectedSelectorColor(WidgetTester tester) {
   return selector.style?.backgroundColor?.resolve({WidgetState.selected});
 }
 
+Future<void> _openCategoryPicker(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('transaction-category-picker')));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _closeCategoryPicker(WidgetTester tester) async {
+  await tester.tapAt(const Offset(8, 8));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _selectCategory(WidgetTester tester, String categoryId) async {
+  await _openCategoryPicker(tester);
+  await tester.tap(find.byKey(Key('transaction-category-option-$categoryId')));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openAccountPicker(
+  WidgetTester tester, {
+  String field = 'account',
+}) async {
+  final picker = find.byKey(Key('transaction-$field-picker'));
+  if (!tester.any(picker)) {
+    await tester.scrollUntilVisible(
+      picker,
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+  }
+  await tester.tap(picker);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _selectAccount(
+  WidgetTester tester,
+  String accountId, {
+  String field = 'account',
+}) async {
+  await _openAccountPicker(tester, field: field);
+  await tester.tap(find.byKey(Key('transaction-$field-option-$accountId')));
+  await tester.pumpAndSettle();
+}
+
 class _EmptyCategoriesNotifier extends CategoriesNotifier {
   @override
   Future<List<Category>> build() async => const [];
@@ -888,13 +1018,22 @@ class _FakeTransactionRepository extends TransactionRepository {
   }
 }
 
-Category _category(String id, String name, CategoryType type) {
+Category _category(
+  String id,
+  String name,
+  CategoryType type, {
+  CategoryGroup group = CategoryGroup.custom,
+  String icon = 'category',
+  String color = '#3B82F6',
+}) {
   return Category(
     id: id,
     userId: 'user',
     name: name,
     type: type,
-    group: CategoryGroup.custom,
+    group: group,
+    icon: icon,
+    color: color,
   );
 }
 

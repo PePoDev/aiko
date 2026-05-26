@@ -485,11 +485,6 @@ class CategoryDetailScreen extends ConsumerWidget {
                 _CategoryDetailRow(label: 'Type', value: typeLabel),
                 const Divider(),
                 _CategoryDetailRow(label: 'Group', value: groupLabel),
-                const Divider(),
-                _CategoryDetailRow(
-                  label: 'Budget',
-                  value: category.budgetEnabled ? 'Enabled' : 'Disabled',
-                ),
                 if (category.parentId != null) ...[
                   const Divider(),
                   _CategoryDetailRow(
@@ -675,7 +670,6 @@ class _AddCategoryBottomSheetState
 
   CategoryType _selectedType = CategoryType.expense;
   CategoryGroup _selectedGroup = CategoryGroup.wants;
-  bool _budgetEnabled = true;
   String _selectedColorHex = '#3B82F6'; // Default: Aiko Blue
   String _selectedIconKey = 'category'; // Default generic
   bool _isSubmitting = false;
@@ -718,7 +712,6 @@ class _AddCategoryBottomSheetState
     _nameController.text = initialCategory.name;
     _selectedType = initialCategory.type;
     _selectedGroup = initialCategory.group;
-    _budgetEnabled = initialCategory.budgetEnabled;
     _selectedColorHex = initialCategory.color;
     _selectedIconKey = initialCategory.icon;
   }
@@ -749,7 +742,7 @@ class _AddCategoryBottomSheetState
               group: _selectedGroup,
               color: _selectedColorHex,
               icon: _selectedIconKey,
-              budgetEnabled: _budgetEnabled,
+              budgetEnabled: true,
             )
           : initialCategory.copyWith(
               name: _nameController.text.trim(),
@@ -757,7 +750,7 @@ class _AddCategoryBottomSheetState
               group: _selectedGroup,
               color: _selectedColorHex,
               icon: _selectedIconKey,
-              budgetEnabled: _budgetEnabled,
+              budgetEnabled: true,
             );
 
       await ref.read(categoriesProvider.notifier).saveCategory(category);
@@ -1065,21 +1058,6 @@ class _AddCategoryBottomSheetState
                     );
                   },
                 ),
-              ),
-              const SizedBox(height: 16),
-              // Budget Enabled Toggle Switch
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text(
-                  'Include in Budgets',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: const Text(
-                  'Enables setting up spending budget rules for this category',
-                ),
-                value: _budgetEnabled,
-                activeThumbColor: AikoColors.primaryBlue,
-                onChanged: (val) => setState(() => _budgetEnabled = val),
               ),
               const SizedBox(height: 24),
               // Save Button

@@ -1246,19 +1246,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 if (activeCategories.isEmpty) {
                   return const Text('No categories available');
                 }
-                return DropdownMenu<String>(
-                  key: ValueKey('transaction-category-$_type'),
-                  initialSelection: _selectedCategoryId,
-                  expandedInsets: EdgeInsets.zero,
-                  label: const Text('Category'),
-                  dropdownMenuEntries: activeCategories
-                      .map(
-                        (category) => DropdownMenuEntry(
-                          value: category.id,
-                          label: category.name,
-                        ),
-                      )
-                      .toList(),
+                return _CategoryPicker(
+                  categories: activeCategories,
+                  selectedCategoryId: _selectedCategoryId,
+                  transactionType: _type,
                   onSelected: (value) {
                     setState(() => _selectedCategoryId = value);
                   },
@@ -1281,61 +1272,35 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               }
 
               if (_type == 'transfer') {
-                // Show two account dropdowns for transfer
                 return Column(
                   children: [
-                    DropdownMenu<String>(
-                      initialSelection: _selectedAccountId,
-                      expandedInsets: EdgeInsets.zero,
-                      label: const Text('From Account'),
-                      dropdownMenuEntries: activeAccounts
-                          .map(
-                            (account) => DropdownMenuEntry(
-                              value: account.id,
-                              label: account.name,
-                            ),
-                          )
-                          .toList(),
-                      onSelected: (value) {
-                        setState(() => _selectedAccountId = value);
-                      },
+                    _AccountPicker(
+                      label: 'From Account',
+                      fieldKey: 'from-account',
+                      accounts: activeAccounts,
+                      selectedAccountId: _selectedAccountId,
+                      onSelected: (value) =>
+                          setState(() => _selectedAccountId = value),
                     ),
                     const SizedBox(height: 16),
-                    DropdownMenu<String>(
-                      initialSelection: _selectedToAccountId,
-                      expandedInsets: EdgeInsets.zero,
-                      label: const Text('To Account'),
-                      dropdownMenuEntries: activeAccounts
-                          .map(
-                            (account) => DropdownMenuEntry(
-                              value: account.id,
-                              label: account.name,
-                            ),
-                          )
-                          .toList(),
-                      onSelected: (value) {
-                        setState(() => _selectedToAccountId = value);
-                      },
+                    _AccountPicker(
+                      label: 'To Account',
+                      fieldKey: 'to-account',
+                      accounts: activeAccounts,
+                      selectedAccountId: _selectedToAccountId,
+                      onSelected: (value) =>
+                          setState(() => _selectedToAccountId = value),
                     ),
                   ],
                 );
               } else {
-                // Show single account dropdown
-                return DropdownMenu<String>(
-                  initialSelection: _selectedAccountId,
-                  expandedInsets: EdgeInsets.zero,
-                  label: const Text('Account'),
-                  dropdownMenuEntries: activeAccounts
-                      .map(
-                        (account) => DropdownMenuEntry(
-                          value: account.id,
-                          label: account.name,
-                        ),
-                      )
-                      .toList(),
-                  onSelected: (value) {
-                    setState(() => _selectedAccountId = value);
-                  },
+                return _AccountPicker(
+                  label: 'Account',
+                  fieldKey: 'account',
+                  accounts: activeAccounts,
+                  selectedAccountId: _selectedAccountId,
+                  onSelected: (value) =>
+                      setState(() => _selectedAccountId = value),
                 );
               }
             },
@@ -1684,6 +1649,464 @@ class _CurrencyConversionPrompt extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AccountPicker extends StatelessWidget {
+  const _AccountPicker({
+    required this.label,
+    required this.fieldKey,
+    required this.accounts,
+    required this.selectedAccountId,
+    required this.onSelected,
+  });
+
+  final String label;
+  final String fieldKey;
+  final List<Account> accounts;
+  final String? selectedAccountId;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final selectedAccount = _selectedAccountFrom(accounts, selectedAccountId);
+    final accent = selectedAccount == null
+        ? AikoColors.primaryBlue
+        : _accountColorFor(selectedAccount.type);
+
+    return Material(
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: InkWell(
+        key: Key('transaction-$fieldKey-picker'),
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => _showAccountPickerSheet(context),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              _AccountMark(account: selectedAccount, fallbackColor: accent),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AikoColors.mutedText,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      selectedAccount?.name ?? 'Select account',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (selectedAccount != null) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _accountSubtitle(selectedAccount),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: AikoColors.mutedText,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            selectedAccount.currentBalance.format(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: AikoColors.mutedText,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.keyboard_arrow_down, color: accent),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAccountPickerSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Choose account',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: accounts.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 6),
+                    itemBuilder: (context, index) {
+                      final account = accounts[index];
+                      final selected = account.id == selectedAccountId;
+                      return _AccountOptionTile(
+                        fieldKey: fieldKey,
+                        account: account,
+                        selected: selected,
+                        onTap: () {
+                          onSelected(account.id);
+                          Navigator.of(context).pop();
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AccountOptionTile extends StatelessWidget {
+  const _AccountOptionTile({
+    required this.fieldKey,
+    required this.account,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String fieldKey;
+  final Account account;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _accountColorFor(account.type);
+    final theme = Theme.of(context);
+
+    return Material(
+      color: selected
+          ? color.withValues(alpha: 0.10)
+          : theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: selected
+              ? color.withValues(alpha: 0.45)
+              : theme.colorScheme.outlineVariant,
+        ),
+      ),
+      child: ListTile(
+        key: Key('transaction-$fieldKey-option-${account.id}'),
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        leading: _AccountMark(account: account, fallbackColor: color),
+        title: Text(
+          account.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        subtitle: Row(
+          children: [
+            Expanded(
+              child: Text(
+                _accountSubtitle(account),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(account.currentBalance.format()),
+          ],
+        ),
+        trailing: selected
+            ? Icon(Icons.check_circle, color: color)
+            : const Icon(Icons.chevron_right, size: 18),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _AccountMark extends StatelessWidget {
+  const _AccountMark({required this.account, required this.fallbackColor});
+
+  final Account? account;
+  final Color fallbackColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = account == null
+        ? fallbackColor
+        : _accountColorFor(account!.type);
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+        account == null
+            ? Icons.wallet_outlined
+            : _accountIconFor(account!.type),
+        color: color,
+        size: 20,
+      ),
+    );
+  }
+}
+
+class _CategoryPicker extends StatelessWidget {
+  const _CategoryPicker({
+    required this.categories,
+    required this.selectedCategoryId,
+    required this.transactionType,
+    required this.onSelected,
+  });
+
+  final List<Category> categories;
+  final String? selectedCategoryId;
+  final String transactionType;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final selectedCategory = _selectedCategoryFrom(
+      categories,
+      selectedCategoryId,
+    );
+    final accent = selectedCategory == null
+        ? _transactionTypeColor(transactionType)
+        : _categoryColorFrom(selectedCategory);
+
+    return Material(
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: InkWell(
+        key: const Key('transaction-category-picker'),
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => _showCategoryPickerSheet(context),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              _CategoryMark(category: selectedCategory, fallbackColor: accent),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Category',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AikoColors.mutedText,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      selectedCategory?.name ?? 'Select category',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (selectedCategory != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        _categoryGroupLabel(selectedCategory.group),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AikoColors.mutedText,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.keyboard_arrow_down, color: accent),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCategoryPickerSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Choose category',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: categories.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 6),
+                    itemBuilder: (context, index) {
+                      final category = categories[index];
+                      final selected = category.id == selectedCategoryId;
+                      return _CategoryOptionTile(
+                        category: category,
+                        selected: selected,
+                        onTap: () {
+                          onSelected(category.id);
+                          Navigator.of(context).pop();
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CategoryOptionTile extends StatelessWidget {
+  const _CategoryOptionTile({
+    required this.category,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Category category;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _categoryColorFrom(category);
+    final theme = Theme.of(context);
+
+    return Material(
+      color: selected
+          ? color.withValues(alpha: 0.10)
+          : theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: selected
+              ? color.withValues(alpha: 0.45)
+              : theme.colorScheme.outlineVariant,
+        ),
+      ),
+      child: ListTile(
+        key: Key('transaction-category-option-${category.id}'),
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        leading: _CategoryMark(category: category, fallbackColor: color),
+        title: Text(
+          category.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        subtitle: Text(_categoryGroupLabel(category.group)),
+        trailing: selected
+            ? Icon(Icons.check_circle, color: color)
+            : const Icon(Icons.chevron_right, size: 18),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _CategoryMark extends StatelessWidget {
+  const _CategoryMark({required this.category, required this.fallbackColor});
+
+  final Category? category;
+  final Color fallbackColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = category == null
+        ? fallbackColor
+        : _categoryColorFrom(category!);
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+        category == null
+            ? Icons.category_outlined
+            : _categoryIconFor(category!.icon),
+        color: color,
+        size: 20,
       ),
     );
   }
@@ -2222,6 +2645,130 @@ String? _categoryNameFor(List<Category> categories, String? categoryId) {
     }
   }
   return null;
+}
+
+Category? _selectedCategoryFrom(
+  List<Category> categories,
+  String? selectedCategoryId,
+) {
+  if (selectedCategoryId == null) {
+    return null;
+  }
+  for (final category in categories) {
+    if (category.id == selectedCategoryId) {
+      return category;
+    }
+  }
+  return null;
+}
+
+Account? _selectedAccountFrom(
+  List<Account> accounts,
+  String? selectedAccountId,
+) {
+  if (selectedAccountId == null) {
+    return null;
+  }
+  for (final account in accounts) {
+    if (account.id == selectedAccountId) {
+      return account;
+    }
+  }
+  return null;
+}
+
+Color _categoryColorFrom(Category category) {
+  try {
+    final hexColor = category.color.replaceAll('#', '');
+    return Color(int.parse('FF$hexColor', radix: 16));
+  } catch (_) {
+    return _transactionTypeColor(category.type.name);
+  }
+}
+
+IconData _categoryIconFor(String iconName) {
+  return switch (iconName) {
+    'food' || 'groceries' || 'dining' => Icons.restaurant_outlined,
+    'housing' || 'home' => Icons.home_outlined,
+    'travel' => Icons.flight_outlined,
+    'coffee' => Icons.coffee_outlined,
+    'shopping' => Icons.shopping_bag_outlined,
+    'savings' => Icons.savings_outlined,
+    'investing' || 'investment' => Icons.trending_up_outlined,
+    'gym' => Icons.fitness_center_outlined,
+    'salary' => Icons.attach_money_outlined,
+    'entertainment' => Icons.movie_outlined,
+    'transport' => Icons.directions_bus_outlined,
+    'utilities' => Icons.bolt_outlined,
+    'health' => Icons.health_and_safety_outlined,
+    'tax' => Icons.request_quote_outlined,
+    _ => Icons.category_outlined,
+  };
+}
+
+IconData _accountIconFor(AccountType type) {
+  return switch (type) {
+    AccountType.cash => Icons.wallet_outlined,
+    AccountType.bank => Icons.account_balance_outlined,
+    AccountType.eWallet => Icons.account_balance_wallet_outlined,
+    AccountType.creditCard => Icons.credit_card_outlined,
+    AccountType.loan => Icons.handshake_outlined,
+    AccountType.investment => Icons.trending_up_outlined,
+    AccountType.asset => Icons.home_work_outlined,
+    AccountType.liability => Icons.request_quote_outlined,
+    AccountType.other => Icons.account_balance_wallet_outlined,
+  };
+}
+
+Color _accountColorFor(AccountType type) {
+  return switch (type) {
+    AccountType.cash => AikoColors.successGreen,
+    AccountType.bank => AikoColors.deepBlue,
+    AccountType.eWallet => AikoColors.primaryBlue,
+    AccountType.creditCard => AikoColors.warningOrange,
+    AccountType.loan => AikoColors.warningOrange,
+    AccountType.investment => AikoColors.analyticsTeal,
+    AccountType.asset => AikoColors.analyticsTeal,
+    AccountType.liability => AikoColors.dangerRed,
+    AccountType.other => AikoColors.primaryBlue,
+  };
+}
+
+String _accountSubtitle(Account account) {
+  final typeLabel = account.type == AccountType.cash
+      ? 'Cash wallet'
+      : _accountTypeLabel(account.type);
+  final institution = account.institution?.trim();
+  if (institution == null || institution.isEmpty) {
+    return typeLabel;
+  }
+  return '$institution - $typeLabel';
+}
+
+String _accountTypeLabel(AccountType type) {
+  final name = type.name;
+  final buffer = StringBuffer();
+  for (var i = 0; i < name.length; i++) {
+    final char = name[i];
+    if (i > 0 && char.toUpperCase() == char) {
+      buffer.write(' ');
+    }
+    buffer.write(i == 0 ? char.toUpperCase() : char);
+  }
+  return buffer.toString();
+}
+
+String _categoryGroupLabel(CategoryGroup group) {
+  return switch (group) {
+    CategoryGroup.needs => 'Needs',
+    CategoryGroup.wants => 'Wants',
+    CategoryGroup.savings => 'Savings',
+    CategoryGroup.debt => 'Debt',
+    CategoryGroup.investment => 'Investment',
+    CategoryGroup.tax => 'Tax',
+    CategoryGroup.business => 'Business',
+    CategoryGroup.custom => 'Custom',
+  };
 }
 
 List<String> _tagSuggestionsFrom(

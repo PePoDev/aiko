@@ -285,7 +285,7 @@ class _CategoryTypeSection extends StatelessWidget {
         .toList(growable: false);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -307,7 +307,7 @@ class _CategoryTypeSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           ...defaultCategories.map(
             (category) => _CategoryListCard(
               category: category,
@@ -318,7 +318,7 @@ class _CategoryTypeSection extends StatelessWidget {
             ),
           ),
           if (defaultCategories.isNotEmpty && customCategories.isNotEmpty)
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
           ...customCategories.map(
             (category) => _CategoryListCard(
               category: category,
@@ -356,39 +356,66 @@ class _CategoryListCard extends StatelessWidget {
         : AikoColors.analyticsTeal;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: FinanceCard(
-        title: category.name,
-        icon: categoryIcon,
-        accentColor: category.isDefault
-            ? categoryColor.withValues(alpha: 0.72)
-            : categoryColor,
-        trailing: const Icon(Icons.chevron_right, color: AikoColors.mutedText),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => CategoryDetailScreen(
-              category: category,
-              categoryIcon: categoryIcon,
-              categoryColor: categoryColor,
-              typeLabel: typeLabel,
-              groupLabel: groupLabel,
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          dense: true,
+          visualDensity: VisualDensity.compact,
+          minLeadingWidth: 32,
+          minVerticalPadding: 6,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+          leading: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color:
+                  (category.isDefault
+                          ? categoryColor.withValues(alpha: 0.72)
+                          : categoryColor)
+                      .withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              categoryIcon,
+              color: category.isDefault
+                  ? categoryColor.withValues(alpha: 0.72)
+                  : categoryColor,
+              size: 18,
             ),
           ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                '$groupLabel - $typeLabel',
-                style: const TextStyle(color: AikoColors.mutedText),
+          title: Text(
+            category.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            '$groupLabel - $typeLabel',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _CategoryStatusPill(
+                label: category.isDefault ? 'Default' : 'Custom',
+                color: originColor,
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.chevron_right, size: 18),
+            ],
+          ),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => CategoryDetailScreen(
+                category: category,
+                categoryIcon: categoryIcon,
+                categoryColor: categoryColor,
+                typeLabel: typeLabel,
+                groupLabel: groupLabel,
               ),
             ),
-            const SizedBox(width: 12),
-            _CategoryStatusPill(
-              label: category.isDefault ? 'Default' : 'Custom',
-              color: originColor,
-            ),
-          ],
+          ),
         ),
       ),
     );

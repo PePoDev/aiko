@@ -34,7 +34,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Home'), findsOneWidget);
-        expect(find.text('Aiko Hub'), findsOneWidget);
+        expect(find.text('Settings'), findsOneWidget);
       } finally {
         if (account != null) {
           await cleanupIntegrationTestAccount(account);

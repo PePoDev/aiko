@@ -113,7 +113,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Categories'), findsOneWidget);
-    expect(find.text('No categories yet'), findsOneWidget);
+    expect(find.text('Salary'), findsOneWidget);
   });
 
   testWidgets('transaction list plus opens transaction form directly', (

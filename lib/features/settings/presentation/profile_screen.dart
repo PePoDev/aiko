@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/profile.dart';
+import '../../auth/data/auth_repository.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -14,77 +16,18 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  final _authRepository = AuthRepository();
   final _displayNameController = TextEditingController();
   final _emailController = TextEditingController();
-  String _baseCurrency = 'THB';
-  String _country = 'TH';
   bool _initialised = false;
   bool _saving = false;
-
-  static const _currencies = [
-    'THB',
-    'USD',
-    'EUR',
-    'GBP',
-    'JPY',
-    'CNY',
-    'AUD',
-    'CAD',
-    'CHF',
-    'HKD',
-    'SGD',
-    'SEK',
-    'KRW',
-    'NOK',
-    'NZD',
-    'INR',
-    'MXN',
-    'TWD',
-    'ZAR',
-    'BRL',
-    'DKK',
-    'PLN',
-    'IDR',
-    'CZK',
-    'ILS',
-    'CLP',
-    'PHP',
-    'AED',
-    'COP',
-    'SAR',
-    'MYR',
-    'RON',
-    'VND',
-    'TRY',
-  ];
-
-  static const _countries = {
-    'TH': 'Thailand',
-    'US': 'United States',
-    'GB': 'United Kingdom',
-    'JP': 'Japan',
-    'DE': 'Germany',
-    'FR': 'France',
-    'CA': 'Canada',
-    'AU': 'Australia',
-    'BR': 'Brazil',
-    'IN': 'India',
-    'KR': 'South Korea',
-    'MX': 'Mexico',
-    'SG': 'Singapore',
-    'ID': 'Indonesia',
-    'PH': 'Philippines',
-    'VN': 'Vietnam',
-    'MY': 'Malaysia',
-    'TW': 'Taiwan',
-  };
+  bool _isSigningOut = false;
+  bool _isDeleting = false;
 
   void _populateFrom(Profile profile) {
     if (_initialised) return;
     _displayNameController.text = profile.displayName;
     _emailController.text = profile.email;
-    _baseCurrency = profile.baseCurrency;
-    _country = profile.country;
     _initialised = true;
   }
 
@@ -96,8 +39,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         current.copyWith(
           displayName: _displayNameController.text.trim(),
           email: current.email,
-          baseCurrency: _baseCurrency,
-          country: _country,
         ),
       );
       // Invalidate the profile provider to propagate changes
@@ -120,6 +61,62 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       );
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    setState(() => _isSigningOut = true);
+    try {
+      await _authRepository.signOut();
+      if (!mounted) return;
+      context.go('/');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSigningOut = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to log out right now.')),
+      );
+    }
+  }
+
+  Future<void> _handleDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Account?'),
+        content: const Text(
+          'This will permanently delete your account and all associated data. '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AikoColors.dangerRed,
+            ),
+            child: const Text('Delete Account'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isDeleting = true);
+    try {
+      await _authRepository.deleteAccount();
+      if (!mounted) return;
+      context.go('/');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isDeleting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to delete account right now.')),
+      );
     }
   }
 
@@ -251,54 +248,52 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Regional preferences
               FinanceCard(
-                title: 'Regional preferences',
-                icon: Icons.public,
-                accentColor: AikoColors.analyticsTeal,
+                title: 'Account actions',
+                icon: Icons.manage_accounts_outlined,
+                accentColor: AikoColors.warningOrange,
                 child: Column(
                   children: [
-                    DropdownButtonFormField<String>(
-                      initialValue: _currencies.contains(_baseCurrency)
-                          ? _baseCurrency
-                          : 'THB',
-                      decoration: const InputDecoration(
-                        labelText: 'Base currency',
-                        prefixIcon: Icon(Icons.attach_money),
-                        border: OutlineInputBorder(),
+                    FilledButton.icon(
+                      onPressed: _isSigningOut || _isDeleting
+                          ? null
+                          : _handleLogout,
+                      icon: _isSigningOut
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.logout),
+                      label: Text(_isSigningOut ? 'Signing out...' : 'Log out'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
                       ),
-                      items: _currencies
-                          .map(
-                            (c) => DropdownMenuItem(value: c, child: Text(c)),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => _baseCurrency = value);
-                        }
-                      },
                     ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      initialValue: _countries.containsKey(_country)
-                          ? _country
-                          : 'TH',
-                      decoration: const InputDecoration(
-                        labelText: 'Country',
-                        prefixIcon: Icon(Icons.flag_outlined),
-                        border: OutlineInputBorder(),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _isSigningOut || _isDeleting
+                          ? null
+                          : _handleDeleteAccount,
+                      icon: _isDeleting
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AikoColors.dangerRed,
+                              ),
+                            )
+                          : const Icon(Icons.delete_forever_outlined),
+                      label: Text(
+                        _isDeleting ? 'Deleting account...' : 'Delete account',
                       ),
-                      items: _countries.entries
-                          .map(
-                            (e) => DropdownMenuItem(
-                              value: e.key,
-                              child: Text('${e.value} (${e.key})'),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) setState(() => _country = value);
-                      },
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        foregroundColor: AikoColors.dangerRed,
+                        side: const BorderSide(color: AikoColors.dangerRed),
+                      ),
                     ),
                   ],
                 ),

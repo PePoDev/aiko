@@ -15,71 +15,73 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('overview screen shows migrated Aiko insight and review entry', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          dashboardSummaryProvider.overrideWith(
-            (ref) async => DashboardSummary(
-              netWorth: Money.parse('1000', 'USD'),
-              totalCash: Money.parse('1000', 'USD'),
-              monthlyIncome: Money.parse('5000', 'USD'),
-              monthlySpending: Money.parse('1200', 'USD'),
-              safeToSpend: Money.parse('300', 'USD'),
-              paceStatus: const PaceStatus(
-                percentOfBudgetUsed: 40,
-                daysElapsedRatio: 0.5,
+  testWidgets(
+    'overview screen shows migrated Aiko insight without review card',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            dashboardSummaryProvider.overrideWith(
+              (ref) async => DashboardSummary(
+                netWorth: Money.parse('1000', 'USD'),
+                totalCash: Money.parse('1000', 'USD'),
+                monthlyIncome: Money.parse('5000', 'USD'),
+                monthlySpending: Money.parse('1200', 'USD'),
+                safeToSpend: Money.parse('300', 'USD'),
+                paceStatus: const PaceStatus(
+                  percentOfBudgetUsed: 40,
+                  daysElapsedRatio: 0.5,
+                ),
               ),
             ),
-          ),
-          dashboardDueItemsProvider.overrideWith((ref) async => const []),
-          goalsProvider.overrideWith(() => _GoalsNotifier()),
-          budgetsProvider.overrideWith(() => _BudgetsNotifier()),
-          transactionsProvider.overrideWith(() => _TransactionsNotifier()),
-          categoriesProvider.overrideWith(() => _CategoriesNotifier()),
-          aikoInsightsProvider.overrideWith(
-            (ref) async => const [
-              AikoInsight(
-                id: 'food-up',
-                userId: 'user',
-                type: AikoInsightType.diagnostic,
-                title: 'Food spending increased',
-                description:
-                    'Food spending increased from real transaction data.',
-                recommendation: 'Review recent dining transactions.',
-                confidenceScore: 0.82,
-                sourceDataSummary: ['transactions'],
-              ),
-            ],
-          ),
-        ],
-        child: MaterialApp(
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+            dashboardDueItemsProvider.overrideWith((ref) async => const []),
+            goalsProvider.overrideWith(() => _GoalsNotifier()),
+            budgetsProvider.overrideWith(() => _BudgetsNotifier()),
+            transactionsProvider.overrideWith(() => _TransactionsNotifier()),
+            categoriesProvider.overrideWith(() => _CategoriesNotifier()),
+            aikoInsightsProvider.overrideWith(
+              (ref) async => const [
+                AikoInsight(
+                  id: 'food-up',
+                  userId: 'user',
+                  type: AikoInsightType.diagnostic,
+                  title: 'Food spending increased',
+                  description:
+                      'Food spending increased from real transaction data.',
+                  recommendation: 'Review recent dining transactions.',
+                  confidenceScore: 0.82,
+                  sourceDataSummary: ['transactions'],
+                ),
+              ],
+            ),
           ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          theme: AikoTheme.light(),
-          home: const HomeDashboardScreen(),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AikoTheme.light(),
+            home: const HomeDashboardScreen(),
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.text('Food spending increased'),
-      400,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('Food spending increased'), findsOneWidget);
-    expect(find.textContaining('Review'), findsWidgets);
-    expect(find.text('Aiko Review'), findsOneWidget);
-  });
+      await tester.scrollUntilVisible(
+        find.text('Food spending increased'),
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Food spending increased'), findsOneWidget);
+      expect(find.textContaining('Review'), findsWidgets);
+      expect(find.text('Aiko Review'), findsNothing);
+      expect(find.text('Open monthly review'), findsNothing);
+    },
+  );
 }
 
 class _GoalsNotifier extends GoalsNotifier {

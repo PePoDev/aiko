@@ -194,8 +194,6 @@ class _BudgetDetailScreenState extends ConsumerState<_BudgetDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Budget details'),
@@ -254,16 +252,7 @@ class _BudgetDetailScreenState extends ConsumerState<_BudgetDetailScreen> {
                   label: 'Status',
                   value: _statusLabel(_budget.status),
                 ),
-                const SizedBox(height: 16),
-                Text('Pace', style: textTheme.titleSmall),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: const LinearProgressIndicator(
-                    value: 0.0,
-                    color: AikoColors.warningOrange,
-                  ),
-                ),
+
               ],
             ),
           ),

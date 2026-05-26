@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
@@ -192,6 +193,18 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Aiko Optimize',
+            onPressed: () => context.push('/aiko-optimize'),
+            icon: const Icon(Icons.tune_outlined),
+          ),
+          IconButton(
+            tooltip: 'Aiko Review',
+            onPressed: () => context.push('/aiko-review'),
+            icon: const Icon(Icons.rate_review_outlined),
+          ),
+        ],
       ),
       body: Column(
         children: [

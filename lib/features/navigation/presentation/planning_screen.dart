@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 
 class PlanningScreen extends StatelessWidget {
@@ -29,6 +28,70 @@ class PlanningScreen extends StatelessWidget {
       icon: Icons.event_repeat_outlined,
       color: AikoColors.primaryBlue,
     ),
+    _PlanningItem(
+      title: 'Debt and Loans',
+      description: 'Compare snowball and avalanche payoff plans.',
+      path: '/debt-loans',
+      icon: Icons.payments_outlined,
+      color: AikoColors.warningOrange,
+    ),
+    _PlanningItem(
+      title: 'Credit Cards',
+      description: 'Review limits, APR, rewards, and utilization.',
+      path: '/credit-cards',
+      icon: Icons.credit_card_outlined,
+      color: AikoColors.primaryBlue,
+    ),
+    _PlanningItem(
+      title: 'Accounts',
+      description:
+          'Manage bank, cash, wallet, credit, loan, and asset accounts.',
+      path: '/accounts',
+      icon: Icons.account_balance_wallet_outlined,
+      color: AikoColors.primaryBlue,
+    ),
+    _PlanningItem(
+      title: 'Categories',
+      description: 'Organize transaction and budget categories.',
+      path: '/categories',
+      icon: Icons.category_outlined,
+      color: AikoColors.analyticsTeal,
+    ),
+    _PlanningItem(
+      title: 'Assets',
+      description: 'Log assets and net worth records.',
+      path: '/assets',
+      icon: Icons.home_work_outlined,
+      color: AikoColors.analyticsTeal,
+    ),
+    _PlanningItem(
+      title: 'Tax Center',
+      description: 'Review tax summaries, deductions, and estimates.',
+      path: '/tax-center',
+      icon: Icons.request_quote_outlined,
+      color: AikoColors.warningOrange,
+    ),
+    _PlanningItem(
+      title: 'Accounting',
+      description: 'Review journals, reconciliation, and ledger balances.',
+      path: '/accounting',
+      icon: Icons.fact_check_outlined,
+      color: AikoColors.primaryBlue,
+    ),
+    _PlanningItem(
+      title: 'Portfolio',
+      description: 'Track holdings, gains, allocation, and rebalance alerts.',
+      path: '/portfolio',
+      icon: Icons.show_chart_outlined,
+      color: AikoColors.analyticsTeal,
+    ),
+    _PlanningItem(
+      title: 'Travel Mode',
+      description: 'Plan trips, currencies, and travel budgets.',
+      path: '/travel-mode',
+      icon: Icons.flight_takeoff_outlined,
+      color: AikoColors.primaryBlue,
+    ),
   ];
 
   @override
@@ -38,15 +101,6 @@ class PlanningScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         children: [
-          const FinanceCard(
-            title: 'Planning',
-            icon: Icons.route_outlined,
-            prominent: true,
-            child: Text(
-              'Keep budgets, goals, and recurring commitments in one place.',
-            ),
-          ),
-          const SizedBox(height: 16),
           for (final item in _items)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),

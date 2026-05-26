@@ -38,6 +38,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Hi, I am Aiko'), findsOneWidget);
+      expect(find.text('Pace'), findsNothing);
       expect(find.text('Weekly leftover estimate'), findsNothing);
       expect(find.text('Safe this week'), findsOneWidget);
     },

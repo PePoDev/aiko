@@ -89,7 +89,7 @@ void main() {
                 userId: 'user',
                 name: 'Cash Wallet',
                 type: AccountType.cash,
-                openingBalance: Money.zero('USD'),
+                openingBalance: Money.parse('120', 'USD'),
                 currentBalance: Money.parse('120', 'USD'),
               ),
             ]),

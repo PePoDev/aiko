@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../features/accounting/presentation/accounting_screen.dart';
 import '../features/accounts/presentation/accounts_screen.dart';
 import '../features/aiko_assistant/presentation/aiko_assistant_screen.dart';
-import '../features/aiko_character/presentation/aiko_character_settings_screen.dart';
 import '../features/aiko_optimize/presentation/aiko_optimize_screen.dart';
 import '../features/assets/presentation/assets_net_worth_screen.dart';
 import '../features/auth/presentation/auth_screens.dart';
@@ -21,7 +20,6 @@ import '../features/goals/presentation/goals_overview_screen.dart';
 import '../features/import_export/presentation/import_export_screen.dart';
 import '../features/learning_hub/presentation/learning_hub_screen.dart';
 import '../features/monetization/presentation/plan_matrix_screen.dart';
-import '../features/navigation/presentation/more_screen.dart';
 import '../features/navigation/presentation/planning_screen.dart';
 import '../features/onboarding/presentation/onboarding_screens.dart';
 import '../features/portfolio/presentation/portfolio_screen.dart';
@@ -117,11 +115,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
                 _fadePage(context, state, const AikoAssistantScreen()),
           ),
           GoRoute(
-            path: '/more',
-            pageBuilder: (context, state) =>
-                _fadePage(context, state, const MoreScreen()),
-          ),
-          GoRoute(
             path: '/accounts',
             builder: (context, state) => const AccountsScreen(),
           ),
@@ -136,10 +129,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
           GoRoute(
             path: '/profile',
             builder: (context, state) => const ProfileScreen(),
-          ),
-          GoRoute(
-            path: '/aiko-character',
-            builder: (context, state) => const AikoCharacterSettingsScreen(),
           ),
           GoRoute(
             path: '/import-export-backup',

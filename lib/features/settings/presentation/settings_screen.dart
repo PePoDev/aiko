@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/aiko_navigation.dart';
 import '../../../app/providers.dart';
 import '../../../app/locale_controller.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
-import '../../auth/data/auth_repository.dart';
 import '../domain/profile.dart';
 import '../../../core/security/persistent_secure_app_lock_service.dart';
 import '../../../core/security/biometric_auth_adapter.dart';
@@ -21,14 +21,68 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  final _authRepository = AuthRepository();
-  var _isSigningOut = false;
-  var _isDeleting = false;
-
   final _lockService = PersistentSecureAppLockService(
     storage: FlutterSecureStorageService(),
   );
   final _bioAdapter = LocalBiometricAuthAdapter();
+
+  static const _currencies = [
+    'THB',
+    'USD',
+    'EUR',
+    'GBP',
+    'JPY',
+    'CNY',
+    'AUD',
+    'CAD',
+    'CHF',
+    'HKD',
+    'SGD',
+    'SEK',
+    'KRW',
+    'NOK',
+    'NZD',
+    'INR',
+    'MXN',
+    'TWD',
+    'ZAR',
+    'BRL',
+    'DKK',
+    'PLN',
+    'IDR',
+    'CZK',
+    'ILS',
+    'CLP',
+    'PHP',
+    'AED',
+    'COP',
+    'SAR',
+    'MYR',
+    'RON',
+    'VND',
+    'TRY',
+  ];
+
+  static const _countries = {
+    'TH': 'Thailand',
+    'US': 'United States',
+    'GB': 'United Kingdom',
+    'JP': 'Japan',
+    'DE': 'Germany',
+    'FR': 'France',
+    'CA': 'Canada',
+    'AU': 'Australia',
+    'BR': 'Brazil',
+    'IN': 'India',
+    'KR': 'South Korea',
+    'MX': 'Mexico',
+    'SG': 'Singapore',
+    'ID': 'Indonesia',
+    'PH': 'Philippines',
+    'VN': 'Vietnam',
+    'MY': 'Malaysia',
+    'TW': 'Taiwan',
+  };
 
   Future<void> _showSecuritySettings() async {
     final status = await _lockService.currentStatus();
@@ -185,66 +239,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Future<void> _handleLogout() async {
-    setState(() => _isSigningOut = true);
-    try {
-      await _authRepository.signOut();
-      if (!mounted) {
-        return;
-      }
-      context.go('/');
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _isSigningOut = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to log out right now.')),
-      );
-    }
-  }
-
-  Future<void> _handleDeleteAccount() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Account?'),
-        content: const Text(
-          'This will permanently delete your account and all associated data. '
-          'This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: AikoColors.dangerRed,
-            ),
-            child: const Text('Delete Account'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    setState(() => _isDeleting = true);
-    try {
-      await _authRepository.deleteAccount();
-      if (!mounted) return;
-      context.go('/');
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isDeleting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to delete account right now.')),
-      );
-    }
-  }
-
   Future<void> _showLanguageSettings(Locale currentLocale) async {
     await showModalBottomSheet<void>(
       context: context,
@@ -364,6 +358,148 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Future<void> _showRegionalPreferences(Profile profile) async {
+    var selectedCurrency = _currencies.contains(profile.baseCurrency)
+        ? profile.baseCurrency
+        : 'THB';
+    var selectedCountry = _countries.containsKey(profile.country)
+        ? profile.country
+        : 'TH';
+    var isSaving = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  20,
+                  20,
+                  24 + MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Regional preferences',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedCurrency,
+                      decoration: const InputDecoration(
+                        labelText: 'Base currency',
+                        prefixIcon: Icon(Icons.attach_money),
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _currencies
+                          .map(
+                            (currency) => DropdownMenuItem(
+                              value: currency,
+                              child: Text(currency),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: isSaving
+                          ? null
+                          : (value) {
+                              if (value == null) return;
+                              setModalState(() => selectedCurrency = value);
+                            },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedCountry,
+                      decoration: const InputDecoration(
+                        labelText: 'Country',
+                        prefixIcon: Icon(Icons.flag_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _countries.entries
+                          .map(
+                            (entry) => DropdownMenuItem(
+                              value: entry.key,
+                              child: Text('${entry.value} (${entry.key})'),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: isSaving
+                          ? null
+                          : (value) {
+                              if (value == null) return;
+                              setModalState(() => selectedCountry = value);
+                            },
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: isSaving
+                          ? null
+                          : () async {
+                              setModalState(() => isSaving = true);
+                              try {
+                                await ref
+                                    .read(profileRepositoryProvider)
+                                    .save(
+                                      profile.copyWith(
+                                        baseCurrency: selectedCurrency,
+                                        country: selectedCountry,
+                                      ),
+                                    );
+                                ref.invalidate(profileProvider);
+                                if (!mounted || !context.mounted) return;
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Regional preferences updated!',
+                                    ),
+                                    backgroundColor: AikoColors.successGreen,
+                                  ),
+                                );
+                              } catch (_) {
+                                if (!mounted || !context.mounted) return;
+                                setModalState(() => isSaving = false);
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Unable to update regional preferences right now.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                      icon: isSaving
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.save_outlined),
+                      label: Text(isSaving ? 'Saving...' : 'Save changes'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentLocale =
@@ -394,6 +530,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: 'Security',
                   onTap: _showSecuritySettings,
                 ),
+                const Divider(),
+                _SettingsRow(
+                  icon: Icons.lock_person_outlined,
+                  title: 'Lock screen',
+                  subtitle: 'Preview the locked app state',
+                  onTap: () => context.push('/locked'),
+                ),
               ],
             ),
           ),
@@ -421,87 +564,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   subtitle: currentLanguage,
                   onTap: () => _showLanguageSettings(currentLocale),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          FinanceCard(
-            title: 'Money workspace',
-            icon: Icons.account_balance_wallet_outlined,
-            accentColor: AikoColors.analyticsTeal,
-            child: Column(
-              children: [
-                const _SettingsRow(
+                const Divider(),
+                _SettingsRow(
                   icon: Icons.public,
-                  title: 'Currency',
-                  subtitle: 'Base currency and regional formats',
-                ),
-                const Divider(),
-                _SettingsRow(
-                  icon: Icons.notifications_outlined,
-                  title: 'Notifications',
-                  subtitle: 'Budget alerts, bills, and reminders',
-                  onTap: () => context.push('/notification-settings'),
-                ),
-                const Divider(),
-                _SettingsRow(
-                  icon: Icons.import_export,
-                  title: 'Import, export, and backup',
-                  subtitle: 'Move data in and out of Aiko',
-                  onTap: () => context.push('/import-export-backup'),
+                  title: 'Regional preferences',
+                  subtitle: profile == null
+                      ? 'Loading...'
+                      : '${profile.baseCurrency} • ${_countryLabelFor(profile.country)}',
+                  onTap: profile == null
+                      ? null
+                      : () => _showRegionalPreferences(profile),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          FinanceCard(
-            title: 'Plan',
-            icon: Icons.workspace_premium_outlined,
-            accentColor: AikoColors.premiumPurple,
-            child: _SettingsRow(
-              icon: Icons.auto_awesome_outlined,
-              title: 'Subscription plan',
-              subtitle: 'Free, Premium, and Pro features',
-              onTap: () => context.push('/subscription-plan'),
-            ),
-          ),
-          const SizedBox(height: 16),
-          FinanceCard(
-            title: 'Account',
-            icon: Icons.account_circle_outlined,
-            accentColor: AikoColors.dangerRed,
-            child: Column(
-              children: [
-                _SettingsRow(
-                  icon: Icons.logout,
-                  title: _isSigningOut ? 'Logging out...' : 'Log out',
-                  subtitle: 'End this session on this device',
-                  color: AikoColors.dangerRed,
-                  trailing: _isSigningOut
-                      ? const SizedBox.square(
-                          dimension: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.chevron_right),
-                  onTap: _isSigningOut ? null : _handleLogout,
-                ),
-                const Divider(),
-                _SettingsRow(
-                  icon: Icons.delete_forever,
-                  title: _isDeleting ? 'Deleting...' : 'Delete account',
-                  subtitle: 'Permanently delete your account and all data',
-                  color: AikoColors.dangerRed,
-                  trailing: _isDeleting
-                      ? const SizedBox.square(
-                          dimension: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.chevron_right),
-                  onTap: _isDeleting ? null : _handleDeleteAccount,
-                ),
-              ],
-            ),
-          ),
+          for (final group in aikoNavigationGroups) ...[
+            const SizedBox(height: 16),
+            _SettingsNavigationGroupCard(group: group),
+          ],
         ],
       ),
     );
@@ -534,6 +614,49 @@ String _languageLabelFor(Locale locale) {
   return 'Thai (ไทย)';
 }
 
+String _countryLabelFor(String countryCode) {
+  switch (countryCode) {
+    case 'TH':
+      return 'Thailand';
+    case 'US':
+      return 'United States';
+    case 'GB':
+      return 'United Kingdom';
+    case 'JP':
+      return 'Japan';
+    case 'DE':
+      return 'Germany';
+    case 'FR':
+      return 'France';
+    case 'CA':
+      return 'Canada';
+    case 'AU':
+      return 'Australia';
+    case 'BR':
+      return 'Brazil';
+    case 'IN':
+      return 'India';
+    case 'KR':
+      return 'South Korea';
+    case 'MX':
+      return 'Mexico';
+    case 'SG':
+      return 'Singapore';
+    case 'ID':
+      return 'Indonesia';
+    case 'PH':
+      return 'Philippines';
+    case 'VN':
+      return 'Vietnam';
+    case 'MY':
+      return 'Malaysia';
+    case 'TW':
+      return 'Taiwan';
+    default:
+      return countryCode;
+  }
+}
+
 String _themeLabel(PreferredTheme theme) {
   switch (theme) {
     case PreferredTheme.system:
@@ -561,32 +684,82 @@ class _SettingsRow extends StatelessWidget {
     required this.icon,
     required this.title,
     this.subtitle,
-    this.color,
-    this.trailing,
     this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String? subtitle;
-  final Color? color;
-  final Widget? trailing;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final textStyle = color == null
-        ? null
-        : Theme.of(context).textTheme.titleSmall?.copyWith(color: color);
-
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: color),
-      title: Text(title, style: textStyle),
+      leading: Icon(icon),
+      title: Text(title),
       subtitle: subtitle == null ? null : Text(subtitle!),
-      trailing:
-          trailing ?? (onTap == null ? null : const Icon(Icons.chevron_right)),
+      trailing: onTap == null ? null : const Icon(Icons.chevron_right),
       onTap: onTap,
+    );
+  }
+}
+
+class _SettingsNavigationGroupCard extends StatelessWidget {
+  const _SettingsNavigationGroupCard({required this.group});
+
+  final AikoNavigationGroup group;
+
+  @override
+  Widget build(BuildContext context) {
+    return FinanceCard(
+      title: group.title,
+      icon: _iconForGroup(group.title),
+      accentColor: _colorForGroup(group.title),
+      child: Column(
+        children: [
+          for (var index = 0; index < group.items.length; index++) ...[
+            if (index > 0) const Divider(),
+            _SettingsNavigationTile(item: group.items[index]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  IconData _iconForGroup(String title) {
+    return switch (title) {
+      'Insights and AI' => Icons.auto_awesome_outlined,
+      'Tools and Data' => Icons.widgets_outlined,
+      'Settings and Security' => Icons.admin_panel_settings_outlined,
+      _ => Icons.apps_outlined,
+    };
+  }
+
+  Color _colorForGroup(String title) {
+    return switch (title) {
+      'Insights and AI' => AikoColors.premiumPurple,
+      'Tools and Data' => AikoColors.analyticsTeal,
+      'Settings and Security' => AikoColors.primaryBlue,
+      _ => AikoColors.primaryBlue,
+    };
+  }
+}
+
+class _SettingsNavigationTile extends StatelessWidget {
+  const _SettingsNavigationTile({required this.item});
+
+  final AikoNavigationItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(item.icon, color: item.accentColor),
+      title: Text(item.label),
+      subtitle: item.description.isEmpty ? null : Text(item.description),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => context.push(item.path),
     );
   }
 }

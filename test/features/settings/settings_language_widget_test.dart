@@ -1,4 +1,5 @@
 import 'package:aiko/app/locale_controller.dart';
+import 'package:aiko/app/app_router.dart';
 import 'package:aiko/app/providers.dart';
 import 'package:aiko/features/settings/data/profile_repository.dart';
 import 'package:aiko/features/settings/domain/profile.dart';
@@ -120,6 +121,87 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.savedProfile?.preferredTheme, PreferredTheme.dark);
+  });
+
+  testWidgets('settings contains former hub feature routes', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileRepositoryProvider.overrideWithValue(
+            _FakeProfileRepository(_profile),
+          ),
+        ],
+        child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const SettingsScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Notifications'), findsOneWidget);
+    expect(find.text('Import, Export, Backup'), findsOneWidget);
+
+    for (final label in const [
+      'Learning Hub',
+      'Calculators',
+      'Reports',
+      'Export',
+      'Import, Export, Backup',
+      'Devices',
+      'Subscription Plan',
+    ]) {
+      expect(find.text(label), findsOneWidget);
+    }
+
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Aiko Hub'), findsNothing);
+  });
+
+  testWidgets('settings can open the lock screen preview', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileRepositoryProvider.overrideWithValue(
+            _FakeProfileRepository(_profile),
+          ),
+        ],
+        child: MaterialApp.router(
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          routerConfig: createAikoRouter(initialLocation: '/settings'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Lock screen'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Aiko is locked'), findsOneWidget);
+    expect(find.text('Unlock'), findsOneWidget);
   });
 }
 

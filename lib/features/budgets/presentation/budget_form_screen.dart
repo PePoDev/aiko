@@ -838,15 +838,28 @@ class _DailySpendingCategorySelector extends ConsumerWidget {
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 8),
-            for (final category in activeExpenseCategories)
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                value: selectedCategoryIds.contains(category.id),
-                title: Text(category.name),
-                controlAffinity: ListTileControlAffinity.leading,
-                onChanged: (selected) =>
-                    onChanged(category.id, selected ?? false),
+            Container(
+              height: 180,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
               ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: activeExpenseCategories.length,
+                itemBuilder: (context, index) {
+                  final category = activeExpenseCategories[index];
+                  return CheckboxListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    value: selectedCategoryIds.contains(category.id),
+                    title: Text(category.name),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    onChanged: (selected) =>
+                        onChanged(category.id, selected ?? false),
+                  );
+                },
+              ),
+            ),
           ],
         );
       },

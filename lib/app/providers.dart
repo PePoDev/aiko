@@ -163,16 +163,35 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
   @override
   Future<List<Category>> build() async {
     final repo = ref.watch(categoryRepositoryProvider);
-    final categories = await repo.list();
-    if (categories.isNotEmpty) {
-      return categories;
-    }
+    final customCategories = await repo.list();
+    return _combineWithDefaults(customCategories);
+  }
 
-    final defaults = const CategoryService().defaultCategoriesFor('local-user');
-    for (final category in defaults) {
-      await repo.save(category);
-    }
-    return repo.list();
+  List<Category> _combineWithDefaults(List<Category> customCategories) {
+    final filteredCustom = customCategories
+        .where((cat) => !cat.isDefault)
+        .toList(growable: false);
+
+    final userId = filteredCustom.isNotEmpty
+        ? filteredCustom.first.userId
+        : 'local-user';
+
+    final defaults = const CategoryService().defaultCategoriesFor(userId);
+
+    // Filter out any default category that has a name/type conflict with custom categories
+    final customKeys = filteredCustom
+        .map((cat) => '${cat.name.toLowerCase()}-${cat.type.name}')
+        .toSet();
+
+    final uniqueDefaults = defaults.where((cat) {
+      final key = '${cat.name.toLowerCase()}-${cat.type.name}';
+      return !customKeys.contains(key);
+    }).toList(growable: false);
+
+    return [
+      ...filteredCustom,
+      ...uniqueDefaults,
+    ];
   }
 
   Future<void> addCategory(Category category) async {
@@ -184,7 +203,8 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(categoryRepositoryProvider);
       await repo.save(category);
-      return repo.list();
+      final customCategories = await repo.list();
+      return _combineWithDefaults(customCategories);
     });
     if (state.hasError) {
       Error.throwWithStackTrace(state.error!, state.stackTrace!);
@@ -196,7 +216,8 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(categoryRepositoryProvider);
       await repo.delete(id);
-      return repo.list();
+      final customCategories = await repo.list();
+      return _combineWithDefaults(customCategories);
     });
     if (state.hasError) {
       Error.throwWithStackTrace(state.error!, state.stackTrace!);

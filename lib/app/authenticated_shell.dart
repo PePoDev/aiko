@@ -37,10 +37,10 @@ class AuthenticatedShell extends StatelessWidget {
         selectedIcon: Icons.route,
       ),
       _AikoNavItem(
-        label: l10n.aikoHub,
-        path: '/more',
-        icon: Icons.grid_view_outlined,
-        selectedIcon: Icons.grid_view_rounded,
+        label: l10n.settingsTitle,
+        path: '/settings',
+        icon: Icons.settings_outlined,
+        selectedIcon: Icons.settings,
       ),
     ];
   }
@@ -83,35 +83,32 @@ class AuthenticatedShell extends StatelessWidget {
     if (location.startsWith('/planning') ||
         location.startsWith('/budget') ||
         location.startsWith('/goals') ||
-        location.startsWith('/bills')) {
-      return 3;
-    }
-    if (location.startsWith('/more') || _isSecondaryRoute(location)) {
-      return 4;
-    }
-    return 0;
-  }
-
-  bool _isSecondaryRoute(String location) {
-    return location.startsWith('/accounts') ||
-        location.startsWith('/transaction-rules') ||
+        location.startsWith('/bills') ||
+        location.startsWith('/accounts') ||
         location.startsWith('/categories') ||
-        location.startsWith('/aiko-review') ||
-        location.startsWith('/reports') ||
-        location.startsWith('/export') ||
-        location.startsWith('/calculators') ||
-        location.startsWith('/settings') ||
-        location.startsWith('/aiko-character') ||
-        location.startsWith('/import-export-backup') ||
-        location.startsWith('/notification-settings') ||
         location.startsWith('/credit-cards') ||
         location.startsWith('/debt-loans') ||
         location.startsWith('/portfolio') ||
         location.startsWith('/assets') ||
         location.startsWith('/tax-center') ||
         location.startsWith('/accounting') ||
+        location.startsWith('/travel-mode')) {
+      return 3;
+    }
+    if (location.startsWith('/settings') || _isSecondaryRoute(location)) {
+      return 4;
+    }
+    return 0;
+  }
+
+  bool _isSecondaryRoute(String location) {
+    return location.startsWith('/transaction-rules') ||
+        location.startsWith('/reports') ||
+        location.startsWith('/export') ||
+        location.startsWith('/calculators') ||
+        location.startsWith('/import-export-backup') ||
+        location.startsWith('/notification-settings') ||
         location.startsWith('/learning-hub') ||
-        location.startsWith('/travel-mode') ||
         location.startsWith('/devices') ||
         location.startsWith('/subscription-plan');
   }

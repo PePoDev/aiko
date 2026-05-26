@@ -160,6 +160,46 @@ void main() {
     expect(find.byIcon(Icons.coffee_outlined), findsWidgets);
   });
 
+  testWidgets('category rows use compact list tiles', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              const Category(
+                id: 'coffee',
+                userId: 'user',
+                name: 'Coffee',
+                type: CategoryType.expense,
+                group: CategoryGroup.wants,
+                icon: 'coffee',
+                color: '#8B5CF6',
+                budgetEnabled: true,
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const CategoryManagementScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final rowFinder = find.ancestor(
+      of: find.text('Coffee'),
+      matching: find.byType(ListTile),
+    );
+
+    expect(rowFinder, findsOneWidget);
+
+    final row = tester.widget<ListTile>(rowFinder);
+    expect(row.dense, isTrue);
+    expect(row.visualDensity, VisualDensity.compact);
+  });
+
   testWidgets('category details color follows category transaction type', (
     tester,
   ) async {

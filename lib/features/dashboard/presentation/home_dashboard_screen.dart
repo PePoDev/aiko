@@ -33,11 +33,6 @@ class HomeDashboardScreen extends ConsumerWidget {
         title: Text(l10n.overview),
         actions: [
           IconButton(
-            tooltip: l10n.aikoHub,
-            onPressed: () => context.push('/more'),
-            icon: const Icon(Icons.grid_view_outlined),
-          ),
-          IconButton(
             tooltip: l10n.settingsTitle,
             onPressed: () => context.push('/settings'),
             icon: const Icon(Icons.settings_outlined),
@@ -66,36 +61,6 @@ class HomeDashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             const _OverviewQuickStatsRow(),
-            const SizedBox(height: 16),
-            FinanceCard(
-              title: l10n.monthlyCashFlow,
-              icon: Icons.trending_up,
-              accentColor: AikoColors.analyticsTeal,
-              child: Column(
-                children: [
-                  _MetricLine(
-                    label: l10n.income,
-                    value: summary.monthlyIncome.format(),
-                    color: AikoColors.successGreen,
-                  ),
-                  const SizedBox(height: 8),
-                  _MetricLine(
-                    label: l10n.spending,
-                    value: summary.monthlySpending.format(),
-                    color: AikoColors.warningOrange,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            FinanceCard(
-              title: l10n.pace,
-              icon: Icons.speed,
-              accentColor: AikoColors.deepBlue,
-              child: Text(
-                summary.paceStatus.isFast ? l10n.paceAhead : l10n.paceOnTrack,
-              ),
-            ),
             const SizedBox(height: 16),
             const _OverviewAnalyticsWidgets(),
             const SizedBox(height: 16),
@@ -518,12 +483,7 @@ class _OverviewInsightsSection extends ConsumerWidget {
               );
             },
           ),
-          if (insights.isEmpty)
-            AikoScreenState.empty(
-              title: l10n.noTransactions,
-              message: l10n.dashboardUnavailableMessage,
-            )
-          else
+          if (insights.isNotEmpty)
             for (final insight in insights) ...[
               FinanceCard(
                 title: insight.title,
@@ -546,24 +506,6 @@ class _OverviewInsightsSection extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
             ],
-          FinanceCard(
-            title: 'Aiko Review',
-            icon: Icons.summarize_outlined,
-            accentColor: AikoColors.premiumPurple,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'A calm monthly summary with estimates, trends, and next steps.',
-                ),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: () => context.push('/aiko-review'),
-                  child: const Text('Open monthly review'),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -1864,36 +1806,6 @@ class _CategoryUsage {
   final double used;
   final double budget;
   final Color color;
-}
-
-class _MetricLine extends StatelessWidget {
-  const _MetricLine({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 8),
-        Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
-        Text(value, style: theme.textTheme.titleSmall),
-      ],
-    );
-  }
 }
 
 DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);

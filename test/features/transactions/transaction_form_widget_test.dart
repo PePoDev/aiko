@@ -618,7 +618,154 @@ void main() {
     expect(find.text('Convert to USD?'), findsNothing);
   });
 
-  testWidgets('item name input suggests existing item names on focus', (
+  testWidgets(
+    'item name input suggests on focus when empty and narrows after typing',
+    (tester) async {
+      final repository = _FakeTransactionRepository([
+        _transaction(merchant: 'Coffee Beans'),
+        _transaction(id: 'tx-2', merchant: 'Monthly Rent'),
+      ]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            transactionRepositoryProvider.overrideWithValue(repository),
+            categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+            accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AikoTheme.light(),
+            home: const TransactionFormScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextField, 'Item name'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Coffee Beans'), findsOneWidget);
+      expect(find.text('Monthly Rent'), findsOneWidget);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Item name'),
+        'cof',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Coffee Beans'), findsOneWidget);
+      expect(find.text('Monthly Rent'), findsNothing);
+
+      await tester.tap(find.text('Coffee Beans').last);
+      await tester.pumpAndSettle();
+
+      final itemField = tester.widget<TextField>(
+        find.widgetWithText(TextField, 'Item name'),
+      );
+      expect(itemField.controller?.text, 'Coffee Beans');
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Item name'),
+        'Coffee Beans',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Coffee Beans'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'item name focus with empty input shows five most recent suggestions',
+    (tester) async {
+      final repository = _FakeTransactionRepository([
+        _transaction(
+          id: 'tx-1',
+          merchant: 'Old Item',
+          date: DateTime(2026, 1, 1),
+        ),
+        _transaction(
+          id: 'tx-2',
+          merchant: 'Second Newest',
+          date: DateTime(2026, 1, 7),
+        ),
+        _transaction(
+          id: 'tx-3',
+          merchant: 'Newest Item',
+          date: DateTime(2026, 1, 8),
+        ),
+        _transaction(
+          id: 'tx-4',
+          merchant: 'Fourth Item',
+          date: DateTime(2026, 1, 5),
+        ),
+        _transaction(
+          id: 'tx-5',
+          merchant: 'Third Item',
+          date: DateTime(2026, 1, 6),
+        ),
+        _transaction(
+          id: 'tx-6',
+          merchant: 'Fifth Item',
+          date: DateTime(2026, 1, 4),
+        ),
+      ]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            transactionRepositoryProvider.overrideWithValue(repository),
+            categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+            accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AikoTheme.light(),
+            home: const TransactionFormScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextField, 'Item name'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('transaction-item-name-option-Newest Item')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('transaction-item-name-option-Second Newest')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('transaction-item-name-option-Third Item')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('transaction-item-name-option-Fourth Item')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('transaction-item-name-option-Fifth Item')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('item name suggestions disappear after losing focus', (
     tester,
   ) async {
     final repository = _FakeTransactionRepository([
@@ -651,17 +798,73 @@ void main() {
     await tester.tap(find.widgetWithText(TextField, 'Item name'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Coffee Beans'), findsOneWidget);
-    expect(find.text('Monthly Rent'), findsOneWidget);
+    expect(
+      find.byKey(const Key('transaction-item-name-option-Coffee Beans')),
+      findsOneWidget,
+    );
 
-    await tester.tap(find.text('Coffee Beans').last);
+    await tester.tap(find.byKey(const Key('transaction-amount-field')));
     await tester.pumpAndSettle();
 
-    final itemField = tester.widget<TextField>(
-      find.widgetWithText(TextField, 'Item name'),
+    expect(
+      find.byKey(const Key('transaction-item-name-option-Coffee Beans')),
+      findsNothing,
     );
-    expect(itemField.controller?.text, 'Coffee Beans');
   });
+
+  testWidgets(
+    'item name suggestions are filtered by selected transaction type',
+    (tester) async {
+      final repository = _FakeTransactionRepository([
+        _transaction(merchant: 'Coffee Beans', type: TransactionType.expense),
+        _transaction(
+          id: 'tx-2',
+          merchant: 'Monthly Salary',
+          type: TransactionType.income,
+        ),
+      ]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            transactionRepositoryProvider.overrideWithValue(repository),
+            categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+            accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AikoTheme.light(),
+            home: const TransactionFormScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextField, 'Item name'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Coffee Beans'), findsOneWidget);
+      expect(find.text('Monthly Salary'), findsNothing);
+
+      await tester.enterText(find.widgetWithText(TextField, 'Item name'), 'm');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Coffee Beans'), findsNothing);
+      expect(find.text('Monthly Salary'), findsNothing);
+
+      await tester.tap(find.text('Income'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Coffee Beans'), findsNothing);
+      expect(find.text('Monthly Salary'), findsOneWidget);
+    },
+  );
 
   testWidgets('tag input suggests existing tags and saves chips', (
     tester,
@@ -758,6 +961,64 @@ void main() {
       'work',
       'reimbursable',
     ]);
+  });
+
+  testWidgets('tag suggestions are filtered by selected transaction type', (
+    tester,
+  ) async {
+    final repository = _FakeTransactionRepository([
+      _transaction(
+        tags: const ['groceries', 'daily'],
+        type: TransactionType.expense,
+      ),
+      _transaction(
+        id: 'tx-2',
+        tags: const ['payroll', 'bonus'],
+        type: TransactionType.income,
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(repository),
+          categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+          accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('transaction-tags-field')),
+      'gr',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('groceries'), findsOneWidget);
+    expect(find.text('payroll'), findsNothing);
+
+    await tester.tap(find.text('Income'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('transaction-tags-field')),
+      'pa',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('groceries'), findsNothing);
+    expect(find.text('payroll'), findsOneWidget);
   });
 
   testWidgets('blank item name saves selected category name as merchant', (
@@ -1125,14 +1386,16 @@ FinanceTransaction _transaction({
   String id = 'tx-1',
   String? merchant,
   List<String> tags = const [],
+  TransactionType type = TransactionType.expense,
+  DateTime? date,
 }) {
   return FinanceTransaction(
     id: id,
     userId: 'user',
     accountId: 'cash',
-    type: TransactionType.expense,
+    type: type,
     amount: Money.parse('1', 'USD'),
-    date: DateTime(2026, 1, 1),
+    date: date ?? DateTime(2026, 1, 1),
     merchant: merchant,
     tags: tags,
   );

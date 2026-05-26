@@ -1200,7 +1200,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           const SizedBox(height: 16),
           _ItemNameInput(
             controller: _titleController,
-            suggestions: _itemNameSuggestionsFrom(transactionsAsync),
+            suggestions: _itemNameSuggestionsFrom(
+              transactionsAsync,
+              selectedType: _transactionTypeFromFormType(_type),
+            ),
           ),
           const SizedBox(height: 16),
           Row(
@@ -1335,7 +1338,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
           _TagInput(
             tags: _tags,
-            suggestions: _tagSuggestionsFrom(transactionsAsync),
+            suggestions: _tagSuggestionsFrom(
+              transactionsAsync,
+              selectedType: _transactionTypeFromFormType(_type),
+            ),
             inputController: _tagInputController,
             focusNode: _tagFocusNode,
             onAddTag: _addTag,
@@ -1534,7 +1540,20 @@ class _ItemNameInputState extends State<_ItemNameInput> {
   bool _showSuggestions = false;
 
   @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_handleFocusChange);
+  }
+
+  void _handleFocusChange() {
+    if (!_focusNode.hasFocus && _showSuggestions) {
+      setState(() => _showSuggestions = false);
+    }
+  }
+
+  @override
   void dispose() {
+    _focusNode.removeListener(_handleFocusChange);
     _focusNode.dispose();
     super.dispose();
   }
@@ -1560,13 +1579,14 @@ class _ItemNameInputState extends State<_ItemNameInput> {
             elevation: 4,
             borderRadius: BorderRadius.circular(8),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 220),
+              constraints: const BoxConstraints(maxHeight: 280),
               child: ListView(
                 padding: EdgeInsets.zero,
                 shrinkWrap: true,
                 children: [
                   for (final option in options)
                     ListTile(
+                      key: Key('transaction-item-name-option-$option'),
                       dense: true,
                       title: Text(option),
                       onTap: () {
@@ -2789,12 +2809,14 @@ String _categoryGroupLabel(CategoryGroup group) {
 }
 
 List<String> _tagSuggestionsFrom(
-  AsyncValue<List<FinanceTransaction>> transactionsAsync,
-) {
+  AsyncValue<List<FinanceTransaction>> transactionsAsync, {
+  required TransactionType selectedType,
+}) {
   final tags =
       transactionsAsync
           .whenOrNull(data: (transactions) => transactions)
-          ?.expand((transaction) => transaction.tags)
+          ?.where((transaction) => transaction.type == selectedType)
+          .expand((transaction) => transaction.tags)
           .map((tag) => tag.trim())
           .where((tag) => tag.isNotEmpty)
           .toSet()
@@ -2805,18 +2827,39 @@ List<String> _tagSuggestionsFrom(
 }
 
 List<String> _itemNameSuggestionsFrom(
-  AsyncValue<List<FinanceTransaction>> transactionsAsync,
-) {
-  final names =
-      transactionsAsync
-          .whenOrNull(data: (transactions) => transactions)
-          ?.map((transaction) => transaction.merchant?.trim() ?? '')
-          .where((name) => name.isNotEmpty)
-          .toSet()
-          .toList() ??
-      <String>[];
-  names.sort();
+  AsyncValue<List<FinanceTransaction>> transactionsAsync, {
+  required TransactionType selectedType,
+}) {
+  final transactions =
+      transactionsAsync.whenOrNull(data: (transactions) => transactions) ??
+      const <FinanceTransaction>[];
+  final filteredTransactions =
+      transactions
+          .where((transaction) => transaction.type == selectedType)
+          .toList(growable: false)
+        ..sort((a, b) => b.date.compareTo(a.date));
+
+  final seen = <String>{};
+  final names = <String>[];
+  for (final transaction in filteredTransactions) {
+    final name = transaction.merchant?.trim() ?? '';
+    if (name.isEmpty) {
+      continue;
+    }
+    final normalizedName = name.toLowerCase();
+    if (seen.add(normalizedName)) {
+      names.add(name);
+    }
+  }
   return names;
+}
+
+TransactionType _transactionTypeFromFormType(String formType) {
+  return switch (formType) {
+    'income' => TransactionType.income,
+    'transfer' => TransactionType.transfer,
+    _ => TransactionType.expense,
+  };
 }
 
 List<String> _filteredItemNameSuggestions(
@@ -2825,9 +2868,12 @@ List<String> _filteredItemNameSuggestions(
 ) {
   final query = input.trim().toLowerCase();
   if (query.isEmpty) {
-    return suggestions;
+    return suggestions.take(5).toList(growable: false);
   }
   return suggestions
-      .where((item) => item.toLowerCase().contains(query))
+      .where((item) {
+        final normalizedItem = item.trim().toLowerCase();
+        return normalizedItem.contains(query) && normalizedItem != query;
+      })
       .toList(growable: false);
 }

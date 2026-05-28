@@ -90,4 +90,29 @@ void main() {
     expect(find.text('Route not found'), findsOneWidget);
     expect(find.text('Trusted Devices'), findsNothing);
   });
+
+  testWidgets('router no longer exposes the removed lock screen route', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp.router(
+        locale: const Locale('en'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: AikoTheme.light(),
+        routerConfig: createAikoRouter(initialLocation: '/locked'),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Route not found'), findsOneWidget);
+    expect(find.text('Aiko is locked'), findsNothing);
+    expect(find.text('Unlock'), findsNothing);
+  });
 }

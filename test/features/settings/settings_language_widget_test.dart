@@ -123,6 +123,37 @@ void main() {
     expect(repository.savedProfile?.preferredTheme, PreferredTheme.dark);
   });
 
+  testWidgets('settings no longer exposes regional preferences', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileRepositoryProvider.overrideWithValue(
+            _FakeProfileRepository(_profile),
+          ),
+        ],
+        child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const SettingsScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Regional preferences'), findsNothing);
+    expect(find.text('THB \u2022 Thailand'), findsNothing);
+  });
+
   testWidgets('settings contains former hub feature routes', (tester) async {
     await tester.binding.setSurfaceSize(const Size(800, 1400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -170,9 +201,12 @@ void main() {
     expect(find.text('Aiko Hub'), findsNothing);
     expect(find.text('Subscription Plan'), findsNothing);
     expect(find.text('Devices'), findsNothing);
+    expect(find.text('Lock screen'), findsNothing);
   });
 
-  testWidgets('settings can open the lock screen preview', (tester) async {
+  testWidgets('settings no longer exposes the lock screen preview', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -197,11 +231,9 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Lock screen'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Aiko is locked'), findsOneWidget);
-    expect(find.text('Unlock'), findsOneWidget);
+    expect(find.text('Lock screen'), findsNothing);
+    expect(find.text('Aiko is locked'), findsNothing);
+    expect(find.text('Unlock'), findsNothing);
   });
 }
 

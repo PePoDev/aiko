@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/auth_repository.dart';
 import '../../../shared/widgets/finance_card.dart';
-import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -308,22 +307,6 @@ class _LoginScreenState extends State<LoginScreen> {
             child: const Text('Reset password'),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class LockedScreen extends StatelessWidget {
-  const LockedScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: AikoScreenState.locked(key: const Key('locked-state')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/home'),
-        icon: const Icon(Icons.lock_open),
-        label: const Text('Unlock'),
       ),
     );
   }

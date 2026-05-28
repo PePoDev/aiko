@@ -26,64 +26,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   );
   final _bioAdapter = LocalBiometricAuthAdapter();
 
-  static const _currencies = [
-    'THB',
-    'USD',
-    'EUR',
-    'GBP',
-    'JPY',
-    'CNY',
-    'AUD',
-    'CAD',
-    'CHF',
-    'HKD',
-    'SGD',
-    'SEK',
-    'KRW',
-    'NOK',
-    'NZD',
-    'INR',
-    'MXN',
-    'TWD',
-    'ZAR',
-    'BRL',
-    'DKK',
-    'PLN',
-    'IDR',
-    'CZK',
-    'ILS',
-    'CLP',
-    'PHP',
-    'AED',
-    'COP',
-    'SAR',
-    'MYR',
-    'RON',
-    'VND',
-    'TRY',
-  ];
-
-  static const _countries = {
-    'TH': 'Thailand',
-    'US': 'United States',
-    'GB': 'United Kingdom',
-    'JP': 'Japan',
-    'DE': 'Germany',
-    'FR': 'France',
-    'CA': 'Canada',
-    'AU': 'Australia',
-    'BR': 'Brazil',
-    'IN': 'India',
-    'KR': 'South Korea',
-    'MX': 'Mexico',
-    'SG': 'Singapore',
-    'ID': 'Indonesia',
-    'PH': 'Philippines',
-    'VN': 'Vietnam',
-    'MY': 'Malaysia',
-    'TW': 'Taiwan',
-  };
-
   Future<void> _showSecuritySettings() async {
     final status = await _lockService.currentStatus();
     final canUseBio = await _bioAdapter.canAuthenticate();
@@ -358,148 +300,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Future<void> _showRegionalPreferences(Profile profile) async {
-    var selectedCurrency = _currencies.contains(profile.baseCurrency)
-        ? profile.baseCurrency
-        : 'THB';
-    var selectedCountry = _countries.containsKey(profile.country)
-        ? profile.country
-        : 'TH';
-    var isSaving = false;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      isScrollControlled: true,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  20,
-                  20,
-                  24 + MediaQuery.of(context).viewInsets.bottom,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Regional preferences',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedCurrency,
-                      decoration: const InputDecoration(
-                        labelText: 'Base currency',
-                        prefixIcon: Icon(Icons.attach_money),
-                        border: OutlineInputBorder(),
-                      ),
-                      items: _currencies
-                          .map(
-                            (currency) => DropdownMenuItem(
-                              value: currency,
-                              child: Text(currency),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: isSaving
-                          ? null
-                          : (value) {
-                              if (value == null) return;
-                              setModalState(() => selectedCurrency = value);
-                            },
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedCountry,
-                      decoration: const InputDecoration(
-                        labelText: 'Country',
-                        prefixIcon: Icon(Icons.flag_outlined),
-                        border: OutlineInputBorder(),
-                      ),
-                      items: _countries.entries
-                          .map(
-                            (entry) => DropdownMenuItem(
-                              value: entry.key,
-                              child: Text('${entry.value} (${entry.key})'),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: isSaving
-                          ? null
-                          : (value) {
-                              if (value == null) return;
-                              setModalState(() => selectedCountry = value);
-                            },
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: isSaving
-                          ? null
-                          : () async {
-                              setModalState(() => isSaving = true);
-                              try {
-                                await ref
-                                    .read(profileRepositoryProvider)
-                                    .save(
-                                      profile.copyWith(
-                                        baseCurrency: selectedCurrency,
-                                        country: selectedCountry,
-                                      ),
-                                    );
-                                ref.invalidate(profileProvider);
-                                if (!mounted || !context.mounted) return;
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(this.context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Regional preferences updated!',
-                                    ),
-                                    backgroundColor: AikoColors.successGreen,
-                                  ),
-                                );
-                              } catch (_) {
-                                if (!mounted || !context.mounted) return;
-                                setModalState(() => isSaving = false);
-                                ScaffoldMessenger.of(this.context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Unable to update regional preferences right now.',
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
-                      icon: isSaving
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.save_outlined),
-                      label: Text(isSaving ? 'Saving...' : 'Save changes'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final currentLocale =
@@ -530,13 +330,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: 'Security',
                   onTap: _showSecuritySettings,
                 ),
-                const Divider(),
-                _SettingsRow(
-                  icon: Icons.lock_person_outlined,
-                  title: 'Lock screen',
-                  subtitle: 'Preview the locked app state',
-                  onTap: () => context.push('/locked'),
-                ),
               ],
             ),
           ),
@@ -563,17 +356,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: 'Language',
                   subtitle: currentLanguage,
                   onTap: () => _showLanguageSettings(currentLocale),
-                ),
-                const Divider(),
-                _SettingsRow(
-                  icon: Icons.public,
-                  title: 'Regional preferences',
-                  subtitle: profile == null
-                      ? 'Loading...'
-                      : '${profile.baseCurrency} • ${_countryLabelFor(profile.country)}',
-                  onTap: profile == null
-                      ? null
-                      : () => _showRegionalPreferences(profile),
                 ),
               ],
             ),
@@ -612,49 +394,6 @@ String _languageLabelFor(Locale locale) {
     }
   }
   return 'Thai (ไทย)';
-}
-
-String _countryLabelFor(String countryCode) {
-  switch (countryCode) {
-    case 'TH':
-      return 'Thailand';
-    case 'US':
-      return 'United States';
-    case 'GB':
-      return 'United Kingdom';
-    case 'JP':
-      return 'Japan';
-    case 'DE':
-      return 'Germany';
-    case 'FR':
-      return 'France';
-    case 'CA':
-      return 'Canada';
-    case 'AU':
-      return 'Australia';
-    case 'BR':
-      return 'Brazil';
-    case 'IN':
-      return 'India';
-    case 'KR':
-      return 'South Korea';
-    case 'MX':
-      return 'Mexico';
-    case 'SG':
-      return 'Singapore';
-    case 'ID':
-      return 'Indonesia';
-    case 'PH':
-      return 'Philippines';
-    case 'VN':
-      return 'Vietnam';
-    case 'MY':
-      return 'Malaysia';
-    case 'TW':
-      return 'Taiwan';
-    default:
-      return countryCode;
-  }
 }
 
 String _themeLabel(PreferredTheme theme) {

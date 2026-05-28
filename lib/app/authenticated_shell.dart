@@ -108,9 +108,7 @@ class AuthenticatedShell extends StatelessWidget {
         location.startsWith('/calculators') ||
         location.startsWith('/import-export-backup') ||
         location.startsWith('/notification-settings') ||
-        location.startsWith('/learning-hub') ||
-        location.startsWith('/devices') ||
-        location.startsWith('/subscription-plan');
+        location.startsWith('/learning-hub');
   }
 }
 

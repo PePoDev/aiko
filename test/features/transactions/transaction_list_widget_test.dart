@@ -1,3 +1,4 @@
+import 'package:aiko/app/app_router.dart';
 import 'package:aiko/app/providers.dart';
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
@@ -5,9 +6,11 @@ import 'package:aiko/features/categories/data/category_repository.dart';
 import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/transactions/data/transaction_repository.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
+import 'package:aiko/l10n/app_localizations.dart';
 import 'package:aiko/theme/aiko_colors.dart';
 import 'package:aiko/theme/aiko_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 
@@ -114,6 +117,74 @@ void main() {
 
     expect(find.text('Categories'), findsOneWidget);
     expect(find.text('Salary'), findsOneWidget);
+  });
+
+  testWidgets('transaction list opens categories without bottom navigation', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _transactionsRouterApp(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(
+            const _FakeTransactionRepository([]),
+          ),
+          categoryRepositoryProvider.overrideWithValue(
+            const _FakeCategoryRepository([]),
+          ),
+        ],
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Transactions'), findsWidgets);
+    expect(find.text('Planning'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Categories'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Categories'), findsOneWidget);
+    expect(find.text('Transactions'), findsNothing);
+    expect(find.text('Planning'), findsNothing);
+  });
+
+  testWidgets('transaction list opens accounts without bottom navigation', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _transactionsRouterApp(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(
+            const _FakeTransactionRepository([]),
+          ),
+          accountsProvider.overrideWith(
+            () => _AccountsNotifier([
+              Account(
+                id: 'cash',
+                userId: 'user',
+                name: 'Cash Wallet',
+                type: AccountType.cash,
+                openingBalance: Money.zero('USD'),
+                currentBalance: Money.parse('25', 'USD'),
+              ),
+            ]),
+          ),
+        ],
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Transactions'), findsWidgets);
+    expect(find.text('Planning'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Accounts'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Accounts'), findsOneWidget);
+    expect(find.text('Cash Wallet'), findsOneWidget);
+    expect(find.text('Transactions'), findsNothing);
+    expect(find.text('Planning'), findsNothing);
   });
 
   testWidgets('transaction list plus opens transaction form directly', (
@@ -348,6 +419,17 @@ void main() {
     expect(find.text('Cash Wallet (\$120.00)'), findsOneWidget);
     expect(find.byIcon(Icons.coffee_outlined), findsOneWidget);
     expect(find.textContaining('09:30'), findsNothing);
+
+    final transactionCard = tester.widget<Card>(
+      find
+          .ancestor(of: find.text('Coffee Shop'), matching: find.byType(Card))
+          .first,
+    );
+    expect(transactionCard.shape, isA<RoundedRectangleBorder>());
+    expect(
+      (transactionCard.shape! as RoundedRectangleBorder).borderRadius,
+      BorderRadius.circular(8),
+    );
   });
 
   testWidgets(
@@ -531,6 +613,24 @@ class _FakeCategoryRepository extends CategoryRepository {
 
   @override
   Future<Category> save(Category category) async => category;
+}
+
+Widget _transactionsRouterApp({required List<Object?> overrides}) {
+  return ProviderScope(
+    overrides: overrides.cast(),
+    child: MaterialApp.router(
+      locale: const Locale('en'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      theme: AikoTheme.light(),
+      routerConfig: createAikoRouter(initialLocation: '/transactions'),
+    ),
+  );
 }
 
 class _StaleListAfterDeleteTransactionRepository extends TransactionRepository {

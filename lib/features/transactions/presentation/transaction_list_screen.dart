@@ -90,14 +90,14 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
             ),
           IconButton(
             tooltip: 'Accounts',
-            onPressed: () => Navigator.of(context).push(
+            onPressed: () => Navigator.of(context, rootNavigator: true).push(
               MaterialPageRoute<void>(builder: (_) => const AccountsScreen()),
             ),
             icon: const Icon(Icons.account_balance_wallet_outlined),
           ),
           IconButton(
             tooltip: 'Categories',
-            onPressed: () => Navigator.of(context).push(
+            onPressed: () => Navigator.of(context, rootNavigator: true).push(
               MaterialPageRoute<void>(
                 builder: (_) => const CategoryManagementScreen(),
               ),
@@ -106,7 +106,7 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
           ),
           IconButton(
             tooltip: 'Rules',
-            onPressed: () => Navigator.of(context).push(
+            onPressed: () => Navigator.of(context, rootNavigator: true).push(
               MaterialPageRoute<void>(
                 builder: (_) => const TransactionRulesScreen(),
               ),
@@ -129,7 +129,7 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.of(context).push(
+        onPressed: () => Navigator.of(context, rootNavigator: true).push(
           MaterialPageRoute<void>(
             builder: (_) => const TransactionFormScreen(),
           ),
@@ -280,7 +280,7 @@ class _TransactionMonthPage extends ConsumerWidget {
                     ? AikoColors.successGreen
                     : AikoColors.dangerRed,
                 sign: tx.type == TransactionType.income ? '+' : '-',
-                onTap: () => Navigator.of(context).push(
+                onTap: () => Navigator.of(context, rootNavigator: true).push(
                   MaterialPageRoute<void>(
                     builder: (_) => TransactionDetailScreen(transaction: tx),
                   ),
@@ -453,6 +453,7 @@ class _CompactTransactionCard extends ConsumerWidget {
     final title = transaction.merchant ?? transaction.note ?? 'Transaction';
     final amount = '$sign${transaction.amount.format()}';
     final tagsLabel = transaction.tags.map((tag) => '#$tag').join(' ');
+    final radius = BorderRadius.circular(8);
     final categoriesAsync = ref.watch(categoriesProvider);
     final categoryIcon =
         categoriesAsync.whenOrNull(
@@ -471,9 +472,14 @@ class _CompactTransactionCard extends ConsumerWidget {
             : Icons.north_east);
 
     return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: radius,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(

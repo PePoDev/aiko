@@ -114,6 +114,20 @@ void main() {
       expect(find.text('Safe this week'), findsOneWidget);
       expect(find.text('\$300.00'), findsOneWidget);
       expect(find.text('Estimate'), findsOneWidget);
+
+      final miniCard = tester.widget<Card>(
+        find
+            .ancestor(
+              of: find.text('Safe this week'),
+              matching: find.byType(Card),
+            )
+            .first,
+      );
+      expect(miniCard.shape, isA<RoundedRectangleBorder>());
+      expect(
+        (miniCard.shape! as RoundedRectangleBorder).borderRadius,
+        BorderRadius.circular(8),
+      );
     },
   );
 

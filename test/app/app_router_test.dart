@@ -42,4 +42,52 @@ void main() {
     expect(find.text('Route not found'), findsOneWidget);
     expect(find.text('Aiko Hub'), findsNothing);
   });
+
+  testWidgets('router no longer exposes the removed subscription plan route', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp.router(
+        locale: const Locale('en'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: AikoTheme.light(),
+        routerConfig: createAikoRouter(initialLocation: '/subscription-plan'),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Route not found'), findsOneWidget);
+    expect(find.text('Subscription Plan'), findsNothing);
+  });
+
+  testWidgets('router no longer exposes the removed devices route', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp.router(
+        locale: const Locale('en'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: AikoTheme.light(),
+        routerConfig: createAikoRouter(initialLocation: '/devices'),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Route not found'), findsOneWidget);
+    expect(find.text('Trusted Devices'), findsNothing);
+  });
 }

@@ -71,7 +71,7 @@ void main() {
     expect(find.text('Income'), findsOneWidget);
     expect(find.text('Expense'), findsOneWidget);
     expect(find.text('Default'), findsNWidgets(2));
-    expect(find.text('Custom'), findsNWidgets(2));
+    expect(find.text('Custom'), findsNWidgets(3));
     expect(find.text('Salary'), findsOneWidget);
     expect(find.text('Side Hustle'), findsOneWidget);
     expect(find.text('Groceries'), findsOneWidget);
@@ -198,6 +198,8 @@ void main() {
     final row = tester.widget<ListTile>(rowFinder);
     expect(row.dense, isTrue);
     expect(row.visualDensity, VisualDensity.compact);
+    expect(find.text('Wants'), findsOneWidget);
+    expect(find.text('Wants - Expense'), findsNothing);
   });
 
   testWidgets('category details color follows category transaction type', (

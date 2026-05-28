@@ -160,8 +160,6 @@ void main() {
       'Reports',
       'Export',
       'Import, Export, Backup',
-      'Devices',
-      'Subscription Plan',
     ]) {
       expect(find.text(label), findsOneWidget);
     }
@@ -170,6 +168,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Aiko Hub'), findsNothing);
+    expect(find.text('Subscription Plan'), findsNothing);
+    expect(find.text('Devices'), findsNothing);
   });
 
   testWidgets('settings can open the lock screen preview', (tester) async {

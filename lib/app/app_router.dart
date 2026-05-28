@@ -15,11 +15,9 @@ import '../features/credit_cards/presentation/credit_card_overview_screen.dart';
 import '../features/export/presentation/export_screen.dart';
 import '../features/dashboard/presentation/home_dashboard_screen.dart';
 import '../features/debt_loans/presentation/debt_payoff_plan_screen.dart';
-import '../features/devices/presentation/devices_screen.dart';
 import '../features/goals/presentation/goals_overview_screen.dart';
 import '../features/import_export/presentation/import_export_screen.dart';
 import '../features/learning_hub/presentation/learning_hub_screen.dart';
-import '../features/monetization/presentation/plan_matrix_screen.dart';
 import '../features/navigation/presentation/planning_screen.dart';
 import '../features/onboarding/presentation/onboarding_screens.dart';
 import '../features/portfolio/presentation/portfolio_screen.dart';
@@ -183,16 +181,8 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             builder: (context, state) => const TravelModeScreen(),
           ),
           GoRoute(
-            path: '/devices',
-            builder: (context, state) => const DevicesScreen(),
-          ),
-          GoRoute(
             path: '/aiko-optimize',
             builder: (context, state) => const AikoOptimizeScreen(),
-          ),
-          GoRoute(
-            path: '/subscription-plan',
-            builder: (context, state) => const PlanMatrixScreen(),
           ),
         ],
       ),

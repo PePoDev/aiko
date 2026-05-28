@@ -76,19 +76,6 @@ const aikoNavigationGroups = [
         icon: Icons.notifications_outlined,
         description: 'Configure bill, budget, goal, and insight alerts.',
       ),
-      AikoNavigationItem(
-        label: 'Devices',
-        path: '/devices',
-        icon: Icons.devices_outlined,
-        description: 'Review trusted devices and active sessions.',
-      ),
-      AikoNavigationItem(
-        label: 'Subscription Plan',
-        path: '/subscription-plan',
-        icon: Icons.workspace_premium_outlined,
-        description: 'Compare Free, Premium, and Pro access.',
-        accentColor: AikoColors.premiumPurple,
-      ),
     ],
   ),
 ];

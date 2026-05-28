@@ -390,7 +390,7 @@ class _CategoryListCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
           subtitle: Text(
-            '$groupLabel - $typeLabel',
+            groupLabel,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

@@ -268,6 +268,7 @@ class _OverviewMiniCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final radius = BorderRadius.circular(8);
     final content = Padding(
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -332,11 +333,12 @@ class _OverviewMiniCard extends StatelessWidget {
     );
 
     return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: content,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(onTap: onTap, borderRadius: radius, child: content),
     );
   }
 }

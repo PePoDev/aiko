@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/aiko_colors.dart';
 
-class FinanceCard extends StatefulWidget {
+class FinanceCard extends StatelessWidget {
   const FinanceCard({
     required this.title,
     required this.child,
@@ -23,83 +23,59 @@ class FinanceCard extends StatefulWidget {
   final VoidCallback? onTap;
 
   @override
-  State<FinanceCard> createState() => _FinanceCardState();
-}
-
-class _FinanceCardState extends State<FinanceCard> {
-  var _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final accent = widget.accentColor ?? colorScheme.primary;
+    final accent = accentColor ?? colorScheme.primary;
+    final radius = BorderRadius.circular(8);
+    final shape = RoundedRectangleBorder(
+      borderRadius: radius,
+      side: BorderSide(color: colorScheme.outlineVariant),
+    );
 
     final content = Padding(
-      padding: EdgeInsets.all(widget.prominent ? 20 : 16),
+      padding: EdgeInsets.all(prominent ? 20 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              if (widget.icon != null) ...[
-                _CardIcon(icon: widget.icon!, color: accent),
+              if (icon != null) ...[
+                _CardIcon(icon: icon!, color: accent),
                 const SizedBox(width: 12),
               ],
               Expanded(
                 child: Text(
-                  widget.title,
+                  title,
                   style: theme.textTheme.titleMedium,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (widget.trailing != null) ...[
+              if (trailing != null) ...[
                 const SizedBox(width: 12),
-                Flexible(child: widget.trailing!),
+                Flexible(child: trailing!),
               ],
             ],
           ),
-          SizedBox(height: widget.prominent ? 16 : 12),
+          SizedBox(height: prominent ? 16 : 12),
           DefaultTextStyle.merge(
             style: theme.textTheme.bodyMedium,
-            child: widget.child,
+            child: child,
           ),
         ],
       ),
     );
 
     return Semantics(
-      button: widget.onTap != null,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 140),
-          curve: Curves.easeOut,
-          scale: _hovered && widget.onTap != null ? 1.01 : 1,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: _hovered && widget.onTap != null
-                  ? [
-                      BoxShadow(
-                        color: accent.withValues(alpha: 0.14),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ]
-                  : const [],
-            ),
-            child: Card(
-              child: widget.onTap == null
-                  ? content
-                  : InkWell(onTap: widget.onTap, child: content),
-            ),
-          ),
-        ),
+      button: onTap != null,
+      container: true,
+      child: Card(
+        shape: shape,
+        clipBehavior: Clip.antiAlias,
+        child: onTap == null
+            ? content
+            : InkWell(borderRadius: radius, onTap: onTap, child: content),
       ),
     );
   }

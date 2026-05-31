@@ -44,10 +44,10 @@ The app uses GoRouter for routing and is structured around a bottom navigation s
 *   `/learning-hub` - Financial education courses & quizzes
 *   `/settings` - Profile, Security (PIN/Biometric), Sync settings
 
-### Screenshot Reference Coverage
-The May 31, 2026 reference batches are product coverage targets, not a separate theme. Existing feature screens remain the source of truth; screenshot-specific states are integrated as subroutes, menu tools, or inline actions to avoid duplicated screens.
+### Idea Reference Coverage
+The May 31, 2026 reference idea boards are product coverage targets, not a separate theme. Existing feature screens remain the source of truth; idea-specific states are integrated as subroutes, menu tools, or inline actions to avoid duplicated screens.
 
-| Batch | Product Coverage | Implemented Route Examples |
+| Idea | Product Coverage | Implemented Route Examples |
 | :--- | :--- | :--- |
 | 1 | Core app, onboarding, dashboard, accounts | `/notifications`, `/dashboard/monthly-overview`, `/dashboard/customize` |
 | 2 | Transactions, split/OCR, categories, accounts | `/transactions/search`, `/transactions/split`, `/transactions/receipt-review` |
@@ -55,7 +55,7 @@ The May 31, 2026 reference batches are product coverage targets, not a separate 
 | 4 | Credit, debt, loans, net worth, portfolio, tax | `/credit-cards/detail`, `/debt-overview`, `/loans/detail`, `/net-worth`, `/portfolio/allocation`, `/portfolio/holding`, `/tax-analytics` |
 | 5 | Aiko AI, calculators, settings, extras | `/aiko-insights`, `/loan-calculator`, `/calculator-result`, `/profile-security` |
 
-Product rule: when a screenshot overlaps an existing feature, improve the existing flow instead of creating a parallel screen.
+Product rule: when an idea board overlaps an existing feature, improve the existing flow instead of creating a parallel screen.
 
 ---
 
@@ -129,7 +129,7 @@ Saved calculations store as `SavedCalculatorScenario` and can be converted into 
 ## 7. UX Acceptance Criteria
 *   **Offline-first usability:** Supplemental product routes must render useful local/demo states without requiring Supabase authentication.
 *   **Task completion:** Search/filter, save, confirm, split, and calculator result screens use clear primary actions, preferably sticky bottom actions on mobile.
-*   **No duplicate destinations:** Main tabs own core workflows; extra screenshot states are exposed through existing navigation, action menus, or detail routes.
+*   **No duplicate destinations:** Main tabs own core workflows; extra idea-board states are exposed through existing navigation, action menus, or detail routes.
 *   **Financial clarity:** Primary balances, progress, and risk states appear before supporting Aiko guidance.
 *   **Accessibility:** Icons need semantic labels or adjacent text where meaning is not obvious.
 
@@ -145,7 +145,7 @@ Saved calculations store as `SavedCalculatorScenario` and can be converted into 
 ---
 
 ## 9. Product Milestones
-*   **Core Release Foundation:** Blue design system & Aiko onboarding, basic accounts/transactions tracking, transaction rules, monthly budgets, goals/savings plans, basic dashboards with Pace/Leftover, CSV export, screenshot-backed supplemental flows, reusable SVG icons, and 6 core calculators (Compound Interest, Loan, CC Payoff, Savings Goal, ROI, Currency).
+*   **Core Release Foundation:** Blue design system & Aiko onboarding, basic accounts/transactions tracking, transaction rules, monthly budgets, goals/savings plans, basic dashboards with Pace/Leftover, CSV export, idea-backed supplemental flows, reusable SVG icons, and 6 core calculators (Compound Interest, Loan, CC Payoff, Savings Goal, ROI, Currency).
 *   **Phased Development:**
     *   *Phase 1-2:* Basic tracking, dashboards, budgeting, and recurring rules.
     *   *Phase 3-4:* Aiko Insights, forecasting, chat, credit cards, debt payoff, and net worth tracking.

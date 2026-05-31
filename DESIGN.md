@@ -66,6 +66,16 @@ Use a three-layer token model.
 
 Do not add one-off colors or radii to feature screens when a token or theme value exists.
 
+Design documentation roles:
+
+| File | Role |
+|---|---|
+| `PRODUCT.md` | Product scope, feature coverage, acceptance criteria |
+| `DESIGN.md` | Visual system, screen patterns, component rules, QA checklist |
+| `README.md` | Contributor setup, architecture rules, high-level implementation map |
+
+When these files conflict, use `PRODUCT.md` for what the product must do and `DESIGN.md` for how the UI must behave and look.
+
 ## Color System
 
 ### Primitive Tokens
@@ -264,6 +274,17 @@ Examples: Goals, Learning Hub, Calculators, Reports.
 - Calculators show inputs, result, and conversion action in that order.
 - Reports show chart summary text before or beside chart visuals.
 
+### Supplemental Detail And Tool Screens
+
+Examples: transaction filters, split transaction, receipt review, monthly overview, budget pace, cash flow Sankey, loan calculator, calculator result, profile security.
+
+- These screens extend an existing feature. They must not become duplicate top-level destinations.
+- The first viewport shows the task object: amount, account, goal, receipt, loan, report period, or security state.
+- Required completion actions use a sticky bottom bar on mobile.
+- Optional controls stay in the scroll body.
+- Demo or preview data is allowed only for offline/sample states. Persisted workflows must still use feature repositories.
+- Aiko guidance follows the user decision or primary metric, except Aiko chat and onboarding.
+
 ### Placeholder And Expansion Screens
 
 - Placeholder screens must state what the feature will do and give one next action.
@@ -364,6 +385,26 @@ Rules:
 - Track color uses outline variant or surface strong.
 - Progress height: 8px compact, 10-12px dashboard.
 
+### Shared Data Widgets
+
+Use `lib/shared/widgets/aiko_data_widgets.dart` for idea-backed supplemental screens and any new finance detail screen that needs the same patterns.
+
+| Widget | Use |
+|---|---|
+| `AikoDetailScaffold` | Detail/tool screens with consistent app bar, scroll body, and optional sticky bottom action |
+| `AikoInlineNotice` | Aiko tips, warnings, review notes, and contextual explanations |
+| `AikoMetricCard` / `AikoMetricGrid` | Compact financial summaries |
+| `AikoProgressBar` / `AikoProgressRow` | Budget, debt, goal, portfolio, and tax progress |
+| `AikoDataListCard` / `AikoDataRow` | Grouped facts and settings-style rows |
+| `AikoMiniBarChart`, `AikoDonutChart`, `AikoGauge`, `AikoSankeyPreview` | Lightweight preview charts when full analytics are not required |
+
+Rules:
+
+- Prefer these widgets over local one-off cards or custom painters.
+- Keep chart previews labeled with adjacent summary text.
+- Do not nest `AikoDataListCard` inside another card.
+- Use sticky bottom actions only through `AikoDetailScaffold.bottomBar` unless a feature has an established pattern.
+
 ### Empty, Loading, Error, Offline
 
 Use `AikoScreenState` unless a screen needs a specialized state.
@@ -384,6 +425,11 @@ Use `AikoScreenState` unless a screen needs a specialized state.
 - Accounts own balances, currency, account type, active state, and net-worth inclusion.
 - Settings owns app configuration, profile, privacy, security, sync, notification, and route links.
 - Aiko screens own AI explanation, suggestions, review, optimization, and chat.
+- Dashboard owns monthly overview, dashboard customization, notification entry, and cross-feature summary cards.
+- Reports own generated summaries and monthly report presentation.
+- Calculators own calculator input, result, saved scenario, and conversion actions.
+- Portfolio owns holdings and allocation detail. Assets/net worth own household asset summaries.
+- Debt and credit screens own payoff, utilization, loan, and statement detail states.
 
 ## Motion And Interaction
 
@@ -423,11 +469,14 @@ Rules:
 - Theme values live in `lib/theme/aiko_colors.dart`, `lib/theme/aiko_theme.dart`, and `lib/theme/aiko_typography.dart`.
 - Shared UI primitives live in `lib/shared/widgets/`.
 - Feature screens consume shared primitives instead of re-creating card, button, empty-state, or picker styles.
+- Idea-backed detail/tool screens should use `AikoDetailScaffold` and the data widgets in `lib/shared/widgets/aiko_data_widgets.dart`.
 - Use `Money` for all money values.
 - Use Riverpod providers for state.
 - Screens do not call persistence APIs directly.
 - Prefer `AikoScreenState` for loading, empty, error, offline, locked, and permission states.
 - When adding a custom component, cover default, pressed, focused, disabled, loading, error, and success where applicable.
+- Required SVG assets are covered by `test/shared/widgets/aiko_svg_assets_test.dart`.
+- Supplemental route coverage lives in `test/app/idea_route_coverage_test.dart`.
 
 ## Route And Screen Application Map
 
@@ -440,13 +489,13 @@ Apply the system in batches:
 5. Aiko and learning screens: Aiko Assistant, Aiko Optimize, Aiko Review, Learning Hub, Subscription Plan.
 6. Placeholder screens: Accounting, import/export, calculators, saved scenarios, future expansion screens.
 
-## Screenshot Reference Coverage
+## Idea Reference Coverage
 
-The May 31, 2026 screenshot batches are product references for layout density, screen hierarchy, and feature coverage. They are not separate themes. Existing screens keep their current functionality and absorb the useful screenshot states through subroutes, menus, or inline tools.
+The May 31, 2026 idea boards are product references for layout density, screen hierarchy, and feature coverage. They are not separate themes. Existing screens keep their current functionality and absorb the useful idea states through subroutes, menus, or inline tools.
 
 Core route groups:
 
-| Screenshot group | Existing owner | Supplemental routes |
+| Idea group | Existing owner | Supplemental routes |
 |---|---|---|
 | Core app screens | Auth, onboarding, dashboard, accounts | `/notifications`, `/dashboard/monthly-overview`, `/dashboard/customize` |
 | Transactions, categories, accounts | Transactions, categories, accounts | `/transactions/search`, `/transactions/split`, `/transactions/receipt-review` |
@@ -456,11 +505,24 @@ Core route groups:
 
 Rules:
 
-- Do not duplicate an existing feature screen just to match a screenshot. Add a tool, detail route, menu item, or state inside the owning feature.
+- Do not duplicate an existing feature screen just to match an idea board. Add a tool, detail route, menu item, or state inside the owning feature.
 - Use sticky bottom actions for filter, save, confirm, and calculator result screens when the action is required to complete the task.
-- Keep screenshot-inspired sample data realistic and clearly scoped to preview or offline states. Real repositories remain the source of persisted user data.
+- Keep idea-inspired sample data realistic and clearly scoped to preview or offline states. Real repositories remain the source of persisted user data.
 - Aiko guidance appears after the primary number or user decision, except onboarding and assistant chat where Aiko is the primary interaction.
 - Every supplemental route must render without a Supabase session so offline/local mode remains usable.
+
+Entry point expectations:
+
+| Owner screen | Expected access pattern |
+|---|---|
+| Home dashboard | App bar actions for notifications, monthly overview, and customization |
+| Transactions | Search stays in the app bar; advanced filters use the filter action; split and receipt review remain transaction tools |
+| Budget | Budget tools menu exposes pace, safe-to-spend, cash flow, and Sankey views |
+| Goals | Goal tools menu exposes saving plan, chance of success, and goal detail |
+| Reports | Monthly report opens from the reports list, not a separate tab |
+| Calculators | Calculator hub links to focused calculators and result states |
+| Planning | Planning links own credit, debt, net worth, portfolio, assets, tax, and related finance workspaces |
+| Settings | Settings owns profile, security, privacy, sync, and notification preferences |
 
 ## SVG Icon Assets
 
@@ -496,6 +558,8 @@ Icon rules:
 - Do not mix filled, duotone, and outline SVG styles in the same control group.
 - Use Material icons in Flutter when the icon is purely platform-standard and already provided. Use the SVG set for brand-owned navigation, exports, and reusable assets.
 - Add tests for new required SVG assets before relying on them in UI.
+- Icon-only buttons must have a tooltip or semantic label.
+- Use `currentColor` in SVG assets. Do not hardcode brand blue inside the SVG path.
 
 ## Per-Screen QA Checklist
 
@@ -503,6 +567,7 @@ Before a screen is considered design-complete:
 
 - The main user task is visible in the first viewport.
 - The primary action is obvious.
+- Required completion actions stay reachable while scrolling.
 - Financial numbers appear before AI guidance.
 - Each number has context: date, account, category, period, or target.
 - Lists are compact and tappable.
@@ -514,4 +579,6 @@ Before a screen is considered design-complete:
 - Text does not overlap or clip at small phone widths.
 - Dark theme has enough contrast.
 - Aiko appears only when useful.
+- The screen does not duplicate an existing main feature route.
+- Widget tests cover critical rendering and interactions.
 

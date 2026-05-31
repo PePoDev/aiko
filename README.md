@@ -31,17 +31,29 @@ Aiko is not just an expense tracker. It's a **personal financial operating syste
 
 ---
 
-## Screenshots
+## Design Ideas
 
-The May 31, 2026 reference screenshot batches are implemented as in-app flows and supplemental detail states. They guide layout density, screen hierarchy, icon coverage, and Aiko placement; `DESIGN.md` is the detailed route-by-route design source.
+The May 31, 2026 reference idea boards are implemented as in-app flows and supplemental detail states. They guide layout density, screen hierarchy, icon coverage, and Aiko placement; `DESIGN.md` is the detailed route-by-route design source.
 
-| Batch | Coverage |
+| Idea | Coverage |
 | --- | --- |
-| Batch 1 | Core app screens: splash, onboarding, login, dashboard, notifications, accounts, safe-to-spend, customization |
-| Batch 2 | Transactions, transaction detail, add/split transaction, receipt review, search filters, categories, account detail |
-| Batch 3 | Budget, pace, safe-to-spend, goals, saving plans, cash flow, Sankey, reports, monthly report |
-| Batch 4 | Credit cards, debt payoff, loans, net worth, assets, portfolio, allocation, tax center, tax analytics |
-| Batch 5 | Ask Aiko, Aiko insights/review/optimize, calculators, bills, learning hub, travel mode, settings, profile security |
+| Idea 1 | Core app screens: splash, onboarding, login, dashboard, notifications, accounts, safe-to-spend, customization |
+| Idea 2 | Transactions, transaction detail, add/split transaction, receipt review, search filters, categories, account detail |
+| Idea 3 | Budget, pace, safe-to-spend, goals, saving plans, cash flow, Sankey, reports, monthly report |
+| Idea 4 | Credit cards, debt payoff, loans, net worth, assets, portfolio, allocation, tax center, tax analytics |
+| Idea 5 | Ask Aiko, Aiko insights/review/optimize, calculators, bills, learning hub, travel mode, settings, profile security |
+
+### Idea Boards
+
+![Idea 1 core app screens](screenshots/idea-1.png)
+
+![Idea 2 transactions categories and accounts](screenshots/idea-2.png)
+
+![Idea 3 budget goals cash flow and reports](screenshots/idea-3.png)
+
+![Idea 4 credit debt portfolio and tax](screenshots/idea-4.png)
+
+![Idea 5 Aiko AI calculators settings and extras](screenshots/idea-5.png)
 
 ---
 
@@ -188,7 +200,7 @@ lib/
 │   ├── learning_hub/            # PFM courses & lessons
 │   ├── monetization/            # Subscription plans & paywall
 │   ├── onboarding/              # 10-step onboarding flow
-│   ├── overview/                # Screenshot-backed supplemental detail routes
+│   ├── overview/                # Idea-backed supplemental detail routes
 │   ├── portfolio/               # Investment portfolio tracking
 │   ├── reports/                 # Report builder (13+ report types)
 │   ├── settings/                # Settings screens
@@ -266,7 +278,7 @@ Feature modules under `lib/features/<name>/` follow the current layered layout:
 - Bottom navigation uses the authenticated shell with 5 tabs: Home, Transactions, Budget, Insights, Aiko.
 - The "More" menu items route to feature screens as sub-routes.
 - Route paths use kebab-case, for example `/credit-cards`, `/debt-loans`, and `/tax-center`.
-- Screenshot-inspired screens must belong to the existing feature owner. Add subroutes, menus, or inline tools instead of duplicating a main screen.
+- Idea-inspired screens must belong to the existing feature owner. Add subroutes, menus, or inline tools instead of duplicating a main screen.
 - Supplemental routes include dashboard, transaction, budget, goal, report, credit/debt, portfolio, tax, calculator, Aiko, and security detail states.
 
 ### Money and Currency Rules
@@ -435,7 +447,7 @@ Add new required SVGs with tests in `test/shared/widgets/aiko_svg_assets_test.da
 flutter test
 ```
 
-Covers: money types, formatters, prediction engine, data models, providers, transaction rules, feature gating, import/export parsers, screenshot route coverage, and required SVG assets.
+Covers: money types, formatters, prediction engine, data models, providers, transaction rules, feature gating, import/export parsers, idea route coverage, and required SVG assets.
 
 ### Integration Tests
 

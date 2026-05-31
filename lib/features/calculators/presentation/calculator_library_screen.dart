@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/finance_card.dart';
+import '../../overview/presentation/finance_detail_screens.dart';
 import 'calculator_detail_screen.dart';
 
 class CalculatorLibraryScreen extends StatefulWidget {
@@ -50,7 +51,20 @@ class _CalculatorLibraryScreenState extends State<CalculatorLibraryScreen> {
     final filteredCalculators = _filteredCalculators;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Calculators')),
+      appBar: AppBar(
+        title: const Text('Calculators'),
+        actions: [
+          IconButton(
+            tooltip: 'Loan Calculator',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const LoanCalculatorScreen(),
+              ),
+            ),
+            icon: const Icon(Icons.payments_outlined),
+          ),
+        ],
+      ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1180),

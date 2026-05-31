@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../shared/widgets/feature_overview_screen.dart';
 import '../../../theme/aiko_colors.dart';
@@ -8,7 +9,7 @@ class ReportsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const AikoFeatureOverviewScreen(
+    return AikoFeatureOverviewScreen(
       title: 'Reports',
       items: [
         AikoFeatureOverviewItem(
@@ -16,6 +17,7 @@ class ReportsScreen extends StatelessWidget {
           title: 'Monthly financial report',
           subtitle: 'Includes period, filters, and export metadata.',
           accentColor: AikoColors.deepBlue,
+          onTap: () => context.push('/reports/monthly'),
         ),
       ],
     );

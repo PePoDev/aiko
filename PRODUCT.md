@@ -18,6 +18,7 @@ platforms:
     *   *Primary:* Blue (`#3B82F6` | Deep: `#1D4ED8` | Soft: `#93C5FD` | Pale: `#EFF6FF`).
     *   *Semantic:* Success Green (savings, income), Warning Orange (bills, limits), Danger Red (overspending), Purple (Premium/AI), Teal (analytics, portfolio).
 *   **Design Style:** Premium fintech UI combined with a clean, card-based grid layout, modern typography (Outfit/Inter), smooth gradients, and interactive micro-animations.
+*   **Reusable Icon System:** Brand-owned SVG icons live in `assets/icons/` using `aiko_<name>.svg`, `viewBox="0 0 24 24"`, and `currentColor` for consistent recoloring across app surfaces.
 *   **Character Principle:** *Data first, Aiko enhanced.* The character guides onboarding, dashboard greetings, monthly reviews, and insights without obscuring critical data or charts.
 
 ---
@@ -42,6 +43,19 @@ The app uses GoRouter for routing and is structured around a bottom navigation s
 *   `/calculators` - Built-in financial calculator hub
 *   `/learning-hub` - Financial education courses & quizzes
 *   `/settings` - Profile, Security (PIN/Biometric), Sync settings
+
+### Screenshot Reference Coverage
+The May 31, 2026 reference batches are product coverage targets, not a separate theme. Existing feature screens remain the source of truth; screenshot-specific states are integrated as subroutes, menu tools, or inline actions to avoid duplicated screens.
+
+| Batch | Product Coverage | Implemented Route Examples |
+| :--- | :--- | :--- |
+| 1 | Core app, onboarding, dashboard, accounts | `/notifications`, `/dashboard/monthly-overview`, `/dashboard/customize` |
+| 2 | Transactions, split/OCR, categories, accounts | `/transactions/search`, `/transactions/split`, `/transactions/receipt-review` |
+| 3 | Budget, goals, cash flow, reports | `/budget/pace`, `/budget/safe-to-spend`, `/budget/cash-flow`, `/budget/cash-flow-sankey`, `/goals/detail`, `/goals/saving-plan`, `/goals/chance-of-success`, `/reports/monthly` |
+| 4 | Credit, debt, loans, net worth, portfolio, tax | `/credit-cards/detail`, `/debt-overview`, `/loans/detail`, `/net-worth`, `/portfolio/allocation`, `/portfolio/holding`, `/tax-analytics` |
+| 5 | Aiko AI, calculators, settings, extras | `/aiko-insights`, `/loan-calculator`, `/calculator-result`, `/profile-security` |
+
+Product rule: when a screenshot overlaps an existing feature, improve the existing flow instead of creating a parallel screen.
 
 ---
 
@@ -112,7 +126,16 @@ Saved calculations store as `SavedCalculatorScenario` and can be converted into 
 
 ---
 
-## 7. Monetization & Security Specs
+## 7. UX Acceptance Criteria
+*   **Offline-first usability:** Supplemental product routes must render useful local/demo states without requiring Supabase authentication.
+*   **Task completion:** Search/filter, save, confirm, split, and calculator result screens use clear primary actions, preferably sticky bottom actions on mobile.
+*   **No duplicate destinations:** Main tabs own core workflows; extra screenshot states are exposed through existing navigation, action menus, or detail routes.
+*   **Financial clarity:** Primary balances, progress, and risk states appear before supporting Aiko guidance.
+*   **Accessibility:** Icons need semantic labels or adjacent text where meaning is not obvious.
+
+---
+
+## 8. Monetization & Security Specs
 *   **Security Architecture:** PIN and Biometrics (Face ID/Touch ID) local access, secure token storage, remote device logout, cloud sync conflict resolution, and granular data privacy options (opt-in AI parsing, local-only mode).
 *   **Feature Gate Gating System:**
     *   **Free Tier:** Manual tracking, basic budgeting, default categories, limited calculators, CSV export, basic AI insights.
@@ -121,8 +144,8 @@ Saved calculations store as `SavedCalculatorScenario` and can be converted into 
 
 ---
 
-## 8. Product Milestones
-*   **Core Release Foundation:** Blue design system & Aiko onboarding, basic accounts/transactions tracking, transaction rules, monthly budgets, goals/savings plans, basic dashboards with Pace/Leftover, CSV export, and 6 core calculators (Compound Interest, Loan, CC Payoff, Savings Goal, ROI, Currency).
+## 9. Product Milestones
+*   **Core Release Foundation:** Blue design system & Aiko onboarding, basic accounts/transactions tracking, transaction rules, monthly budgets, goals/savings plans, basic dashboards with Pace/Leftover, CSV export, screenshot-backed supplemental flows, reusable SVG icons, and 6 core calculators (Compound Interest, Loan, CC Payoff, Savings Goal, ROI, Currency).
 *   **Phased Development:**
     *   *Phase 1-2:* Basic tracking, dashboards, budgeting, and recurring rules.
     *   *Phase 3-4:* Aiko Insights, forecasting, chat, credit cards, debt payoff, and net worth tracking.

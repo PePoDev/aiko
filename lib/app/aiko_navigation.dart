@@ -30,6 +30,14 @@ const aikoNavigationGroups = [
     title: 'Insights and AI',
     items: [
       AikoNavigationItem(
+        label: 'Aiko Insights',
+        path: '/aiko-insights',
+        icon: Icons.auto_awesome_outlined,
+        description:
+            'Review personalized spending, saving, and investing tips.',
+        accentColor: AikoColors.premiumPurple,
+      ),
+      AikoNavigationItem(
         label: 'Learning Hub',
         path: '/learning-hub',
         icon: Icons.school_outlined,
@@ -54,6 +62,18 @@ const aikoNavigationGroups = [
         description: 'Build reports and chart summaries.',
       ),
       AikoNavigationItem(
+        label: 'Monthly Report',
+        path: '/reports/monthly',
+        icon: Icons.summarize_outlined,
+        description: 'Open the current monthly finance review.',
+      ),
+      AikoNavigationItem(
+        label: 'Loan Calculator',
+        path: '/loan-calculator',
+        icon: Icons.payments_outlined,
+        description: 'Estimate monthly payment, interest, and payoff impact.',
+      ),
+      AikoNavigationItem(
         label: 'Export',
         path: '/export',
         icon: Icons.file_download_outlined,
@@ -75,6 +95,18 @@ const aikoNavigationGroups = [
         path: '/notification-settings',
         icon: Icons.notifications_outlined,
         description: 'Configure bill, budget, goal, and insight alerts.',
+      ),
+      AikoNavigationItem(
+        label: 'Notifications Center',
+        path: '/notifications',
+        icon: Icons.notifications_active_outlined,
+        description: 'Review recent alerts, updates, and financial reminders.',
+      ),
+      AikoNavigationItem(
+        label: 'Profile & Security',
+        path: '/profile-security',
+        icon: Icons.admin_panel_settings_outlined,
+        description: 'Manage account security, biometrics, and login alerts.',
       ),
     ],
   ),

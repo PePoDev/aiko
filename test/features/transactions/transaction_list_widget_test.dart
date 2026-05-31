@@ -84,6 +84,33 @@ void main() {
     expect(find.textContaining('Grocery'), findsNothing);
   });
 
+  testWidgets('transaction list opens full search filters from filter icon', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(
+            const _FakeTransactionRepository([]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const TransactionListScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Filters'), findsOneWidget);
+    await tester.tap(find.byTooltip('Filters'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Search Transactions'), findsOneWidget);
+    expect(find.text('Apply Filters'), findsOneWidget);
+  });
+
   testWidgets('transaction list opens categories from the app bar icon', (
     tester,
   ) async {

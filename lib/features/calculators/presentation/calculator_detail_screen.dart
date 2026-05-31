@@ -201,7 +201,8 @@ class _CalculatorDetailScreenState extends State<CalculatorDetailScreen> {
     return _CalculationResult(
       title: 'Years to double',
       value: '${_formatNumber(years)} years',
-      detail: 'Estimated time to double your investment at a constant ${_controllers['annualRate']!.text}% annual rate.',
+      detail:
+          'Estimated time to double your investment at a constant ${_controllers['annualRate']!.text}% annual rate.',
       icon: Icons.timer_outlined,
       color: AikoColors.successGreen,
     );
@@ -221,7 +222,8 @@ class _CalculatorDetailScreenState extends State<CalculatorDetailScreen> {
     return _CalculationResult(
       title: 'Inflation-adjusted value',
       value: _formatCurrency(adjusted),
-      detail: 'Purchasing power of ${_formatCurrency(amount)} in $years years at a constant ${_controllers['annualInflationRate']!.text}% inflation.',
+      detail:
+          'Purchasing power of ${_formatCurrency(amount)} in $years years at a constant ${_controllers['annualInflationRate']!.text}% inflation.',
       icon: Icons.money_off_csred_outlined,
       color: AikoColors.dangerRed,
     );
@@ -241,7 +243,8 @@ class _CalculatorDetailScreenState extends State<CalculatorDetailScreen> {
     return _CalculationResult(
       title: 'Equivalent hourly pay',
       value: '${_formatCurrency(hourly)}/hr',
-      detail: 'Based on working $hoursPerWeek hours per week for $weeksPerYear weeks per year.',
+      detail:
+          'Based on working $hoursPerWeek hours per week for $weeksPerYear weeks per year.',
       icon: Icons.work_outline,
       color: AikoColors.deepBlue,
     );
@@ -259,7 +262,8 @@ class _CalculatorDetailScreenState extends State<CalculatorDetailScreen> {
     return _CalculationResult(
       title: 'Tax-equivalent yield',
       value: _formatPercent(equivalent),
-      detail: 'Pre-tax return needed to equal a tax-free yield of ${_controllers['taxFreeYield']!.text}% at a ${_controllers['marginalTaxRate']!.text}% marginal tax bracket.',
+      detail:
+          'Pre-tax return needed to equal a tax-free yield of ${_controllers['taxFreeYield']!.text}% at a ${_controllers['marginalTaxRate']!.text}% marginal tax bracket.',
       icon: Icons.account_balance_wallet_outlined,
       color: AikoColors.warningOrange,
     );
@@ -269,13 +273,20 @@ class _CalculatorDetailScreenState extends State<CalculatorDetailScreen> {
     final discountRate = _percentage('discountRate');
     final cashFlowsText = _controllers['cashFlows']!.text.trim();
     if (cashFlowsText.isEmpty) {
-      throw const _CalculatorInputException('Enter a valid list of cash flows.');
+      throw const _CalculatorInputException(
+        'Enter a valid list of cash flows.',
+      );
     }
     final List<double> cashFlows;
     try {
-      cashFlows = cashFlowsText.split(',').map((s) => double.parse(s.trim())).toList();
+      cashFlows = cashFlowsText
+          .split(',')
+          .map((s) => double.parse(s.trim()))
+          .toList();
     } catch (_) {
-      throw const _CalculatorInputException('Cash flows must be a list of numbers separated by commas.');
+      throw const _CalculatorInputException(
+        'Cash flows must be a list of numbers separated by commas.',
+      );
     }
 
     final npv = _service.netPresentValue(
@@ -286,7 +297,8 @@ class _CalculatorDetailScreenState extends State<CalculatorDetailScreen> {
     return _CalculationResult(
       title: 'Net present value (NPV)',
       value: _formatCurrency(npv),
-      detail: 'NPV of cash flows discounted at ${_controllers['discountRate']!.text}% per period.',
+      detail:
+          'NPV of cash flows discounted at ${_controllers['discountRate']!.text}% per period.',
       icon: Icons.analytics_outlined,
       color: AikoColors.analyticsTeal,
     );
@@ -304,7 +316,8 @@ class _CalculatorDetailScreenState extends State<CalculatorDetailScreen> {
     return _CalculationResult(
       title: 'Total split summary',
       value: '${_formatCurrency(perPerson)} each',
-      detail: 'Tip is ${_formatCurrency(tip)} (total ${_formatCurrency(total)}) split between $splitCount people.',
+      detail:
+          'Tip is ${_formatCurrency(tip)} (total ${_formatCurrency(total)}) split between $splitCount people.',
       icon: Icons.restaurant_outlined,
       color: AikoColors.successGreen,
     );

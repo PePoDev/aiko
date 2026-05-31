@@ -5,9 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() {
-  testWidgets('Aiko assistant shows premium chat interface', (
-    tester,
-  ) async {
+  testWidgets('Aiko assistant shows premium chat interface', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(

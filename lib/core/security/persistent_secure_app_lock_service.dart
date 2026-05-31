@@ -3,7 +3,7 @@ import '../storage/secure_storage_service.dart';
 
 class PersistentSecureAppLockService implements AppLockService {
   PersistentSecureAppLockService({required SecureStorageService storage})
-      : _storage = storage;
+    : _storage = storage;
 
   final SecureStorageService _storage;
   static const _pinKey = 'aiko_secure_pin';

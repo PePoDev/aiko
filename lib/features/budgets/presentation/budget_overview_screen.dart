@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
 import '../../../shared/widgets/finance_card.dart';
@@ -17,7 +18,33 @@ class BudgetOverviewScreen extends ConsumerWidget {
     final budgetsAsync = ref.watch(budgetsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Budget')),
+      appBar: AppBar(
+        title: const Text('Budget'),
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Budget tools',
+            onSelected: (path) => context.push(path),
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: '/budget/pace',
+                child: Text('Pace Overview'),
+              ),
+              PopupMenuItem(
+                value: '/budget/safe-to-spend',
+                child: Text('Safe to Spend'),
+              ),
+              PopupMenuItem(
+                value: '/budget/cash-flow',
+                child: Text('Cash Flow'),
+              ),
+              PopupMenuItem(
+                value: '/budget/cash-flow-sankey',
+                child: Text('Cash Flow Sankey'),
+              ),
+            ],
+          ),
+        ],
+      ),
       body: budgetsAsync.when(
         loading: () => const AikoScreenState.loading(),
         error: (error, stack) => AikoScreenState.error(
@@ -252,7 +279,6 @@ class _BudgetDetailScreenState extends ConsumerState<_BudgetDetailScreen> {
                   label: 'Status',
                   value: _statusLabel(_budget.status),
                 ),
-
               ],
             ),
           ),

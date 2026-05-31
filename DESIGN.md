@@ -440,6 +440,63 @@ Apply the system in batches:
 5. Aiko and learning screens: Aiko Assistant, Aiko Optimize, Aiko Review, Learning Hub, Subscription Plan.
 6. Placeholder screens: Accounting, import/export, calculators, saved scenarios, future expansion screens.
 
+## Screenshot Reference Coverage
+
+The May 31, 2026 screenshot batches are product references for layout density, screen hierarchy, and feature coverage. They are not separate themes. Existing screens keep their current functionality and absorb the useful screenshot states through subroutes, menus, or inline tools.
+
+Core route groups:
+
+| Screenshot group | Existing owner | Supplemental routes |
+|---|---|---|
+| Core app screens | Auth, onboarding, dashboard, accounts | `/notifications`, `/dashboard/monthly-overview`, `/dashboard/customize` |
+| Transactions, categories, accounts | Transactions, categories, accounts | `/transactions/search`, `/transactions/split`, `/transactions/receipt-review` |
+| Budget, goals, cash flow, reports | Budget, goals, reports | `/budget/pace`, `/budget/safe-to-spend`, `/budget/cash-flow`, `/budget/cash-flow-sankey`, `/goals/detail`, `/goals/saving-plan`, `/goals/chance-of-success`, `/reports/monthly` |
+| Credit, debt, portfolio, tax | Credit cards, debt, portfolio, assets, tax | `/credit-cards/detail`, `/debt-overview`, `/loans/detail`, `/net-worth`, `/portfolio/allocation`, `/portfolio/holding`, `/tax-analytics` |
+| Aiko AI, calculators, settings, extras | Aiko, calculators, bills, learning, travel, settings | `/aiko-insights`, `/loan-calculator`, `/calculator-result`, `/profile-security` |
+
+Rules:
+
+- Do not duplicate an existing feature screen just to match a screenshot. Add a tool, detail route, menu item, or state inside the owning feature.
+- Use sticky bottom actions for filter, save, confirm, and calculator result screens when the action is required to complete the task.
+- Keep screenshot-inspired sample data realistic and clearly scoped to preview or offline states. Real repositories remain the source of persisted user data.
+- Aiko guidance appears after the primary number or user decision, except onboarding and assistant chat where Aiko is the primary interaction.
+- Every supplemental route must render without a Supabase session so offline/local mode remains usable.
+
+## SVG Icon Assets
+
+Reusable SVG icons live in `assets/icons/` and use the `aiko_<name>.svg` naming pattern. SVGs use `viewBox="0 0 24 24"` and `currentColor` so Flutter, web, and future export tooling can recolor them consistently.
+
+Current required icon set:
+
+| Asset | Role |
+|---|---|
+| `aiko_home.svg` | Home tab and dashboard |
+| `aiko_transactions.svg` | Transactions list and detail |
+| `aiko_budget.svg` | Budget and spending plans |
+| `aiko_insights.svg` | Insights, tips, and reports |
+| `aiko_aiko.svg` | Aiko assistant and AI states |
+| `aiko_account.svg`, `aiko_bank.svg`, `aiko_wallet.svg` | Accounts and cash storage |
+| `aiko_credit_card.svg` | Credit card flows |
+| `aiko_category.svg` | Categories and filters |
+| `aiko_receipt.svg` | Receipt scan and OCR review |
+| `aiko_search_filter.svg` | Search and filters |
+| `aiko_goal.svg` | Goals and saving plans |
+| `aiko_cash_flow.svg` | Cash flow and Sankey views |
+| `aiko_debt.svg`, `aiko_loan.svg` | Debt and loan planning |
+| `aiko_portfolio.svg` | Portfolio and allocations |
+| `aiko_tax.svg` | Tax center and analytics |
+| `aiko_calculator.svg` | Calculators and saved scenarios |
+| `aiko_travel.svg` | Travel mode |
+| `aiko_security.svg` | Profile, lock, and privacy |
+| `aiko_notification.svg` | Notifications and reminders |
+
+Icon rules:
+
+- Keep icons stroke-based, single-color, 24x24, and friendly but not cartoonish.
+- Do not mix filled, duotone, and outline SVG styles in the same control group.
+- Use Material icons in Flutter when the icon is purely platform-standard and already provided. Use the SVG set for brand-owned navigation, exports, and reusable assets.
+- Add tests for new required SVG assets before relying on them in UI.
+
 ## Per-Screen QA Checklist
 
 Before a screen is considered design-complete:

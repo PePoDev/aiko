@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:decimal/decimal.dart';
@@ -23,6 +24,21 @@ class GoalsOverviewScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Goals'),
         actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Goal tools',
+            onSelected: (path) => context.push(path),
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: '/goals/saving-plan',
+                child: Text('Saving Plan'),
+              ),
+              PopupMenuItem(
+                value: '/goals/chance-of-success',
+                child: Text('Chance of Success'),
+              ),
+              PopupMenuItem(value: '/goals/detail', child: Text('Goal Detail')),
+            ],
+          ),
           IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: () => _showAikoTip(context),

@@ -33,6 +33,21 @@ class HomeDashboardScreen extends ConsumerWidget {
         title: Text(l10n.overview),
         actions: [
           IconButton(
+            tooltip: 'Notifications',
+            onPressed: () => context.push('/notifications'),
+            icon: const Icon(Icons.notifications_none),
+          ),
+          IconButton(
+            tooltip: 'Monthly overview',
+            onPressed: () => context.push('/dashboard/monthly-overview'),
+            icon: const Icon(Icons.calendar_month_outlined),
+          ),
+          IconButton(
+            tooltip: 'Customize dashboard',
+            onPressed: () => context.push('/dashboard/customize'),
+            icon: const Icon(Icons.dashboard_customize_outlined),
+          ),
+          IconButton(
             tooltip: l10n.settingsTitle,
             onPressed: () => context.push('/settings'),
             icon: const Icon(Icons.settings_outlined),

@@ -15,9 +15,9 @@ class LiveMarketFeedService {
       final basePrice = symbol.toUpperCase() == 'VTI'
           ? 240.0
           : symbol.toUpperCase() == 'BND'
-              ? 72.0
-              : 100.0;
-              
+          ? 72.0
+          : 100.0;
+
       // Introduce minor live volatility (-1% to +1.5%)
       final randomPercent = -0.01 + (Random().nextDouble() * 0.025);
       final liveVal = basePrice * (1.0 + randomPercent);

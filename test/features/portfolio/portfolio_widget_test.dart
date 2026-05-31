@@ -8,9 +8,13 @@ void main() {
   testWidgets('portfolio and assets screens expose core sections', (
     tester,
   ) async {
-    await tester.pumpWidget(const ProviderScope(child: MaterialApp(home: PortfolioScreen())));
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: PortfolioScreen())),
+    );
     expect(find.text('Holdings'), findsOneWidget);
-    await tester.pumpWidget(const ProviderScope(child: MaterialApp(home: AssetsNetWorthScreen())));
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: AssetsNetWorthScreen())),
+    );
     expect(find.text('Net worth'), findsOneWidget);
   });
 }

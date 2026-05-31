@@ -183,15 +183,14 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
         .map((cat) => '${cat.name.toLowerCase()}-${cat.type.name}')
         .toSet();
 
-    final uniqueDefaults = defaults.where((cat) {
-      final key = '${cat.name.toLowerCase()}-${cat.type.name}';
-      return !customKeys.contains(key);
-    }).toList(growable: false);
+    final uniqueDefaults = defaults
+        .where((cat) {
+          final key = '${cat.name.toLowerCase()}-${cat.type.name}';
+          return !customKeys.contains(key);
+        })
+        .toList(growable: false);
 
-    return [
-      ...filteredCustom,
-      ...uniqueDefaults,
-    ];
+    return [...filteredCustom, ...uniqueDefaults];
   }
 
   Future<void> addCategory(Category category) async {

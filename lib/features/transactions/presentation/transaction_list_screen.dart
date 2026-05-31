@@ -9,6 +9,7 @@ import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
 import '../../accounts/presentation/accounts_screen.dart';
 import '../../categories/presentation/category_management_screen.dart';
+import '../../overview/presentation/finance_detail_screens.dart';
 import '../domain/transaction.dart';
 import 'transaction_detail_screen.dart';
 import 'transaction_form_screen.dart';
@@ -88,6 +89,15 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
               onPressed: _startSearch,
               icon: const Icon(Icons.search),
             ),
+          IconButton(
+            tooltip: 'Filters',
+            onPressed: () => Navigator.of(context, rootNavigator: true).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const TransactionSearchFiltersScreen(),
+              ),
+            ),
+            icon: const Icon(Icons.tune_outlined),
+          ),
           IconButton(
             tooltip: 'Accounts',
             onPressed: () => Navigator.of(context, rootNavigator: true).push(

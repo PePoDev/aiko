@@ -77,20 +77,27 @@ class AuthenticatedShell extends StatelessWidget {
     if (location.startsWith('/transactions')) {
       return 1;
     }
-    if (location.startsWith('/aiko')) {
+    if (location.startsWith('/aiko') || location.startsWith('/aiko-insights')) {
       return 2;
     }
     if (location.startsWith('/planning') ||
+        location.startsWith('/dashboard') ||
         location.startsWith('/budget') ||
         location.startsWith('/goals') ||
         location.startsWith('/bills') ||
         location.startsWith('/accounts') ||
         location.startsWith('/categories') ||
         location.startsWith('/credit-cards') ||
+        location.startsWith('/debt-overview') ||
         location.startsWith('/debt-loans') ||
+        location.startsWith('/loans') ||
+        location.startsWith('/net-worth') ||
         location.startsWith('/portfolio') ||
         location.startsWith('/assets') ||
+        location.startsWith('/loan-calculator') ||
+        location.startsWith('/calculator-result') ||
         location.startsWith('/tax-center') ||
+        location.startsWith('/tax-analytics') ||
         location.startsWith('/accounting') ||
         location.startsWith('/travel-mode')) {
       return 3;
@@ -108,6 +115,8 @@ class AuthenticatedShell extends StatelessWidget {
         location.startsWith('/calculators') ||
         location.startsWith('/import-export-backup') ||
         location.startsWith('/notification-settings') ||
+        location.startsWith('/notifications') ||
+        location.startsWith('/profile-security') ||
         location.startsWith('/learning-hub');
   }
 }

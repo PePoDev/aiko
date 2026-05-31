@@ -6,9 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 void main() {
   testWidgets('travel screen exposes trip state', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(home: TravelModeScreen()),
-      ),
+      const ProviderScope(child: MaterialApp(home: TravelModeScreen())),
     );
 
     expect(find.text('Trip budget'), findsOneWidget);

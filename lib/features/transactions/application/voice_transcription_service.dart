@@ -15,22 +15,22 @@ class VoiceTranscriptionService {
     if (client == null) {
       // Offline fallback: Use high-fidelity mock transcription
       await Future<void>.delayed(const Duration(milliseconds: 1200));
-      return defaultSimulationText ?? 'spent 15.50 at Starbucks yesterday for coffee';
+      return defaultSimulationText ??
+          'spent 15.50 at Starbucks yesterday for coffee';
     }
 
     try {
       final response = await client.functions.invoke(
         'whisper-speech-to-text',
-        body: {
-          'audioBytes': audioBytes,
-        },
+        body: {'audioBytes': audioBytes},
       );
       final data = response.data as Map<String, dynamic>;
       return data['text'] as String? ?? '';
     } catch (_) {
       // Fallback
       await Future<void>.delayed(const Duration(milliseconds: 800));
-      return defaultSimulationText ?? 'spent 15.50 at Starbucks yesterday for coffee';
+      return defaultSimulationText ??
+          'spent 15.50 at Starbucks yesterday for coffee';
     }
   }
 }

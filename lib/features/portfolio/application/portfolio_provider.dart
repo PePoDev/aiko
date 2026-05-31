@@ -4,10 +4,7 @@ import 'live_market_feed_service.dart';
 import '../../../core/money/money.dart';
 
 class PortfolioState {
-  const PortfolioState({
-    required this.holdings,
-    this.isRefreshing = false,
-  });
+  const PortfolioState({required this.holdings, this.isRefreshing = false});
 
   final List<InvestmentHolding> holdings;
   final bool isRefreshing;
@@ -72,7 +69,9 @@ class PortfolioNotifier extends Notifier<PortfolioState> {
 
   void addHolding(InvestmentHolding holding) {
     // If the holding symbol already exists, average it out or replace it
-    final existingIndex = state.holdings.indexWhere((h) => h.symbol.toUpperCase() == holding.symbol.toUpperCase());
+    final existingIndex = state.holdings.indexWhere(
+      (h) => h.symbol.toUpperCase() == holding.symbol.toUpperCase(),
+    );
     if (existingIndex != -1) {
       final existing = state.holdings[existingIndex];
       final newQuantity = existing.quantity + holding.quantity;
@@ -81,9 +80,13 @@ class PortfolioNotifier extends Notifier<PortfolioState> {
         return;
       }
       // Weighted average cost: (Qty1 * Cost1 + Qty2 * Cost2) / TotalQty
-      final totalCostVal = (existing.quantity * existing.averageCost.amount.toDouble()) + 
-                           (holding.quantity * holding.averageCost.amount.toDouble());
-      final newAverageCost = Money.parse((totalCostVal / newQuantity).toStringAsFixed(2), holding.averageCost.currency);
+      final totalCostVal =
+          (existing.quantity * existing.averageCost.amount.toDouble()) +
+          (holding.quantity * holding.averageCost.amount.toDouble());
+      final newAverageCost = Money.parse(
+        (totalCostVal / newQuantity).toStringAsFixed(2),
+        holding.averageCost.currency,
+      );
 
       final updated = InvestmentHolding(
         symbol: existing.symbol,
@@ -103,12 +106,15 @@ class PortfolioNotifier extends Notifier<PortfolioState> {
 
   void deleteHolding(String symbol) {
     state = state.copyWith(
-      holdings: state.holdings.where((h) => h.symbol.toUpperCase() != symbol.toUpperCase()).toList(),
+      holdings: state.holdings
+          .where((h) => h.symbol.toUpperCase() != symbol.toUpperCase())
+          .toList(),
     );
   }
 }
 
-final portfolioProvider =
-    NotifierProvider<PortfolioNotifier, PortfolioState>(() {
-  return PortfolioNotifier();
-});
+final portfolioProvider = NotifierProvider<PortfolioNotifier, PortfolioState>(
+  () {
+    return PortfolioNotifier();
+  },
+);

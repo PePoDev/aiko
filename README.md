@@ -33,7 +33,15 @@ Aiko is not just an expense tracker. It's a **personal financial operating syste
 
 ## Screenshots
 
-> *Coming soon — app screenshots will be added after the first release build.*
+The May 31, 2026 reference screenshot batches are implemented as in-app flows and supplemental detail states. They guide layout density, screen hierarchy, icon coverage, and Aiko placement; `DESIGN.md` is the detailed route-by-route design source.
+
+| Batch | Coverage |
+| --- | --- |
+| Batch 1 | Core app screens: splash, onboarding, login, dashboard, notifications, accounts, safe-to-spend, customization |
+| Batch 2 | Transactions, transaction detail, add/split transaction, receipt review, search filters, categories, account detail |
+| Batch 3 | Budget, pace, safe-to-spend, goals, saving plans, cash flow, Sankey, reports, monthly report |
+| Batch 4 | Credit cards, debt payoff, loans, net worth, assets, portfolio, allocation, tax center, tax analytics |
+| Batch 5 | Ask Aiko, Aiko insights/review/optimize, calculators, bills, learning hub, travel mode, settings, profile security |
 
 ---
 
@@ -180,6 +188,7 @@ lib/
 │   ├── learning_hub/            # PFM courses & lessons
 │   ├── monetization/            # Subscription plans & paywall
 │   ├── onboarding/              # 10-step onboarding flow
+│   ├── overview/                # Screenshot-backed supplemental detail routes
 │   ├── portfolio/               # Investment portfolio tracking
 │   ├── reports/                 # Report builder (13+ report types)
 │   ├── settings/                # Settings screens
@@ -195,7 +204,7 @@ supabase/
 └── storage/                     # Storage bucket configuration
 
 assets/
-├── icons/                       # App icons
+├── icons/                       # App and reusable SVG icons (`aiko_*.svg`)
 └── images/aiko/                 # Aiko character expressions (6 variants)
 
 test/                            # Unit tests
@@ -257,6 +266,8 @@ Feature modules under `lib/features/<name>/` follow the current layered layout:
 - Bottom navigation uses the authenticated shell with 5 tabs: Home, Transactions, Budget, Insights, Aiko.
 - The "More" menu items route to feature screens as sub-routes.
 - Route paths use kebab-case, for example `/credit-cards`, `/debt-loans`, and `/tax-center`.
+- Screenshot-inspired screens must belong to the existing feature owner. Add subroutes, menus, or inline tools instead of duplicating a main screen.
+- Supplemental routes include dashboard, transaction, budget, goal, report, credit/debt, portfolio, tax, calculator, Aiko, and security detail states.
 
 ### Money and Currency Rules
 
@@ -406,6 +417,14 @@ Six expression variants: `happy`, `thinking`, `encouraging`, `warning`, `celebra
 
 **Placement principle:** *"Data first, Aiko enhanced."* — Aiko appears purposefully (welcome, insights, goals, reviews), never covering data or cluttering screens.
 
+### SVG Icons
+
+Reusable SVG icons live in `assets/icons/` with the `aiko_<name>.svg` naming pattern. Icons use `viewBox="0 0 24 24"` and `currentColor` so they can be recolored consistently across Flutter UI, exports, and future web surfaces.
+
+Current icon families cover navigation, accounts, cards, transactions, search/filter, receipts, categories, budget, goals, cash flow, debt, loans, portfolio, tax, calculators, travel, security, notifications, and Aiko assistant states.
+
+Add new required SVGs with tests in `test/shared/widgets/aiko_svg_assets_test.dart`.
+
 ---
 
 ## Testing
@@ -416,7 +435,7 @@ Six expression variants: `happy`, `thinking`, `encouraging`, `warning`, `celebra
 flutter test
 ```
 
-Covers: money types, formatters, prediction engine, data models, providers, transaction rules, feature gating, import/export parsers.
+Covers: money types, formatters, prediction engine, data models, providers, transaction rules, feature gating, import/export parsers, screenshot route coverage, and required SVG assets.
 
 ### Integration Tests
 

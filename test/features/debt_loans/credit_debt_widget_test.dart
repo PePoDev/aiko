@@ -7,9 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 void main() {
   testWidgets('credit card overview shows metrics areas', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(home: CreditCardOverviewScreen()),
-      ),
+      const ProviderScope(child: MaterialApp(home: CreditCardOverviewScreen())),
     );
     expect(find.text('Utilization'), findsOneWidget);
     expect(find.text('Payment planning'), findsOneWidget);
@@ -17,9 +15,7 @@ void main() {
 
   testWidgets('debt screen shows payoff strategy areas', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(home: DebtPayoffPlanScreen()),
-      ),
+      const ProviderScope(child: MaterialApp(home: DebtPayoffPlanScreen())),
     );
     expect(find.text('Payoff strategies'), findsOneWidget);
     await tester.drag(find.byType(ListView), const Offset(0, -400));

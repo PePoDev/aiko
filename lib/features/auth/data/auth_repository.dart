@@ -98,7 +98,7 @@ class AuthRepository {
     return _session!;
   }
 
-Future<void> signInWithGoogle() async {
+  Future<void> signInWithGoogle() async {
     final client = AikoSupabase.requireClient();
     await client.auth.signInWithOAuth(OAuthProvider.google);
   }

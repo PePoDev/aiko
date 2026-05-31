@@ -44,7 +44,7 @@ void main() {
       // Expected value should be higher than conservative, and optimistic higher than expected
       expect(result.conservativeValue, lessThan(result.expectedValue));
       expect(result.expectedValue, lessThan(result.optimisticValue));
-      
+
       // Since 1000 + 1200 = 2200 is less than 2500 target, probability should be in a normal range
       expect(result.successProbabilityPercent, greaterThanOrEqualTo(0.0));
       expect(result.successProbabilityPercent, lessThanOrEqualTo(100.0));

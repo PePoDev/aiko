@@ -31,13 +31,19 @@ class DebtPayoffService {
     }
 
     final ranked = rank(debts, strategy);
-    final List<double> balances = ranked.map((d) => d.balance.amount.toDouble()).toList();
-    final List<double> rates = ranked.map((d) => d.interestRatePercent / 100 / 12).toList();
-    final List<double> mins = ranked.map((d) => d.monthlyPayment.amount.toDouble()).toList();
+    final List<double> balances = ranked
+        .map((d) => d.balance.amount.toDouble())
+        .toList();
+    final List<double> rates = ranked
+        .map((d) => d.interestRatePercent / 100 / 12)
+        .toList();
+    final List<double> mins = ranked
+        .map((d) => d.monthlyPayment.amount.toDouble())
+        .toList();
 
     double totalInterest = 0.0;
     int months = 0;
-    
+
     final totalMins = mins.fold(0.0, (sum, val) => sum + val);
     final totalBudget = totalMins + extraPayment;
 

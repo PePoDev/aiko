@@ -17,11 +17,7 @@ void main() {
     });
 
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
-          home: BillsScreen(),
-        ),
-      ),
+      const ProviderScope(child: MaterialApp(home: BillsScreen())),
     );
 
     // Resolve the async Riverpod future loader

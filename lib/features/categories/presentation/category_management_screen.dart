@@ -171,7 +171,6 @@ class CategoryManagementScreen extends ConsumerWidget {
                             'Add income categories for salary, side work, and other money coming in.',
                         getIconData: _getIconData,
                         parseHexColor: _parseHexColor,
-                        getGroupLabel: _getGroupLabel,
                       ),
                       _CategoryTypeSection(
                         categories: expenseCategories,
@@ -180,7 +179,6 @@ class CategoryManagementScreen extends ConsumerWidget {
                             'Add expense categories for bills, shopping, savings, and daily spending.',
                         getIconData: _getIconData,
                         parseHexColor: _parseHexColor,
-                        getGroupLabel: _getGroupLabel,
                       ),
                     ],
                   ),
@@ -196,27 +194,6 @@ class CategoryManagementScreen extends ConsumerWidget {
   void _showAddCategorySheet(BuildContext context) {
     showCategoryEditorSheet(context);
   }
-
-  String _getGroupLabel(CategoryGroup group) {
-    switch (group) {
-      case CategoryGroup.needs:
-        return 'Needs';
-      case CategoryGroup.wants:
-        return 'Wants';
-      case CategoryGroup.savings:
-        return 'Savings';
-      case CategoryGroup.debt:
-        return 'Debt';
-      case CategoryGroup.investment:
-        return 'Investment';
-      case CategoryGroup.tax:
-        return 'Tax';
-      case CategoryGroup.business:
-        return 'Business';
-      case CategoryGroup.custom:
-        return 'Custom';
-    }
-  }
 }
 
 class _CategoryTypeSection extends StatelessWidget {
@@ -226,7 +203,6 @@ class _CategoryTypeSection extends StatelessWidget {
     required this.emptyMessage,
     required this.getIconData,
     required this.parseHexColor,
-    required this.getGroupLabel,
   });
 
   final List<Category> categories;
@@ -234,7 +210,6 @@ class _CategoryTypeSection extends StatelessWidget {
   final String emptyMessage;
   final IconData Function(String iconName) getIconData;
   final Color Function(String hexColor) parseHexColor;
-  final String Function(CategoryGroup group) getGroupLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -260,7 +235,6 @@ class _CategoryTypeSection extends StatelessWidget {
           categories: [...defaultCategories, ...customCategories],
           getIconData: getIconData,
           parseHexColor: parseHexColor,
-          getGroupLabel: getGroupLabel,
         ),
       ],
     );
@@ -272,13 +246,11 @@ class _CategoryCardGrid extends StatelessWidget {
     required this.categories,
     required this.getIconData,
     required this.parseHexColor,
-    required this.getGroupLabel,
   });
 
   final List<Category> categories;
   final IconData Function(String iconName) getIconData;
   final Color Function(String hexColor) parseHexColor;
-  final String Function(CategoryGroup group) getGroupLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -306,7 +278,6 @@ class _CategoryCardGrid extends StatelessWidget {
                     category: category,
                     categoryIcon: getIconData(category.icon),
                     categoryColor: parseHexColor(category.color),
-                    groupLabel: getGroupLabel(category.group),
                   ),
                 ),
               )
@@ -322,13 +293,11 @@ class _CategoryListCard extends StatelessWidget {
     required this.category,
     required this.categoryIcon,
     required this.categoryColor,
-    required this.groupLabel,
   });
 
   final Category category;
   final IconData categoryIcon;
   final Color categoryColor;
-  final String groupLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -368,15 +337,6 @@ class _CategoryListCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleSmall?.copyWith(
                           color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        groupLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],

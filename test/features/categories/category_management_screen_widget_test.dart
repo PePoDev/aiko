@@ -72,7 +72,7 @@ void main() {
     expect(find.byType(TabBar), findsOneWidget);
     expect(find.byType(TabBarView), findsOneWidget);
     expect(find.text('Default'), findsNothing);
-    expect(find.text('Custom'), findsOneWidget);
+    expect(find.text('Custom'), findsNothing);
     expect(find.text('Salary'), findsOneWidget);
     expect(find.text('Side Hustle'), findsOneWidget);
     expect(find.text('Groceries'), findsNothing);
@@ -169,7 +169,8 @@ void main() {
     expect(find.text('Edit Category'), findsOneWidget);
     expect(find.text('Coffee'), findsWidgets);
     expect(find.text('Expense'), findsWidgets);
-    expect(find.text('Wants'), findsOneWidget);
+    expect(find.text('Wants'), findsNothing);
+    expect(find.text('Category Group (50/30/20 Rule)'), findsNothing);
     expect(find.text('Budget'), findsNothing);
     expect(find.text('Enabled'), findsNothing);
     expect(find.byIcon(Icons.coffee_outlined), findsWidgets);
@@ -263,7 +264,7 @@ void main() {
 
     expect(find.byType(ListTile), findsNothing);
     expect(find.byIcon(Icons.chevron_right), findsNothing);
-    expect(find.text('Wants'), findsOneWidget);
+    expect(find.text('Wants'), findsNothing);
     expect(find.text('Wants - Expense'), findsNothing);
   });
 

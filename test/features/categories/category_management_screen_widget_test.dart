@@ -70,12 +70,15 @@ void main() {
 
     expect(find.text('Income'), findsOneWidget);
     expect(find.text('Expense'), findsOneWidget);
-    expect(find.text('Default'), findsNWidgets(2));
-    expect(find.text('Custom'), findsNWidgets(3));
+    expect(find.text('Default'), findsNothing);
+    expect(find.text('Custom'), findsOneWidget);
     expect(find.text('Salary'), findsOneWidget);
     expect(find.text('Side Hustle'), findsOneWidget);
     expect(find.text('Groceries'), findsOneWidget);
     expect(find.text('Coffee'), findsOneWidget);
+    expect(find.byTooltip('Add category'), findsOneWidget);
+    expect(find.byTooltip('About categories'), findsNothing);
+    expect(find.byIcon(Icons.info_outline), findsNothing);
   });
 
   testWidgets('default category details cannot be edited or deleted', (
@@ -160,7 +163,7 @@ void main() {
     expect(find.byIcon(Icons.coffee_outlined), findsWidgets);
   });
 
-  testWidgets('category rows use compact list tiles', (tester) async {
+  testWidgets('category items use compact box cards', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -188,18 +191,83 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    final rowFinder = find.ancestor(
+    final itemFinder = find.ancestor(
       of: find.text('Coffee'),
-      matching: find.byType(ListTile),
+      matching: find.byType(Card),
     );
 
-    expect(rowFinder, findsOneWidget);
+    expect(itemFinder, findsOneWidget);
 
-    final row = tester.widget<ListTile>(rowFinder);
-    expect(row.dense, isTrue);
-    expect(row.visualDensity, VisualDensity.compact);
+    expect(find.byType(ListTile), findsNothing);
     expect(find.text('Wants'), findsOneWidget);
     expect(find.text('Wants - Expense'), findsNothing);
+  });
+
+  testWidgets('default category items show a lock without dimming the card', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              const Category(
+                id: 'default-income-salary',
+                userId: 'user',
+                name: 'Salary',
+                type: CategoryType.income,
+                group: CategoryGroup.custom,
+                icon: 'salary',
+                color: '#22C55E',
+              ),
+              const Category(
+                id: 'side-hustle',
+                userId: 'user',
+                name: 'Side Hustle',
+                type: CategoryType.income,
+                group: CategoryGroup.business,
+                icon: 'salary',
+                color: '#14B8A6',
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const CategoryManagementScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final defaultCardFinder = find.ancestor(
+      of: find.text('Salary'),
+      matching: find.byType(Card),
+    );
+    final customCardFinder = find.ancestor(
+      of: find.text('Side Hustle'),
+      matching: find.byType(Card),
+    );
+    final defaultCard = tester.widget<Card>(defaultCardFinder);
+    final customCard = tester.widget<Card>(customCardFinder);
+
+    expect(find.text('Default'), findsNothing);
+    expect(defaultCard.color, customCard.color);
+    expect(
+      find.descendant(
+        of: defaultCardFinder,
+        matching: find.byIcon(Icons.lock_outline),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: customCardFinder,
+        matching: find.byIcon(Icons.lock_outline),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('category details color follows category transaction type', (
@@ -287,7 +355,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FloatingActionButton, 'Add Category'));
+    await tester.tap(find.byTooltip('Add category'));
     await tester.pumpAndSettle();
 
     expect(find.text('Include in Budgets'), findsNothing);
@@ -311,6 +379,87 @@ void main() {
 
     expect(notifier.savedCategory?.name, 'Gym');
     expect(notifier.savedCategory?.budgetEnabled, isTrue);
+  });
+
+  testWidgets('add category sheet limits type selector to income and expense', (
+    tester,
+  ) async {
+    final notifier = _SavingCategoriesNotifier(const []);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [categoriesProvider.overrideWith(() => notifier)],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const CategoryManagementScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Add category'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('category-type-selector')), findsOneWidget);
+    expect(
+      find.widgetWithText(
+        DropdownButtonFormField<CategoryType>,
+        'Category Type',
+      ),
+      findsNothing,
+    );
+    expect(find.text('Expense'), findsOneWidget);
+    expect(find.text('Income'), findsOneWidget);
+    expect(find.textContaining('Transfer'), findsNothing);
+
+    await tester.tap(find.text('Income'));
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Category Name'),
+      'Bonus',
+    );
+    final saveButton = find.widgetWithText(FilledButton, 'Save Category');
+    await tester.scrollUntilVisible(
+      saveButton,
+      180,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(notifier.savedCategory?.type, CategoryType.income);
+  });
+
+  testWidgets('add category sheet shows icons in a vertical multi-line grid', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _SavingCategoriesNotifier(const []),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const CategoryManagementScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Add category'));
+    await tester.pumpAndSettle();
+
+    final gridFinder = find.byKey(const Key('category-icon-grid'));
+    expect(gridFinder, findsOneWidget);
+    expect(
+      find.descendant(of: gridFinder, matching: find.byType(Wrap)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: gridFinder, matching: find.byType(ListView)),
+      findsNothing,
+    );
   });
 }
 

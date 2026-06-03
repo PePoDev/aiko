@@ -51,7 +51,7 @@ class CategoryService {
       _defaultCategory(
         userId: userId,
         id: 'default-income-business',
-        name: 'Business income',
+        name: 'Business',
         type: CategoryType.income,
         group: CategoryGroup.business,
         icon: 'business',

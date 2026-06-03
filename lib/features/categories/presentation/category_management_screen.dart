@@ -89,8 +89,9 @@ class CategoryManagementScreen extends ConsumerWidget {
         title: const Text('Categories'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () => _showAikoTip(context),
+            tooltip: 'Add category',
+            icon: const Icon(Icons.add),
+            onPressed: () => _showAddCategorySheet(context),
           ),
         ],
       ),
@@ -126,7 +127,7 @@ class CategoryManagementScreen extends ConsumerWidget {
           );
 
           return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+            padding: const EdgeInsets.all(16),
             children: [
               if (incomeCategories.isNotEmpty)
                 _CategoryTypeSection(
@@ -151,13 +152,6 @@ class CategoryManagementScreen extends ConsumerWidget {
             ],
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddCategorySheet(context),
-        label: const Text('Add Category'),
-        icon: const Icon(Icons.add),
-        backgroundColor: AikoColors.primaryBlue,
-        foregroundColor: Colors.white,
       ),
     );
   }
@@ -221,39 +215,6 @@ class CategoryManagementScreen extends ConsumerWidget {
         return 'Adjustment';
     }
   }
-
-  void _showAikoTip(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AikoColors.primaryBlue,
-              ),
-              child: const Icon(Icons.face, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 8),
-            const Text('Aiko\'s Guidance'),
-          ],
-        ),
-        content: const Text(
-          'Organizing your transactions into Needs, Wants, and Savings categories helps me generate '
-          'smarter insights about your spending behaviors!',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('I see!'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _CategoryTypeSection extends StatelessWidget {
@@ -308,28 +269,68 @@ class _CategoryTypeSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          ...defaultCategories.map(
-            (category) => _CategoryListCard(
-              category: category,
-              categoryIcon: getIconData(category.icon),
-              categoryColor: parseHexColor(category.color),
-              groupLabel: getGroupLabel(category.group),
-              typeLabel: getTypeLabel(category.type),
-            ),
-          ),
-          if (defaultCategories.isNotEmpty && customCategories.isNotEmpty)
-            const SizedBox(height: 2),
-          ...customCategories.map(
-            (category) => _CategoryListCard(
-              category: category,
-              categoryIcon: getIconData(category.icon),
-              categoryColor: parseHexColor(category.color),
-              groupLabel: getGroupLabel(category.group),
-              typeLabel: getTypeLabel(category.type),
-            ),
+          _CategoryCardGrid(
+            categories: [...defaultCategories, ...customCategories],
+            getIconData: getIconData,
+            parseHexColor: parseHexColor,
+            getGroupLabel: getGroupLabel,
+            getTypeLabel: getTypeLabel,
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CategoryCardGrid extends StatelessWidget {
+  const _CategoryCardGrid({
+    required this.categories,
+    required this.getIconData,
+    required this.parseHexColor,
+    required this.getGroupLabel,
+    required this.getTypeLabel,
+  });
+
+  final List<Category> categories;
+  final IconData Function(String iconName) getIconData;
+  final Color Function(String hexColor) parseHexColor;
+  final String Function(CategoryGroup group) getGroupLabel;
+  final String Function(CategoryType type) getTypeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    const spacing = 8.0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth >= 520
+            ? 3
+            : constraints.maxWidth >= 340
+            ? 2
+            : 1;
+        final cardWidth =
+            (constraints.maxWidth - spacing * (crossAxisCount - 1)) /
+            crossAxisCount;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: categories
+              .map(
+                (category) => SizedBox(
+                  width: cardWidth,
+                  child: _CategoryListCard(
+                    category: category,
+                    categoryIcon: getIconData(category.icon),
+                    categoryColor: parseHexColor(category.color),
+                    groupLabel: getGroupLabel(category.group),
+                    typeLabel: getTypeLabel(category.type),
+                  ),
+                ),
+              )
+              .toList(growable: false),
+        );
+      },
     );
   }
 }
@@ -351,69 +352,79 @@ class _CategoryListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final originColor = category.isDefault
-        ? AikoColors.primaryBlue
-        : AikoColors.analyticsTeal;
+    final theme = Theme.of(context);
+    final iconColor = categoryColor;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        child: ListTile(
-          dense: true,
-          visualDensity: VisualDensity.compact,
-          minLeadingWidth: 32,
-          minVerticalPadding: 6,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-          leading: Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color:
-                  (category.isDefault
-                          ? categoryColor.withValues(alpha: 0.72)
-                          : categoryColor)
-                      .withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              categoryIcon,
-              color: category.isDefault
-                  ? categoryColor.withValues(alpha: 0.72)
-                  : categoryColor,
-              size: 18,
+    return Card(
+      color: theme.cardColor,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => CategoryDetailScreen(
+              category: category,
+              categoryIcon: categoryIcon,
+              categoryColor: categoryColor,
+              typeLabel: typeLabel,
+              groupLabel: groupLabel,
             ),
           ),
-          title: Text(
-            category.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(
-            groupLabel,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _CategoryStatusPill(
-                label: category.isDefault ? 'Default' : 'Custom',
-                color: originColor,
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right, size: 18),
-            ],
-          ),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => CategoryDetailScreen(
-                category: category,
-                categoryIcon: categoryIcon,
-                categoryColor: categoryColor,
-                typeLabel: typeLabel,
-                groupLabel: groupLabel,
-              ),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 72),
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(categoryIcon, color: iconColor, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        category.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        groupLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                if (category.isDefault) ...[
+                  const Icon(
+                    Icons.lock_outline,
+                    size: 14,
+                    color: AikoColors.mutedText,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Icon(
+                  Icons.chevron_right,
+                  size: 16,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
             ),
           ),
         ),
@@ -689,14 +700,27 @@ class _AddCategoryBottomSheetState
     {'key': 'category', 'icon': Icons.category_outlined},
     {'key': 'food', 'icon': Icons.restaurant_outlined},
     {'key': 'housing', 'icon': Icons.home_outlined},
+    {'key': 'transport', 'icon': Icons.directions_bus_outlined},
+    {'key': 'fuel', 'icon': Icons.local_gas_station_outlined},
     {'key': 'travel', 'icon': Icons.flight_outlined},
     {'key': 'coffee', 'icon': Icons.coffee_outlined},
     {'key': 'shopping', 'icon': Icons.shopping_bag_outlined},
+    {'key': 'utilities', 'icon': Icons.bolt_outlined},
+    {'key': 'phone', 'icon': Icons.phone_android_outlined},
+    {'key': 'internet', 'icon': Icons.wifi_outlined},
+    {'key': 'subscriptions', 'icon': Icons.subscriptions_outlined},
+    {'key': 'health', 'icon': Icons.health_and_safety_outlined},
+    {'key': 'insurance', 'icon': Icons.verified_user_outlined},
+    {'key': 'education', 'icon': Icons.school_outlined},
     {'key': 'savings', 'icon': Icons.savings_outlined},
     {'key': 'investing', 'icon': Icons.trending_up_outlined},
     {'key': 'gym', 'icon': Icons.fitness_center_outlined},
     {'key': 'salary', 'icon': Icons.attach_money_outlined},
+    {'key': 'fee', 'icon': Icons.receipt_long_outlined},
+    {'key': 'tax', 'icon': Icons.request_quote_outlined},
     {'key': 'entertainment', 'icon': Icons.movie_outlined},
+    {'key': 'gift', 'icon': Icons.card_giftcard_outlined},
+    {'key': 'business', 'icon': Icons.work_outline},
   ];
 
   bool get _isEditing => widget.initialCategory != null;
@@ -916,23 +940,46 @@ class _AddCategoryBottomSheetState
               ),
               const SizedBox(height: 16),
               // Category Type
-              DropdownButtonFormField<CategoryType>(
-                initialValue: _selectedType,
-                decoration: InputDecoration(
-                  labelText: 'Category Type',
-                  prefixIcon: const Icon(Icons.swap_horiz_outlined),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+              SegmentedButton<CategoryType>(
+                key: const Key('category-type-selector'),
+                showSelectedIcon: false,
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return _categoryTypeColor(_selectedType);
+                    }
+                    return null;
+                  }),
+                  foregroundColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return AikoColors.white;
+                    }
+                    return null;
+                  }),
+                  iconColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return AikoColors.white;
+                    }
+                    return null;
+                  }),
                 ),
-                items: CategoryType.values.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(_getTypeLabel(type)),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedType = val);
+                segments: const [
+                  ButtonSegment(
+                    value: CategoryType.expense,
+                    label: Text('Expense'),
+                    icon: Icon(Icons.north_east),
+                  ),
+                  ButtonSegment(
+                    value: CategoryType.income,
+                    label: Text('Income'),
+                    icon: Icon(Icons.south_west),
+                  ),
+                ],
+                selected: {_selectedType},
+                onSelectionChanged: (selection) {
+                  setState(() {
+                    _selectedType = selection.first;
+                  });
                 },
               ),
               const SizedBox(height: 16),
@@ -1017,47 +1064,55 @@ class _AddCategoryBottomSheetState
                 ),
               ),
               const SizedBox(height: 8),
-              SizedBox(
-                height: 56,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _iconsPreset.length,
-                  itemBuilder: (context, idx) {
-                    final item = _iconsPreset[idx];
-                    final key = item['key'] as String;
-                    final iconData = item['icon'] as IconData;
-                    final isSelected = _selectedIconKey == key;
-                    final activeColor = _parseHex(_selectedColorHex);
+              Builder(
+                builder: (context) {
+                  final activeColor = _parseHex(_selectedColorHex);
 
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedIconKey = key),
-                      child: Container(
-                        width: 50,
-                        height: 50,
-                        margin: const EdgeInsets.only(right: 12),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? activeColor.withValues(alpha: 0.15)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected
-                                ? activeColor
-                                : AikoColors.borderSubtle,
-                            width: 2,
-                          ),
-                        ),
-                        child: Icon(
-                          iconData,
-                          color: isSelected
-                              ? activeColor
-                              : AikoColors.mutedText,
-                          size: 24,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                  return Container(
+                    key: const Key('category-icon-grid'),
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: _iconsPreset
+                          .map((item) {
+                            final key = item['key'] as String;
+                            final iconData = item['icon'] as IconData;
+                            final isSelected = _selectedIconKey == key;
+
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () =>
+                                  setState(() => _selectedIconKey = key),
+                              child: Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? activeColor.withValues(alpha: 0.15)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? activeColor
+                                        : AikoColors.borderSubtle,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Icon(
+                                  iconData,
+                                  color: isSelected
+                                      ? activeColor
+                                      : AikoColors.mutedText,
+                                  size: 24,
+                                ),
+                              ),
+                            );
+                          })
+                          .toList(growable: false),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 24),
               // Save Button

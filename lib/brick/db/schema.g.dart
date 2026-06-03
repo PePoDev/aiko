@@ -1,11 +1,13 @@
 // GENERATED CODE DO NOT EDIT
 // This file should be version controlled
 import 'package:brick_sqlite/db.dart';
-part '20260523183433.migration.dart';
+part '20260603133701.migration.dart';
 part '20260523055312.migration.dart';
+part '20260523183433.migration.dart';
 
 /// All intelligently-generated migrations from all `@Migratable` classes on disk
 final migrations = <Migration>{
+  const Migration20260603133701(),
   const Migration20260523055312(),
   const Migration20260523183433(),
 };
@@ -88,6 +90,7 @@ final schema = Schema(
         SchemaColumn('color', Column.varchar),
         SchemaColumn('budget_enabled', Column.boolean),
         SchemaColumn('is_active', Column.boolean),
+        SchemaColumn('created_at', Column.datetime),
       },
       indices: <SchemaIndex>{
         SchemaIndex(columns: ['user_id'], unique: false),

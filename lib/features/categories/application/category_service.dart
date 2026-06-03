@@ -78,7 +78,7 @@ class CategoryService {
       _defaultCategory(
         userId: userId,
         id: 'default-income-rental',
-        name: 'Rental income',
+        name: 'Rental',
         type: CategoryType.income,
         group: CategoryGroup.investment,
         icon: 'home',
@@ -105,7 +105,7 @@ class CategoryService {
       _defaultCategory(
         userId: userId,
         id: 'default-income-other',
-        name: 'Other income',
+        name: 'Other',
         type: CategoryType.income,
         group: CategoryGroup.custom,
         icon: 'category',
@@ -281,7 +281,7 @@ class CategoryService {
       _defaultCategory(
         userId: userId,
         id: 'default-expense-other',
-        name: 'Other expense',
+        name: 'Other',
         type: CategoryType.expense,
         group: CategoryGroup.custom,
         icon: 'category',
@@ -308,6 +308,7 @@ class CategoryService {
       icon: icon,
       color: color,
       budgetEnabled: type == CategoryType.expense,
+      createdAt: null,
     );
   }
 }

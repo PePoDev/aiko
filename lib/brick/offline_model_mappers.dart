@@ -101,6 +101,7 @@ extension OfflineCategoryMapper on OfflineCategory {
       color: color,
       budgetEnabled: budgetEnabled,
       isActive: isActive,
+      createdAt: createdAt,
     );
   }
 }
@@ -118,6 +119,7 @@ extension CategoryOfflineMapper on Category {
       color: color,
       budgetEnabled: budgetEnabled,
       isActive: isActive,
+      createdAt: createdAt,
     );
   }
 }

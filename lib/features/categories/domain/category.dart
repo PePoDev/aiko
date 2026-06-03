@@ -31,6 +31,7 @@ class Category {
     this.color = '#3B82F6',
     this.budgetEnabled = true,
     this.isActive = true,
+    this.createdAt,
   });
 
   final String id;
@@ -43,6 +44,7 @@ class Category {
   final String color;
   final bool budgetEnabled;
   final bool isActive;
+  final DateTime? createdAt;
 
   bool get isDefault => id.startsWith('default-');
 
@@ -55,6 +57,7 @@ class Category {
     String? color,
     bool? budgetEnabled,
     bool? isActive,
+    DateTime? createdAt,
   }) {
     return Category(
       id: id,
@@ -67,6 +70,7 @@ class Category {
       color: color ?? this.color,
       budgetEnabled: budgetEnabled ?? this.budgetEnabled,
       isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }

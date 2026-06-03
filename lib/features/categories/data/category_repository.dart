@@ -13,7 +13,6 @@ class CategoryRepository {
     final categories = await OfflineStore().get<OfflineCategory>(
       query: Query(
         where: [Where.exact('userId', userId)],
-        orderBy: const [OrderBy.asc('name')],
       ),
     );
 
@@ -31,6 +30,8 @@ class CategoryRepository {
 
     final duplicate = currentList.any(
       (item) =>
+          item.isActive &&
+          category.isActive &&
           item.id != category.id &&
           item.parentId == category.parentId &&
           item.type == category.type &&
@@ -41,8 +42,12 @@ class CategoryRepository {
     }
 
     final userId = await OfflineUserContext().resolveUserId();
+    final categoryToSave =
+        category.createdAt == null && !category.isDefault
+        ? category.copyWith(createdAt: DateTime.now())
+        : category;
     final saved = await OfflineStore().upsert(
-      category.toOffline(userId: userId),
+      categoryToSave.toOffline(userId: userId),
     );
     return saved.toDomain();
   }

@@ -17,6 +17,7 @@ class OfflineCategory extends OfflineFirstWithSupabaseModel {
     this.color = '#3B82F6',
     this.budgetEnabled = true,
     this.isActive = true,
+    this.createdAt,
   });
 
   @Sqlite(unique: true)
@@ -38,4 +39,8 @@ class OfflineCategory extends OfflineFirstWithSupabaseModel {
   final String color;
   final bool budgetEnabled;
   final bool isActive;
+
+  @Sqlite(name: 'created_at')
+  @Supabase(name: 'created_at')
+  final DateTime? createdAt;
 }

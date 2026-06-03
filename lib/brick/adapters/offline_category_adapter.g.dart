@@ -17,6 +17,11 @@ Future<OfflineCategory> _$OfflineCategoryFromSupabase(
     color: data['color'] as String,
     budgetEnabled: data['budget_enabled'] as bool,
     isActive: data['is_active'] as bool,
+    createdAt: data['created_at'] == null
+        ? null
+        : data['created_at'] == null
+        ? null
+        : DateTime.tryParse(data['created_at'] as String),
   );
 }
 
@@ -36,6 +41,7 @@ Future<Map<String, dynamic>> _$OfflineCategoryToSupabase(
     'color': instance.color,
     'budget_enabled': instance.budgetEnabled,
     'is_active': instance.isActive,
+    'created_at': instance.createdAt?.toIso8601String(),
   };
 }
 
@@ -55,6 +61,11 @@ Future<OfflineCategory> _$OfflineCategoryFromSqlite(
     color: data['color'] as String,
     budgetEnabled: data['budget_enabled'] == 1,
     isActive: data['is_active'] == 1,
+    createdAt: data['created_at'] == null
+        ? null
+        : data['created_at'] == null
+        ? null
+        : DateTime.tryParse(data['created_at'] as String),
   )..primaryKey = data['_brick_id'] as int;
 }
 
@@ -74,6 +85,7 @@ Future<Map<String, dynamic>> _$OfflineCategoryToSqlite(
     'color': instance.color,
     'budget_enabled': instance.budgetEnabled ? 1 : 0,
     'is_active': instance.isActive ? 1 : 0,
+    'created_at': instance.createdAt?.toIso8601String(),
   };
 }
 
@@ -127,6 +139,10 @@ class OfflineCategoryAdapter
     'isActive': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'is_active',
+    ),
+    'createdAt': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'created_at',
     ),
   };
   @override
@@ -200,6 +216,12 @@ class OfflineCategoryAdapter
       columnName: 'is_active',
       iterable: false,
       type: bool,
+    ),
+    'createdAt': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'created_at',
+      iterable: false,
+      type: DateTime,
     ),
   };
   @override

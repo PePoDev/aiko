@@ -1,7 +1,6 @@
 import 'package:aiko/app/providers.dart';
 import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/categories/presentation/category_management_screen.dart';
-import 'package:aiko/theme/aiko_colors.dart';
 import 'package:aiko/theme/aiko_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -81,7 +80,7 @@ void main() {
     expect(find.byIcon(Icons.info_outline), findsNothing);
   });
 
-  testWidgets('default category details cannot be edited or deleted', (
+  testWidgets('default category tap does not open a popup or route', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -113,13 +112,12 @@ void main() {
     await tester.tap(find.text('Salary'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Category details'), findsOneWidget);
-    expect(find.byIcon(Icons.edit_outlined), findsNothing);
-    expect(find.byIcon(Icons.delete_outline), findsNothing);
-    expect(find.text('Default category'), findsOneWidget);
+    expect(find.text('Edit Category'), findsNothing);
+    expect(find.text('Category details'), findsNothing);
+    expect(find.text('Salary'), findsOneWidget);
   });
 
-  testWidgets('category item opens details screen', (tester) async {
+  testWidgets('custom category item opens edit category popup', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -149,18 +147,65 @@ void main() {
     await tester.tap(find.text('Coffee'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Category details'), findsOneWidget);
-    expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    expect(find.text('Category details'), findsNothing);
+    expect(find.text('Edit Category'), findsOneWidget);
     expect(find.text('Coffee'), findsWidgets);
-    expect(find.text('Type'), findsOneWidget);
-    expect(find.text('Expense'), findsOneWidget);
-    expect(find.text('Group'), findsOneWidget);
+    expect(find.text('Expense'), findsWidgets);
     expect(find.text('Wants'), findsOneWidget);
     expect(find.text('Budget'), findsNothing);
     expect(find.text('Enabled'), findsNothing);
-    expect(find.text('#8B5CF6'), findsOneWidget);
     expect(find.byIcon(Icons.coffee_outlined), findsWidgets);
+  });
+
+  testWidgets('edit category sheet can delete a custom category', (
+    tester,
+  ) async {
+    final notifier = _DeletingCategoriesNotifier([
+      const Category(
+        id: 'coffee',
+        userId: 'user',
+        name: 'Coffee',
+        type: CategoryType.expense,
+        group: CategoryGroup.wants,
+        icon: 'coffee',
+        color: '#8B5CF6',
+        budgetEnabled: true,
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [categoriesProvider.overrideWith(() => notifier)],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const CategoryManagementScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Coffee'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.widgetWithText(OutlinedButton, 'Delete Category'),
+      findsNothing,
+    );
+
+    final deleteButton = find.byTooltip('Delete category');
+    expect(deleteButton, findsOneWidget);
+
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete "Coffee"?'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+
+    expect(notifier.deletedId, 'coffee');
+    expect(find.text('Edit Category'), findsNothing);
+    expect(find.text('Coffee'), findsNothing);
   });
 
   testWidgets('category items use compact box cards', (tester) async {
@@ -268,64 +313,6 @@ void main() {
       ),
       findsNothing,
     );
-  });
-
-  testWidgets('category details color follows category transaction type', (
-    tester,
-  ) async {
-    final cases = [
-      (
-        type: CategoryType.expense,
-        name: 'Coffee',
-        iconName: 'coffee',
-        icon: Icons.coffee_outlined,
-        expected: AikoColors.dangerRed,
-      ),
-      (
-        type: CategoryType.income,
-        name: 'Salary',
-        iconName: 'salary',
-        icon: Icons.attach_money_outlined,
-        expected: AikoColors.successGreen,
-      ),
-      (
-        type: CategoryType.transfer,
-        name: 'Move Money',
-        iconName: 'category',
-        icon: Icons.category_outlined,
-        expected: AikoColors.primaryBlue,
-      ),
-    ];
-
-    for (final testCase in cases) {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp(
-            theme: AikoTheme.light(),
-            home: CategoryDetailScreen(
-              category: Category(
-                id: testCase.name,
-                userId: 'user',
-                name: testCase.name,
-                type: testCase.type,
-                group: CategoryGroup.custom,
-                icon: testCase.iconName,
-                color: '#8B5CF6',
-              ),
-              categoryIcon: testCase.icon,
-              categoryColor: AikoColors.premiumPurple,
-              typeLabel: testCase.type.name,
-              groupLabel: 'Custom',
-            ),
-          ),
-        ),
-      );
-
-      await tester.pumpAndSettle();
-
-      final icon = tester.widget<Icon>(find.byIcon(testCase.icon).first);
-      expect(icon.color, testCase.expected);
-    }
   });
 
   testWidgets('add category sheet does not expose budget membership toggle', (
@@ -481,5 +468,19 @@ class _SavingCategoriesNotifier extends _CategoriesNotifier {
   Future<void> saveCategory(Category category) async {
     savedCategory = category;
     state = AsyncValue.data([...categories, category]);
+  }
+}
+
+class _DeletingCategoriesNotifier extends _CategoriesNotifier {
+  _DeletingCategoriesNotifier(super.categories);
+
+  String? deletedId;
+
+  @override
+  Future<void> deleteCategory(String id) async {
+    deletedId = id;
+    state = AsyncValue.data(
+      categories.where((category) => category.id != id).toList(growable: false),
+    );
   }
 }

@@ -13,12 +13,16 @@ class AuthSession {
 }
 
 class AuthRepository {
-  AuthRepository({SecureStorageService? storage})
-    : _storage = storage ?? FlutterSecureStorageService();
+  AuthRepository({
+    SecureStorageService? storage,
+    AuthBootstrapGateway? bootstrapGateway,
+  }) : _storage = storage ?? FlutterSecureStorageService(),
+       _bootstrapGateway = bootstrapGateway;
 
   static const _knownAccountKey = 'aiko_known_account';
 
   final SecureStorageService _storage;
+  final AuthBootstrapGateway? _bootstrapGateway;
   AuthSession? _session;
 
   Future<bool> hasKnownAccount() async {
@@ -155,8 +159,11 @@ class AuthRepository {
     String userId,
     String email,
   ) async {
-    final client = AikoSupabase.requireClient();
-    await client.from('profiles').upsert({
+    final gateway =
+        _bootstrapGateway ??
+        SupabaseAuthBootstrapGateway(AikoSupabase.requireClient());
+
+    await gateway.upsert('profiles', {
       'id': userId,
       'email': email,
       'display_name': email.contains('@') ? email.split('@').first : email,
@@ -171,33 +178,9 @@ class AuthRepository {
       'security_status': 'notConfigured',
     });
 
-    final categories = await client
-        .from('categories')
-        .select('id')
-        .eq('user_id', userId);
-    if (categories.isEmpty) {
-      await client.from('categories').insert([
-        {
-          'user_id': userId,
-          'name': 'Food and Dining',
-          'type': 'expense',
-          'group': 'needs',
-        },
-        {
-          'user_id': userId,
-          'name': 'Salary',
-          'type': 'income',
-          'group': 'custom',
-        },
-      ]);
-    }
-
-    final accounts = await client
-        .from('accounts')
-        .select('id')
-        .eq('user_id', userId);
+    final accounts = await gateway.selectIds('accounts', userId: userId);
     if (accounts.isEmpty) {
-      await client.from('accounts').insert({
+      await gateway.insert('accounts', {
         'user_id': userId,
         'name': 'Cash Wallet',
         'type': 'cash',
@@ -208,5 +191,47 @@ class AuthRepository {
         'is_active': true,
       });
     }
+  }
+
+  Future<void> ensureProfileAndDefaultsExistForTesting(
+    String userId,
+    String email,
+  ) {
+    return _ensureProfileAndDefaultsExist(userId, email);
+  }
+}
+
+abstract interface class AuthBootstrapGateway {
+  Future<void> upsert(String table, Map<String, Object?> values);
+
+  Future<List<Map<String, dynamic>>> selectIds(
+    String table, {
+    required String userId,
+  });
+
+  Future<void> insert(String table, Object values);
+}
+
+class SupabaseAuthBootstrapGateway implements AuthBootstrapGateway {
+  const SupabaseAuthBootstrapGateway(this._client);
+
+  final SupabaseClient _client;
+
+  @override
+  Future<void> upsert(String table, Map<String, Object?> values) {
+    return _client.from(table).upsert(values);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> selectIds(
+    String table, {
+    required String userId,
+  }) {
+    return _client.from(table).select('id').eq('user_id', userId);
+  }
+
+  @override
+  Future<void> insert(String table, Object values) {
+    return _client.from(table).insert(values);
   }
 }

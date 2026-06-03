@@ -121,7 +121,7 @@ void main() {
     expect(find.text('\$120.00'), findsOneWidget);
   });
 
-  testWidgets('category row opens category details', (tester) async {
+  testWidgets('custom category row opens edit category popup', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -165,8 +165,60 @@ void main() {
     await tester.tap(find.text('Coffee'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Category details'), findsOneWidget);
-    expect(find.text('Wants'), findsOneWidget);
+    expect(find.text('Category details'), findsNothing);
+    expect(find.text('Edit Category'), findsOneWidget);
+    expect(find.textContaining('Wants'), findsOneWidget);
+  });
+
+  testWidgets('default category row does not open category popup', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(
+            _FakeTransactionRepository(),
+          ),
+          accountsProvider.overrideWith(() => _AccountsNotifier(const [])),
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              const Category(
+                id: 'default-expense-groceries',
+                userId: 'user',
+                name: 'Groceries',
+                type: CategoryType.expense,
+                group: CategoryGroup.needs,
+                icon: 'food',
+                color: '#F97316',
+              ),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: TransactionDetailScreen(
+            transaction: FinanceTransaction(
+              id: 'tx-1',
+              userId: 'user',
+              accountId: 'cash',
+              categoryId: 'default-expense-groceries',
+              type: TransactionType.expense,
+              amount: Money.parse('4.50', 'USD'),
+              date: DateTime(2026, 5, 23, 9, 30),
+              merchant: 'Cafe',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Groceries'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit Category'), findsNothing);
+    expect(find.text('Category details'), findsNothing);
+    expect(find.text('Groceries'), findsOneWidget);
   });
 
   testWidgets('details screen can edit a transaction', (tester) async {

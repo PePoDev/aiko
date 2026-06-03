@@ -187,18 +187,11 @@ class _TransactionDetailScreenState
                     value: categoryName,
                     valueIcon: categoryIcon,
                     valueIconColor: categoryColor,
-                    onTap: category == null
+                    onTap: category == null || category.isDefault
                         ? null
-                        : () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => CategoryDetailScreen(
-                                category: category,
-                                categoryIcon: categoryIcon!,
-                                categoryColor: categoryColor!,
-                                typeLabel: _categoryTypeLabel(category.type),
-                                groupLabel: _categoryGroupLabel(category.group),
-                              ),
-                            ),
+                        : () => showCategoryEditorSheet(
+                            context,
+                            initialCategory: category,
                           ),
                   ),
                 ],
@@ -304,31 +297,6 @@ class _TransactionDetailScreenState
       }
     }
     return null;
-  }
-
-  String _categoryTypeLabel(CategoryType type) {
-    return switch (type) {
-      CategoryType.income => 'Income',
-      CategoryType.expense => 'Expense',
-      CategoryType.transfer => 'Transfer',
-      CategoryType.finance => 'Finance',
-      CategoryType.tax => 'Tax',
-      CategoryType.investment => 'Investment',
-      CategoryType.adjustment => 'Adjustment',
-    };
-  }
-
-  String _categoryGroupLabel(CategoryGroup group) {
-    return switch (group) {
-      CategoryGroup.needs => 'Needs',
-      CategoryGroup.wants => 'Wants',
-      CategoryGroup.savings => 'Savings',
-      CategoryGroup.debt => 'Debt',
-      CategoryGroup.investment => 'Investment',
-      CategoryGroup.tax => 'Tax',
-      CategoryGroup.business => 'Business',
-      CategoryGroup.custom => 'Custom',
-    };
   }
 }
 

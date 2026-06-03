@@ -168,18 +168,23 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
   }
 
   List<Category> _combineWithDefaults(List<Category> customCategories) {
-    final filteredCustom = customCategories
+    final nonDefaultCategories = customCategories
         .where((cat) => !cat.isDefault)
         .toList(growable: false);
+    final activeCustomCategories = nonDefaultCategories
+        .where((cat) => cat.isActive)
+        .toList(growable: false);
+    activeCustomCategories.sort(_compareCustomCategories);
 
-    final userId = filteredCustom.isNotEmpty
-        ? filteredCustom.first.userId
+    final userId = nonDefaultCategories.isNotEmpty
+        ? nonDefaultCategories.first.userId
         : 'local-user';
 
     final defaults = const CategoryService().defaultCategoriesFor(userId);
 
-    // Filter out any default category that has a name/type conflict with custom categories
-    final customKeys = filteredCustom
+    // Inactive custom rows act as tombstones so deleted custom categories do not
+    // reappear as generated defaults with the same name/type.
+    final customKeys = nonDefaultCategories
         .map((cat) => '${cat.name.toLowerCase()}-${cat.type.name}')
         .toSet();
 
@@ -190,7 +195,23 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
         })
         .toList(growable: false);
 
-    return [...filteredCustom, ...uniqueDefaults];
+    return [...uniqueDefaults, ...activeCustomCategories];
+  }
+
+  int _compareCustomCategories(Category a, Category b) {
+    final createdAtA = a.createdAt;
+    final createdAtB = b.createdAt;
+    if (createdAtA != null && createdAtB != null) {
+      final byCreatedAt = createdAtA.compareTo(createdAtB);
+      if (byCreatedAt != 0) {
+        return byCreatedAt;
+      }
+    } else if (createdAtA != null) {
+      return 1;
+    } else if (createdAtB != null) {
+      return -1;
+    }
+    return a.name.toLowerCase().compareTo(b.name.toLowerCase());
   }
 
   Future<void> addCategory(Category category) async {
@@ -211,10 +232,22 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
   }
 
   Future<void> deleteCategory(String id) async {
+    final previousCategories = state.hasValue ? state.value : null;
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(categoryRepositoryProvider);
-      await repo.delete(id);
+      Category? category;
+      for (final item in previousCategories ?? const <Category>[]) {
+        if (item.id == id) {
+          category = item;
+          break;
+        }
+      }
+      if (category == null || category.isDefault) {
+        await repo.delete(id);
+      } else {
+        await repo.save(const CategoryService().archive(category));
+      }
       final customCategories = await repo.list();
       return _combineWithDefaults(customCategories);
     });

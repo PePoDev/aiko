@@ -8,6 +8,23 @@ import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/category.dart';
 
+Future<bool?> showCategoryEditorSheet(
+  BuildContext context, {
+  Category? initialCategory,
+}) {
+  if (initialCategory?.isDefault ?? false) {
+    return Future.value(false);
+  }
+
+  return showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) =>
+        _AddCategoryBottomSheet(initialCategory: initialCategory),
+  );
+}
+
 class CategoryManagementScreen extends ConsumerWidget {
   const CategoryManagementScreen({super.key});
 
@@ -115,16 +132,12 @@ class CategoryManagementScreen extends ConsumerWidget {
             );
           }
 
-          final incomeCategories = _sortedForDisplay(
-            categories
-                .where((category) => category.type == CategoryType.income)
-                .toList(growable: false),
-          );
-          final expenseCategories = _sortedForDisplay(
-            categories
-                .where((category) => category.type == CategoryType.expense)
-                .toList(growable: false),
-          );
+          final incomeCategories = categories
+              .where((category) => category.type == CategoryType.income)
+              .toList(growable: false);
+          final expenseCategories = categories
+              .where((category) => category.type == CategoryType.expense)
+              .toList(growable: false);
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -137,7 +150,6 @@ class CategoryManagementScreen extends ConsumerWidget {
                   getIconData: _getIconData,
                   parseHexColor: _parseHexColor,
                   getGroupLabel: _getGroupLabel,
-                  getTypeLabel: _getTypeLabel,
                 ),
               if (expenseCategories.isNotEmpty)
                 _CategoryTypeSection(
@@ -147,7 +159,6 @@ class CategoryManagementScreen extends ConsumerWidget {
                   getIconData: _getIconData,
                   parseHexColor: _parseHexColor,
                   getGroupLabel: _getGroupLabel,
-                  getTypeLabel: _getTypeLabel,
                 ),
             ],
           );
@@ -156,24 +167,8 @@ class CategoryManagementScreen extends ConsumerWidget {
     );
   }
 
-  List<Category> _sortedForDisplay(List<Category> categories) {
-    final sorted = [...categories];
-    sorted.sort((a, b) {
-      if (a.isDefault != b.isDefault) {
-        return a.isDefault ? -1 : 1;
-      }
-      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-    });
-    return sorted;
-  }
-
   void _showAddCategorySheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const _AddCategoryBottomSheet(),
-    );
+    showCategoryEditorSheet(context);
   }
 
   String _getGroupLabel(CategoryGroup group) {
@@ -196,25 +191,6 @@ class CategoryManagementScreen extends ConsumerWidget {
         return 'Custom';
     }
   }
-
-  String _getTypeLabel(CategoryType type) {
-    switch (type) {
-      case CategoryType.income:
-        return 'Income';
-      case CategoryType.expense:
-        return 'Expense';
-      case CategoryType.transfer:
-        return 'Transfer';
-      case CategoryType.finance:
-        return 'Finance';
-      case CategoryType.tax:
-        return 'Tax';
-      case CategoryType.investment:
-        return 'Investment';
-      case CategoryType.adjustment:
-        return 'Adjustment';
-    }
-  }
 }
 
 class _CategoryTypeSection extends StatelessWidget {
@@ -225,7 +201,6 @@ class _CategoryTypeSection extends StatelessWidget {
     required this.getIconData,
     required this.parseHexColor,
     required this.getGroupLabel,
-    required this.getTypeLabel,
   });
 
   final String title;
@@ -234,7 +209,6 @@ class _CategoryTypeSection extends StatelessWidget {
   final IconData Function(String iconName) getIconData;
   final Color Function(String hexColor) parseHexColor;
   final String Function(CategoryGroup group) getGroupLabel;
-  final String Function(CategoryType type) getTypeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -274,7 +248,6 @@ class _CategoryTypeSection extends StatelessWidget {
             getIconData: getIconData,
             parseHexColor: parseHexColor,
             getGroupLabel: getGroupLabel,
-            getTypeLabel: getTypeLabel,
           ),
         ],
       ),
@@ -288,14 +261,12 @@ class _CategoryCardGrid extends StatelessWidget {
     required this.getIconData,
     required this.parseHexColor,
     required this.getGroupLabel,
-    required this.getTypeLabel,
   });
 
   final List<Category> categories;
   final IconData Function(String iconName) getIconData;
   final Color Function(String hexColor) parseHexColor;
   final String Function(CategoryGroup group) getGroupLabel;
-  final String Function(CategoryType type) getTypeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -324,7 +295,6 @@ class _CategoryCardGrid extends StatelessWidget {
                     categoryIcon: getIconData(category.icon),
                     categoryColor: parseHexColor(category.color),
                     groupLabel: getGroupLabel(category.group),
-                    typeLabel: getTypeLabel(category.type),
                   ),
                 ),
               )
@@ -341,14 +311,12 @@ class _CategoryListCard extends StatelessWidget {
     required this.categoryIcon,
     required this.categoryColor,
     required this.groupLabel,
-    required this.typeLabel,
   });
 
   final Category category;
   final IconData categoryIcon;
   final Color categoryColor;
   final String groupLabel;
-  final String typeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -358,17 +326,9 @@ class _CategoryListCard extends StatelessWidget {
     return Card(
       color: theme.cardColor,
       child: InkWell(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => CategoryDetailScreen(
-              category: category,
-              categoryIcon: categoryIcon,
-              categoryColor: categoryColor,
-              typeLabel: typeLabel,
-              groupLabel: groupLabel,
-            ),
-          ),
-        ),
+        onTap: category.isDefault
+            ? null
+            : () => _showEditCategorySheet(context),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 72),
           child: Padding(
@@ -418,237 +378,23 @@ class _CategoryListCard extends StatelessWidget {
                     color: AikoColors.mutedText,
                   ),
                   const SizedBox(width: 4),
+                ] else ...[
+                  Icon(
+                    Icons.chevron_right,
+                    size: 16,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ],
-                Icon(
-                  Icons.chevron_right,
-                  size: 16,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class CategoryDetailScreen extends ConsumerWidget {
-  const CategoryDetailScreen({
-    required this.category,
-    required this.categoryIcon,
-    required this.categoryColor,
-    required this.typeLabel,
-    required this.groupLabel,
-    super.key,
-  });
-
-  final Category category;
-  final IconData categoryIcon;
-  final Color categoryColor;
-  final String typeLabel;
-  final String groupLabel;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final detailColor = _categoryTypeColor(category.type);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Category details'),
-        actions: category.isDefault
-            ? null
-            : [
-                IconButton(
-                  tooltip: 'Edit category',
-                  icon: const Icon(Icons.edit_outlined),
-                  onPressed: () => _showEditCategorySheet(context),
-                ),
-                IconButton(
-                  tooltip: 'Delete category',
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () => _confirmDelete(context, ref),
-                ),
-              ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        children: [
-          FinanceCard(
-            title: category.name,
-            icon: categoryIcon,
-            accentColor: detailColor,
-            prominent: true,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _CategoryStatusPill(
-                  label: category.isDefault
-                      ? 'Default category'
-                      : (category.isActive ? 'Active' : 'Archived'),
-                  color: category.isDefault
-                      ? AikoColors.primaryBlue
-                      : category.isActive
-                      ? AikoColors.successGreen
-                      : AikoColors.mutedText,
-                ),
-                const SizedBox(height: 16),
-                _CategoryDetailRow(label: 'Type', value: typeLabel),
-                const Divider(),
-                _CategoryDetailRow(label: 'Group', value: groupLabel),
-                if (category.parentId != null) ...[
-                  const Divider(),
-                  _CategoryDetailRow(
-                    label: 'Parent',
-                    value: category.parentId!,
-                  ),
-                ],
-                const Divider(),
-                _CategoryDetailRow(label: 'Color', value: category.color),
-                const Divider(),
-                _CategoryDetailRow(label: 'Icon', value: category.icon),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
 
   Future<void> _showEditCategorySheet(BuildContext context) async {
-    if (category.isDefault) {
-      return;
-    }
-
-    final updated = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _AddCategoryBottomSheet(initialCategory: category),
-    );
-
-    if (updated == true && context.mounted) {
-      Navigator.of(context).pop();
-    }
-  }
-
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    if (category.isDefault) {
-      return;
-    }
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete category?'),
-        content: Text(
-          'This removes "${category.name}" from your category list.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton.icon(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: AikoColors.dangerRed,
-              foregroundColor: Colors.white,
-            ),
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !context.mounted) {
-      return;
-    }
-
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-
-    try {
-      await ref.read(categoriesProvider.notifier).deleteCategory(category.id);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Category "${category.name}" deleted.'),
-          backgroundColor: AikoColors.successGreen,
-        ),
-      );
-      if (context.mounted) {
-        navigator.pop();
-      }
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Failed to delete category: $e'),
-          backgroundColor: AikoColors.dangerRed,
-        ),
-      );
-    }
-  }
-}
-
-class _CategoryStatusPill extends StatelessWidget {
-  const _CategoryStatusPill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryDetailRow extends StatelessWidget {
-  const _CategoryDetailRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AikoColors.mutedText),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            flex: 2,
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
-        ],
-      ),
-    );
+    await showCategoryEditorSheet(context, initialCategory: category);
   }
 }
 
@@ -684,6 +430,7 @@ class _AddCategoryBottomSheetState
   String _selectedColorHex = '#3B82F6'; // Default: Aiko Blue
   String _selectedIconKey = 'category'; // Default generic
   bool _isSubmitting = false;
+  bool _isDeleting = false;
 
   final List<Map<String, String>> _colorsPreset = const [
     {'name': 'Blue', 'hex': '#3B82F6'},
@@ -809,6 +556,67 @@ class _AddCategoryBottomSheetState
     }
   }
 
+  Future<void> _confirmDelete() async {
+    final category = widget.initialCategory;
+    if (category == null || category.isDefault) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete "${category.name}"?'),
+        content: const Text(
+          'This removes the category from your list. Existing transactions keep their saved details.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AikoColors.dangerRed,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    setState(() => _isDeleting = true);
+
+    try {
+      await ref.read(categoriesProvider.notifier).deleteCategory(category.id);
+
+      if (mounted) {
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Category "${category.name}" deleted.'),
+            backgroundColor: AikoColors.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isDeleting = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete category: $e'),
+            backgroundColor: AikoColors.dangerRed,
+          ),
+        );
+      }
+    }
+  }
+
   String _getGroupLabel(CategoryGroup group) {
     switch (group) {
       case CategoryGroup.needs:
@@ -827,25 +635,6 @@ class _AddCategoryBottomSheetState
         return 'Business Expenses';
       case CategoryGroup.custom:
         return 'Other Custom';
-    }
-  }
-
-  String _getTypeLabel(CategoryType type) {
-    switch (type) {
-      case CategoryType.income:
-        return 'Income (Money In)';
-      case CategoryType.expense:
-        return 'Expense (Money Out)';
-      case CategoryType.transfer:
-        return 'Transfer (Account to Account)';
-      case CategoryType.finance:
-        return 'Financial Operations';
-      case CategoryType.tax:
-        return 'Tax Category';
-      case CategoryType.investment:
-        return 'Investment Operations';
-      case CategoryType.adjustment:
-        return 'Balance Adjustment';
     }
   }
 
@@ -907,6 +696,25 @@ class _AddCategoryBottomSheetState
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  const Spacer(),
+                  if (_isEditing)
+                    IconButton(
+                      tooltip: 'Delete category',
+                      color: AikoColors.dangerRed,
+                      onPressed: _isSubmitting || _isDeleting
+                          ? null
+                          : _confirmDelete,
+                      icon: _isDeleting
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AikoColors.dangerRed,
+                              ),
+                            )
+                          : const Icon(Icons.delete_outline),
+                    ),
                 ],
               ),
               const SizedBox(height: 24),
@@ -1117,7 +925,7 @@ class _AddCategoryBottomSheetState
               const SizedBox(height: 24),
               // Save Button
               FilledButton.icon(
-                onPressed: _isSubmitting ? null : _submit,
+                onPressed: _isSubmitting || _isDeleting ? null : _submit,
                 style: FilledButton.styleFrom(
                   backgroundColor: AikoColors.primaryBlue,
                   foregroundColor: Colors.white,

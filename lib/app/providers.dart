@@ -248,6 +248,11 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
       } else {
         await repo.save(const CategoryService().archive(category));
       }
+      if (previousCategories != null) {
+        return previousCategories
+            .where((category) => category.id != id)
+            .toList(growable: false);
+      }
       final customCategories = await repo.list();
       return _combineWithDefaults(customCategories);
     });

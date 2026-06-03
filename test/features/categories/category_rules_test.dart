@@ -93,6 +93,42 @@ void main() {
   });
 
   test(
+    'deleted custom category leaves current state even when list is stale',
+    () async {
+      final repository = _StaleAfterSaveCategoryRepository(
+        const Category(
+          id: 'custom-coffee',
+          userId: 'user',
+          name: 'Coffee',
+          type: CategoryType.expense,
+          group: CategoryGroup.wants,
+        ),
+      );
+      final container = ProviderContainer(
+        overrides: [categoryRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+
+      final initial = await container.read(categoriesProvider.future);
+      expect(
+        initial.where((category) => category.id == 'custom-coffee'),
+        hasLength(1),
+      );
+
+      await container
+          .read(categoriesProvider.notifier)
+          .deleteCategory('custom-coffee');
+
+      final updated = container.read(categoriesProvider).value!;
+      expect(
+        updated.where((category) => category.id == 'custom-coffee'),
+        isEmpty,
+      );
+      expect(repository.savedCategory?.isActive, isFalse);
+    },
+  );
+
+  test(
     'inactive custom category suppresses matching generated default',
     () async {
       final repository = _InMemoryCategoryRepository([
@@ -119,49 +155,69 @@ void main() {
     },
   );
 
-  test('categories keep default order and sort custom categories by creation', (
-  ) async {
-    final olderCustom = Category(
-      id: 'custom-consulting',
-      userId: 'user',
-      name: 'Consulting',
-      type: CategoryType.income,
-      group: CategoryGroup.business,
-      createdAt: DateTime(2026, 1, 1),
-    );
-    final newerCustom = Category(
-      id: 'custom-royalties',
-      userId: 'user',
-      name: 'Royalties',
-      type: CategoryType.income,
-      group: CategoryGroup.investment,
-      createdAt: DateTime(2026, 2, 1),
-    );
-    final repository = _InMemoryCategoryRepository([
-      newerCustom,
-      olderCustom,
-    ]);
-    final container = ProviderContainer(
-      overrides: [categoryRepositoryProvider.overrideWithValue(repository)],
-    );
-    addTearDown(container.dispose);
+  test(
+    'categories keep default order and sort custom categories by creation',
+    () async {
+      final olderCustom = Category(
+        id: 'custom-consulting',
+        userId: 'user',
+        name: 'Consulting',
+        type: CategoryType.income,
+        group: CategoryGroup.business,
+        createdAt: DateTime(2026, 1, 1),
+      );
+      final newerCustom = Category(
+        id: 'custom-royalties',
+        userId: 'user',
+        name: 'Royalties',
+        type: CategoryType.income,
+        group: CategoryGroup.investment,
+        createdAt: DateTime(2026, 2, 1),
+      );
+      final repository = _InMemoryCategoryRepository([
+        newerCustom,
+        olderCustom,
+      ]);
+      final container = ProviderContainer(
+        overrides: [categoryRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
 
-    final categories = await container.read(categoriesProvider.future);
-    final income = categories
-        .where((category) => category.type == CategoryType.income)
-        .toList(growable: false);
-    final incomeNames = income.map((category) => category.name).toList();
+      final categories = await container.read(categoriesProvider.future);
+      final income = categories
+          .where((category) => category.type == CategoryType.income)
+          .toList(growable: false);
+      final incomeNames = income.map((category) => category.name).toList();
 
-    expect(incomeNames.take(2), ['Salary', 'Bonus']);
-    expect(
-      income.indexWhere((category) => category.id == olderCustom.id),
-      lessThan(income.indexWhere((category) => category.id == newerCustom.id)),
-    );
-    expect(
-      income.lastIndexWhere((category) => category.isDefault),
-      lessThan(income.indexWhere((category) => !category.isDefault)),
-    );
-  });
+      expect(incomeNames.take(2), ['Salary', 'Bonus']);
+      expect(
+        income.indexWhere((category) => category.id == olderCustom.id),
+        lessThan(
+          income.indexWhere((category) => category.id == newerCustom.id),
+        ),
+      );
+      expect(
+        income.lastIndexWhere((category) => category.isDefault),
+        lessThan(income.indexWhere((category) => !category.isDefault)),
+      );
+    },
+  );
+}
+
+class _StaleAfterSaveCategoryRepository extends CategoryRepository {
+  _StaleAfterSaveCategoryRepository(this.category);
+
+  final Category category;
+  Category? savedCategory;
+
+  @override
+  Future<List<Category>> list() async => [category];
+
+  @override
+  Future<Category> save(Category category) async {
+    savedCategory = category;
+    return category;
+  }
 }
 
 class _InMemoryCategoryRepository extends CategoryRepository {

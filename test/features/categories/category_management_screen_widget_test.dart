@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('categories are grouped by transaction type and origin', (
+  testWidgets('categories switch between income and expense tabs', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -69,12 +69,30 @@ void main() {
 
     expect(find.text('Income'), findsOneWidget);
     expect(find.text('Expense'), findsOneWidget);
+    expect(find.byType(TabBar), findsOneWidget);
+    expect(find.byType(TabBarView), findsOneWidget);
     expect(find.text('Default'), findsNothing);
     expect(find.text('Custom'), findsOneWidget);
     expect(find.text('Salary'), findsOneWidget);
     expect(find.text('Side Hustle'), findsOneWidget);
+    expect(find.text('Groceries'), findsNothing);
+    expect(find.text('Coffee'), findsNothing);
+
+    await tester.tap(find.text('Expense'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Salary'), findsNothing);
+    expect(find.text('Side Hustle'), findsNothing);
     expect(find.text('Groceries'), findsOneWidget);
     expect(find.text('Coffee'), findsOneWidget);
+
+    await tester.drag(find.byType(TabBarView), const Offset(500, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Salary'), findsOneWidget);
+    expect(find.text('Side Hustle'), findsOneWidget);
+    expect(find.text('Groceries'), findsNothing);
+    expect(find.text('Coffee'), findsNothing);
     expect(find.byTooltip('Add category'), findsOneWidget);
     expect(find.byTooltip('About categories'), findsNothing);
     expect(find.byIcon(Icons.info_outline), findsNothing);
@@ -244,6 +262,7 @@ void main() {
     expect(itemFinder, findsOneWidget);
 
     expect(find.byType(ListTile), findsNothing);
+    expect(find.byIcon(Icons.chevron_right), findsNothing);
     expect(find.text('Wants'), findsOneWidget);
     expect(find.text('Wants - Expense'), findsNothing);
   });
@@ -350,6 +369,7 @@ void main() {
       find.text('Enables setting up spending budget rules for this category'),
       findsNothing,
     );
+    expect(find.text('Category Group (50/30/20 Rule)'), findsNothing);
 
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Category Name'),
@@ -366,6 +386,7 @@ void main() {
 
     expect(notifier.savedCategory?.name, 'Gym');
     expect(notifier.savedCategory?.budgetEnabled, isTrue);
+    expect(notifier.savedCategory?.group, CategoryGroup.custom);
   });
 
   testWidgets('add category sheet limits type selector to income and expense', (
@@ -398,6 +419,14 @@ void main() {
     expect(find.text('Expense'), findsOneWidget);
     expect(find.text('Income'), findsOneWidget);
     expect(find.textContaining('Transfer'), findsNothing);
+    expect(
+      tester.getTopLeft(find.byKey(const Key('category-type-selector'))).dy,
+      lessThan(
+        tester
+            .getTopLeft(find.widgetWithText(TextFormField, 'Category Name'))
+            .dy,
+      ),
+    );
 
     await tester.tap(find.text('Income'));
     await tester.enterText(
@@ -416,7 +445,7 @@ void main() {
     expect(notifier.savedCategory?.type, CategoryType.income);
   });
 
-  testWidgets('add category sheet shows icons in a vertical multi-line grid', (
+  testWidgets('add category sheet centers icons in a balanced grid', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -440,9 +469,15 @@ void main() {
     final gridFinder = find.byKey(const Key('category-icon-grid'));
     expect(gridFinder, findsOneWidget);
     expect(
-      find.descendant(of: gridFinder, matching: find.byType(Wrap)),
+      find.descendant(of: gridFinder, matching: find.byType(GridView)),
       findsOneWidget,
     );
+    final gridView = tester.widget<GridView>(
+      find.descendant(of: gridFinder, matching: find.byType(GridView)),
+    );
+    final delegate =
+        gridView.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(delegate.crossAxisCount, greaterThanOrEqualTo(5));
     expect(
       find.descendant(of: gridFinder, matching: find.byType(ListView)),
       findsNothing,

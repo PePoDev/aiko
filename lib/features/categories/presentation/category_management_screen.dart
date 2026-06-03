@@ -138,29 +138,55 @@ class CategoryManagementScreen extends ConsumerWidget {
           final expenseCategories = categories
               .where((category) => category.type == CategoryType.expense)
               .toList(growable: false);
+          final initialTabIndex =
+              incomeCategories.isEmpty && expenseCategories.isNotEmpty ? 1 : 0;
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (incomeCategories.isNotEmpty)
-                _CategoryTypeSection(
-                  title: 'Income',
-                  categories: incomeCategories,
-                  accentColor: AikoColors.successGreen,
-                  getIconData: _getIconData,
-                  parseHexColor: _parseHexColor,
-                  getGroupLabel: _getGroupLabel,
+          return DefaultTabController(
+            length: 2,
+            initialIndex: initialTabIndex,
+            child: Column(
+              children: [
+                Material(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  child: const TabBar(
+                    tabs: [
+                      Tab(
+                        icon: Icon(Icons.arrow_downward_outlined),
+                        text: 'Income',
+                      ),
+                      Tab(
+                        icon: Icon(Icons.arrow_upward_outlined),
+                        text: 'Expense',
+                      ),
+                    ],
+                  ),
                 ),
-              if (expenseCategories.isNotEmpty)
-                _CategoryTypeSection(
-                  title: 'Expense',
-                  categories: expenseCategories,
-                  accentColor: AikoColors.dangerRed,
-                  getIconData: _getIconData,
-                  parseHexColor: _parseHexColor,
-                  getGroupLabel: _getGroupLabel,
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _CategoryTypeSection(
+                        categories: incomeCategories,
+                        emptyTitle: 'No income categories yet',
+                        emptyMessage:
+                            'Add income categories for salary, side work, and other money coming in.',
+                        getIconData: _getIconData,
+                        parseHexColor: _parseHexColor,
+                        getGroupLabel: _getGroupLabel,
+                      ),
+                      _CategoryTypeSection(
+                        categories: expenseCategories,
+                        emptyTitle: 'No expense categories yet',
+                        emptyMessage:
+                            'Add expense categories for bills, shopping, savings, and daily spending.',
+                        getIconData: _getIconData,
+                        parseHexColor: _parseHexColor,
+                        getGroupLabel: _getGroupLabel,
+                      ),
+                    ],
+                  ),
                 ),
-            ],
+              ],
+            ),
           );
         },
       ),
@@ -195,17 +221,17 @@ class CategoryManagementScreen extends ConsumerWidget {
 
 class _CategoryTypeSection extends StatelessWidget {
   const _CategoryTypeSection({
-    required this.title,
     required this.categories,
-    required this.accentColor,
+    required this.emptyTitle,
+    required this.emptyMessage,
     required this.getIconData,
     required this.parseHexColor,
     required this.getGroupLabel,
   });
 
-  final String title;
   final List<Category> categories;
-  final Color accentColor;
+  final String emptyTitle;
+  final String emptyMessage;
   final IconData Function(String iconName) getIconData;
   final Color Function(String hexColor) parseHexColor;
   final String Function(CategoryGroup group) getGroupLabel;
@@ -219,38 +245,24 @@ class _CategoryTypeSection extends StatelessWidget {
         .where((category) => !category.isDefault)
         .toList(growable: false);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                title == 'Income'
-                    ? Icons.arrow_downward_outlined
-                    : Icons.arrow_upward_outlined,
-                color: accentColor,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _CategoryCardGrid(
-            categories: [...defaultCategories, ...customCategories],
-            getIconData: getIconData,
-            parseHexColor: parseHexColor,
-            getGroupLabel: getGroupLabel,
-          ),
-        ],
-      ),
+    if (categories.isEmpty) {
+      return AikoScreenState.empty(
+        title: emptyTitle,
+        message: emptyMessage,
+        action: null,
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _CategoryCardGrid(
+          categories: [...defaultCategories, ...customCategories],
+          getIconData: getIconData,
+          parseHexColor: parseHexColor,
+          getGroupLabel: getGroupLabel,
+        ),
+      ],
     );
   }
 }
@@ -378,12 +390,6 @@ class _CategoryListCard extends StatelessWidget {
                     color: AikoColors.mutedText,
                   ),
                   const SizedBox(width: 4),
-                ] else ...[
-                  Icon(
-                    Icons.chevron_right,
-                    size: 16,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
                 ],
               ],
             ),
@@ -426,7 +432,6 @@ class _AddCategoryBottomSheetState
   final _nameController = TextEditingController();
 
   CategoryType _selectedType = CategoryType.expense;
-  CategoryGroup _selectedGroup = CategoryGroup.wants;
   String _selectedColorHex = '#3B82F6'; // Default: Aiko Blue
   String _selectedIconKey = 'category'; // Default generic
   bool _isSubmitting = false;
@@ -482,7 +487,6 @@ class _AddCategoryBottomSheetState
 
     _nameController.text = initialCategory.name;
     _selectedType = initialCategory.type;
-    _selectedGroup = initialCategory.group;
     _selectedColorHex = initialCategory.color;
     _selectedIconKey = initialCategory.icon;
   }
@@ -510,7 +514,7 @@ class _AddCategoryBottomSheetState
               userId: '', // Populated by repository
               name: _nameController.text.trim(),
               type: _selectedType,
-              group: _selectedGroup,
+              group: CategoryGroup.custom,
               color: _selectedColorHex,
               icon: _selectedIconKey,
               budgetEnabled: true,
@@ -518,7 +522,6 @@ class _AddCategoryBottomSheetState
           : initialCategory.copyWith(
               name: _nameController.text.trim(),
               type: _selectedType,
-              group: _selectedGroup,
               color: _selectedColorHex,
               icon: _selectedIconKey,
               budgetEnabled: true,
@@ -617,27 +620,6 @@ class _AddCategoryBottomSheetState
     }
   }
 
-  String _getGroupLabel(CategoryGroup group) {
-    switch (group) {
-      case CategoryGroup.needs:
-        return 'Needs (e.g. rent, bills)';
-      case CategoryGroup.wants:
-        return 'Wants (e.g. dining out, fun)';
-      case CategoryGroup.savings:
-        return 'Savings (e.g. goals, emergency)';
-      case CategoryGroup.debt:
-        return 'Debt Repayment';
-      case CategoryGroup.investment:
-        return 'Investments';
-      case CategoryGroup.tax:
-        return 'Tax Related';
-      case CategoryGroup.business:
-        return 'Business Expenses';
-      case CategoryGroup.custom:
-        return 'Other Custom';
-    }
-  }
-
   Color _parseHex(String hex) {
     final clean = hex.replaceAll('#', '');
     return Color(int.parse('FF$clean', radix: 16));
@@ -718,35 +700,6 @@ class _AddCategoryBottomSheetState
                 ],
               ),
               const SizedBox(height: 24),
-              // Category Name
-              TextFormField(
-                controller: _nameController,
-                textCapitalization: TextCapitalization.words,
-                decoration: InputDecoration(
-                  labelText: 'Category Name',
-                  hintText: 'e.g., Groceries, Rent, Gym Membership',
-                  prefixIcon: const Icon(Icons.edit_outlined),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a category name';
-                  }
-                  final list = categoriesAsync.value ?? [];
-                  if (list.any(
-                    (c) =>
-                        c.id != widget.initialCategory?.id &&
-                        c.type == _selectedType &&
-                        c.name.toLowerCase() == value.trim().toLowerCase(),
-                  )) {
-                    return 'A category with this name already exists';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
               // Category Type
               SegmentedButton<CategoryType>(
                 key: const Key('category-type-selector'),
@@ -791,27 +744,35 @@ class _AddCategoryBottomSheetState
                 },
               ),
               const SizedBox(height: 16),
-              // Category Group
-              DropdownButtonFormField<CategoryGroup>(
-                initialValue: _selectedGroup,
+              // Category Name
+              TextFormField(
+                controller: _nameController,
+                textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
-                  labelText: 'Category Group (50/30/20 Rule)',
-                  prefixIcon: const Icon(Icons.grid_view_outlined),
+                  labelText: 'Category Name',
+                  hintText: 'e.g., Groceries, Rent, Gym Membership',
+                  prefixIcon: const Icon(Icons.edit_outlined),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                items: CategoryGroup.values.map((group) {
-                  return DropdownMenuItem(
-                    value: group,
-                    child: Text(_getGroupLabel(group)),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedGroup = val);
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a category name';
+                  }
+                  final list = categoriesAsync.value ?? [];
+                  if (list.any(
+                    (c) =>
+                        c.id != widget.initialCategory?.id &&
+                        c.type == _selectedType &&
+                        c.name.toLowerCase() == value.trim().toLowerCase(),
+                  )) {
+                    return 'A category with this name already exists';
+                  }
+                  return null;
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               // Beautiful Color Picker
               const Text(
                 'Select Theme Color',
@@ -876,49 +837,74 @@ class _AddCategoryBottomSheetState
                 builder: (context) {
                   final activeColor = _parseHex(_selectedColorHex);
 
-                  return Container(
+                  return LayoutBuilder(
                     key: const Key('category-icon-grid'),
-                    alignment: Alignment.centerLeft,
-                    child: Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: _iconsPreset
-                          .map((item) {
-                            final key = item['key'] as String;
-                            final iconData = item['icon'] as IconData;
-                            final isSelected = _selectedIconKey == key;
+                    builder: (context, constraints) {
+                      final crossAxisCount = constraints.maxWidth >= 420
+                          ? 7
+                          : constraints.maxWidth >= 340
+                          ? 6
+                          : 5;
+                      const spacing = 8.0;
+                      const tileSize = 48.0;
+                      final gridWidth =
+                          tileSize * crossAxisCount +
+                          spacing * (crossAxisCount - 1);
+                      final rowCount = (_iconsPreset.length / crossAxisCount)
+                          .ceil();
 
-                            return InkWell(
-                              borderRadius: BorderRadius.circular(12),
-                              onTap: () =>
-                                  setState(() => _selectedIconKey = key),
-                              child: Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? activeColor.withValues(alpha: 0.15)
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
+                      return Center(
+                        child: SizedBox(
+                          width: gridWidth,
+                          height:
+                              tileSize * rowCount + spacing * (rowCount - 1),
+                          child: GridView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            shrinkWrap: true,
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  mainAxisSpacing: spacing,
+                                  crossAxisSpacing: spacing,
+                                ),
+                            itemCount: _iconsPreset.length,
+                            itemBuilder: (context, idx) {
+                              final item = _iconsPreset[idx];
+                              final key = item['key'] as String;
+                              final iconData = item['icon'] as IconData;
+                              final isSelected = _selectedIconKey == key;
+
+                              return InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () =>
+                                    setState(() => _selectedIconKey = key),
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? activeColor.withValues(alpha: 0.15)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? activeColor
+                                          : AikoColors.borderSubtle,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    iconData,
                                     color: isSelected
                                         ? activeColor
-                                        : AikoColors.borderSubtle,
-                                    width: 2,
+                                        : AikoColors.mutedText,
+                                    size: 23,
                                   ),
                                 ),
-                                child: Icon(
-                                  iconData,
-                                  color: isSelected
-                                      ? activeColor
-                                      : AikoColors.mutedText,
-                                  size: 24,
-                                ),
-                              ),
-                            );
-                          })
-                          .toList(growable: false),
-                    ),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
               ),

@@ -9,6 +9,7 @@ import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../transactions/domain/transaction.dart';
+import '../../transactions/presentation/transaction_detail_screen.dart';
 import '../domain/account.dart';
 
 class AccountsScreen extends ConsumerWidget {
@@ -221,6 +222,11 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
             .whenOrNull(data: (transactions) => transactions) ??
         const <FinanceTransaction>[];
     final ledgerBalance = _ledgerBalanceForAccount(_account, transactions);
+    final relatedTransactions =
+        transactions
+            .where((transaction) => transaction.accountId == _account.id)
+            .toList()
+          ..sort((a, b) => b.date.compareTo(a.date));
 
     return Scaffold(
       appBar: AppBar(
@@ -304,7 +310,81 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          _RelatedTransactionsCard(transactions: relatedTransactions),
         ],
+      ),
+    );
+  }
+}
+
+class _RelatedTransactionsCard extends StatelessWidget {
+  const _RelatedTransactionsCard({required this.transactions});
+
+  final List<FinanceTransaction> transactions;
+
+  @override
+  Widget build(BuildContext context) {
+    return FinanceCard(
+      title: 'Related transactions',
+      icon: Icons.receipt_long_outlined,
+      accentColor: AikoColors.analyticsTeal,
+      child: transactions.isEmpty
+          ? Text(
+              'No transactions recorded for this account yet.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            )
+          : Column(
+              children: [
+                for (var index = 0; index < transactions.length; index++) ...[
+                  _RelatedTransactionTile(transaction: transactions[index]),
+                  if (index != transactions.length - 1) const Divider(),
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class _RelatedTransactionTile extends StatelessWidget {
+  const _RelatedTransactionTile({required this.transaction});
+
+  final FinanceTransaction transaction;
+
+  @override
+  Widget build(BuildContext context) {
+    final isIncome = transaction.type == TransactionType.income;
+    final amount = '${isIncome ? '+' : '-'}${transaction.amount.format()}';
+    final title = transaction.merchant?.trim().isNotEmpty == true
+        ? transaction.merchant!.trim()
+        : transaction.note?.trim().isNotEmpty == true
+        ? transaction.note!.trim()
+        : _transactionTypeLabel(transaction.type);
+    final color = isIncome ? AikoColors.successGreen : AikoColors.dangerRed;
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: CircleAvatar(
+        backgroundColor: color.withValues(alpha: 0.12),
+        child: Icon(
+          isIncome ? Icons.south_west : Icons.north_east,
+          color: color,
+          size: 18,
+        ),
+      ),
+      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(_transactionTypeLabel(transaction.type)),
+      trailing: Text(
+        amount,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TransactionDetailScreen(transaction: transaction),
+        ),
       ),
     );
   }
@@ -331,6 +411,87 @@ Money _ledgerBalanceForAccount(
   return balance;
 }
 
+String _transactionTypeLabel(TransactionType type) {
+  return switch (type) {
+    TransactionType.income => 'Income',
+    TransactionType.expense => 'Expense',
+    TransactionType.transfer => 'Transfer',
+    TransactionType.refund => 'Refund',
+    TransactionType.investmentBuy => 'Investment buy',
+    TransactionType.investmentSell => 'Investment sell',
+    TransactionType.dividend => 'Dividend',
+    TransactionType.interest => 'Interest',
+    TransactionType.loanPayment => 'Loan payment',
+    TransactionType.creditCardPayment => 'Credit card payment',
+    TransactionType.taxPayment => 'Tax payment',
+    TransactionType.fee => 'Fee',
+    TransactionType.adjustment => 'Adjustment',
+  };
+}
+
+const _currencyOptions = [
+  _CurrencyOption('THB', 'Thai Baht'),
+  _CurrencyOption('USD', 'US Dollar'),
+  _CurrencyOption('EUR', 'Euro'),
+  _CurrencyOption('GBP', 'British Pound'),
+  _CurrencyOption('JPY', 'Japanese Yen'),
+  _CurrencyOption('CNY', 'Chinese Yuan'),
+  _CurrencyOption('SGD', 'Singapore Dollar'),
+  _CurrencyOption('AUD', 'Australian Dollar'),
+  _CurrencyOption('CAD', 'Canadian Dollar'),
+  _CurrencyOption('CHF', 'Swiss Franc'),
+  _CurrencyOption('HKD', 'Hong Kong Dollar'),
+  _CurrencyOption('KRW', 'South Korean Won'),
+  _CurrencyOption('MYR', 'Malaysian Ringgit'),
+  _CurrencyOption('IDR', 'Indonesian Rupiah'),
+  _CurrencyOption('PHP', 'Philippine Peso'),
+  _CurrencyOption('VND', 'Vietnamese Dong'),
+  _CurrencyOption('INR', 'Indian Rupee'),
+  _CurrencyOption('NZD', 'New Zealand Dollar'),
+];
+
+class _CurrencyOption {
+  const _CurrencyOption(this.code, this.name);
+
+  final String code;
+  final String name;
+}
+
+class _CurrencyPrefixIcon extends StatelessWidget {
+  const _CurrencyPrefixIcon({required this.currency});
+
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      widthFactor: 1,
+      child: Text(
+        _currencySymbol(currency),
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+String _currencySymbol(String currency) {
+  return switch (currency.toUpperCase()) {
+    'THB' => '฿',
+    'USD' => r'$',
+    'EUR' => '€',
+    'GBP' => '£',
+    'JPY' || 'CNY' => '¥',
+    'KRW' => '₩',
+    'INR' => '₹',
+    'PHP' => '₱',
+    'VND' => '₫',
+    _ => currency.toUpperCase(),
+  };
+}
+
 class _AccountFormSheet extends ConsumerStatefulWidget {
   const _AccountFormSheet({this.account});
 
@@ -347,6 +508,7 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
   late final TextEditingController _currencyController;
   late final TextEditingController _institutionController;
   late AccountType _selectedType;
+  late String _selectedCurrency;
   late bool _includeInNetWorth;
   late bool _isActive;
   var _isSubmitting = false;
@@ -361,9 +523,8 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
     _currentBalanceController = TextEditingController(
       text: account?.currentBalance.amount.toString() ?? '',
     );
-    _currencyController = TextEditingController(
-      text: account?.currentBalance.currency ?? 'THB',
-    );
+    _selectedCurrency = account?.currentBalance.currency ?? 'THB';
+    _currencyController = TextEditingController(text: _selectedCurrency);
     _institutionController = TextEditingController(
       text: account?.institution ?? '',
     );
@@ -390,13 +551,15 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
 
     try {
       final existing = widget.account;
-      final currency = _currencyController.text.trim().toUpperCase();
+      final currency = _selectedCurrency;
       final currentBalanceText = _currentBalanceController.text.trim();
       final currentBalance = Money(
         amount: Decimal.parse(currentBalanceText),
         currency: currency,
       );
-      final institution = _institutionController.text.trim();
+      final institution = _selectedType == AccountType.cash
+          ? ''
+          : _institutionController.text.trim();
       final account = Account(
         id: existing?.id ?? const Uuid().v4(),
         userId: existing?.userId ?? '',
@@ -522,41 +685,50 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                       },
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _institutionController,
-                decoration: const InputDecoration(
-                  labelText: 'Institution Name',
-                  hintText: 'e.g. Chase, PayPal, Coinbase',
-                  prefixIcon: Icon(Icons.corporate_fare_outlined),
+              if (_selectedType != AccountType.cash) ...[
+                TextFormField(
+                  controller: _institutionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Institution Name',
+                    hintText: 'e.g. Chase, PayPal, Coinbase',
+                    prefixIcon: Icon(Icons.corporate_fare_outlined),
+                  ),
+                  enabled: !_isSubmitting,
                 ),
-                enabled: !_isSubmitting,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
+                const SizedBox(height: 12),
+              ],
+              DropdownMenu<String>(
                 controller: _currencyController,
-                decoration: const InputDecoration(
-                  labelText: 'Currency',
-                  hintText: 'USD',
-                  prefixIcon: Icon(Icons.payments_outlined),
-                ),
-                textCapitalization: TextCapitalization.characters,
-                validator: (value) {
-                  final currency = value?.trim() ?? '';
-                  if (currency.length != 3) {
-                    return 'Please enter a 3-letter currency code.';
-                  }
-                  return null;
-                },
+                initialSelection: _selectedCurrency,
                 enabled: !_isSubmitting,
+                enableFilter: true,
+                enableSearch: true,
+                requestFocusOnTap: true,
+                expandedInsets: EdgeInsets.zero,
+                leadingIcon: const Icon(Icons.payments_outlined),
+                label: const Text('Currency'),
+                dropdownMenuEntries: _currencyOptions
+                    .map(
+                      (currency) => DropdownMenuEntry<String>(
+                        value: currency.code,
+                        label: '${currency.code} - ${currency.name}',
+                      ),
+                    )
+                    .toList(growable: false),
+                onSelected: (value) {
+                  if (value == null) {
+                    return;
+                  }
+                  setState(() => _selectedCurrency = value);
+                },
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _currentBalanceController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Current Balance',
-                  prefixText: r'$ ',
                   hintText: '0.00',
-                  prefixIcon: Icon(Icons.attach_money_outlined),
+                  prefixIcon: _CurrencyPrefixIcon(currency: _selectedCurrency),
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,

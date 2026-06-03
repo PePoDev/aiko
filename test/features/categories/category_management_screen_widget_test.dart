@@ -1,13 +1,14 @@
 import 'package:aiko/app/providers.dart';
 import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/categories/presentation/category_management_screen.dart';
+import 'package:aiko/theme/aiko_colors.dart';
 import 'package:aiko/theme/aiko_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('categories switch between income and expense tabs', (
+  testWidgets('categories show expense first and switch to income by swipe', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -71,28 +72,28 @@ void main() {
     expect(find.text('Expense'), findsOneWidget);
     expect(find.byType(TabBar), findsOneWidget);
     expect(find.byType(TabBarView), findsOneWidget);
+    expect(
+      tester.widget<TabBar>(find.byType(TabBar)).labelColor,
+      AikoColors.dangerRed,
+    );
     expect(find.text('Default'), findsNothing);
     expect(find.text('Custom'), findsNothing);
-    expect(find.text('Salary'), findsOneWidget);
-    expect(find.text('Side Hustle'), findsOneWidget);
-    expect(find.text('Groceries'), findsNothing);
-    expect(find.text('Coffee'), findsNothing);
-
-    await tester.tap(find.text('Expense'));
-    await tester.pumpAndSettle();
-
     expect(find.text('Salary'), findsNothing);
     expect(find.text('Side Hustle'), findsNothing);
     expect(find.text('Groceries'), findsOneWidget);
     expect(find.text('Coffee'), findsOneWidget);
 
-    await tester.drag(find.byType(TabBarView), const Offset(500, 0));
+    await tester.drag(find.byType(TabBarView), const Offset(-500, 0));
     await tester.pumpAndSettle();
 
     expect(find.text('Salary'), findsOneWidget);
     expect(find.text('Side Hustle'), findsOneWidget);
     expect(find.text('Groceries'), findsNothing);
     expect(find.text('Coffee'), findsNothing);
+    expect(
+      tester.widget<TabBar>(find.byType(TabBar)).labelColor,
+      AikoColors.successGreen,
+    );
     expect(find.byTooltip('Add category'), findsOneWidget);
     expect(find.byTooltip('About categories'), findsNothing);
     expect(find.byIcon(Icons.info_outline), findsNothing);
@@ -126,6 +127,8 @@ void main() {
       ),
     );
 
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Income'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salary'));
     await tester.pumpAndSettle();
@@ -305,6 +308,8 @@ void main() {
     );
 
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Income'));
+    await tester.pumpAndSettle();
 
     final defaultCardFinder = find.ancestor(
       of: find.text('Salary'),
@@ -430,6 +435,53 @@ void main() {
     );
 
     await tester.tap(find.text('Income'));
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Category Name'),
+      'Bonus',
+    );
+    final saveButton = find.widgetWithText(FilledButton, 'Save Category');
+    await tester.scrollUntilVisible(
+      saveButton,
+      180,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(notifier.savedCategory?.type, CategoryType.income);
+  });
+
+  testWidgets('add category sheet defaults type from selected category tab', (
+    tester,
+  ) async {
+    final notifier = _SavingCategoriesNotifier([
+      const Category(
+        id: 'coffee',
+        userId: 'user',
+        name: 'Coffee',
+        type: CategoryType.expense,
+        group: CategoryGroup.custom,
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [categoriesProvider.overrideWith(() => notifier)],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const CategoryManagementScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(of: find.byType(TabBar), matching: find.text('Income')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Add category'));
+    await tester.pumpAndSettle();
+
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Category Name'),
       'Bonus',

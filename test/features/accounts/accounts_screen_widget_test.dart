@@ -124,6 +124,36 @@ void main() {
     );
   });
 
+  testWidgets('cash account form does not ask for institution name', (
+    tester,
+  ) async {
+    final notifier = _AccountsNotifier([_cashAccount()]);
+    await tester.pumpWidget(_accountsApp(notifier));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Cash Wallet'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Edit account'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.widgetWithText(TextFormField, 'Institution Name'),
+      findsNothing,
+    );
+
+    await tester.tap(
+      find.widgetWithText(DropdownButtonFormField<AccountType>, 'Cash'),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bank').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.widgetWithText(TextFormField, 'Institution Name'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('account item opens details, edits, and deletes', (tester) async {
     final notifier = _AccountsNotifier([_cashAccount()]);
     await tester.pumpWidget(_accountsApp(notifier));
@@ -224,6 +254,72 @@ void main() {
     expect(find.text('\$49,200.00'), findsOneWidget);
   });
 
+  testWidgets('account details shows related transactions for that account', (
+    tester,
+  ) async {
+    final accountsNotifier = _AccountsNotifier([
+      Account(
+        id: 'cash',
+        userId: 'user',
+        name: 'Cash Wallet',
+        type: AccountType.cash,
+        openingBalance: Money.zero('USD'),
+        currentBalance: Money.zero('USD'),
+      ),
+      Account(
+        id: 'bank',
+        userId: 'user',
+        name: 'Bank Account',
+        type: AccountType.bank,
+        openingBalance: Money.zero('USD'),
+        currentBalance: Money.zero('USD'),
+      ),
+    ]);
+    final transactionsNotifier = _TransactionsNotifier([
+      FinanceTransaction(
+        id: 'cash-coffee',
+        userId: 'user',
+        accountId: 'cash',
+        type: TransactionType.expense,
+        amount: Money.parse('4.50', 'USD'),
+        date: DateTime(2026, 5, 3),
+        merchant: 'Cafe',
+      ),
+      FinanceTransaction(
+        id: 'cash-paycheck',
+        userId: 'user',
+        accountId: 'cash',
+        type: TransactionType.income,
+        amount: Money.parse('500', 'USD'),
+        date: DateTime(2026, 5, 4),
+        merchant: 'Paycheck',
+      ),
+      FinanceTransaction(
+        id: 'bank-rent',
+        userId: 'user',
+        accountId: 'bank',
+        type: TransactionType.expense,
+        amount: Money.parse('900', 'USD'),
+        date: DateTime(2026, 5, 5),
+        merchant: 'Rent',
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      _accountsApp(accountsNotifier, transactionsNotifier),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cash Wallet'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Related transactions'), findsOneWidget);
+    expect(find.text('Cafe'), findsOneWidget);
+    expect(find.text('Paycheck'), findsOneWidget);
+    expect(find.text('Rent'), findsNothing);
+    expect(find.text('-\$4.50'), findsOneWidget);
+    expect(find.text('+\$500.00'), findsOneWidget);
+  });
+
   testWidgets('account edit popup can edit every account model field', (
     tester,
   ) async {
@@ -263,10 +359,23 @@ void main() {
       find.widgetWithText(TextFormField, 'Institution Name'),
       'Updated Broker',
     );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Currency'),
-      'EUR',
+    expect(find.widgetWithText(TextFormField, 'Currency'), findsNothing);
+    expect(
+      find.widgetWithText(DropdownMenu<String>, 'Currency'),
+      findsOneWidget,
     );
+    expect(find.text(r'$ '), findsNothing);
+    expect(find.textContaining('USD'), findsWidgets);
+    expect(find.text(r'$'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(DropdownMenu<String>, 'Currency'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Currency'), 'eur');
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('EUR').last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('EUR'), findsWidgets);
+    expect(find.text('€'), findsOneWidget);
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Current Balance'),
       '275.25',

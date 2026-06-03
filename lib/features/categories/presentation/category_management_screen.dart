@@ -11,6 +11,7 @@ import '../domain/category.dart';
 Future<bool?> showCategoryEditorSheet(
   BuildContext context, {
   Category? initialCategory,
+  CategoryType initialType = CategoryType.expense,
 }) {
   if (initialCategory?.isDefault ?? false) {
     return Future.value(false);
@@ -20,13 +21,51 @@ Future<bool?> showCategoryEditorSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) =>
-        _AddCategoryBottomSheet(initialCategory: initialCategory),
+    builder: (context) => _AddCategoryBottomSheet(
+      initialCategory: initialCategory,
+      initialType: initialType,
+    ),
   );
 }
 
-class CategoryManagementScreen extends ConsumerWidget {
+class CategoryManagementScreen extends ConsumerStatefulWidget {
   const CategoryManagementScreen({super.key});
+
+  @override
+  ConsumerState<CategoryManagementScreen> createState() =>
+      _CategoryManagementScreenState();
+}
+
+class _CategoryManagementScreenState
+    extends ConsumerState<CategoryManagementScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+  int _selectedTabIndex = 0;
+
+  Color get _selectedTabColor =>
+      _selectedTabIndex == 0 ? AikoColors.dangerRed : AikoColors.successGreen;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabChanged);
+  }
+
+  void _handleTabChanged() {
+    if (_selectedTabIndex == _tabController.index) {
+      return;
+    }
+    setState(() => _selectedTabIndex = _tabController.index);
+  }
+
+  @override
+  void dispose() {
+    _tabController
+      ..removeListener(_handleTabChanged)
+      ..dispose();
+    super.dispose();
+  }
 
   IconData _getIconData(String iconName) {
     switch (iconName) {
@@ -98,7 +137,7 @@ class CategoryManagementScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return Scaffold(
@@ -138,53 +177,52 @@ class CategoryManagementScreen extends ConsumerWidget {
           final expenseCategories = categories
               .where((category) => category.type == CategoryType.expense)
               .toList(growable: false);
-          final initialTabIndex =
-              incomeCategories.isEmpty && expenseCategories.isNotEmpty ? 1 : 0;
 
-          return DefaultTabController(
-            length: 2,
-            initialIndex: initialTabIndex,
-            child: Column(
-              children: [
-                Material(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  child: const TabBar(
-                    tabs: [
-                      Tab(
-                        icon: Icon(Icons.arrow_downward_outlined),
-                        text: 'Income',
-                      ),
-                      Tab(
-                        icon: Icon(Icons.arrow_upward_outlined),
-                        text: 'Expense',
-                      ),
-                    ],
-                  ),
+          return Column(
+            children: [
+              Material(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                child: TabBar(
+                  controller: _tabController,
+                  indicatorColor: _selectedTabColor,
+                  labelColor: _selectedTabColor,
+                  unselectedLabelColor: AikoColors.mutedText,
+                  tabs: const [
+                    Tab(
+                      icon: Icon(Icons.arrow_upward_outlined),
+                      text: 'Expense',
+                    ),
+                    Tab(
+                      icon: Icon(Icons.arrow_downward_outlined),
+                      text: 'Income',
+                    ),
+                  ],
                 ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      _CategoryTypeSection(
-                        categories: incomeCategories,
-                        emptyTitle: 'No income categories yet',
-                        emptyMessage:
-                            'Add income categories for salary, side work, and other money coming in.',
-                        getIconData: _getIconData,
-                        parseHexColor: _parseHexColor,
-                      ),
-                      _CategoryTypeSection(
-                        categories: expenseCategories,
-                        emptyTitle: 'No expense categories yet',
-                        emptyMessage:
-                            'Add expense categories for bills, shopping, savings, and daily spending.',
-                        getIconData: _getIconData,
-                        parseHexColor: _parseHexColor,
-                      ),
-                    ],
-                  ),
+              ),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _CategoryTypeSection(
+                      categories: expenseCategories,
+                      emptyTitle: 'No expense categories yet',
+                      emptyMessage:
+                          'Add expense categories for bills, shopping, savings, and daily spending.',
+                      getIconData: _getIconData,
+                      parseHexColor: _parseHexColor,
+                    ),
+                    _CategoryTypeSection(
+                      categories: incomeCategories,
+                      emptyTitle: 'No income categories yet',
+                      emptyMessage:
+                          'Add income categories for salary, side work, and other money coming in.',
+                      getIconData: _getIconData,
+                      parseHexColor: _parseHexColor,
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           );
         },
       ),
@@ -192,7 +230,12 @@ class CategoryManagementScreen extends ConsumerWidget {
   }
 
   void _showAddCategorySheet(BuildContext context) {
-    showCategoryEditorSheet(context);
+    showCategoryEditorSheet(
+      context,
+      initialType: _selectedTabIndex == 0
+          ? CategoryType.expense
+          : CategoryType.income,
+    );
   }
 }
 
@@ -377,9 +420,13 @@ Color _categoryTypeColor(CategoryType type) {
 }
 
 class _AddCategoryBottomSheet extends ConsumerStatefulWidget {
-  const _AddCategoryBottomSheet({this.initialCategory});
+  const _AddCategoryBottomSheet({
+    this.initialCategory,
+    this.initialType = CategoryType.expense,
+  });
 
   final Category? initialCategory;
+  final CategoryType initialType;
 
   @override
   ConsumerState<_AddCategoryBottomSheet> createState() =>
@@ -440,6 +487,7 @@ class _AddCategoryBottomSheetState
   @override
   void initState() {
     super.initState();
+    _selectedType = widget.initialType;
     final initialCategory = widget.initialCategory;
     if (initialCategory == null) {
       return;

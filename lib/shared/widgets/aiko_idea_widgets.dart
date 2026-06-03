@@ -1,0 +1,293 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+
+import '../../theme/aiko_colors.dart';
+
+class AikoSparkleBackdrop extends StatelessWidget {
+  const AikoSparkleBackdrop({this.child, super.key});
+
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: const _SparklePainter(),
+      child: child ?? const SizedBox.expand(),
+    );
+  }
+}
+
+class AikoWordmark extends StatelessWidget {
+  const AikoWordmark({
+    this.size = 54,
+    this.alignment = MainAxisAlignment.center,
+    super.key,
+  });
+
+  final double size;
+  final MainAxisAlignment alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: alignment,
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Aiko',
+          style: Theme.of(context).textTheme.displaySmall?.copyWith(
+            color: AikoColors.deepBlue,
+            fontSize: size,
+            fontWeight: FontWeight.w900,
+            height: 0.95,
+            letterSpacing: 0,
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.only(top: size * 0.02, left: size * 0.02),
+          child: Icon(
+            Icons.auto_awesome,
+            size: size * 0.25,
+            color: AikoColors.deepBlue,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class AikoCharacterImage extends StatelessWidget {
+  const AikoCharacterImage({
+    this.size = 180,
+    this.borderRadius = 32,
+    this.semanticLabel = 'Aiko character',
+    super.key,
+  });
+
+  final double size;
+  final double borderRadius;
+  final String semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      image: true,
+      label: semanticLabel,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(borderRadius),
+          boxShadow: [
+            BoxShadow(
+              color: AikoColors.primaryBlue.withValues(alpha: 0.16),
+              blurRadius: 28,
+              offset: const Offset(0, 14),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(borderRadius),
+          child: Image.asset(
+            'assets/icons/app_icon_padded.png',
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AikoPrimaryButton extends StatelessWidget {
+  const AikoPrimaryButton({
+    required this.label,
+    required this.onPressed,
+    this.icon,
+    super.key,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Text(
+      label,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontWeight: FontWeight.w800),
+    );
+
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: icon == null
+          ? FilledButton(
+              onPressed: onPressed,
+              style: _buttonStyle(),
+              child: child,
+            )
+          : FilledButton.icon(
+              onPressed: onPressed,
+              style: _buttonStyle(),
+              icon: Icon(icon, size: 20),
+              label: child,
+            ),
+    );
+  }
+
+  ButtonStyle _buttonStyle() {
+    return FilledButton.styleFrom(
+      backgroundColor: AikoColors.deepBlue,
+      foregroundColor: AikoColors.white,
+      disabledBackgroundColor: AikoColors.border,
+      disabledForegroundColor: AikoColors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+    );
+  }
+}
+
+class AikoPageDots extends StatelessWidget {
+  const AikoPageDots({required this.count, required this.active, super.key});
+
+  final int count;
+  final int active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(count, (index) {
+        final selected = index == active;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          width: selected ? 8 : 5,
+          height: selected ? 8 : 5,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            color: selected ? AikoColors.deepBlue : AikoColors.border,
+            shape: BoxShape.circle,
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class AikoFeatureRow extends StatelessWidget {
+  const AikoFeatureRow({
+    required this.icon,
+    required this.label,
+    this.color = AikoColors.deepBlue,
+    super.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: AikoColors.neutralInk,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SparklePainter extends CustomPainter {
+  const _SparklePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final blue = Paint()
+      ..color = AikoColors.primaryBlue.withValues(alpha: 0.28)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+    final fill = Paint()
+      ..color = AikoColors.softBlue.withValues(alpha: 0.34)
+      ..style = PaintingStyle.fill;
+
+    final circles = <Offset>[
+      Offset(size.width * 0.1, size.height * 0.22),
+      Offset(size.width * 0.9, size.height * 0.2),
+      Offset(size.width * 0.16, size.height * 0.65),
+      Offset(size.width * 0.82, size.height * 0.76),
+    ];
+    for (final point in circles) {
+      canvas.drawCircle(point, 4, blue);
+    }
+
+    final dots = <Offset>[
+      Offset(size.width * 0.18, size.height * 0.34),
+      Offset(size.width * 0.72, size.height * 0.16),
+      Offset(size.width * 0.88, size.height * 0.47),
+      Offset(size.width * 0.12, size.height * 0.82),
+      Offset(size.width * 0.68, size.height * 0.9),
+    ];
+    for (final point in dots) {
+      canvas.drawCircle(point, 2.4, fill);
+    }
+
+    _drawDiamond(canvas, Offset(size.width * 0.86, size.height * 0.33), 12);
+    _drawDiamond(canvas, Offset(size.width * 0.19, size.height * 0.5), 8);
+    _drawDiamond(canvas, Offset(size.width * 0.74, size.height * 0.67), 7);
+  }
+
+  void _drawDiamond(Canvas canvas, Offset center, double radius) {
+    final paint = Paint()
+      ..color = AikoColors.primaryBlue.withValues(alpha: 0.32)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+    final path = Path()
+      ..moveTo(center.dx, center.dy - radius)
+      ..lineTo(center.dx + radius, center.dy)
+      ..lineTo(center.dx, center.dy + radius)
+      ..lineTo(center.dx - radius, center.dy)
+      ..close();
+    canvas.drawPath(path, paint);
+
+    final inner = Path()
+      ..moveTo(center.dx, center.dy - radius * 0.45)
+      ..lineTo(center.dx + radius * 0.45, center.dy)
+      ..lineTo(center.dx, center.dy + radius * 0.45)
+      ..lineTo(center.dx - radius * 0.45, center.dy)
+      ..close();
+    canvas.drawPath(
+      inner,
+      Paint()
+        ..color = AikoColors.primaryBlue.withValues(alpha: 0.2)
+        ..style = PaintingStyle.fill,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+double clampIdeaWidth(BuildContext context) {
+  return math.min(MediaQuery.sizeOf(context).width, 430);
+}

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../data/auth_repository.dart';
-import '../../../shared/widgets/finance_card.dart';
+import '../../../shared/widgets/aiko_idea_widgets.dart';
 import '../../../theme/aiko_colors.dart';
+import '../data/auth_repository.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -27,17 +27,13 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _routeReturningUser() async {
     if (_authRepository.hasActiveSession()) {
       _authRepository.restoreSessionInBackground();
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       context.go('/home');
       return;
     }
 
     await _authRepository.restoreSession();
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     if (_authRepository.hasActiveSession()) {
       context.go('/home');
@@ -45,65 +41,66 @@ class _SplashScreenState extends State<SplashScreen> {
     }
 
     if (await _authRepository.hasKnownAccount()) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       context.go('/auth');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
+      backgroundColor: AikoColors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Spacer(),
-              Center(
-                child: Semantics(
-                  label: 'Aiko app icon',
-                  image: true,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: Image.asset(
-                      'assets/icons/app_icon_padded.png',
-                      width: 96,
-                      height: 96,
-                      fit: BoxFit.cover,
+        child: AikoSparkleBackdrop(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: clampIdeaWidth(context)),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(28, 20, 28, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Spacer(flex: 2),
+                    const Center(child: AikoWordmark(size: 60)),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Your Personal\nFinance Companion',
+                      textAlign: TextAlign.center,
+                      style: textTheme.titleMedium?.copyWith(
+                        color: AikoColors.neutralInk,
+                        fontWeight: FontWeight.w700,
+                        height: 1.15,
+                      ),
                     ),
-                  ),
+                    const Spacer(),
+                    const Center(
+                      child: AikoCharacterImage(
+                        size: 214,
+                        borderRadius: 44,
+                        semanticLabel: 'Aiko holding a gold coin',
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'Smarter insights. Better habits.\nBrighter future.',
+                      textAlign: TextAlign.center,
+                      style: textTheme.bodyLarge?.copyWith(
+                        color: AikoColors.deepBlue,
+                        fontWeight: FontWeight.w700,
+                        height: 1.35,
+                      ),
+                    ),
+                    const Spacer(),
+                    AikoPrimaryButton(
+                      label: 'Get Started',
+                      onPressed: () => context.push('/onboarding'),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              Semantics(
-                header: true,
-                child: Text(
-                  'Aiko',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text('Grow wealth with Aiko.', textAlign: TextAlign.center),
-              const SizedBox(height: 24),
-              const FinanceCard(
-                title: 'Meet your AI financial companion',
-                icon: Icons.auto_awesome,
-                accentColor: AikoColors.premiumPurple,
-                prominent: true,
-                child: Text(
-                  'Track money, plan goals, and get friendly guidance without judgment.',
-                ),
-              ),
-              const Spacer(),
-              PrimaryActionButton(
-                label: 'Get started',
-                onPressed: () => context.push('/onboarding'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -123,6 +120,12 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   var _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.text = 'name@email.com';
+  }
 
   @override
   void dispose() {
@@ -149,9 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isSubmitting = true);
     try {
       await _authRepository.signIn(email: email, password: password);
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       context.go('/home');
     } on AuthException catch (error) {
       _showMessage(error.message);
@@ -160,9 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (_) {
       _showMessage('Unable to sign in. Please try again.');
     } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -175,9 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       await _authRepository.resetPassword(email);
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       _showMessage('Reset email sent. Check your inbox.');
     } on AuthException catch (error) {
       _showMessage(error.message);
@@ -192,14 +189,10 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isSubmitting = true);
     try {
       await _authRepository.signInWithGoogle();
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       await _authRepository.restoreSession();
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       if (_authRepository.hasActiveSession()) {
         context.go('/home');
       } else {
@@ -214,9 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (_) {
       _showMessage('Unable to sign in with Google right now.');
     } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -232,9 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isSubmitting = true);
     try {
       await _authRepository.signUp(email: email, password: password);
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       if (_authRepository.hasActiveSession()) {
         context.go('/home');
@@ -248,65 +237,178 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (_) {
       _showMessage('Unable to create account right now.');
     } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Aiko sign in')),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          const FinanceCard(
-            title: 'Welcome back',
-            icon: Icons.lock_outline,
-            child: Text('Sign in to sync your private financial workspace.'),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _emailController,
-            decoration: const InputDecoration(labelText: 'Email'),
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            enabled: !_isSubmitting,
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _passwordController,
-            decoration: const InputDecoration(labelText: 'Password'),
-            obscureText: true,
-            enabled: !_isSubmitting,
-            onSubmitted: (_) => _handleSignIn(),
-          ),
-          const SizedBox(height: 20),
-          PrimaryActionButton(
-            label: _isSubmitting ? 'Signing in...' : 'Continue securely',
-            icon: Icons.lock_open,
-            onPressed: _isSubmitting ? null : _handleSignIn,
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _isSubmitting ? null : _handleSignUp,
-            icon: const Icon(Icons.person_add_alt_1),
-            label: Text(
-              _isSubmitting ? 'Creating account...' : 'Create account',
+      backgroundColor: AikoColors.white,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: clampIdeaWidth(context)),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
+              children: [
+                const Center(child: AikoWordmark(size: 50)),
+                const SizedBox(height: 48),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 3,
+                      height: 46,
+                      margin: const EdgeInsets.only(top: 2),
+                      decoration: BoxDecoration(
+                        color: AikoColors.deepBlue,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Welcome back!',
+                            style: textTheme.headlineSmall?.copyWith(
+                              color: AikoColors.darkNavy,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Log in to continue.',
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: AikoColors.mutedText,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 34),
+                TextField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    hintText: 'name@email.com',
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  enabled: !_isSubmitting,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _passwordController,
+                  decoration: const InputDecoration(labelText: 'Password'),
+                  obscureText: true,
+                  enabled: !_isSubmitting,
+                  onSubmitted: (_) => _handleSignIn(),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _isSubmitting ? null : _handleResetPassword,
+                    child: const Text('Forgot password?'),
+                  ),
+                ),
+                const SizedBox(height: 22),
+                AikoPrimaryButton(
+                  label: _isSubmitting ? 'Logging in...' : 'Log In',
+                  onPressed: _isSubmitting ? null : _handleSignIn,
+                ),
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'or continue with',
+                        style: textTheme.labelMedium?.copyWith(
+                          color: AikoColors.mutedText,
+                        ),
+                      ),
+                    ),
+                    const Expanded(child: Divider()),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _SocialButton(
+                  icon: Icons.g_mobiledata,
+                  label: 'Continue with Google',
+                  onPressed: _isSubmitting ? null : _handleGoogleSignIn,
+                ),
+                const SizedBox(height: 10),
+                _SocialButton(
+                  icon: Icons.apple,
+                  label: 'Continue with Apple',
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => _showMessage('Apple sign-in is coming soon.'),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Don't have an account?",
+                      style: textTheme.bodySmall?.copyWith(
+                        color: AikoColors.mutedText,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _isSubmitting ? null : _handleSignUp,
+                      child: const Text('Sign up'),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _isSubmitting ? null : _handleGoogleSignIn,
-            icon: const Icon(Icons.login),
-            label: const Text('Continue with Google'),
+        ),
+      ),
+    );
+  }
+}
+
+class _SocialButton extends StatelessWidget {
+  const _SocialButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 22),
+        label: Text(
+          label,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AikoColors.neutralInk,
+          side: const BorderSide(color: AikoColors.borderSubtle),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
           ),
-          TextButton(
-            onPressed: _isSubmitting ? null : _handleResetPassword,
-            child: const Text('Reset password'),
-          ),
-        ],
+        ),
       ),
     );
   }

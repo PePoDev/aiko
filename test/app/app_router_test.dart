@@ -16,7 +16,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Aiko'), findsWidgets);
-    expect(find.text('Get started'), findsOneWidget);
+    expect(find.text('Get Started'), findsOneWidget);
   });
 
   testWidgets('router no longer exposes the removed Aiko Hub route', (

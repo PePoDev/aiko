@@ -5,9 +5,9 @@ import 'app_test_bootstrap.dart';
 void main() {
   testWidgets('first launch can reach onboarding', (tester) async {
     await bootstrapIntegrationTest(tester);
-    await tester.tap(find.text('Get started'));
+    await tester.tap(find.text('Get Started'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Welcome to Aiko'), findsOneWidget);
+    expect(find.text("Hi, I'm Aiko!", skipOffstage: false), findsOneWidget);
   });
 }

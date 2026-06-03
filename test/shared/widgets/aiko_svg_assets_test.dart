@@ -40,4 +40,15 @@ void main() {
       expect(content, contains('currentColor'));
     });
   }
+
+  testWidgets('assets/icons/aiko_title.svg is a brand title wordmark asset', (
+    tester,
+  ) async {
+    final content = await rootBundle.loadString('assets/icons/aiko_title.svg');
+
+    expect(content.trimLeft(), startsWith('<svg'));
+    expect(content, contains('viewBox="0 0 320 96"'));
+    expect(content, contains('<title>Aiko</title>'));
+    expect(content, contains('#2563EB'));
+  });
 }

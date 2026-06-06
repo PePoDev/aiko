@@ -560,12 +560,15 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
       final institution = _selectedType == AccountType.cash
           ? ''
           : _institutionController.text.trim();
+      final openingBalance = existing == null
+          ? Money.zero(currency)
+          : currentBalance;
       final account = Account(
         id: existing?.id ?? const Uuid().v4(),
         userId: existing?.userId ?? '',
         name: _nameController.text.trim(),
         type: _selectedType,
-        openingBalance: currentBalance,
+        openingBalance: openingBalance,
         currentBalance: currentBalance,
         institution: institution.isEmpty ? null : institution,
         includeInNetWorth: _includeInNetWorth,

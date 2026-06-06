@@ -64,7 +64,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(notifier.accounts.single.name, 'Travel Cash');
-    expect(notifier.accounts.single.openingBalance.amount.toString(), '120.5');
+    expect(notifier.accounts.single.openingBalance.amount.toString(), '0');
     expect(notifier.accounts.single.currentBalance.amount.toString(), '120.5');
     expect(
       transactionsNotifier.transactions.single.accountId,
@@ -78,7 +78,7 @@ void main() {
       transactionsNotifier.transactions.single.amount.amount.toString(),
       '120.5',
     );
-    expect(find.text('Travel Cash'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'Travel Cash'), findsOneWidget);
     final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
     final margin = snackBar.margin as EdgeInsets?;
     expect(margin?.bottom, greaterThanOrEqualTo(88));
@@ -110,6 +110,10 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Create Account'));
     await tester.pumpAndSettle();
 
+    expect(
+      accountsNotifier.accounts.single.openingBalance.amount.toString(),
+      '0',
+    );
     expect(
       accountsNotifier.accounts.single.currentBalance.amount.toString(),
       '-45.25',

@@ -185,7 +185,6 @@ class AuthRepository {
         'name': 'Cash Wallet',
         'type': 'cash',
         'currency': 'THB',
-        'opening_balance': '0',
         'current_balance': '0',
         'include_in_net_worth': true,
         'is_active': true,

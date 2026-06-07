@@ -52,7 +52,6 @@ class _OnboardingAccountFormState extends ConsumerState<OnboardingAccountForm> {
         userId: '', // Populated by repository
         name: name,
         type: _selectedType,
-        openingBalance: money,
         currentBalance: money,
         institution: institution.isEmpty ? null : institution,
       );
@@ -166,7 +165,7 @@ class _OnboardingAccountFormState extends ConsumerState<OnboardingAccountForm> {
           TextFormField(
             controller: _balanceController,
             decoration: const InputDecoration(
-              labelText: 'Opening Balance',
+              labelText: 'Current Balance',
               prefixText: r'$ ',
               hintText: '0.00',
               prefixIcon: Icon(Icons.attach_money_outlined),
@@ -174,7 +173,7 @@ class _OnboardingAccountFormState extends ConsumerState<OnboardingAccountForm> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
-                return 'Please enter an opening balance.';
+                return 'Please enter a current balance.';
               }
               if (Decimal.tryParse(value.trim()) == null) {
                 return 'Please enter a valid decimal number.';

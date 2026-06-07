@@ -64,7 +64,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(notifier.accounts.single.name, 'Travel Cash');
-    expect(notifier.accounts.single.openingBalance.amount.toString(), '0');
     expect(notifier.accounts.single.currentBalance.amount.toString(), '120.5');
     expect(
       transactionsNotifier.transactions.single.accountId,
@@ -110,10 +109,6 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Create Account'));
     await tester.pumpAndSettle();
 
-    expect(
-      accountsNotifier.accounts.single.openingBalance.amount.toString(),
-      '0',
-    );
     expect(
       accountsNotifier.accounts.single.currentBalance.amount.toString(),
       '-45.25',
@@ -199,7 +194,7 @@ void main() {
     expect(find.text('No accounts yet'), findsOneWidget);
   });
 
-  testWidgets('account details balance is calculated from transactions', (
+  testWidgets('account details balance uses current account balance', (
     tester,
   ) async {
     final accountsNotifier = _AccountsNotifier([
@@ -208,8 +203,7 @@ void main() {
         userId: 'user',
         name: 'Cash Wallet',
         type: AccountType.cash,
-        openingBalance: Money.zero('USD'),
-        currentBalance: Money.zero('USD'),
+        currentBalance: Money.parse('25', 'USD'),
       ),
     ]);
     final transactionsNotifier = _TransactionsNotifier([
@@ -254,8 +248,8 @@ void main() {
     await tester.tap(find.text('Cash Wallet'));
     await tester.pumpAndSettle();
 
-    expect(find.text('\$0.00'), findsNothing);
-    expect(find.text('\$49,200.00'), findsOneWidget);
+    expect(find.text('\$25.00'), findsWidgets);
+    expect(find.text('\$49,200.00'), findsNothing);
   });
 
   testWidgets('account details shows related transactions for that account', (
@@ -267,7 +261,6 @@ void main() {
         userId: 'user',
         name: 'Cash Wallet',
         type: AccountType.cash,
-        openingBalance: Money.zero('USD'),
         currentBalance: Money.zero('USD'),
       ),
       Account(
@@ -275,7 +268,6 @@ void main() {
         userId: 'user',
         name: 'Bank Account',
         type: AccountType.bank,
-        openingBalance: Money.zero('USD'),
         currentBalance: Money.zero('USD'),
       ),
     ]);
@@ -333,7 +325,6 @@ void main() {
         userId: 'user',
         name: 'Old Checking',
         type: AccountType.bank,
-        openingBalance: Money.parse('100', 'USD'),
         currentBalance: Money.parse('150', 'USD'),
         institution: 'Old Bank',
         includeInNetWorth: true,
@@ -407,8 +398,6 @@ void main() {
     expect(account.userId, 'user');
     expect(account.name, 'Updated Brokerage');
     expect(account.type, AccountType.investment);
-    expect(account.openingBalance.amount.toString(), '275.25');
-    expect(account.openingBalance.currency, 'EUR');
     expect(account.currentBalance.amount.toString(), '275.25');
     expect(account.currentBalance.currency, 'EUR');
     expect(account.institution, 'Updated Broker');
@@ -439,7 +428,6 @@ Account _cashAccount() {
     userId: 'user',
     name: 'Cash Wallet',
     type: AccountType.cash,
-    openingBalance: Money.zero('USD'),
     currentBalance: Money.parse('25', 'USD'),
   );
 }
@@ -489,7 +477,10 @@ class _TransactionsNotifier extends TransactionsNotifier {
   Future<List<FinanceTransaction>> build() async => transactions;
 
   @override
-  Future<void> addTransaction(FinanceTransaction transaction) async {
+  Future<void> addTransaction(
+    FinanceTransaction transaction, {
+    bool updateAccountBalance = true,
+  }) async {
     transactions.add(transaction);
     state = AsyncData(transactions);
   }

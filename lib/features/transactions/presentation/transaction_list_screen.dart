@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
-import '../../../core/money/money.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
@@ -337,41 +336,29 @@ Map<String, String> _accountLabelsForTransactions({
 }) {
   final accountsById = {for (final account in accounts) account.id: account};
   final balancesByAccountId = {
-    for (final account in accounts) account.id: account.openingBalance,
+    for (final account in accounts) account.id: account.currentBalance,
   };
   final visibleIds = transactions.map((transaction) => transaction.id).toSet();
   final labels = <String, String>{};
-  final sorted = [...allTransactions]..sort((a, b) => a.date.compareTo(b.date));
+  final sorted = [...allTransactions]..sort((a, b) => b.date.compareTo(a.date));
 
   for (final transaction in sorted) {
     final account = accountsById[transaction.accountId];
-    final balanceBeforeTransaction = balancesByAccountId[transaction.accountId];
-    if (balanceBeforeTransaction == null) {
+    final balanceAfterTransaction = balancesByAccountId[transaction.accountId];
+    if (balanceAfterTransaction == null) {
       continue;
     }
-    final balanceAfterTransaction = _balanceAfterTransaction(
-      balanceBeforeTransaction,
-      transaction,
-    );
-    balancesByAccountId[transaction.accountId] = balanceAfterTransaction;
 
     if (account != null && visibleIds.contains(transaction.id)) {
       labels[transaction.id] =
           '${account.name} (${balanceAfterTransaction.format()})';
     }
+
+    balancesByAccountId[transaction.accountId] = transaction
+        .reverseFromAccountBalance(balanceAfterTransaction);
   }
 
   return labels;
-}
-
-Money _balanceAfterTransaction(
-  Money balanceBeforeTransaction,
-  FinanceTransaction transaction,
-) {
-  if (transaction.type == TransactionType.income) {
-    return balanceBeforeTransaction + transaction.amount;
-  }
-  return balanceBeforeTransaction - transaction.amount;
 }
 
 class _TransactionDateHeader extends StatelessWidget {

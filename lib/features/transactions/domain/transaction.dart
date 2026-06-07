@@ -49,6 +49,20 @@ class FinanceTransaction {
 
   bool get isExpense => type == TransactionType.expense;
 
+  Money applyToAccountBalance(Money balance) {
+    if (type == TransactionType.income) {
+      return balance + amount;
+    }
+    return balance - amount;
+  }
+
+  Money reverseFromAccountBalance(Money balance) {
+    if (type == TransactionType.income) {
+      return balance - amount;
+    }
+    return balance + amount;
+  }
+
   FinanceTransaction copyWith({
     Money? amount,
     String? categoryId,

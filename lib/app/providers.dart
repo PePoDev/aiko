@@ -74,13 +74,26 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
   }
 
   Future<FinanceTransaction> saveTransaction(
-    FinanceTransaction transaction,
-  ) async {
+    FinanceTransaction transaction, {
+    bool updateAccountBalance = true,
+  }) async {
     late final FinanceTransaction saved;
+    final previousTransactions = state.hasValue ? state.value : null;
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(transactionRepositoryProvider);
+      final transactions = previousTransactions ?? await repo.list();
+      final previousTransaction = _transactionById(
+        transactions,
+        transaction.id,
+      );
       saved = await repo.save(transaction);
+      if (updateAccountBalance) {
+        await _syncAccountBalances(
+          previousTransaction: previousTransaction,
+          nextTransaction: saved,
+        );
+      }
       return repo.list();
     });
     if (state.hasError) {
@@ -89,8 +102,14 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
     return saved;
   }
 
-  Future<void> addTransaction(FinanceTransaction transaction) async {
-    await saveTransaction(transaction);
+  Future<void> addTransaction(
+    FinanceTransaction transaction, {
+    bool updateAccountBalance = true,
+  }) async {
+    await saveTransaction(
+      transaction,
+      updateAccountBalance: updateAccountBalance,
+    );
   }
 
   Future<void> deleteTransaction(String id) async {
@@ -98,14 +117,78 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(transactionRepositoryProvider);
-      await repo.delete(id);
       final transactions = previousTransactions ?? await repo.list();
+      final previousTransaction = _transactionById(transactions, id);
+      await repo.delete(id);
+      await _syncAccountBalances(previousTransaction: previousTransaction);
       return transactions
           .where((transaction) => transaction.id != id)
           .toList(growable: false);
     });
     if (state.hasError) {
       Error.throwWithStackTrace(state.error!, state.stackTrace!);
+    }
+  }
+
+  FinanceTransaction? _transactionById(
+    List<FinanceTransaction> transactions,
+    String id,
+  ) {
+    for (final transaction in transactions) {
+      if (transaction.id == id) {
+        return transaction;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _syncAccountBalances({
+    FinanceTransaction? previousTransaction,
+    FinanceTransaction? nextTransaction,
+  }) async {
+    if (previousTransaction == null && nextTransaction == null) {
+      return;
+    }
+
+    try {
+      final accounts = await ref.read(accountsProvider.future);
+      final originalById = {
+        for (final account in accounts) account.id: account,
+      };
+      final updatedById = {...originalById};
+
+      if (previousTransaction != null) {
+        final account = updatedById[previousTransaction.accountId];
+        if (account != null) {
+          updatedById[account.id] = account.copyWith(
+            currentBalance: previousTransaction.reverseFromAccountBalance(
+              account.currentBalance,
+            ),
+          );
+        }
+      }
+
+      if (nextTransaction != null) {
+        final account = updatedById[nextTransaction.accountId];
+        if (account != null) {
+          updatedById[account.id] = account.copyWith(
+            currentBalance: nextTransaction.applyToAccountBalance(
+              account.currentBalance,
+            ),
+          );
+        }
+      }
+
+      final accountsNotifier = ref.read(accountsProvider.notifier);
+      for (final account in updatedById.values) {
+        final original = originalById[account.id];
+        if (original != null &&
+            original.currentBalance != account.currentBalance) {
+          await accountsNotifier.saveAccount(account);
+        }
+      }
+    } catch (_) {
+      return;
     }
   }
 }

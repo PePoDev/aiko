@@ -962,12 +962,6 @@ abstract class AppLocalizations {
   /// **'Investment'**
   String get accountTypeInvestment;
 
-  /// No description provided for @openingBalance.
-  ///
-  /// In en, this message translates to:
-  /// **'Opening Balance'**
-  String get openingBalance;
-
   /// No description provided for @accountNameRequired.
   ///
   /// In en, this message translates to:

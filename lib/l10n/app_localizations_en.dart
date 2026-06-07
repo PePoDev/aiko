@@ -466,9 +466,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accountTypeInvestment => 'Investment';
 
   @override
-  String get openingBalance => 'Opening Balance';
-
-  @override
   String get accountNameRequired => 'Please enter account name';
 
   @override

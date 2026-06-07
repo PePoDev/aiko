@@ -164,7 +164,6 @@
   "accountTypeBank": "Bank Account",
   "accountTypeCreditCard": "Credit Card",
   "accountTypeInvestment": "Investment",
-  "openingBalance": "Opening Balance",
   "accountNameRequired": "Please enter account name",
   "balanceRequired": "Please enter starting balance",
   "balanceMustBeValid": "Must be a valid positive number",

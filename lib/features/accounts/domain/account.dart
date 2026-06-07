@@ -18,7 +18,6 @@ class Account {
     required this.userId,
     required this.name,
     required this.type,
-    required this.openingBalance,
     required this.currentBalance,
     this.institution,
     this.includeInNetWorth = true,
@@ -29,7 +28,6 @@ class Account {
   final String userId;
   final String name;
   final AccountType type;
-  final Money openingBalance;
   final Money currentBalance;
   final String? institution;
   final bool includeInNetWorth;
@@ -40,7 +38,6 @@ class Account {
   Account copyWith({
     String? name,
     AccountType? type,
-    Money? openingBalance,
     Money? currentBalance,
     bool? isActive,
   }) {
@@ -49,7 +46,6 @@ class Account {
       userId: userId,
       name: name ?? this.name,
       type: type ?? this.type,
-      openingBalance: openingBalance ?? this.openingBalance,
       currentBalance: currentBalance ?? this.currentBalance,
       institution: institution,
       includeInNetWorth: includeInNetWorth,

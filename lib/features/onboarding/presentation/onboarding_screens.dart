@@ -61,7 +61,6 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
       userId: '',
       name: option.accountName,
       type: option.accountType,
-      openingBalance: balance,
       currentBalance: balance,
       institution: option.institution,
     );

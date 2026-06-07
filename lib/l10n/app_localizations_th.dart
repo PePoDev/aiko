@@ -466,9 +466,6 @@ class AppLocalizationsTh extends AppLocalizations {
   String get accountTypeInvestment => 'การลงทุน';
 
   @override
-  String get openingBalance => 'ยอดเปิดบัญชี';
-
-  @override
   String get accountNameRequired => 'กรุณาใส่ชื่อบัญชี';
 
   @override

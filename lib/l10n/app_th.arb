@@ -144,7 +144,6 @@
   "accountTypeBank": "บัญชีธนาคาร",
   "accountTypeCreditCard": "บัตรเครดิต",
   "accountTypeInvestment": "การลงทุน",
-  "openingBalance": "ยอดเปิดบัญชี",
   "accountNameRequired": "กรุณาใส่ชื่อบัญชี",
   "balanceRequired": "กรุณาใส่ยอดเริ่มต้น",
   "balanceMustBeValid": "ต้องเป็นตัวเลขบวกที่ถูกต้อง",

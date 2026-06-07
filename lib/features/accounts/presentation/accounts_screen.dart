@@ -221,7 +221,6 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
             .watch(transactionsProvider)
             .whenOrNull(data: (transactions) => transactions) ??
         const <FinanceTransaction>[];
-    final ledgerBalance = _ledgerBalanceForAccount(_account, transactions);
     final relatedTransactions =
         transactions
             .where((transaction) => transaction.accountId == _account.id)
@@ -285,7 +284,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                   ),
                   const SizedBox(height: 18),
                   Text(
-                    ledgerBalance.format(),
+                    _account.currentBalance.format(),
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                       color: accent,
@@ -388,27 +387,6 @@ class _RelatedTransactionTile extends StatelessWidget {
       ),
     );
   }
-}
-
-Money _ledgerBalanceForAccount(
-  Account account,
-  List<FinanceTransaction> transactions,
-) {
-  var balance = account.openingBalance;
-  final accountTransactions =
-      transactions
-          .where((transaction) => transaction.accountId == account.id)
-          .toList()
-        ..sort((a, b) => a.date.compareTo(b.date));
-
-  for (final transaction in accountTransactions) {
-    balance = switch (transaction.type) {
-      TransactionType.income => balance + transaction.amount,
-      _ => balance - transaction.amount,
-    };
-  }
-
-  return balance;
 }
 
 String _transactionTypeLabel(TransactionType type) {
@@ -560,15 +538,11 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
       final institution = _selectedType == AccountType.cash
           ? ''
           : _institutionController.text.trim();
-      final openingBalance = existing == null
-          ? Money.zero(currency)
-          : currentBalance;
       final account = Account(
         id: existing?.id ?? const Uuid().v4(),
         userId: existing?.userId ?? '',
         name: _nameController.text.trim(),
         type: _selectedType,
-        openingBalance: openingBalance,
         currentBalance: currentBalance,
         institution: institution.isEmpty ? null : institution,
         includeInNetWorth: _includeInNetWorth,
@@ -627,6 +601,7 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
             merchant: 'Initial balance',
             note: 'Created from account starting balance',
           ),
+          updateAccountBalance: false,
         );
   }
 

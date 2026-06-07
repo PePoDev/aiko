@@ -12,7 +12,6 @@ void main() {
         userId: 'user',
         name: 'Cash',
         type: AccountType.cash,
-        openingBalance: Money.zero('USD'),
         currentBalance: Money.parse('100', 'USD'),
       ),
     ], 'USD');

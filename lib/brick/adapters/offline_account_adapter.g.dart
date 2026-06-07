@@ -12,7 +12,6 @@ Future<OfflineAccount> _$OfflineAccountFromSupabase(
     name: data['name'] as String,
     type: data['type'] as String,
     currency: data['currency'] as String,
-    openingBalance: data['opening_balance'].toString(),
     currentBalance: data['current_balance'].toString(),
     institution: data['institution'] == null
         ? null
@@ -33,7 +32,6 @@ Future<Map<String, dynamic>> _$OfflineAccountToSupabase(
     'name': instance.name,
     'type': instance.type,
     'currency': instance.currency,
-    'opening_balance': instance.openingBalance,
     'current_balance': instance.currentBalance,
     'institution': instance.institution,
     'include_in_net_worth': instance.includeInNetWorth,
@@ -52,7 +50,6 @@ Future<OfflineAccount> _$OfflineAccountFromSqlite(
     name: data['name'] as String,
     type: data['type'] as String,
     currency: data['currency'] as String,
-    openingBalance: data['opening_balance'] as String,
     currentBalance: data['current_balance'] as String,
     institution: data['institution'] == null
         ? null
@@ -73,7 +70,6 @@ Future<Map<String, dynamic>> _$OfflineAccountToSqlite(
     'name': instance.name,
     'type': instance.type,
     'currency': instance.currency,
-    'opening_balance': instance.openingBalance,
     'current_balance': instance.currentBalance,
     'institution': instance.institution,
     'include_in_net_worth': instance.includeInNetWorth ? 1 : 0,
@@ -111,10 +107,6 @@ class OfflineAccountAdapter
     'currency': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'currency',
-    ),
-    'openingBalance': const RuntimeSupabaseColumnDefinition(
-      association: false,
-      columnName: 'opening_balance',
     ),
     'currentBalance': const RuntimeSupabaseColumnDefinition(
       association: false,
@@ -172,12 +164,6 @@ class OfflineAccountAdapter
     'currency': const RuntimeSqliteColumnDefinition(
       association: false,
       columnName: 'currency',
-      iterable: false,
-      type: String,
-    ),
-    'openingBalance': const RuntimeSqliteColumnDefinition(
-      association: false,
-      columnName: 'opening_balance',
       iterable: false,
       type: String,
     ),

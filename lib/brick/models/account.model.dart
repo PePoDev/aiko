@@ -12,7 +12,6 @@ class OfflineAccount extends OfflineFirstWithSupabaseModel {
     required this.name,
     required this.type,
     required this.currency,
-    required this.openingBalance,
     required this.currentBalance,
     this.institution,
     this.includeInNetWorth = true,
@@ -29,9 +28,6 @@ class OfflineAccount extends OfflineFirstWithSupabaseModel {
   final String name;
   final String type;
   final String currency;
-
-  @Supabase(fromGenerator: 'data[\'opening_balance\'].toString()')
-  final String openingBalance;
 
   @Supabase(fromGenerator: 'data[\'current_balance\'].toString()')
   final String currentBalance;

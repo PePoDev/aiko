@@ -14,7 +14,6 @@ void main() {
           userId: 'user',
           name: 'Cash',
           type: AccountType.cash,
-          openingBalance: Money.zero('USD'),
           currentBalance: Money.zero('USD'),
         ),
       )

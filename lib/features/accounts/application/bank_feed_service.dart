@@ -29,10 +29,6 @@ class BankFeedService {
           userId: '',
           name: 'Chase Sapphire Checking',
           type: AccountType.bank,
-          openingBalance: Money(
-            amount: Decimal.parse('1500.00'),
-            currency: currency,
-          ),
           currentBalance: Money(
             amount: Decimal.parse('3842.50'),
             currency: currency,
@@ -44,7 +40,6 @@ class BankFeedService {
           userId: '',
           name: 'Chase Freedom Unlimited',
           type: AccountType.creditCard,
-          openingBalance: Money(amount: Decimal.zero, currency: currency),
           currentBalance: Money(
             amount: Decimal.parse('120.45'),
             currency: currency,
@@ -60,10 +55,6 @@ class BankFeedService {
           userId: '',
           name: 'BofA Advantage Checking',
           type: AccountType.bank,
-          openingBalance: Money(
-            amount: Decimal.parse('500.00'),
-            currency: currency,
-          ),
           currentBalance: Money(
             amount: Decimal.parse('2150.10'),
             currency: currency,
@@ -78,10 +69,6 @@ class BankFeedService {
           userId: '',
           name: '$institution Everyday Checking',
           type: AccountType.bank,
-          openingBalance: Money(
-            amount: Decimal.parse('100.00'),
-            currency: currency,
-          ),
           currentBalance: Money(
             amount: Decimal.parse('750.00'),
             currency: currency,

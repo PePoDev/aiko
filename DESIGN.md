@@ -1,137 +1,91 @@
 # Aiko Design System
 
-Aiko is a calm, data-first personal finance app. The interface must make money, risk, progress, and next actions easy to scan before it adds personality. Aiko, the assistant character, is a guide for moments that benefit from warmth or explanation, not a decoration layer.
+Aiko is a calm, data-first personal finance app. The UI must make money, risk, progress, and next actions easy to scan before it adds personality. Aiko, the assistant character, appears only where warmth or explanation helps a user decide.
 
-This file is the design source of truth for Flutter implementation. When local screen code conflicts with this document, update the screen or shared component unless there is a documented product reason.
+This is the Flutter design source of truth. If screen code conflicts with this file, update the screen or shared component unless product requirements say otherwise.
 
 ## Product Register
 
-Aiko is product UI, not a marketing site. The design should feel trustworthy, native, repeatable, and efficient for daily finance work.
+Aiko is product UI, not a marketing site. It should feel trustworthy, native, repeatable, and efficient for daily finance work.
 
-Use:
+Use familiar app patterns, dense but readable hierarchy, consistent components, explanatory motion, and AI warmth only when it clarifies, reassures, or guides a decision.
 
-- Familiar app patterns: app bars, bottom navigation, tabs, sheets, list rows, forms, and detail screens.
-- Dense but readable information hierarchy.
-- Consistent components across screens.
-- Motion that explains state changes.
-- AI warmth only where it clarifies, reassures, or guides a decision.
+Avoid decorative gradients, glassmorphism, ornamental cards, nested cards, oversized task-screen heroes, meaningless purple/blue accents, and Aiko artwork covering numbers, charts, forms, or actions. Category forms do not control budget inclusion; budget forms own it.
 
-Avoid:
+## Voice And Tenets
 
-- Decorative gradients, glassmorphism, or ornamental cards.
-- Nested cards.
-- Overlarge hero sections in task screens.
-- Purple/blue accents used as decoration instead of meaning.
-- Aiko artwork covering financial numbers, charts, forms, or actions.
-- Category-level budget inclusion controls. Budgets choose their included category; category forms do not.
+Tone is clear, supportive, specific, and non-judgmental.
 
-## Scene And Tone
+Use: "Groceries are pacing high. Lower flexible spending by $18 this week to stay on track."
 
-The primary use scene is a person checking money on a phone during a normal day: in line, at a desk, before paying a bill, or reviewing the month at night. The UI should reduce cognitive load, not perform.
+Avoid: "You overspent again."
 
-Tone:
-
-- Clear: show the number, label, period, and action.
-- Supportive: phrase warnings as recoverable situations.
-- Specific: avoid vague AI copy.
-- Non-judgmental: never shame spending behavior.
-
-Example:
-
-- Use: "Groceries are pacing high. Lower flexible spending by $18 this week to stay on track."
-- Avoid: "You overspent again."
-
-## Design Tenets
+Design tenets:
 
 1. Data first, Aiko enhanced.
 2. One primary action per screen region.
-3. Every financial number needs context: period, account, category, or status.
-4. Lists should be compact by default. Detail screens can breathe.
-5. Cards are for real objects, metrics, and grouped tasks, not decoration.
-6. Forms use progressive disclosure. Do not expose advanced switches unless the feature owns that decision.
-7. Empty states teach the next action.
-8. Error states explain recovery.
-9. Dark mode is a first-class theme.
-10. Every tappable control has a 48px minimum touch target.
+3. Every financial number needs context: period, account, category, target, or status.
+4. Lists are compact by default; detail screens can breathe.
+5. Cards represent real objects, metrics, or grouped tasks.
+6. Forms disclose advanced controls only when the feature owns that choice.
+7. Empty states teach the next action; errors explain recovery.
+8. Dark mode is first-class.
+9. Every tappable control has a 48px minimum touch target.
 
-## Token Architecture
+## Tokens
 
-Use a three-layer token model.
+Use a three-layer model:
 
 | Layer | Purpose | Flutter home |
 |---|---|---|
 | Primitive | Raw colors, type sizes, spacing, radius | `AikoColors`, `AikoTypography` |
-| Semantic | Meaning: primary, danger, surface, muted, outline | `ColorScheme`, theme extensions where needed |
+| Semantic | Meaning: primary, danger, surface, muted, outline | `ColorScheme`, theme extensions |
 | Component | Button, card, input, sheet, chip, nav specs | `AikoTheme`, shared widgets |
 
 Do not add one-off colors or radii to feature screens when a token or theme value exists.
 
-Design documentation roles:
+Document roles:
 
 | File | Role |
 |---|---|
-| `PRODUCT.md` | Product scope, feature coverage, acceptance criteria |
-| `DESIGN.md` | Visual system, screen patterns, component rules, QA checklist |
-| `README.md` | Contributor setup, architecture rules, high-level implementation map |
+| `PRODUCT.md` | Scope, coverage, acceptance criteria |
+| `DESIGN.md` | Visual system, screen patterns, component rules, QA |
+| `README.md` | Setup, architecture rules, implementation map |
 
-When these files conflict, use `PRODUCT.md` for what the product must do and `DESIGN.md` for how the UI must behave and look.
+When files conflict, use `PRODUCT.md` for product behavior and `DESIGN.md` for UI behavior and appearance.
 
-## Color System
+## Color
 
-### Primitive Tokens
+Primitive and semantic colors:
 
-| Token | Hex | Use |
-|---|---:|---|
-| Primary Blue | `#3B82F6` | Primary actions, selected state, active nav |
-| Deep Blue | `#1D4ED8` | Strong selection, key charts, high-emphasis blue |
-| Soft Blue | `#93C5FD` | Dark mode primary, soft highlights |
-| Pale Blue | `#EFF6FF` | Info surfaces, subtle backgrounds |
-| Premium Purple | `#7C3AED` | AI, premium, optimization, Aiko-specific moments |
-| Dark Navy | `#0F172A` | Light mode primary text, dark scaffold |
-| Neutral Ink | `#293348` | Secondary text on light surfaces, snackbar background |
-| Muted Text | `#778196` | Metadata and helper text |
-| App Background | `#D8E0F5` | Light scaffold |
-| App Background Light | `#F6F8FF` | Light alternate screen background |
-| Surface Panel | `#EEF2FF` | Cards and panels |
-| Surface Panel Strong | `#E3E9FF` | Stronger cards, selected panels |
-| Border | `#BAC3D6` | Visible borders |
-| Border Subtle | `#DCE4F8` | Dividers and quiet outlines |
-| Success Green | `#16A34A` | Income, savings, completed, positive trend |
-| Warning Orange | `#F59E0B` | Bills, due soon, budget caution |
-| Danger Red | `#DC2626` | Overspending, destructive actions, errors |
-| Analytics Teal | `#0D9488` | Portfolio, reports, analysis |
-
-### Semantic Color Rules
-
-- Primary blue means "current", "continue", or "main action".
-- Purple means Aiko, AI, optimization, premium, or review.
-- Green means positive money movement or completed progress.
-- Orange means attention needed soon.
-- Red means destructive, failed, overdue, or materially over limit.
-- Teal means analysis, allocation, portfolio, or reports.
-- Never rely on color alone. Pair semantic color with text, icon, or number.
-- Inactive states must be neutral, not pale saturated variants.
-
-### Dark Theme
-
-| Token | Light | Dark | Notes |
+| Role | Light | Dark | Use |
 |---|---:|---:|---|
-| Primary | `#3B82F6` | `#93C5FD` | Softer blue on navy |
-| Secondary | `#1D4ED8` | `#3B82F6` | Clear selected state |
-| Tertiary | `#7C3AED` | `#B894F5` | AI contrast |
+| Primary | `#3B82F6` | `#93C5FD` | Primary actions, selected state, active nav |
+| Secondary | `#1D4ED8` | `#3B82F6` | Strong selection, key blue charts |
+| AI/Premium | `#7C3AED` | `#B894F5` | Aiko, AI, optimization, premium |
 | Scaffold | `#D8E0F5` | `#0F172A` | Main background |
-| Surface | `#EEF2FF` | `#121C31` | Cards and sheets |
-| Surface Strong | `#E3E9FF` | `#1B2740` | Selected panels |
-| Outline | `#BAC3D6` | `#414B60` | Visible borders |
-| Outline Variant | `#DCE4F8` | `#293348` | Subtle dividers |
-| Success | `#16A34A` | `#4ADE80` | Positive state |
-| Warning | `#F59E0B` | `#FBBF24` | Caution state |
-| Danger | `#DC2626` | `#F87171` | Error/destructive state |
-| Analytics | `#0D9488` | `#2DD4BF` | Data analysis |
+| Alternate scaffold | `#F6F8FF` | `#0F172A` | Light alternate screens |
+| Surface | `#EEF2FF` | `#121C31` | Cards, sheets, grouped controls |
+| Surface strong | `#E3E9FF` | `#1B2740` | Selected or high-emphasis panels |
+| Text primary | `#0F172A` | theme on-surface | Primary text |
+| Text secondary | `#293348` | theme on-surface-variant | Secondary text |
+| Text muted | `#778196` | theme muted | Metadata and helper text |
+| Outline | `#BAC3D6` | `#414B60` | Focusable or visible borders |
+| Outline subtle | `#DCE4F8` | `#293348` | Dividers and quiet outlines |
+| Success | `#16A34A` | `#4ADE80` | Income, savings, completed, positive trend |
+| Warning | `#F59E0B` | `#FBBF24` | Bills, due soon, budget caution |
+| Danger | `#DC2626` | `#F87171` | Errors, destructive actions, overspending |
+| Analytics | `#0D9488` | `#2DD4BF` | Reports, portfolio, allocation, analysis |
+
+Rules:
+
+- Primary blue means current, continue, or main action.
+- Purple is reserved for Aiko, AI, optimization, premium, or review.
+- Green, orange, red, and teal keep their semantic finance meanings.
+- Never rely on color alone. Pair color with text, icon, label, or number.
+- Inactive states are neutral, not pale saturated variants.
 
 ## Typography
-
-Current implementation uses:
 
 | Role | Font | Use |
 |---|---|---|
@@ -139,322 +93,131 @@ Current implementation uses:
 | Body | Manrope | Body text, forms, lists, settings |
 | Label | Manrope | Buttons, chips, tabs, metadata |
 
-Type scale:
-
 | Theme style | Size | Weight | Use |
 |---|---:|---:|---|
 | `displayLarge` | 48 | 700 | Rare onboarding or report moments |
 | `headlineLarge` | 36 | 700 | Major balance or summary number |
-| `headlineMedium` | 28 | 700 | Screen-level headline when inside body |
+| `headlineMedium` | 28 | 700 | Screen-level headline inside body |
 | `titleLarge` | 20 | 700 | App bar title, card title |
 | `titleMedium` | 16 | 700 | Section title, prominent row title |
 | `titleSmall` | 14 | 700 | Dense list title |
 | `bodyLarge` | 16 | 400 | Primary readable text |
-| `bodyMedium` | 14 | 400 | Default body and list metadata |
-| `bodySmall` | 12 | 500 | Metadata, helper text |
+| `bodyMedium` | 14 | 400 | Default body and metadata |
+| `bodySmall` | 12 | 500 | Helper text |
 | `labelLarge` | 14 | 700 | Buttons and tabs |
-| `labelMedium` | 12 | 700 | Chips, badges, compact labels |
+| `labelMedium` | 12 | 700 | Chips and badges |
 | `labelSmall` | 11 | 700 | Dense status labels |
 
-Rules:
+Letter spacing is `0`. Use tabular figures for aligned money columns. Do not use display-scale text inside compact cards, lists, settings rows, sidebars, or form controls.
 
-- Letter spacing is `0`.
-- Use tabular figures for aligned money tables if a screen introduces custom numeric columns.
-- Keep body line length readable. Long educational copy should not run edge-to-edge on tablets.
-- Do not use display-scale text inside compact cards, lists, sidebars, settings rows, or form controls.
+## Spacing, Shape, Surfaces
 
-## Spacing, Shape, And Density
-
-Spacing follows a 4/8px rhythm.
+Spacing follows a 4/8px rhythm:
 
 | Token | Value | Use |
 |---|---:|---|
 | `space-1` | 4 | Icon/text gaps, dense metadata |
-| `space-2` | 8 | Row gaps, chip gaps |
+| `space-2` | 8 | Row and chip gaps |
 | `space-3` | 12 | Compact card internals |
 | `space-4` | 16 | Screen gutters, form gaps, default card padding |
 | `space-5` | 20 | Prominent card padding |
 | `space-6` | 24 | Section gaps |
 | `space-8` | 32 | Major screen rhythm |
 
-Shape:
+Shape and surface rules:
 
 - Cards, rows, inputs, chips, segmented controls: 8px radius.
 - Bottom sheets: 20px top radius.
-- Floating action buttons may use 16px radius because Material uses larger affordance shapes.
-- Avoid 20px+ radii in normal product cards.
-- Avoid decorative shadows. Prefer borders and surface contrast.
+- FABs may use 16px radius.
+- Avoid 20px+ radii in product cards and decorative shadows.
+- Use scaffold, surface, surface strong, input fill, outline subtle, and outline by job.
+- Do not put cards inside cards. Use rows and dividers for related content inside one card.
+- Repeated objects use list tiles or object cards, not section cards wrapping cards.
 
-Density:
-
-- Daily-use list screens are compact.
-- Detail screens use more vertical rhythm.
-- Dashboard uses fewer, stronger metrics rather than many equal cards.
-- Settings uses grouped list rows.
-- Forms use full-width controls and consistent 16px gaps.
-
-## Surface Model
-
-Use surfaces by job:
-
-| Surface | Use |
-|---|---|
-| Scaffold | Full screen background |
-| Surface panel | Cards, sheets, grouped controls |
-| Surface strong | Selected cards, high-emphasis panels |
-| Input fill | Text fields, search fields, dropdown-like pickers |
-| Border subtle | Dividers, non-selected outlines |
-| Border | Focusable or higher-emphasis outlines |
-
-Surface rules:
-
-- Do not put cards inside cards.
-- If content is visually related inside a card, use internal rows and dividers.
-- If a screen needs several repeated objects, use list tiles or object cards, not section cards wrapping object cards.
-- Keep empty/loading/error states on scaffold or a single panel, never nested inside a decorative card.
+Density rules: daily lists are compact, detail screens breathe, dashboard uses fewer stronger metrics, settings use grouped rows, and forms use full-width controls with consistent 16px gaps.
 
 ## Screen Archetypes
 
-### Dashboard
+| Archetype | Examples | Rules |
+|---|---|---|
+| Dashboard | Home, Budget overview, Portfolio overview | Lead with one primary financial summary, then 2-4 supporting metrics. Put data before copy. Label charts with numbers and periods. |
+| List and detail | Transactions, Accounts, Categories, Bills, Goals | Compact tappable rows with type mark, title, subtitle, trailing amount/status, and chevron. Details lead with primary number/title and grouped facts. |
+| Form | Add transaction, Budget form, Profile, Add category | Required controls first, full-width fields, helper text under controls, primary save button, progressive disclosure. |
+| Settings | Settings, Notifications, Profile | Grouped rows with icon, title, short description, and status/control. Separate security and destructive actions. |
+| Assistant and AI | Aiko assistant, Optimize, Review | Cite financial context, give actions or dismiss reasons, avoid filler, keep finance states semantic even when AI uses purple. |
+| Planning and education | Goals, Learning Hub, Calculators, Reports | Use progressive disclosure. Show progress or saved state. Calculators show input, result, conversion action. Reports pair chart visuals with summary text. |
+| Supplemental tools | Filters, split transaction, receipt review, cash flow, loan calculator, profile security | Extend an owning feature, never duplicate top-level screens. First viewport shows the task object. Required completion actions use sticky bottom bars on mobile. |
+| Placeholders | Expansion screens | State what the feature will do and provide one action. Do not show fake finished dashboards. Prefer `AikoScreenState` or `AikoFeatureOverviewScreen`. |
 
-Examples: Home, Budget overview, Portfolio overview.
+## Components
 
-- Lead with one primary financial summary.
-- Follow with 2-4 supporting metrics.
-- Use Aiko only for explanation or a useful suggestion.
-- Keep charts labelled with numbers and periods.
-- Avoid long copy before data.
+`FinanceCard` is for financial objects, metrics, and grouped task panels: 8px radius, 16px default padding, 20px prominent padding, outline-variant border, no default shadow, `titleMedium` title, `bodyMedium` body, 40px icon tile with 8px radius and 12 percent accent opacity, stable `InkWell` tap state. Never use it as a decorative wrapper around another card.
 
-### List And Detail
+Buttons: filled for primary, outlined for secondary, text for low-emphasis inline actions, icon buttons for familiar commands. Minimum height is 48px, radius is 8px, disabled state must be visible and non-interactive, and familiar commands should use icons.
 
-Examples: Transactions, Accounts, Categories, Bills, Goals.
+Inputs and pickers: visible labels, 54px minimum height, 8px radius, primary focus border, danger error border. Custom pickers show selected value plus context such as category group or account balance. Bottom-sheet pickers use compact list rows with selected checkmarks.
 
-- List rows should be compact, scannable, and tappable.
-- Leading icon or mark identifies type.
-- Title, subtitle, amount/status, and chevron are enough for most rows.
-- Detail screens show the primary number or title first, then grouped facts.
-- Destructive actions live in app bar menus or separated danger sections.
+Lists: compact `ListTile` rows, 48px tap target, single-line titles unless needed, trailing amounts/statuses aligned, dividers or card borders instead of nested containers.
 
-### Form
+Chips and badges: short labels for filters, tags, and small statuses. Status color must match semantic meaning and include text.
 
-Examples: Add transaction, Budget form, Profile, Add category.
+Navigation: authenticated shell tabs are Home, Transactions, Aiko, Planning, Settings. Bottom nav stays visible, active state uses primary with white active icon, secondary feature routes live in Planning or Settings groups.
 
-- Required controls appear before optional details.
-- Use full-width form fields.
-- Use custom pickers only when native dropdowns hide important context.
-- Helper text goes under controls, not inside placeholders.
-- Save buttons stay visually primary.
-- Category forms do not control budget inclusion. Budget forms own category inclusion.
+Sheets and dialogs: use bottom sheets for mobile creation/editing and dialogs for destructive confirmation. Sheets need drag handle, safe area, scrollable content, and 20px top radius. Destructive dialogs name the object and effect.
 
-### Settings
+Charts and progress: every chart needs a text summary. Every progress bar needs current, target, and period. Use semantic color plus label. Progress height is 8px compact and 10-12px on dashboards.
 
-Examples: Settings, Notifications, Profile.
+States: use `AikoScreenState` unless specialized. Loading uses skeleton/quiet progress with no fake data. Empty explains what is missing and gives one action. Error explains retry/recovery. Offline explains local mode. Locked explains authentication.
 
-- Use grouped rows.
-- Each row has icon, title, short description, and status/control when needed.
-- Avoid cards inside cards.
-- Security and destructive actions are visually separated.
-- External navigation rows use chevrons.
+## Shared Widgets
 
-### Assistant And AI
-
-Examples: Aiko assistant, Aiko optimize, Aiko review.
-
-- AI responses should cite the financial context they used.
-- Suggestions need an action or a reason to dismiss.
-- Purple identifies AI, but important financial states still use semantic colors.
-- Avoid chatty filler before the answer.
-
-### Planning And Education
-
-Examples: Goals, Learning Hub, Calculators, Reports.
-
-- Use progressive disclosure.
-- Show progress, completion, or saved state.
-- Calculators show inputs, result, and conversion action in that order.
-- Reports show chart summary text before or beside chart visuals.
-
-### Supplemental Detail And Tool Screens
-
-Examples: transaction filters, split transaction, receipt review, monthly overview, budget pace, cash flow Sankey, loan calculator, calculator result, profile security.
-
-- These screens extend an existing feature. They must not become duplicate top-level destinations.
-- The first viewport shows the task object: amount, account, goal, receipt, loan, report period, or security state.
-- Required completion actions use a sticky bottom bar on mobile.
-- Optional controls stay in the scroll body.
-- Demo or preview data is allowed only for offline/sample states. Persisted workflows must still use feature repositories.
-- Aiko guidance follows the user decision or primary metric, except Aiko chat and onboarding.
-
-### Placeholder And Expansion Screens
-
-- Placeholder screens must state what the feature will do and give one next action.
-- They should not look like finished dashboards with fake metrics.
-- Use `AikoScreenState` or `AikoFeatureOverviewScreen` for consistency.
-
-## Component Specifications
-
-### FinanceCard
-
-Use for financial objects, metrics, and grouped task panels.
-
-| Property | Spec |
-|---|---|
-| Radius | 8px |
-| Padding | 16px default, 20px prominent |
-| Border | Theme outline variant |
-| Shadow | None by default |
-| Title | `titleMedium` |
-| Body | `bodyMedium` |
-| Icon tile | 40px square, 8px radius, accent at 12 percent opacity |
-| Tap state | Stable `InkWell`, no layout-shifting scale |
-
-Do not use `FinanceCard` as a decorative wrapper around another card or list of cards.
-
-### Buttons
-
-| Variant | Use |
-|---|---|
-| Filled | Primary action |
-| Outlined | Secondary action |
-| Text | Low-emphasis inline action |
-| IconButton | Familiar command such as edit, delete, search, close |
-
-Rules:
-
-- Minimum height: 48px.
-- Radius: 8px.
-- Use icons for familiar commands.
-- Do not create text-only rounded rectangles where a standard icon button is clearer.
-- Disabled state must be visibly disabled and non-interactive.
-
-### Inputs And Pickers
-
-- Text fields use visible labels.
-- Minimum height: 54px.
-- Radius: 8px.
-- Focus border uses primary.
-- Error border uses danger.
-- Custom pickers show selected value plus context, such as category group or account balance.
-- Bottom-sheet picker rows are compact `ListTile` style rows with selected checkmark.
-
-### Lists
-
-- Use compact `ListTile` rows for repeated entities.
-- Minimum tap target remains 48px.
-- Title is single-line unless the entity name genuinely needs wrapping.
-- Amounts/statuses align trailing.
-- Use dividers or card borders, not nested containers.
-
-### Chips And Badges
-
-- Use chips for filters, tags, and small statuses.
-- Status color must match semantic meaning.
-- Use text plus color, not color alone.
-- Keep labels short.
-
-### Navigation
-
-Primary shell tabs:
-
-- Home
-- Transactions
-- Aiko
-- Planning
-- Settings
-
-Rules:
-
-- Bottom nav remains predictable and always visible inside the authenticated shell.
-- Active state uses primary color with white active icon.
-- Secondary feature routes live in Settings or Planning groups, not a separate hub screen.
-- If a screen links to another screen, use explicit icon, label, and route.
-
-### Sheets And Dialogs
-
-- Use bottom sheets for mobile creation/editing flows.
-- Use dialogs for destructive confirmation only.
-- Bottom sheets use 20px top radius, drag handle, safe area, and scrollable content.
-- Destructive dialogs state the object being removed and the effect.
-- Avoid modal flows when inline controls are enough.
-
-### Charts And Progress
-
-- Every chart needs a text summary.
-- Every progress bar needs current, target, and period.
-- Use semantic color and label together.
-- Track color uses outline variant or surface strong.
-- Progress height: 8px compact, 10-12px dashboard.
-
-### Shared Data Widgets
-
-Use `lib/shared/widgets/aiko_data_widgets.dart` for idea-backed supplemental screens and any new finance detail screen that needs the same patterns.
+Use `lib/shared/widgets/aiko_data_widgets.dart` for idea-backed supplemental screens and new finance detail screens.
 
 | Widget | Use |
 |---|---|
-| `AikoDetailScaffold` | Detail/tool screens with consistent app bar, scroll body, and optional sticky bottom action |
-| `AikoInlineNotice` | Aiko tips, warnings, review notes, and contextual explanations |
+| `AikoDetailScaffold` | Detail/tool screens with app bar, scroll body, optional sticky bottom action |
+| `AikoInlineNotice` | Aiko tips, warnings, review notes, contextual explanations |
 | `AikoMetricCard` / `AikoMetricGrid` | Compact financial summaries |
-| `AikoProgressBar` / `AikoProgressRow` | Budget, debt, goal, portfolio, and tax progress |
+| `AikoProgressBar` / `AikoProgressRow` | Budget, debt, goal, portfolio, tax progress |
 | `AikoDataListCard` / `AikoDataRow` | Grouped facts and settings-style rows |
-| `AikoMiniBarChart`, `AikoDonutChart`, `AikoGauge`, `AikoSankeyPreview` | Lightweight preview charts when full analytics are not required |
+| `AikoMiniBarChart`, `AikoDonutChart`, `AikoGauge`, `AikoSankeyPreview` | Lightweight labeled preview charts |
 
-Rules:
+Prefer shared widgets over local one-off cards or painters. Do not nest `AikoDataListCard`. Use sticky bottom actions through `AikoDetailScaffold.bottomBar` unless a feature already has a pattern.
 
-- Prefer these widgets over local one-off cards or custom painters.
-- Keep chart previews labeled with adjacent summary text.
-- Do not nest `AikoDataListCard` inside another card.
-- Use sticky bottom actions only through `AikoDetailScaffold.bottomBar` unless a feature has an established pattern.
+## Ownership
 
-### Empty, Loading, Error, Offline
-
-Use `AikoScreenState` unless a screen needs a specialized state.
-
-| State | Requirement |
+| Owner | Owns |
 |---|---|
-| Loading | Skeleton or quiet progress, no fake data |
-| Empty | Explain what is missing and provide one action |
-| Error | State what failed and how to retry or recover |
-| Offline | Explain local/offline mode clearly |
-| Locked | Explain authentication requirement |
+| Categories | Name, type, group, icon, color, active/archive state |
+| Budgets | Category inclusion, limits, periods, rollover, alerts |
+| Transactions | Account, category, amount, merchant, notes, tags, receipt, voice, split data |
+| Accounts | Balances, currency, account type, active state, net-worth inclusion |
+| Settings | App config, profile, privacy, security, sync, notification, route links |
+| Aiko | AI explanation, suggestions, review, optimization, chat |
+| Dashboard | Monthly overview, customization, notifications, cross-feature summaries |
+| Reports | Generated summaries and monthly report presentation |
+| Calculators | Inputs, results, saved scenarios, conversion actions |
+| Portfolio | Holdings and allocation detail |
+| Assets/net worth | Household asset summaries |
+| Debt/credit | Payoff, utilization, loan, statement detail states |
 
-## Screen Ownership Rules
+## Motion And Accessibility
 
-- Categories own naming, type, group, icon, color, and active/archive state.
-- Budgets own category inclusion, limits, periods, rollover, and alerts.
-- Transactions own account, category, amount, merchant, notes, tags, receipt, voice, and split data.
-- Accounts own balances, currency, account type, active state, and net-worth inclusion.
-- Settings owns app configuration, profile, privacy, security, sync, notification, and route links.
-- Aiko screens own AI explanation, suggestions, review, optimization, and chat.
-- Dashboard owns monthly overview, dashboard customization, notification entry, and cross-feature summary cards.
-- Reports own generated summaries and monthly report presentation.
-- Calculators own calculator input, result, saved scenario, and conversion actions.
-- Portfolio owns holdings and allocation detail. Assets/net worth own household asset summaries.
-- Debt and credit screens own payoff, utilization, loan, and statement detail states.
-
-## Motion And Interaction
-
-Durations:
+Motion:
 
 | Motion | Duration | Curve |
 |---|---:|---|
-| Tap/pressed feedback | 80-150 ms | Material state layer |
+| Tap feedback | 80-150 ms | Material state layer |
 | Small reveal | 150-200 ms | `Curves.easeOut` |
 | Sheet entrance | 250-300 ms | `Curves.easeOut` |
 | Page transition | 250-300 ms | `Curves.easeInOut` |
 | Progress fill | 300-400 ms | `Curves.easeInOut` |
 
-Rules:
+Animate opacity and transform, not layout size. Do not animate financial numbers while users read them. Avoid continuous looping animation except loading indicators. Respect reduced motion. No hover-only affordances.
 
-- Animate opacity and transform, not layout size.
-- Do not animate financial numbers while a user is reading them.
-- Avoid continuous looping animation except loading indicators.
-- Respect reduced-motion settings where custom animation is added.
-- No hover-only affordances.
+Accessibility:
 
-## Accessibility
-
-- Body text contrast: at least 4.5:1.
-- Secondary text contrast: at least 3:1.
+- Body text contrast: at least 4.5:1; secondary text: at least 3:1.
 - Touch targets: at least 48x48.
 - Focus indicators must be visible.
 - Icon-only buttons need semantic labels or tooltips.
@@ -462,38 +225,34 @@ Rules:
 - Text must not clip with dynamic type.
 - Charts need labels, legends, or summaries.
 - Form errors appear near the relevant field.
-- Toasts/snackbars should not be the only record of important changes.
+- Snackbars/toasts are not the only record of important changes.
 
-## Flutter Implementation Rules
+## Flutter Rules
 
 - Theme values live in `lib/theme/aiko_colors.dart`, `lib/theme/aiko_theme.dart`, and `lib/theme/aiko_typography.dart`.
 - Shared UI primitives live in `lib/shared/widgets/`.
 - Feature screens consume shared primitives instead of re-creating card, button, empty-state, or picker styles.
-- Idea-backed detail/tool screens should use `AikoDetailScaffold` and the data widgets in `lib/shared/widgets/aiko_data_widgets.dart`.
-- Use `Money` for all money values.
+- Idea-backed detail/tool screens use `AikoDetailScaffold` and `lib/shared/widgets/aiko_data_widgets.dart`.
+- Use `Money` for money values.
 - Use Riverpod providers for state.
 - Screens do not call persistence APIs directly.
 - Prefer `AikoScreenState` for loading, empty, error, offline, locked, and permission states.
-- When adding a custom component, cover default, pressed, focused, disabled, loading, error, and success where applicable.
+- Custom components cover default, pressed, focused, disabled, loading, error, and success where applicable.
 - Required SVG assets are covered by `test/shared/widgets/aiko_svg_assets_test.dart`.
 - Supplemental route coverage lives in `test/app/idea_route_coverage_test.dart`.
 
-## Route And Screen Application Map
+## Route And Idea Coverage
 
 Apply the system in batches:
 
 1. Shared foundation: `FinanceCard`, `AikoScreenState`, action buttons, icon tiles, shell navigation.
 2. Core daily screens: Home, Transactions, Add transaction, Budget, Settings.
 3. Money object screens: Accounts, Categories, Goals, Bills, Credit Cards, Debt.
-4. Wealth and planning screens: Portfolio, Assets, Tax Center, Reports, Export, Travel Mode.
-5. Aiko and learning screens: Aiko Assistant, Aiko Optimize, Aiko Review, Learning Hub, Subscription Plan.
-6. Placeholder screens: Accounting, import/export, calculators, saved scenarios, future expansion screens.
+4. Wealth/planning screens: Portfolio, Assets, Tax Center, Reports, Export, Travel Mode.
+5. Aiko/learning screens: Aiko Assistant, Optimize, Review, Learning Hub, Subscription Plan.
+6. Placeholder screens: Accounting, import/export, calculators, saved scenarios, future expansion.
 
-## Idea Reference Coverage
-
-The May 31, 2026 idea boards are product references for layout density, screen hierarchy, and feature coverage. They are not separate themes. Existing screens keep their current functionality and absorb the useful idea states through subroutes, menus, or inline tools.
-
-Core route groups:
+May 31, 2026 idea boards are references for density, hierarchy, and feature coverage, not separate themes. Existing feature screens absorb useful states through subroutes, menus, or inline tools.
 
 | Idea group | Existing owner | Supplemental routes |
 |---|---|---|
@@ -503,82 +262,50 @@ Core route groups:
 | Credit, debt, portfolio, tax | Credit cards, debt, portfolio, assets, tax | `/credit-cards/detail`, `/debt-overview`, `/loans/detail`, `/net-worth`, `/portfolio/allocation`, `/portfolio/holding`, `/tax-analytics` |
 | Aiko AI, calculators, settings, extras | Aiko, calculators, bills, learning, travel, settings | `/aiko-insights`, `/loan-calculator`, `/calculator-result`, `/profile-security` |
 
-Rules:
+Route rules:
 
-- Do not duplicate an existing feature screen just to match an idea board. Add a tool, detail route, menu item, or state inside the owning feature.
-- Use sticky bottom actions for filter, save, confirm, and calculator result screens when the action is required to complete the task.
-- Keep idea-inspired sample data realistic and clearly scoped to preview or offline states. Real repositories remain the source of persisted user data.
-- Aiko guidance appears after the primary number or user decision, except onboarding and assistant chat where Aiko is the primary interaction.
-- Every supplemental route must render without a Supabase session so offline/local mode remains usable.
+- Do not duplicate an existing feature screen to match an idea board.
+- Use sticky bottom actions for filter, save, confirm, and calculator-result screens when required.
+- Keep sample data realistic and scoped to preview/offline states.
+- Real repositories remain the source of persisted user data.
+- Aiko guidance appears after the primary number or decision, except onboarding and assistant chat.
+- Every supplemental route must render without a Supabase session.
 
-Entry point expectations:
+Entry points:
 
-| Owner screen | Expected access pattern |
+| Owner screen | Access pattern |
 |---|---|
-| Home dashboard | App bar actions for notifications, monthly overview, and customization |
-| Transactions | Search stays in the app bar; advanced filters use the filter action; split and receipt review remain transaction tools |
-| Budget | Budget tools menu exposes pace, safe-to-spend, cash flow, and Sankey views |
-| Goals | Goal tools menu exposes saving plan, chance of success, and goal detail |
-| Reports | Monthly report opens from the reports list, not a separate tab |
-| Calculators | Calculator hub links to focused calculators and result states |
-| Planning | Planning links own credit, debt, net worth, portfolio, assets, tax, and related finance workspaces |
-| Settings | Settings owns profile, security, privacy, sync, and notification preferences |
+| Home dashboard | App bar actions for notifications, monthly overview, customization |
+| Transactions | Search in app bar; advanced filters via filter action; split and receipt review remain transaction tools |
+| Budget | Tools menu exposes pace, safe-to-spend, cash flow, Sankey |
+| Goals | Tools menu exposes saving plan, chance of success, detail |
+| Reports | Monthly report opens from reports list |
+| Calculators | Hub links to focused calculators and result states |
+| Planning | Links to credit, debt, net worth, portfolio, assets, tax, related workspaces |
+| Settings | Owns profile, security, privacy, sync, notification preferences |
 
-## SVG Icon Assets
+## SVG Icons
 
-Reusable SVG icons live in `assets/icons/` and use the `aiko_<name>.svg` naming pattern. SVGs use `viewBox="0 0 24 24"` and `currentColor` so Flutter, web, and future export tooling can recolor them consistently.
+Reusable SVG icons live in `assets/icons/`, use `aiko_<name>.svg`, `viewBox="0 0 24 24"`, and `currentColor`.
 
-Current required icon set:
+Required assets: `aiko_home.svg`, `aiko_transactions.svg`, `aiko_budget.svg`, `aiko_insights.svg`, `aiko_aiko.svg`, `aiko_account.svg`, `aiko_bank.svg`, `aiko_wallet.svg`, `aiko_credit_card.svg`, `aiko_category.svg`, `aiko_receipt.svg`, `aiko_search_filter.svg`, `aiko_goal.svg`, `aiko_cash_flow.svg`, `aiko_debt.svg`, `aiko_loan.svg`, `aiko_portfolio.svg`, `aiko_tax.svg`, `aiko_calculator.svg`, `aiko_travel.svg`, `aiko_security.svg`, `aiko_notification.svg`.
 
-| Asset | Role |
-|---|---|
-| `aiko_home.svg` | Home tab and dashboard |
-| `aiko_transactions.svg` | Transactions list and detail |
-| `aiko_budget.svg` | Budget and spending plans |
-| `aiko_insights.svg` | Insights, tips, and reports |
-| `aiko_aiko.svg` | Aiko assistant and AI states |
-| `aiko_account.svg`, `aiko_bank.svg`, `aiko_wallet.svg` | Accounts and cash storage |
-| `aiko_credit_card.svg` | Credit card flows |
-| `aiko_category.svg` | Categories and filters |
-| `aiko_receipt.svg` | Receipt scan and OCR review |
-| `aiko_search_filter.svg` | Search and filters |
-| `aiko_goal.svg` | Goals and saving plans |
-| `aiko_cash_flow.svg` | Cash flow and Sankey views |
-| `aiko_debt.svg`, `aiko_loan.svg` | Debt and loan planning |
-| `aiko_portfolio.svg` | Portfolio and allocations |
-| `aiko_tax.svg` | Tax center and analytics |
-| `aiko_calculator.svg` | Calculators and saved scenarios |
-| `aiko_travel.svg` | Travel mode |
-| `aiko_security.svg` | Profile, lock, and privacy |
-| `aiko_notification.svg` | Notifications and reminders |
+Keep icons stroke-based, single-color, 24x24, and friendly but not cartoonish. Do not mix filled, duotone, and outline styles in the same control group. Use Material icons for platform-standard commands and SVGs for brand-owned navigation, exports, and reusable assets. New required SVGs need tests before UI reliance.
 
-Icon rules:
+## QA Checklist
 
-- Keep icons stroke-based, single-color, 24x24, and friendly but not cartoonish.
-- Do not mix filled, duotone, and outline SVG styles in the same control group.
-- Use Material icons in Flutter when the icon is purely platform-standard and already provided. Use the SVG set for brand-owned navigation, exports, and reusable assets.
-- Add tests for new required SVG assets before relying on them in UI.
-- Icon-only buttons must have a tooltip or semantic label.
-- Use `currentColor` in SVG assets. Do not hardcode brand blue inside the SVG path.
+Before a screen is design-complete:
 
-## Per-Screen QA Checklist
-
-Before a screen is considered design-complete:
-
-- The main user task is visible in the first viewport.
-- The primary action is obvious.
-- Required completion actions stay reachable while scrolling.
-- Financial numbers appear before AI guidance.
-- Each number has context: date, account, category, period, or target.
+- Main task is visible in the first viewport.
+- Primary action is obvious and reachable while scrolling when required.
+- Financial numbers appear before AI guidance and include context.
 - Lists are compact and tappable.
 - Form fields have labels and recovery-oriented validation.
-- Empty, loading, error, and offline states are present or intentionally inherited.
-- There are no nested cards.
-- There are no decorative shadows or oversized radii.
+- Empty, loading, error, and offline states exist or are intentionally inherited.
+- No nested cards, decorative shadows, or oversized radii.
 - Raw colors are limited to theme files or explicit data visualization needs.
 - Text does not overlap or clip at small phone widths.
-- Dark theme has enough contrast.
+- Dark theme contrast is sufficient.
 - Aiko appears only when useful.
 - The screen does not duplicate an existing main feature route.
 - Widget tests cover critical rendering and interactions.
-

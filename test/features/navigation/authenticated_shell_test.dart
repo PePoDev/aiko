@@ -49,9 +49,7 @@ void main() {
     );
   }
 
-  testWidgets('bottom navigation uses planning and settings tabs', (
-    tester,
-  ) async {
+  testWidgets('bottom navigation uses planning and menu tabs', (tester) async {
     await tester.pumpWidget(
       MaterialApp.router(
         locale: const Locale('en'),
@@ -70,7 +68,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Planning'), findsOneWidget);
-    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Menu'), findsOneWidget);
+    expect(find.text('Settings'), findsNothing);
+    expect(find.byIcon(Icons.menu), findsOneWidget);
+    expect(find.byIcon(Icons.settings_outlined), findsNothing);
     expect(find.text('Insights'), findsNothing);
 
     await tester.tap(find.text('Planning'));
@@ -78,7 +79,7 @@ void main() {
 
     expect(find.text('Planning page'), findsOneWidget);
 
-    await tester.tap(find.text('Settings'));
+    await tester.tap(find.text('Menu'));
     await tester.pumpAndSettle();
 
     expect(find.text('Settings page'), findsOneWidget);

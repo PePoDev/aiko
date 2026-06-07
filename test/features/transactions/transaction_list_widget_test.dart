@@ -415,12 +415,13 @@ void main() {
     expect(find.text('Current Cafe'), findsNothing);
   });
 
-  testWidgets('transaction cards show tag chips date time and category icon', (
+  testWidgets('transaction cards show time tag chips and category icon', (
     tester,
   ) async {
     final now = DateTime.now();
     final transactionDate = DateTime(now.year, now.month, 18, 9, 30);
-    final expectedDateTime = DateFormat(
+    final expectedTime = DateFormat('HH:mm').format(transactionDate);
+    final unexpectedDateTime = DateFormat(
       'dd/MM/yyyy HH:mm',
     ).format(transactionDate);
 
@@ -435,7 +436,7 @@ void main() {
                 accountId: 'cash',
                 type: TransactionType.income,
                 amount: Money.parse('124.50', 'USD'),
-                date: DateTime(now.year, now.month, 17, 9, 30),
+                date: DateTime(now.year, now.month, 17, 8, 15),
                 merchant: 'Initial balance',
               ),
               FinanceTransaction(
@@ -489,9 +490,20 @@ void main() {
     expect(find.text('#morning #work'), findsNothing);
     expect(find.text('#morning'), findsOneWidget);
     expect(find.text('#work'), findsOneWidget);
-    expect(find.text(expectedDateTime), findsOneWidget);
+    expect(find.text(expectedTime), findsOneWidget);
+    expect(find.text(unexpectedDateTime), findsNothing);
     expect(find.text('Cash Wallet (\$120.00)'), findsOneWidget);
     expect(find.byIcon(Icons.coffee_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_right), findsNothing);
+
+    expect(
+      tester.getTopLeft(find.text(expectedTime)).dy,
+      greaterThan(tester.getTopLeft(find.text('Coffee Shop')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('#morning')).dx,
+      greaterThan(tester.getTopRight(find.text(expectedTime)).dx),
+    );
 
     final transactionCard = tester.widget<Card>(
       find
@@ -666,13 +678,15 @@ void main() {
       tester.getTopLeft(find.text('Evening Dinner')).dy,
       lessThan(tester.getTopLeft(find.text('Morning Coffee')).dy),
     );
+    expect(find.text(DateFormat('HH:mm').format(eveningDate)), findsOneWidget);
+    expect(find.text(DateFormat('HH:mm').format(morningDate)), findsOneWidget);
     expect(
       find.text(DateFormat('dd/MM/yyyy HH:mm').format(eveningDate)),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.text(DateFormat('dd/MM/yyyy HH:mm').format(morningDate)),
-      findsOneWidget,
+      findsNothing,
     );
   });
 }

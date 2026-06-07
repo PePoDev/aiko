@@ -37,10 +37,10 @@ class AuthenticatedShell extends StatelessWidget {
         selectedIcon: Icons.route,
       ),
       _AikoNavItem(
-        label: l10n.settingsTitle,
+        label: l10n.menuTab,
         path: '/settings',
-        icon: Icons.settings_outlined,
-        selectedIcon: Icons.settings,
+        icon: Icons.grid_view_outlined,
+        selectedIcon: Icons.grid_view_rounded,
       ),
     ];
   }

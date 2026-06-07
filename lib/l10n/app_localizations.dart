@@ -140,6 +140,12 @@ abstract class AppLocalizations {
   /// **'Aiko'**
   String get aikoTab;
 
+  /// No description provided for @menuTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Menu'**
+  String get menuTab;
+
   /// No description provided for @moreTab.
   ///
   /// In en, this message translates to:

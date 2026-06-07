@@ -30,6 +30,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aikoTab => 'Aiko';
 
   @override
+  String get menuTab => 'Menu';
+
+  @override
   String get moreTab => 'More';
 
   @override

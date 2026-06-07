@@ -449,9 +449,7 @@ class _CompactTransactionCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final title = transaction.merchant ?? transaction.note ?? 'Transaction';
     final amount = '$sign${transaction.amount.format()}';
-    final timestampLabel = DateFormat(
-      'dd/MM/yyyy HH:mm',
-    ).format(transaction.date);
+    final timeLabel = DateFormat('HH:mm').format(transaction.date);
     final radius = BorderRadius.circular(8);
     final categoriesAsync = ref.watch(categoriesProvider);
     final categoryIcon =
@@ -497,18 +495,16 @@ class _CompactTransactionCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _TransactionTitleAndTags(
-                      title: title,
-                      tags: transaction.tags,
-                    ),
-                    const SizedBox(height: 3),
                     Text(
-                      timestampLabel,
+                      title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AikoColors.mutedText,
-                      ),
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 3),
+                    _TransactionTimeAndTags(
+                      time: timeLabel,
+                      tags: transaction.tags,
                     ),
                   ],
                 ),
@@ -541,8 +537,6 @@ class _CompactTransactionCard extends ConsumerWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right, size: 18),
             ],
           ),
         ),
@@ -578,10 +572,10 @@ class _CompactTransactionCard extends ConsumerWidget {
   }
 }
 
-class _TransactionTitleAndTags extends StatelessWidget {
-  const _TransactionTitleAndTags({required this.title, required this.tags});
+class _TransactionTimeAndTags extends StatelessWidget {
+  const _TransactionTimeAndTags({required this.time, required this.tags});
 
-  final String title;
+  final String time;
   final List<String> tags;
 
   @override
@@ -593,14 +587,13 @@ class _TransactionTitleAndTags extends StatelessWidget {
           runSpacing: 4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: constraints.maxWidth),
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
+            Text(
+              time,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AikoColors.mutedText),
             ),
             for (final tag in tags) _TransactionTagChip(label: '#$tag'),
           ],

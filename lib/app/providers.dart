@@ -70,7 +70,9 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
   @override
   Future<List<FinanceTransaction>> build() async {
     final repo = ref.watch(transactionRepositoryProvider);
-    return repo.list();
+    final transactions = await repo.list();
+    await _reconcileAccountBalances(transactions);
+    return transactions;
   }
 
   Future<FinanceTransaction> saveTransaction(
@@ -185,6 +187,41 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
         if (original != null &&
             original.currentBalance != account.currentBalance) {
           await accountsNotifier.saveAccount(account);
+        }
+      }
+    } catch (_) {
+      return;
+    }
+  }
+
+  Future<void> _reconcileAccountBalances(
+    List<FinanceTransaction> transactions,
+  ) async {
+    if (transactions.isEmpty) {
+      return;
+    }
+
+    try {
+      final accounts = await ref.read(accountsProvider.future);
+      final accountsNotifier = ref.read(accountsProvider.notifier);
+
+      for (final account in accounts) {
+        final accountTransactions = transactions.where(
+          (transaction) => transaction.accountId == account.id,
+        );
+        if (accountTransactions.isEmpty) {
+          continue;
+        }
+
+        var balance = Money.zero(account.currency);
+        for (final transaction in accountTransactions) {
+          balance = transaction.applyToAccountBalance(balance);
+        }
+
+        if (balance != account.currentBalance) {
+          await accountsNotifier.saveAccount(
+            account.copyWith(currentBalance: balance),
+          );
         }
       }
     } catch (_) {

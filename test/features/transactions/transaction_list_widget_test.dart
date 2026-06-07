@@ -29,6 +29,15 @@ void main() {
           transactionRepositoryProvider.overrideWithValue(
             _FakeTransactionRepository([
               FinanceTransaction(
+                id: 'initial',
+                userId: 'user',
+                accountId: 'cash',
+                type: TransactionType.income,
+                amount: Money.parse('124.50', 'USD'),
+                date: DateTime(now.year, now.month, 17, 9, 30),
+                merchant: 'Initial balance',
+              ),
+              FinanceTransaction(
                 id: 'receipt',
                 userId: 'user',
                 accountId: 'cash',
@@ -47,6 +56,9 @@ void main() {
                 merchant: 'Grocery Market',
               ),
             ]),
+          ),
+          accountsProvider.overrideWith(
+            () => _AccountsNotifier([_cashAccount('98.00')]),
           ),
         ],
         child: MaterialApp(
@@ -143,7 +155,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Categories'), findsOneWidget);
-    expect(find.text('Salary'), findsOneWidget);
+    expect(find.text('Dining'), findsOneWidget);
   });
 
   testWidgets('transaction list opens categories without bottom navigation', (
@@ -237,7 +249,8 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.add));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('Item name'), findsOneWidget);
     expect(find.text('Amount'), findsOneWidget);
@@ -252,6 +265,15 @@ void main() {
           transactionRepositoryProvider.overrideWithValue(
             _FakeTransactionRepository([
               FinanceTransaction(
+                id: 'initial-cash',
+                userId: 'user',
+                accountId: 'cash',
+                type: TransactionType.income,
+                amount: Money.parse('124.50', 'USD'),
+                date: DateTime(now.year, now.month, 17, 9, 30),
+                merchant: 'Initial balance',
+              ),
+              FinanceTransaction(
                 id: 'receipt',
                 userId: 'user',
                 accountId: 'cash',
@@ -261,6 +283,9 @@ void main() {
                 merchant: 'Coffee Shop',
               ),
             ]),
+          ),
+          accountsProvider.overrideWith(
+            () => _AccountsNotifier([_cashAccount('120.00')]),
           ),
         ],
         child: MaterialApp(
@@ -299,6 +324,9 @@ void main() {
         ProviderScope(
           overrides: [
             transactionRepositoryProvider.overrideWithValue(repository),
+            accountsProvider.overrideWith(
+              () => _AccountsNotifier([_cashAccount('-4.50')]),
+            ),
           ],
           child: MaterialApp(
             theme: AikoTheme.light(),
@@ -355,6 +383,9 @@ void main() {
               ),
             ]),
           ),
+          accountsProvider.overrideWith(
+            () => _AccountsNotifier([_cashAccount('-20.25')]),
+          ),
         ],
         child: MaterialApp(
           theme: AikoTheme.light(),
@@ -384,10 +415,14 @@ void main() {
     expect(find.text('Current Cafe'), findsNothing);
   });
 
-  testWidgets('transaction cards show tags account balance and category icon', (
+  testWidgets('transaction cards show tag chips date time and category icon', (
     tester,
   ) async {
     final now = DateTime.now();
+    final transactionDate = DateTime(now.year, now.month, 18, 9, 30);
+    final expectedDateTime = DateFormat(
+      'dd/MM/yyyy HH:mm',
+    ).format(transactionDate);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -395,13 +430,22 @@ void main() {
           transactionRepositoryProvider.overrideWithValue(
             _FakeTransactionRepository([
               FinanceTransaction(
+                id: 'initial-cash',
+                userId: 'user',
+                accountId: 'cash',
+                type: TransactionType.income,
+                amount: Money.parse('124.50', 'USD'),
+                date: DateTime(now.year, now.month, 17, 9, 30),
+                merchant: 'Initial balance',
+              ),
+              FinanceTransaction(
                 id: 'receipt',
                 userId: 'user',
                 accountId: 'cash',
                 categoryId: 'coffee',
                 type: TransactionType.expense,
                 amount: Money.parse('4.50', 'USD'),
-                date: DateTime(now.year, now.month, 18, 9, 30),
+                date: transactionDate,
                 merchant: 'Coffee Shop',
                 tags: const ['morning', 'work'],
               ),
@@ -438,12 +482,16 @@ void main() {
       ),
     );
 
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('#morning #work'), findsOneWidget);
+    expect(find.text('Coffee Shop'), findsOneWidget);
+    expect(find.text('#morning #work'), findsNothing);
+    expect(find.text('#morning'), findsOneWidget);
+    expect(find.text('#work'), findsOneWidget);
+    expect(find.text(expectedDateTime), findsOneWidget);
     expect(find.text('Cash Wallet (\$120.00)'), findsOneWidget);
     expect(find.byIcon(Icons.coffee_outlined), findsOneWidget);
-    expect(find.textContaining('09:30'), findsNothing);
 
     final transactionCard = tester.widget<Card>(
       find
@@ -539,6 +587,19 @@ void main() {
     final now = DateTime.now();
     final newerDate = DateTime(now.year, now.month, 10);
     final olderDate = DateTime(now.year, now.month, 9);
+    final eveningDate = DateTime(
+      newerDate.year,
+      newerDate.month,
+      newerDate.day,
+      18,
+      30,
+    );
+    final morningDate = DateTime(
+      newerDate.year,
+      newerDate.month,
+      newerDate.day,
+      8,
+    );
 
     await tester.pumpWidget(
       ProviderScope(
@@ -551,12 +612,7 @@ void main() {
                 accountId: 'cash',
                 type: TransactionType.expense,
                 amount: Money.parse('4.50', 'USD'),
-                date: DateTime(
-                  newerDate.year,
-                  newerDate.month,
-                  newerDate.day,
-                  8,
-                ),
+                date: morningDate,
                 merchant: 'Morning Coffee',
               ),
               FinanceTransaction(
@@ -579,16 +635,13 @@ void main() {
                 accountId: 'cash',
                 type: TransactionType.expense,
                 amount: Money.parse('18.00', 'USD'),
-                date: DateTime(
-                  newerDate.year,
-                  newerDate.month,
-                  newerDate.day,
-                  18,
-                  30,
-                ),
+                date: eveningDate,
                 merchant: 'Evening Dinner',
               ),
             ]),
+          ),
+          accountsProvider.overrideWith(
+            () => _AccountsNotifier([_cashAccount('-34.50')]),
           ),
         ],
         child: MaterialApp(
@@ -613,8 +666,14 @@ void main() {
       tester.getTopLeft(find.text('Evening Dinner')).dy,
       lessThan(tester.getTopLeft(find.text('Morning Coffee')).dy),
     );
-    expect(find.textContaining('18:30'), findsNothing);
-    expect(find.textContaining('08:00'), findsNothing);
+    expect(
+      find.text(DateFormat('dd/MM/yyyy HH:mm').format(eveningDate)),
+      findsOneWidget,
+    );
+    expect(
+      find.text(DateFormat('dd/MM/yyyy HH:mm').format(morningDate)),
+      findsOneWidget,
+    );
   });
 }
 
@@ -673,13 +732,34 @@ class _StaleListAfterDeleteTransactionRepository extends TransactionRepository {
   Future<void> delete(String id) async => deletedId = id;
 }
 
-class _AccountsNotifier extends AccountsNotifier {
-  _AccountsNotifier(this.accounts);
+Account _cashAccount(String balance) {
+  return Account(
+    id: 'cash',
+    userId: 'user',
+    name: 'Cash Wallet',
+    type: AccountType.cash,
+    currentBalance: Money.parse(balance, 'USD'),
+  );
+}
 
-  final List<Account> accounts;
+class _AccountsNotifier extends AccountsNotifier {
+  _AccountsNotifier(List<Account> accounts) : _accounts = List.of(accounts);
+
+  final List<Account> _accounts;
 
   @override
-  Future<List<Account>> build() async => accounts;
+  Future<List<Account>> build() async => List.unmodifiable(_accounts);
+
+  @override
+  Future<void> saveAccount(Account account) async {
+    final index = _accounts.indexWhere((item) => item.id == account.id);
+    if (index == -1) {
+      _accounts.add(account);
+    } else {
+      _accounts[index] = account;
+    }
+    state = AsyncValue.data(List.unmodifiable(_accounts));
+  }
 }
 
 class _CategoriesNotifier extends CategoriesNotifier {

@@ -34,13 +34,18 @@ void main() {
     expect(find.text('\$25.00'), findsOneWidget);
   });
 
-  testWidgets('floating action opens account creation popup', (tester) async {
+  testWidgets('app bar add action opens account creation popup', (
+    tester,
+  ) async {
     final notifier = _AccountsNotifier([]);
     final transactionsNotifier = _TransactionsNotifier();
     await tester.pumpWidget(_accountsApp(notifier, transactionsNotifier));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(FloatingActionButton));
+    expect(find.byType(FloatingActionButton), findsNothing);
+    expect(find.widgetWithText(TextButton, 'Add'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Add'));
     await tester.pumpAndSettle();
 
     expect(find.text('Add account'), findsWidgets);
@@ -93,7 +98,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(FloatingActionButton));
+    await tester.tap(find.widgetWithText(TextButton, 'Add'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Account Name'),
@@ -194,50 +199,45 @@ void main() {
     expect(find.text('No accounts yet'), findsOneWidget);
   });
 
-  testWidgets('account details balance uses current account balance', (
+  testWidgets('accounts reconcile current balance from transactions', (
     tester,
   ) async {
     final accountsNotifier = _AccountsNotifier([
       Account(
-        id: 'cash',
+        id: 'saving',
         userId: 'user',
-        name: 'Cash Wallet',
-        type: AccountType.cash,
-        currentBalance: Money.parse('25', 'USD'),
+        name: 'eSaving',
+        type: AccountType.bank,
+        currentBalance: Money.parse('5000', 'THB'),
       ),
     ]);
     final transactionsNotifier = _TransactionsNotifier([
       FinanceTransaction(
-        id: 'income-50000',
+        id: 'initial',
         userId: 'user',
-        accountId: 'cash',
+        accountId: 'saving',
         type: TransactionType.income,
-        amount: Money.parse('50000', 'USD'),
+        amount: Money.parse('5000', 'THB'),
         date: DateTime(2026, 5, 1),
+        merchant: 'Initial balance',
       ),
       FinanceTransaction(
-        id: 'expense-500-a',
+        id: 'dining',
         userId: 'user',
-        accountId: 'cash',
+        accountId: 'saving',
         type: TransactionType.expense,
-        amount: Money.parse('500', 'USD'),
+        amount: Money.parse('45', 'THB'),
         date: DateTime(2026, 5, 2),
+        merchant: 'Dining',
       ),
       FinanceTransaction(
-        id: 'expense-500-b',
+        id: 'bubble-tea',
         userId: 'user',
-        accountId: 'cash',
+        accountId: 'saving',
         type: TransactionType.expense,
-        amount: Money.parse('500', 'USD'),
+        amount: Money.parse('75', 'THB'),
         date: DateTime(2026, 5, 3),
-      ),
-      FinanceTransaction(
-        id: 'income-200',
-        userId: 'user',
-        accountId: 'cash',
-        type: TransactionType.income,
-        amount: Money.parse('200', 'USD'),
-        date: DateTime(2026, 5, 4),
+        merchant: 'Bubble Tea',
       ),
     ]);
 
@@ -245,11 +245,15 @@ void main() {
       _accountsApp(accountsNotifier, transactionsNotifier),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cash Wallet'));
+
+    expect(find.text('฿4,880.00'), findsOneWidget);
+    expect(find.text('฿5,000.00'), findsNothing);
+
+    await tester.tap(find.text('eSaving'));
     await tester.pumpAndSettle();
 
-    expect(find.text('\$25.00'), findsWidgets);
-    expect(find.text('\$49,200.00'), findsNothing);
+    expect(find.text('฿4,880.00'), findsOneWidget);
+    expect(find.text('฿5,000.00'), findsNothing);
   });
 
   testWidgets('account details shows related transactions for that account', (
@@ -415,8 +419,9 @@ Widget _accountsApp(
   return ProviderScope(
     overrides: [
       accountsProvider.overrideWith(() => notifier),
-      if (transactionsNotifier != null)
-        transactionsProvider.overrideWith(() => transactionsNotifier),
+      transactionsProvider.overrideWith(
+        () => transactionsNotifier ?? _TransactionsNotifier(),
+      ),
     ],
     child: MaterialApp(theme: AikoTheme.light(), home: const AccountsScreen()),
   );

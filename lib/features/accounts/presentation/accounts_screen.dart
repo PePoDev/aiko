@@ -18,9 +18,22 @@ class AccountsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final accountsAsync = ref.watch(accountsProvider);
+    final transactionsAsync = ref.watch(transactionsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Accounts')),
+      appBar: AppBar(
+        title: const Text('Accounts'),
+        actions: [
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: 8),
+            child: TextButton.icon(
+              onPressed: () => _showAccountForm(context),
+              icon: const Icon(Icons.add),
+              label: const Text('Add'),
+            ),
+          ),
+        ],
+      ),
       body: accountsAsync.when(
         loading: () => const AikoScreenState.loading(),
         error: (err, _) => AikoScreenState.error(
@@ -28,6 +41,11 @@ class AccountsScreen extends ConsumerWidget {
           message: 'Aiko could not load your accounts right now. $err',
         ),
         data: (accounts) {
+          final transactions =
+              transactionsAsync.whenOrNull(
+                data: (transactions) => transactions,
+              ) ??
+              const <FinanceTransaction>[];
           if (accounts.isEmpty) {
             return AikoScreenState.empty(
               title: 'No accounts yet',
@@ -46,8 +64,13 @@ class AccountsScreen extends ConsumerWidget {
             separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final account = accounts[index];
+              final currentBalance = _currentBalanceForAccount(
+                account,
+                transactions,
+              );
               return _AccountListItem(
                 account: account,
+                currentBalance: currentBalance,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => AccountDetailScreen(account: account),
@@ -57,11 +80,6 @@ class AccountsScreen extends ConsumerWidget {
             },
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAccountForm(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Add'),
       ),
     );
   }
@@ -91,9 +109,14 @@ void _showAccountSnackBar(BuildContext context, String message) {
 }
 
 class _AccountListItem extends StatelessWidget {
-  const _AccountListItem({required this.account, required this.onTap});
+  const _AccountListItem({
+    required this.account,
+    required this.currentBalance,
+    required this.onTap,
+  });
 
   final Account account;
+  final Money currentBalance;
   final VoidCallback onTap;
 
   @override
@@ -123,7 +146,7 @@ class _AccountListItem extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              account.currentBalance.format(),
+              currentBalance.format(),
               style: Theme.of(
                 context,
               ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
@@ -226,6 +249,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
             .where((transaction) => transaction.accountId == _account.id)
             .toList()
           ..sort((a, b) => b.date.compareTo(a.date));
+    final currentBalance = _currentBalanceForAccount(_account, transactions);
 
     return Scaffold(
       appBar: AppBar(
@@ -284,7 +308,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                   ),
                   const SizedBox(height: 18),
                   Text(
-                    _account.currentBalance.format(),
+                    currentBalance.format(),
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                       color: accent,
@@ -387,6 +411,24 @@ class _RelatedTransactionTile extends StatelessWidget {
       ),
     );
   }
+}
+
+Money _currentBalanceForAccount(
+  Account account,
+  Iterable<FinanceTransaction> transactions,
+) {
+  final accountTransactions = transactions.where(
+    (transaction) => transaction.accountId == account.id,
+  );
+  if (accountTransactions.isEmpty) {
+    return account.currentBalance;
+  }
+
+  var balance = Money.zero(account.currency);
+  for (final transaction in accountTransactions) {
+    balance = transaction.applyToAccountBalance(balance);
+  }
+  return balance;
 }
 
 String _transactionTypeLabel(TransactionType type) {

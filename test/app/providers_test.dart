@@ -8,6 +8,63 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'transactions notifier reconciles existing account current balance',
+    () async {
+      final accountRepository = _FakeAccountRepository([
+        Account(
+          id: 'saving',
+          userId: 'user',
+          name: 'eSaving',
+          type: AccountType.bank,
+          currentBalance: Money.parse('5000', 'THB'),
+        ),
+      ]);
+      final transactionRepository = _FakeTransactionRepository([
+        FinanceTransaction(
+          id: 'initial',
+          userId: 'user',
+          accountId: 'saving',
+          type: TransactionType.income,
+          amount: Money.parse('5000', 'THB'),
+          date: DateTime(2026, 5, 1),
+        ),
+        FinanceTransaction(
+          id: 'dining',
+          userId: 'user',
+          accountId: 'saving',
+          type: TransactionType.expense,
+          amount: Money.parse('45', 'THB'),
+          date: DateTime(2026, 5, 2),
+        ),
+        FinanceTransaction(
+          id: 'bubble-tea',
+          userId: 'user',
+          accountId: 'saving',
+          type: TransactionType.expense,
+          amount: Money.parse('75', 'THB'),
+          date: DateTime(2026, 5, 3),
+        ),
+      ]);
+      final container = ProviderContainer(
+        overrides: [
+          accountRepositoryProvider.overrideWithValue(accountRepository),
+          transactionRepositoryProvider.overrideWithValue(
+            transactionRepository,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(transactionsProvider.future);
+
+      expect(
+        accountRepository.accounts.single.currentBalance.amount.toString(),
+        '4880',
+      );
+    },
+  );
+
   test('transactions notifier syncs account current balance', () async {
     final accountRepository = _FakeAccountRepository([
       Account(
@@ -80,7 +137,10 @@ class _FakeAccountRepository extends AccountRepository {
 }
 
 class _FakeTransactionRepository extends TransactionRepository {
-  final _transactions = <FinanceTransaction>[];
+  _FakeTransactionRepository([List<FinanceTransaction>? transactions])
+    : _transactions = transactions ?? [];
+
+  final List<FinanceTransaction> _transactions;
 
   @override
   Future<List<FinanceTransaction>> list() async => _transactions;

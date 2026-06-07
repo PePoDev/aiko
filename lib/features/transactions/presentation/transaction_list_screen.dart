@@ -449,7 +449,9 @@ class _CompactTransactionCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final title = transaction.merchant ?? transaction.note ?? 'Transaction';
     final amount = '$sign${transaction.amount.format()}';
-    final tagsLabel = transaction.tags.map((tag) => '#$tag').join(' ');
+    final timestampLabel = DateFormat(
+      'dd/MM/yyyy HH:mm',
+    ).format(transaction.date);
     final radius = BorderRadius.circular(8);
     final categoriesAsync = ref.watch(categoriesProvider);
     final categoryIcon =
@@ -495,23 +497,19 @@ class _CompactTransactionCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _TransactionTitleAndTags(
+                      title: title,
+                      tags: transaction.tags,
+                    ),
+                    const SizedBox(height: 3),
                     Text(
-                      title,
+                      timestampLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    if (tagsLabel.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        tagsLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AikoColors.mutedText,
-                        ),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AikoColors.mutedText,
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ),
@@ -577,6 +575,67 @@ class _CompactTransactionCard extends ConsumerWidget {
       default:
         return Icons.category_outlined;
     }
+  }
+}
+
+class _TransactionTitleAndTags extends StatelessWidget {
+  const _TransactionTitleAndTags({required this.title, required this.tags});
+
+  final String title;
+  final List<String> tags;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            for (final tag in tags) _TransactionTagChip(label: '#$tag'),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _TransactionTagChip extends StatelessWidget {
+  const _TransactionTagChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: AikoColors.mutedText,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
   }
 }
 

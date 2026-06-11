@@ -301,7 +301,7 @@ Feature modules under `lib/features/<name>/` follow the current layered layout:
 - Primary color: Blue (`#3B82F6`). The full palette lives in `lib/theme/aiko_colors.dart`.
 - Light and dark themes live in `lib/theme/aiko_theme.dart`.
 - Semantic colors: green for success/savings, orange for warnings/bills, red for danger/overspending, purple for premium/AI, and teal for analytics/portfolio.
-- Overview dashboard app-bar utility icons use the primary action color, and dashboard layout editing uses a bottom page action instead of an app-bar action.
+- Overview and Transactions app-bar action icons use the primary action color, and dashboard layout editing uses a scrollable in-page action at the bottom of Overview content instead of an app-bar or fixed bottom action.
 - Aiko follows "Data first, Aiko enhanced": use the character purposefully for welcome, insights, goals, warnings, and reviews, never over numbers or charts.
 - Aiko's voice is warm, supportive, and non-judgmental. Never shame users about their finances.
 
@@ -311,7 +311,7 @@ Feature modules under `lib/features/<name>/` follow the current layered layout:
 
 ### 🏠 Customizable Dashboard
 
-Drag-and-drop widget dashboard with Aiko welcome card, net worth, cash flow, budget status, pace indicator, safe-to-spend, upcoming bills, goal progress, portfolio snapshot, quick-add transaction, and bottom Edit layout action.
+Drag-and-drop widget dashboard with Aiko welcome card, in-page monthly overview metrics, net worth, cash flow, budget status, pace indicator, safe-to-spend, upcoming bills, goal progress, portfolio snapshot, quick-add transaction, and scrollable Edit layout action.
 
 ### 💰 Money Tracking
 

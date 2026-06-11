@@ -80,7 +80,7 @@ Primitive and semantic colors:
 Rules:
 
 - Primary blue means current, continue, or main action.
-- Overview app-bar utility icons use the primary action color so they visually match the dashboard layout action.
+- Overview and Transactions app-bar action icons use the primary action color so action treatment stays consistent across daily workflows.
 - Purple is reserved for Aiko, AI, optimization, premium, or review.
 - Green, orange, red, and teal keep their semantic finance meanings.
 - Never rely on color alone. Pair color with text, icon, label, or number.
@@ -164,7 +164,7 @@ Chips and badges: short labels for filters, tags, and small statuses. Status col
 
 Navigation: authenticated shell tabs are Overview, Transactions, Aiko, Planning, Settings. Bottom nav stays visible, active state uses primary with white active icon, secondary feature routes live in Planning or Settings groups.
 
-Overview layout editing is a bottom page action labeled `Edit layout` / `Done`. Keep the Overview app bar reserved for utility navigation such as monthly overview and notifications.
+Overview layout editing is a scrollable in-page action labeled `Edit layout` / `Done` at the bottom of Overview content. Keep the Overview app bar reserved for utility navigation such as notifications.
 
 Sheets and dialogs: use bottom sheets for mobile creation/editing and dialogs for destructive confirmation. Sheets need drag handle, safe area, scrollable content, and 20px top radius. Destructive dialogs name the object and effect.
 
@@ -197,7 +197,7 @@ Prefer shared widgets over local one-off cards or painters. Do not nest `AikoDat
 | Accounts | Balances, currency, account type, active state, net-worth inclusion |
 | Settings | App config, profile, privacy, security, sync, notification, route links |
 | Aiko | AI explanation, suggestions, review, optimization, chat |
-| Dashboard | Monthly overview, bottom layout customization, notifications, cross-feature summaries |
+| Dashboard | In-page monthly overview, scrollable layout customization, notifications, cross-feature summaries |
 | Reports | Generated summaries and monthly report presentation |
 | Calculators | Inputs, results, saved scenarios, conversion actions |
 | Portfolio | Holdings and allocation detail |
@@ -259,7 +259,7 @@ May 31, 2026 idea boards are references for density, hierarchy, and feature cove
 
 | Idea group | Existing owner | Supplemental routes |
 |---|---|---|
-| Core app screens | Auth, onboarding, dashboard, accounts | `/notifications`, `/dashboard/monthly-overview`, in-page Edit layout |
+| Core app screens | Auth, onboarding, dashboard, accounts | `/notifications`, in-page This Month Overview, in-page Edit layout |
 | Transactions, categories, accounts | Transactions, categories, accounts | `/transactions/search`, `/transactions/split`, `/transactions/receipt-review` |
 | Budget, goals, cash flow, reports | Budget, goals, reports | `/budget/pace`, `/budget/safe-to-spend`, `/budget/cash-flow`, `/budget/cash-flow-sankey`, `/goals/detail`, `/goals/saving-plan`, `/goals/chance-of-success`, `/reports/monthly` |
 | Credit, debt, portfolio, tax | Credit cards, debt, portfolio, assets, tax | `/credit-cards/detail`, `/debt-overview`, `/loans/detail`, `/net-worth`, `/portfolio/allocation`, `/portfolio/holding`, `/tax-analytics` |
@@ -269,7 +269,7 @@ Route rules:
 
 - Do not duplicate an existing feature screen to match an idea board.
 - Use sticky bottom actions for filter, save, confirm, and calculator-result screens when required.
-- Use a bottom page action for Overview layout editing; do not put the dashboard edit layout control in the app bar.
+- Use a scrollable in-page action for Overview layout editing; do not put the dashboard edit layout control in the app bar or fixed bottom bar.
 - Keep sample data realistic and scoped to preview/offline states.
 - Real repositories remain the source of persisted user data.
 - Aiko guidance appears after the primary number or decision, except onboarding and assistant chat.
@@ -279,7 +279,7 @@ Entry points:
 
 | Owner screen | Access pattern |
 |---|---|
-| Home dashboard | App bar actions for notifications and monthly overview; bottom Edit layout action for customization |
+| Home dashboard | App bar action for notifications; in-page This Month Overview and scrollable Edit layout action for customization |
 | Transactions | Search in app bar; advanced filters via filter action; split and receipt review remain transaction tools |
 | Budget | Tools menu exposes pace, safe-to-spend, cash flow, Sankey |
 | Goals | Tools menu exposes saving plan, chance of success, detail |

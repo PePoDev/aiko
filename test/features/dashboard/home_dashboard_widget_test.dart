@@ -45,7 +45,7 @@ void main() {
     },
   );
 
-  testWidgets('overview actions use bottom edit control and primary icons', (
+  testWidgets('overview uses scroll edit control and primary app bar icons', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -74,7 +74,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Edit layout'), findsOneWidget);
+    expect(find.text('Edit layout'), findsNothing);
     expect(
       find.descendant(
         of: find.byType(AppBar),
@@ -82,22 +82,92 @@ void main() {
       ),
       findsNothing,
     );
-    expect(tester.getCenter(find.text('Edit layout')).dy, greaterThan(1200));
-
-    final calendarIcon = tester.widget<Icon>(
+    expect(
       find.descendant(
         of: find.byType(AppBar),
         matching: find.byIcon(Icons.calendar_month_outlined),
       ),
+      findsNothing,
     );
+
     final notificationIcon = tester.widget<Icon>(
       find.descendant(
         of: find.byType(AppBar),
         matching: find.byIcon(Icons.notifications_none),
       ),
     );
-    expect(calendarIcon.color, theme.colorScheme.primary);
     expect(notificationIcon.color, theme.colorScheme.primary);
+
+    await tester.scrollUntilVisible(
+      find.text('Edit layout'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Edit layout'), findsOneWidget);
+  });
+
+  testWidgets('overview shows this month summary after upcoming due dates', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 1400);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _dashboardScope(
+        child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const HomeDashboardScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Total balance'), findsNothing);
+
+    await tester.scrollUntilVisible(
+      find.text('This Month Overview'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('This Month Overview'), findsOneWidget);
+    expect(find.text('Upcoming due dates'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Upcoming due dates')).dy,
+      lessThan(tester.getTopLeft(find.text('This Month Overview')).dy),
+    );
+    expect(find.text('Total balance'), findsOneWidget);
+    expect(find.text('Safe to spend'), findsOneWidget);
+    expect(find.text('Left to save'), findsOneWidget);
+    expect(find.text('Cash flow'), findsOneWidget);
+    final monthOverviewCard = find
+        .ancestor(
+          of: find.text('This Month Overview'),
+          matching: find.byType(Card),
+        )
+        .first;
+    expect(
+      find.descendant(of: monthOverviewCard, matching: find.text('Income')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: monthOverviewCard, matching: find.text('Expenses')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: monthOverviewCard, matching: find.text('Savings')),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
@@ -161,14 +231,24 @@ void main() {
       expect(find.text('Daily spending'), findsOneWidget);
       expect(find.text('\$40.00 / \$250.00'), findsOneWidget);
       expect(find.text('Current / limit'), findsOneWidget);
+      final dailySpendingCard = find
+          .ancestor(
+            of: find.text('Daily spending'),
+            matching: find.byType(Card),
+          )
+          .first;
       final indicator = tester.widget<LinearProgressIndicator>(
-        find.byType(LinearProgressIndicator).first,
+        find
+            .descendant(
+              of: dailySpendingCard,
+              matching: find.byType(LinearProgressIndicator),
+            )
+            .first,
       );
       expect(indicator.value, 0.16);
       expect(find.text('Accounts'), findsNothing);
       expect(find.text('Today'), findsNothing);
       expect(find.text('Safe this week'), findsOneWidget);
-      expect(find.text('\$300.00'), findsOneWidget);
       expect(find.text('Estimate'), findsOneWidget);
 
       final miniCard = tester.widget<Card>(
@@ -178,6 +258,18 @@ void main() {
               matching: find.byType(Card),
             )
             .first,
+      );
+      expect(
+        find.descendant(
+          of: find
+              .ancestor(
+                of: find.text('Safe this week'),
+                matching: find.byType(Card),
+              )
+              .first,
+          matching: find.text('\$300.00'),
+        ),
+        findsOneWidget,
       );
       expect(miniCard.shape, isA<RoundedRectangleBorder>());
       expect(

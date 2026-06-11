@@ -58,6 +58,7 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
   @override
   Widget build(BuildContext context) {
     final transactionsAsync = ref.watch(transactionsProvider);
+    final actionColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       appBar: AppBar(
@@ -80,13 +81,13 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
             IconButton(
               tooltip: 'Close search',
               onPressed: _stopSearch,
-              icon: const Icon(Icons.close),
+              icon: Icon(Icons.close, color: actionColor),
             )
           else
             IconButton(
               tooltip: 'Search',
               onPressed: _startSearch,
-              icon: const Icon(Icons.search),
+              icon: Icon(Icons.search, color: actionColor),
             ),
           IconButton(
             tooltip: 'Filters',
@@ -95,14 +96,17 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
                 builder: (_) => const TransactionSearchFiltersScreen(),
               ),
             ),
-            icon: const Icon(Icons.tune_outlined),
+            icon: Icon(Icons.tune_outlined, color: actionColor),
           ),
           IconButton(
             tooltip: 'Accounts',
             onPressed: () => Navigator.of(context, rootNavigator: true).push(
               MaterialPageRoute<void>(builder: (_) => const AccountsScreen()),
             ),
-            icon: const Icon(Icons.account_balance_wallet_outlined),
+            icon: Icon(
+              Icons.account_balance_wallet_outlined,
+              color: actionColor,
+            ),
           ),
           IconButton(
             tooltip: 'Categories',
@@ -111,7 +115,7 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
                 builder: (_) => const CategoryManagementScreen(),
               ),
             ),
-            icon: const Icon(Icons.category_outlined),
+            icon: Icon(Icons.category_outlined, color: actionColor),
           ),
           IconButton(
             tooltip: 'Rules',
@@ -120,7 +124,7 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
                 builder: (_) => const TransactionRulesScreen(),
               ),
             ),
-            icon: const Icon(Icons.rule),
+            icon: Icon(Icons.rule, color: actionColor),
           ),
         ],
       ),

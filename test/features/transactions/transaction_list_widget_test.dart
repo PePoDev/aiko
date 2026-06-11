@@ -18,6 +18,38 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:aiko/features/transactions/presentation/transaction_list_screen.dart';
 
 void main() {
+  testWidgets('transaction app bar actions use primary action color', (
+    tester,
+  ) async {
+    final theme = AikoTheme.light();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          transactionRepositoryProvider.overrideWithValue(
+            const _FakeTransactionRepository([]),
+          ),
+        ],
+        child: MaterialApp(theme: theme, home: const TransactionListScreen()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    for (final icon in [
+      Icons.search,
+      Icons.tune_outlined,
+      Icons.account_balance_wallet_outlined,
+      Icons.category_outlined,
+      Icons.rule,
+    ]) {
+      final actionIcon = tester.widget<Icon>(
+        find.descendant(of: find.byType(AppBar), matching: find.byIcon(icon)),
+      );
+      expect(actionIcon.color, theme.colorScheme.primary);
+    }
+  });
+
   testWidgets('transaction list opens search from the app bar icon', (
     tester,
   ) async {

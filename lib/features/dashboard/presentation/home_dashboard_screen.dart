@@ -8,6 +8,7 @@ import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
 import '../../../core/prediction/monte_carlo_engine.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/widgets/aiko_data_widgets.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
@@ -46,11 +47,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         title: Text(l10n.overview),
         actions: [
           IconButton(
-            tooltip: 'Monthly overview',
-            onPressed: () => context.push('/dashboard/monthly-overview'),
-            icon: Icon(Icons.calendar_month_outlined, color: actionColor),
-          ),
-          IconButton(
             tooltip: 'Notifications',
             onPressed: () => context.push('/notifications'),
             icon: Icon(Icons.notifications_none, color: actionColor),
@@ -78,46 +74,40 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           ),
           error: (_, _) => ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-            children: _layoutChildren(
-              context,
-              DashboardWidgetPreference.defaultLayout,
-              summary,
-              dueItemsAsync,
-            ),
+            children: [
+              ..._layoutChildren(
+                context,
+                DashboardWidgetPreference.defaultLayout,
+                summary,
+                dueItemsAsync,
+              ),
+              const SizedBox(height: 16),
+              _DashboardLayoutAction(
+                isEditing: _isEditing,
+                onPressed: () => setState(() => _isEditing = !_isEditing),
+              ),
+            ],
           ),
           data: (layout) => _isEditing
               ? _EditableDashboardList(
                   layout: layout,
+                  isEditing: _isEditing,
+                  onToggleEditing: () =>
+                      setState(() => _isEditing = !_isEditing),
                   itemBuilder: (type) =>
                       _buildWidget(context, type, summary, dueItemsAsync),
                 )
               : ListView(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-                  children: _layoutChildren(
-                    context,
-                    layout,
-                    summary,
-                    dueItemsAsync,
-                  ),
+                  children: [
+                    ..._layoutChildren(context, layout, summary, dueItemsAsync),
+                    const SizedBox(height: 16),
+                    _DashboardLayoutAction(
+                      isEditing: _isEditing,
+                      onPressed: () => setState(() => _isEditing = !_isEditing),
+                    ),
+                  ],
                 ),
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: TextButton.icon(
-            onPressed: () => setState(() => _isEditing = !_isEditing),
-            style: TextButton.styleFrom(
-              foregroundColor: actionColor,
-              minimumSize: const Size.fromHeight(48),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            icon: Icon(_isEditing ? Icons.check : Icons.edit_outlined),
-            label: Text(_isEditing ? 'Done' : 'Edit layout'),
-          ),
         ),
       ),
       floatingActionButton: const _QuickAddMenu(),
@@ -131,12 +121,31 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     AsyncValue<List<DashboardDueItem>> dueItemsAsync,
   ) {
     final visible = layout.where((item) => item.isVisible).toList();
-    return [
-      for (var index = 0; index < visible.length; index++) ...[
-        if (index > 0) const SizedBox(height: 16),
-        _buildWidget(context, visible[index].type, summary, dueItemsAsync),
-      ],
-    ];
+    final children = <Widget>[];
+    var insertedMonthOverview = false;
+
+    for (var index = 0; index < visible.length; index++) {
+      if (children.isNotEmpty) {
+        children.add(const SizedBox(height: 16));
+      }
+      final type = visible[index].type;
+      children.add(_buildWidget(context, type, summary, dueItemsAsync));
+      if (type == DashboardWidgetType.dueItems) {
+        children
+          ..add(const SizedBox(height: 16))
+          ..add(_ThisMonthOverviewSection(summary: summary));
+        insertedMonthOverview = true;
+      }
+    }
+
+    if (!insertedMonthOverview) {
+      if (children.isNotEmpty) {
+        children.add(const SizedBox(height: 16));
+      }
+      children.add(_ThisMonthOverviewSection(summary: summary));
+    }
+
+    return children;
   }
 
   Widget _buildWidget(
@@ -177,10 +186,14 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
 class _EditableDashboardList extends ConsumerWidget {
   const _EditableDashboardList({
     required this.layout,
+    required this.isEditing,
+    required this.onToggleEditing,
     required this.itemBuilder,
   });
 
   final List<DashboardWidgetPreference> layout;
+  final bool isEditing;
+  final VoidCallback onToggleEditing;
   final Widget Function(DashboardWidgetType type) itemBuilder;
 
   @override
@@ -191,7 +204,7 @@ class _EditableDashboardList extends ConsumerWidget {
 
     return ReorderableListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-      itemCount: visible.length + 1,
+      itemCount: visible.length + 2,
       onReorderItem: notifier.reorderItem,
       buildDefaultDragHandles: false,
       itemBuilder: (context, index) {
@@ -199,6 +212,16 @@ class _EditableDashboardList extends ConsumerWidget {
           return _AddWidgetsPanel(
             key: const ValueKey('dashboard-add-widgets'),
             hidden: hidden,
+          );
+        }
+        if (index == visible.length + 1) {
+          return Padding(
+            key: const ValueKey('dashboard-edit-layout-action'),
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _DashboardLayoutAction(
+              isEditing: isEditing,
+              onPressed: onToggleEditing,
+            ),
           );
         }
         final item = visible[index];
@@ -247,6 +270,113 @@ class _EditableDashboardList extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _ThisMonthOverviewSection extends StatelessWidget {
+  const _ThisMonthOverviewSection({required this.summary});
+
+  final DashboardSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final netCashFlow = summary.monthlyIncome - summary.monthlySpending;
+    final leftToSave = netCashFlow - summary.safeToSpend;
+
+    return Column(
+      children: [
+        AikoMetricGrid(
+          children: [
+            AikoMetricCard(
+              label: 'Total balance',
+              value: summary.netWorth.format(),
+              change: 'Cash ${summary.totalCash.format()}',
+              icon: Icons.account_balance_wallet_outlined,
+              accentColor: AikoColors.successGreen,
+              progress: _moneyRatio(summary.totalCash, summary.netWorth),
+            ),
+            AikoMetricCard(
+              label: 'Safe to spend',
+              value: summary.safeToSpend.format(),
+              change: 'Available this period',
+              icon: Icons.savings_outlined,
+            ),
+            AikoMetricCard(
+              label: 'Left to save',
+              value: leftToSave.format(),
+              change: 'After safe spending',
+              icon: Icons.flag_outlined,
+              accentColor: AikoColors.analyticsTeal,
+            ),
+            AikoMetricCard(
+              label: 'Cash flow',
+              value: netCashFlow.format(),
+              change: 'Income minus expenses',
+              icon: Icons.waterfall_chart,
+              accentColor: netCashFlow.isNegative
+                  ? AikoColors.dangerRed
+                  : AikoColors.successGreen,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        AikoDataListCard(
+          title: 'This Month Overview',
+          icon: Icons.calendar_month_outlined,
+          rows: [
+            AikoDataRow(
+              label: 'Income',
+              value: summary.monthlyIncome.format(),
+              color: AikoColors.successGreen,
+            ),
+            AikoDataRow(
+              label: 'Expenses',
+              value: '-${summary.monthlySpending.format()}',
+              color: AikoColors.dangerRed,
+            ),
+            AikoDataRow(
+              label: 'Savings',
+              value: netCashFlow.format(),
+              color: AikoColors.analyticsTeal,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  double _moneyRatio(Money value, Money target) {
+    if (target.amount == Money.zero(target.currency).amount ||
+        value.currency != target.currency) {
+      return 0;
+    }
+    return (value.amount.toDouble() / target.amount.toDouble()).clamp(0.0, 1.0);
+  }
+}
+
+class _DashboardLayoutAction extends StatelessWidget {
+  const _DashboardLayoutAction({
+    required this.isEditing,
+    required this.onPressed,
+  });
+
+  final bool isEditing;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final actionColor = Theme.of(context).colorScheme.primary;
+
+    return TextButton.icon(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: actionColor,
+        minimumSize: const Size.fromHeight(48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      icon: Icon(isEditing ? Icons.check : Icons.edit_outlined),
+      label: Text(isEditing ? 'Done' : 'Edit layout'),
     );
   }
 }

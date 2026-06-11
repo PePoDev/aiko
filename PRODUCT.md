@@ -26,7 +26,7 @@ platforms:
 ## 2. Information Architecture & App Structure
 The app uses GoRouter for routing and is structured around a bottom navigation shell with 5 primary tabs:
 
-1.  **Overview (`/home`)**: Customizable dashboard with widgets (Aiko greeting, Net Worth, Safe-to-Spend, Budget Progress, Recent Transactions), primary-color app-bar utility icons, and a bottom Edit layout action.
+1.  **Overview (`/home`)**: Customizable dashboard with widgets (Aiko greeting, This Month Overview metrics, Net Worth, Safe-to-Spend, Budget Progress, Recent Transactions), primary-color action icons, and a scrollable Edit layout action at the bottom of the page content.
 2.  **Transactions (`/transactions`)**: Unified search, filters, recurring entries, and auto-categorization rules.
 3.  **Aiko Assistant (`/aiko`)**: Direct chat UI (`/aiko-assistant`), optimization engine (`/aiko-optimize`), and personalized course hub.
 4.  **Planning (`/planning`)**: Budget, goals, recurring transactions, credit/debt, net worth, assets, tax, accounting, portfolio, and travel planning entry points.
@@ -51,7 +51,7 @@ The May 31, 2026 reference idea boards are product coverage targets, not a separ
 
 | Idea | Product Coverage | Implemented Route Examples |
 | :--- | :--- | :--- |
-| 1 | Core app, onboarding, dashboard, accounts | `/notifications`, `/dashboard/monthly-overview`, in-page Edit layout |
+| 1 | Core app, onboarding, dashboard, accounts | `/notifications`, in-page This Month Overview, in-page Edit layout |
 | 2 | Transactions, split/OCR, categories, accounts | `/transactions/search`, `/transactions/split`, `/transactions/receipt-review` |
 | 3 | Budget, goals, cash flow, reports | `/budget/pace`, `/budget/safe-to-spend`, `/budget/cash-flow`, `/budget/cash-flow-sankey`, `/goals/detail`, `/goals/saving-plan`, `/goals/chance-of-success`, `/reports/monthly` |
 | 4 | Credit, debt, loans, net worth, portfolio, tax | `/credit-cards/detail`, `/debt-overview`, `/loans/detail`, `/net-worth`, `/portfolio/allocation`, `/portfolio/holding`, `/tax-analytics` |
@@ -131,7 +131,7 @@ Saved calculations store as `SavedCalculatorScenario` and can be converted into 
 ## 7. UX Acceptance Criteria
 *   **Offline-first usability:** Supplemental product routes must render useful local/demo states without requiring Supabase authentication.
 *   **Task completion:** Search/filter, save, confirm, split, and calculator result screens use clear primary actions, preferably sticky bottom actions on mobile.
-*   **Dashboard customization:** Overview layout editing uses a bottom page action; app-bar utility icons for monthly overview and notifications use the same primary action color.
+*   **Dashboard customization:** This Month Overview content lives inside the main Overview scroll. Layout editing uses a scrollable in-page action; Overview and Transactions app-bar action icons use the same primary action color.
 *   **No duplicate destinations:** Main tabs own core workflows; extra idea-board states are exposed through existing navigation, action menus, or detail routes.
 *   **Financial clarity:** Primary balances, progress, and risk states appear before supporting Aiko guidance.
 *   **Accessibility:** Icons need semantic labels or adjacent text where meaning is not obvious.

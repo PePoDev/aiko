@@ -8,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const expectedRoutes = <String, String>{
     '/notifications': 'Notifications',
-    '/dashboard/monthly-overview': 'This Month Overview',
     '/transactions/search': 'Search Transactions',
     '/transactions/split': 'Split Transaction',
     '/transactions/receipt-review': 'Review Receipt',
@@ -42,6 +41,14 @@ void main() {
       expect(find.text(entry.value), findsWidgets);
     });
   }
+
+  testWidgets('/dashboard/monthly-overview has been removed', (tester) async {
+    await tester.pumpWidget(_routerApp('/dashboard/monthly-overview'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Route not found'), findsOneWidget);
+    expect(find.text('This Month Overview'), findsNothing);
+  });
 }
 
 Widget _routerApp(String initialLocation) {

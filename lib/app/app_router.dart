@@ -74,10 +74,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
                 _fadePage(context, state, const TransactionListScreen()),
           ),
           GoRoute(
-            path: '/transactions/search',
-            builder: (context, state) => const TransactionSearchFiltersScreen(),
-          ),
-          GoRoute(
             path: '/transactions/split',
             builder: (context, state) => const SplitTransactionScreen(),
           ),

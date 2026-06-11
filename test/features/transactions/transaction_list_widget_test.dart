@@ -38,7 +38,6 @@ void main() {
 
     for (final icon in [
       Icons.search,
-      Icons.tune_outlined,
       Icons.account_balance_wallet_outlined,
       Icons.category_outlined,
       Icons.rule,
@@ -48,6 +47,7 @@ void main() {
       );
       expect(actionIcon.color, theme.colorScheme.primary);
     }
+    expect(find.byTooltip('Filters'), findsNothing);
   });
 
   testWidgets('transaction list opens search from the app bar icon', (
@@ -102,7 +102,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Search transactions'), findsNothing);
+    expect(find.text('Search merchant, note, tag, category'), findsNothing);
     expect(find.byTooltip('Search'), findsOneWidget);
     expect(
       find.text(_monthLabel(DateTime(now.year, now.month))),
@@ -120,7 +120,7 @@ void main() {
     await tester.tap(find.byTooltip('Search'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Search transactions'), findsOneWidget);
+    expect(find.text('Search merchant, note, tag, category'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'coffee');
     await tester.pumpAndSettle();
 
@@ -128,32 +128,114 @@ void main() {
     expect(find.textContaining('Grocery'), findsNothing);
   });
 
-  testWidgets('transaction list opens full search filters from filter icon', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          transactionRepositoryProvider.overrideWithValue(
-            const _FakeTransactionRepository([]),
+  testWidgets(
+    'transaction search uses inline filters instead of duplicate screen',
+    (tester) async {
+      final now = DateTime.now();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            transactionRepositoryProvider.overrideWithValue(
+              _FakeTransactionRepository([
+                FinanceTransaction(
+                  id: 'salary',
+                  userId: 'user',
+                  accountId: 'bank',
+                  type: TransactionType.income,
+                  amount: Money.parse('2500', 'USD'),
+                  date: DateTime(now.year, now.month, 5),
+                  merchant: 'Acme Payroll',
+                ),
+                FinanceTransaction(
+                  id: 'coffee',
+                  userId: 'user',
+                  accountId: 'cash',
+                  categoryId: 'coffee',
+                  type: TransactionType.expense,
+                  amount: Money.parse('4.50', 'USD'),
+                  date: DateTime(now.year, now.month, 18),
+                  merchant: 'Coffee Shop',
+                  tags: const ['morning'],
+                ),
+                FinanceTransaction(
+                  id: 'rent',
+                  userId: 'user',
+                  accountId: 'bank',
+                  type: TransactionType.expense,
+                  amount: Money.parse('1200', 'USD'),
+                  date: DateTime(now.year, now.month, 1),
+                  merchant: 'City Rent',
+                ),
+              ]),
+            ),
+            accountsProvider.overrideWith(
+              () => _AccountsNotifier([
+                _cashAccount('98.00'),
+                Account(
+                  id: 'bank',
+                  userId: 'user',
+                  name: 'Main Bank',
+                  type: AccountType.bank,
+                  currentBalance: Money.parse('2500', 'USD'),
+                ),
+              ]),
+            ),
+            categoryRepositoryProvider.overrideWithValue(
+              const _FakeCategoryRepository([
+                Category(
+                  id: 'coffee',
+                  userId: 'user',
+                  name: 'Coffee',
+                  type: CategoryType.expense,
+                  group: CategoryGroup.wants,
+                  icon: 'coffee',
+                ),
+              ]),
+            ),
+          ],
+          child: MaterialApp(
+            theme: AikoTheme.light(),
+            home: const TransactionListScreen(),
           ),
-        ],
-        child: MaterialApp(
-          theme: AikoTheme.light(),
-          home: const TransactionListScreen(),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(find.byTooltip('Filters'), findsOneWidget);
-    await tester.tap(find.byTooltip('Filters'));
-    await tester.pumpAndSettle();
+      expect(find.byTooltip('Filters'), findsNothing);
+      expect(find.text('Search Transactions'), findsNothing);
+      await tester.tap(find.byTooltip('Search'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Search Transactions'), findsOneWidget);
-    expect(find.text('Apply Filters'), findsOneWidget);
-  });
+      expect(find.text('All'), findsWidgets);
+      expect(find.text('Income'), findsWidgets);
+      expect(find.text('Expense'), findsWidgets);
+      expect(find.text('Transfer'), findsWidgets);
+      expect(find.text('Amount'), findsOneWidget);
+      expect(find.text('Date'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'coffee');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Coffee Shop'), findsOneWidget);
+      expect(find.text('Acme Payroll'), findsNothing);
+      expect(find.text('City Rent'), findsNothing);
+
+      await tester.tap(find.text('Income').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('No matching transactions'), findsOneWidget);
+      expect(find.text('Clear search'), findsOneWidget);
+
+      await tester.tap(find.text('Clear search'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Acme Payroll'), findsOneWidget);
+      expect(find.text('Coffee Shop'), findsOneWidget);
+      expect(find.text('City Rent'), findsOneWidget);
+    },
+  );
 
   testWidgets('transaction list opens categories from the app bar icon', (
     tester,

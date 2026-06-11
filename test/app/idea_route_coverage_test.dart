@@ -8,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const expectedRoutes = <String, String>{
     '/notifications': 'Notifications',
-    '/transactions/search': 'Search Transactions',
     '/transactions/split': 'Split Transaction',
     '/transactions/receipt-review': 'Review Receipt',
     '/budget/pace': 'Pace Overview',
@@ -48,6 +47,14 @@ void main() {
 
     expect(find.text('Route not found'), findsOneWidget);
     expect(find.text('This Month Overview'), findsNothing);
+  });
+
+  testWidgets('/transactions/search has been removed', (tester) async {
+    await tester.pumpWidget(_routerApp('/transactions/search'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Route not found'), findsOneWidget);
+    expect(find.text('Search Transactions'), findsNothing);
   });
 
   testWidgets('/accounting has been removed', (tester) async {

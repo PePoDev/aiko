@@ -24,11 +24,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isSigningOut = false;
   bool _isDeleting = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _displayNameController.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   void _populateFrom(Profile profile) {
     if (_initialised) return;
     _displayNameController.text = profile.displayName;
     _emailController.text = profile.email;
     _initialised = true;
+  }
+
+  bool _isDirty(Profile profile) {
+    return _initialised &&
+        _displayNameController.text.trim() != profile.displayName;
   }
 
   Future<void> _save(Profile current) async {
@@ -50,7 +67,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           backgroundColor: AikoColors.successGreen,
         ),
       );
-      Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -122,6 +138,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   void dispose() {
+    _displayNameController.removeListener(_onTextChanged);
     _displayNameController.dispose();
     _emailController.dispose();
     super.dispose();
@@ -132,7 +149,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final profileAsync = ref.watch(profileProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        title: const Text('Profile'),
+        centerTitle: true,
+        actions: [
+          profileAsync.maybeWhen(
+            data: (profile) {
+              if (_isDirty(profile)) {
+                return TextButton.icon(
+                  onPressed: _saving ? null : () => _save(profile),
+                  icon: _saving
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check),
+                  label: const Text('Save'),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+            orElse: () => const SizedBox.shrink(),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
@@ -173,155 +214,226 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _populateFrom(profile);
 
           return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+            padding: const EdgeInsets.only(bottom: 112),
             children: [
-              // Avatar & header
-              Center(
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 44,
-                      backgroundColor: AikoColors.primaryBlue.withValues(
-                        alpha: 0.12,
+              _buildHeader(profile),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: FinanceCard(
+                  title: 'Personal information',
+                  icon: Icons.person_outline,
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _displayNameController,
+                        decoration: InputDecoration(
+                          labelText: 'Display name',
+                          prefixIcon: const Icon(Icons.badge_outlined),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: AikoColors.primaryBlue.withValues(
+                            alpha: 0.05,
+                          ),
+                        ),
+                        textCapitalization: TextCapitalization.words,
                       ),
-                      child: Text(
-                        _initials(_displayNameController.text),
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(
-                              color: AikoColors.primaryBlue,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      profile.displayName,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (profile.email.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        profile.email,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      const SizedBox(height: 16),
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                        ),
+                        leading: const Icon(
+                          Icons.email_outlined,
+                          color: AikoColors.mutedText,
+                        ),
+                        title: Text(
+                          'Email address',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AikoColors.mutedText),
+                        ),
+                        subtitle: Text(
+                          profile.email,
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                        trailing: const Icon(
+                          Icons.lock_outline,
+                          size: 16,
                           color: AikoColors.mutedText,
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 24),
-
-              // Personal info
-              FinanceCard(
-                title: 'Personal information',
-                icon: Icons.person_outline,
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: _displayNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Display name',
-                        prefixIcon: Icon(Icons.badge_outlined),
-                        border: OutlineInputBorder(),
+              const SizedBox(height: 32),
+              const SizedBox(height: 32),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: FinanceCard(
+                  title: 'Account Actions',
+                  icon: Icons.manage_accounts_outlined,
+                  child: Column(
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(
+                          Icons.logout,
+                          color: AikoColors.primaryBlue,
+                        ),
+                        title: const Text('Log out'),
+                        trailing: _isSigningOut
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.chevron_right),
+                        onTap: _isSigningOut || _isDeleting
+                            ? null
+                            : _handleLogout,
                       ),
-                      textCapitalization: TextCapitalization.words,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _emailController,
-                      readOnly: true,
-                      enableInteractiveSelection: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.email_outlined),
-                        suffixIcon: Icon(Icons.lock_outline),
-                        helperText: 'Email is managed by your sign-in account',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
-
-              FinanceCard(
-                title: 'Account actions',
-                icon: Icons.manage_accounts_outlined,
-                accentColor: AikoColors.warningOrange,
-                child: Column(
-                  children: [
-                    FilledButton.icon(
-                      onPressed: _isSigningOut || _isDeleting
-                          ? null
-                          : _handleLogout,
-                      icon: _isSigningOut
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.logout),
-                      label: Text(_isSigningOut ? 'Signing out...' : 'Log out'),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: _isSigningOut || _isDeleting
-                          ? null
-                          : _handleDeleteAccount,
-                      icon: _isDeleting
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
+              const SizedBox(height: 32),
+              const SizedBox(height: 32),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: FinanceCard(
+                  title: 'Danger Zone',
+                  icon: Icons.warning_amber_rounded,
+                  accentColor: AikoColors.dangerRed,
+                  child: Column(
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(
+                          Icons.delete_forever_outlined,
+                          color: AikoColors.dangerRed,
+                        ),
+                        title: const Text(
+                          'Delete Account',
+                          style: TextStyle(color: AikoColors.dangerRed),
+                        ),
+                        subtitle: const Text(
+                          'Permanently remove your data',
+                          style: TextStyle(color: AikoColors.dangerRed),
+                        ),
+                        trailing: _isDeleting
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AikoColors.dangerRed,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.chevron_right,
                                 color: AikoColors.dangerRed,
                               ),
-                            )
-                          : const Icon(Icons.delete_forever_outlined),
-                      label: Text(
-                        _isDeleting ? 'Deleting account...' : 'Delete account',
+                        onTap: _isSigningOut || _isDeleting
+                            ? null
+                            : _handleDeleteAccount,
                       ),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
-                        foregroundColor: AikoColors.dangerRed,
-                        side: const BorderSide(color: AikoColors.dangerRed),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              const SizedBox(height: 24),
-
-              // Save button
-              FilledButton.icon(
-                onPressed: _saving ? null : () => _save(profile),
-                icon: _saving
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.save_outlined),
-                label: Text(_saving ? 'Saving...' : 'Save changes'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
+                    ],
+                  ),
                 ),
               ),
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildHeader(Profile profile) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(top: 32, bottom: 24, left: 16, right: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AikoColors.primaryBlue.withValues(alpha: 0.15),
+            AikoColors.primaryBlue.withValues(alpha: 0.0),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Column(
+        children: [
+          Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AikoColors.primaryBlue.withValues(alpha: 0.2),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: 56,
+                  backgroundColor: AikoColors.primaryBlue,
+                  child: Text(
+                    _initials(
+                      _displayNameController.text.isEmpty
+                          ? profile.displayName
+                          : _displayNameController.text,
+                    ),
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: AikoColors.primaryBlue,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.edit, size: 18, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(
+            _displayNameController.text.isEmpty
+                ? profile.displayName
+                : _displayNameController.text,
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          if (profile.email.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              profile.email,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(color: AikoColors.mutedText),
+            ),
+          ],
+        ],
       ),
     );
   }

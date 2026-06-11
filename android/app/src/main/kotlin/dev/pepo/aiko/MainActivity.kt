@@ -1,4 +1,4 @@
-package com.example.aiko
+package dev.pepo.aiko
 
 import io.flutter.embedding.android.FlutterActivity
 

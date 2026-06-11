@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/money/money.dart';
 import '../../../shared/widgets/finance_card.dart';
+import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../application/portfolio_allocation_service.dart';
 import '../application/portfolio_provider.dart';
@@ -13,18 +14,51 @@ import '../domain/investment_holding.dart';
 class PortfolioScreen extends ConsumerStatefulWidget {
   const PortfolioScreen({super.key});
 
-  static const _service = PortfolioAllocationService();
+  static const _allocationService = PortfolioAllocationService();
+  static const _targetAllocation = [
+    AllocationTarget(assetClass: 'Stocks', targetPercent: 70),
+    AllocationTarget(assetClass: 'Bonds', targetPercent: 30),
+  ];
 
   @override
   ConsumerState<PortfolioScreen> createState() => _PortfolioScreenState();
 }
 
 class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
-  // Interactive Capital Gains tax estimator states
-  InvestmentHolding? _selectedTaxHolding;
-  double _taxQuantitySold = 1.0;
-  double _taxSalePrice = 100.0;
-  bool _isTaxEstimatorInitialized = false;
+  final _searchController = TextEditingController();
+  var _isSearching = false;
+  var _searchQuery = '';
+  var _assetClassFilter = 'All';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController
+      ..removeListener(_onSearchChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() => _searchQuery = _searchController.text.trim());
+  }
+
+  void _startSearch() {
+    setState(() => _isSearching = true);
+  }
+
+  void _stopSearch() {
+    setState(() {
+      _isSearching = false;
+      _searchController.clear();
+      _searchQuery = '';
+    });
+  }
 
   void _showAddHoldingBottomSheet() {
     showModalBottomSheet<void>(
@@ -40,50 +74,24 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            'Sell / Remove ${holding.symbol}',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: AikoColors.darkNavy,
-            ),
-          ),
+          title: Text('Remove ${holding.symbol}?'),
           content: Text(
-            'Are you sure you want to permanently delete or liquidate your position in ${holding.symbol}? This action cannot be undone.',
-            style: const TextStyle(color: AikoColors.neutralInk, height: 1.4),
+            'This removes ${holding.symbol} from your portfolio. It will not create a sell transaction.',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: AikoColors.mutedText),
-              ),
+              child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () {
                 ref
                     .read(portfolioProvider.notifier)
                     .deleteHolding(holding.symbol);
-                if (_selectedTaxHolding?.symbol == holding.symbol) {
-                  setState(() {
-                    _selectedTaxHolding = null;
-                    _isTaxEstimatorInitialized = false;
-                  });
-                }
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Row(
-                      children: [
-                        const Icon(Icons.check_circle, color: Colors.white),
-                        const SizedBox(width: 8),
-                        Text('Removed ${holding.symbol} from portfolio.'),
-                      ],
-                    ),
+                    content: Text('${holding.symbol} removed.'),
                     backgroundColor: AikoColors.successGreen,
                     behavior: SnackBarBehavior.floating,
                   ),
@@ -92,7 +100,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
               style: FilledButton.styleFrom(
                 backgroundColor: AikoColors.dangerRed,
               ),
-              child: const Text('Remove Position'),
+              child: const Text('Remove'),
             ),
           ],
         );
@@ -104,590 +112,767 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(portfolioProvider);
     final holdings = state.holdings;
-    final isRefreshing = state.isRefreshing;
-
-    // Dynamically initialize selection for tax estimator if not yet set
-    if (holdings.isNotEmpty &&
-        (!_isTaxEstimatorInitialized || _selectedTaxHolding == null)) {
-      // Find if previous selected holding still exists, otherwise take first
-      final matched = holdings.firstWhere(
-        (h) => h.symbol == _selectedTaxHolding?.symbol,
-        orElse: () => holdings.first,
-      );
-      _selectedTaxHolding = matched;
-      _taxQuantitySold = matched.quantity.clamp(0.1, matched.quantity);
-      _taxSalePrice = matched.currentPrice.amount.toDouble();
-      _isTaxEstimatorInitialized = true;
-    } else if (holdings.isEmpty) {
-      _selectedTaxHolding = null;
-      _isTaxEstimatorInitialized = false;
-    }
-
-    final alerts = PortfolioScreen._service.rebalanceAlerts(
+    final alerts = PortfolioScreen._allocationService.rebalanceAlerts(
       portfolio: holdings,
-      targets: const [
-        AllocationTarget(assetClass: 'Stocks', targetPercent: 70),
-        AllocationTarget(assetClass: 'Bonds', targetPercent: 30),
-      ],
+      targets: PortfolioScreen._targetAllocation,
     );
-
-    // Compute dynamic capital gains estimate based on user sliders
-    CapitalGainsEstimate? gains;
-    if (_selectedTaxHolding != null &&
-        holdings.any((h) => h.symbol == _selectedTaxHolding!.symbol)) {
-      // Find latest instance from provider in case values changed
-      final latestHolding = holdings.firstWhere(
-        (h) => h.symbol == _selectedTaxHolding!.symbol,
-      );
-      try {
-        gains = PortfolioScreen._service.capitalGainsOnSale(
-          holding: latestHolding,
-          quantitySold: _taxQuantitySold.clamp(0.1, latestHolding.quantity),
-          salePrice: Money.parse(
-            _taxSalePrice.toStringAsFixed(2),
-            latestHolding.currentPrice.currency,
-          ),
-        );
-      } catch (_) {
-        gains = null;
-      }
-    }
+    final summary = _PortfolioSummary.fromHoldings(
+      holdings: holdings,
+      alerts: alerts,
+    );
+    final filteredHoldings = holdings.where(_matchesVisibleFilters).toList();
+    final allocationRows = _allocationRowsFor(holdings);
+    final actionColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       backgroundColor: AikoColors.appBackgroundLight,
       appBar: AppBar(
-        title: const Text('Investment Portfolio'),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Search symbol or asset class',
+                  prefixIcon: Icon(Icons.search),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              )
+            : const Text('Portfolio'),
         actions: [
+          if (_isSearching)
+            IconButton(
+              tooltip: 'Close search',
+              onPressed: _stopSearch,
+              icon: Icon(Icons.close, color: actionColor),
+            )
+          else
+            IconButton(
+              tooltip: 'Search holdings',
+              onPressed: _startSearch,
+              icon: Icon(Icons.search, color: actionColor),
+            ),
           IconButton(
-            icon: isRefreshing
-                ? const SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.refresh),
-            onPressed: isRefreshing
+            tooltip: 'Refresh prices',
+            onPressed: state.isRefreshing
                 ? null
                 : () => ref.read(portfolioProvider.notifier).refreshPrices(),
-            tooltip: 'Refresh Prices',
+            icon: state.isRefreshing
+                ? SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: actionColor,
+                    ),
+                  )
+                : Icon(Icons.refresh, color: actionColor),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddHoldingBottomSheet,
-        backgroundColor: AikoColors.premiumPurple,
-        icon: const Icon(Icons.trending_up, color: Colors.white),
-        label: const Text(
-          'Add Investment',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        icon: const Icon(Icons.add),
+        label: const Text('Add holding'),
       ),
       body: RefreshIndicator(
         onRefresh: () => ref.read(portfolioProvider.notifier).refreshPrices(),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Premium Live Ticker Indicator
-              if (isRefreshing) ...[
-                Card(
-                  color: AikoColors.premiumPurple.withValues(alpha: 0.1),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: const BorderSide(color: AikoColors.premiumPurple),
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AikoColors.premiumPurple,
-                          ),
-                        ),
-                        SizedBox(width: 12),
-                        Text(
-                          'Updating stock market prices in real-time...',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: AikoColors.premiumPurple,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              if (state.isRefreshing) ...[
+                const LinearProgressIndicator(minHeight: 3),
                 const SizedBox(height: 12),
               ],
-
-              // Active Holdings Card
-              FinanceCard(
+              _PortfolioSummaryCard(summary: summary),
+              const SizedBox(height: 12),
+              _AssetClassFilters(
+                selectedAssetClass: _assetClassFilter,
+                onSelected: (value) {
+                  setState(() => _assetClassFilter = value);
+                },
+              ),
+              const SizedBox(height: 16),
+              _SectionHeader(
                 title: 'Holdings',
-                icon: Icons.pie_chart_outline,
-                accentColor: AikoColors.analyticsTeal,
-                child: Column(
-                  children: [
-                    if (holdings.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Text(
-                          'No holdings found. Add investments to get started.',
-                          style: TextStyle(color: Colors.grey, fontSize: 13),
-                        ),
-                      )
-                    else
-                      for (final holding in holdings) ...[
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Row(
-                            children: [
-                              Text(
-                                holding.symbol,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AikoColors.analyticsTeal.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  holding.assetClass,
-                                  style: const TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    color: AikoColors.analyticsTeal,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          subtitle: Text(
-                            'Qty: ${holding.quantity} | Cost basis: ${holding.averageCost.format()} | Live: ${holding.currentPrice.format()}',
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    holding.marketValue.format(),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        holding.unrealizedGainLoss.isNegative
-                                            ? Icons.arrow_downward
-                                            : Icons.arrow_upward,
-                                        size: 10,
-                                        color:
-                                            holding
-                                                .unrealizedGainLoss
-                                                .isNegative
-                                            ? AikoColors.dangerRed
-                                            : AikoColors.successGreen,
-                                      ),
-                                      const SizedBox(width: 2),
-                                      Text(
-                                        holding.unrealizedGainLoss.format(),
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color:
-                                              holding
-                                                  .unrealizedGainLoss
-                                                  .isNegative
-                                              ? AikoColors.dangerRed
-                                              : AikoColors.successGreen,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(width: 4),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: AikoColors.mutedText,
-                                  size: 20,
-                                ),
-                                onPressed: () => _confirmDeleteHolding(holding),
-                                tooltip: 'Liquidate / Remove position',
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (holding != holdings.last) const Divider(),
-                      ],
-                  ],
-                ),
+                trailing: holdings.isEmpty
+                    ? null
+                    : '${filteredHoldings.length} of ${holdings.length}',
+              ),
+              const SizedBox(height: 8),
+              _HoldingsList(
+                holdings: holdings,
+                filteredHoldings: filteredHoldings,
+                hasActiveFilters: _hasActiveFilters,
+                onClearFilters: _clearFilters,
+                onAddHolding: _showAddHoldingBottomSheet,
+                onDeleteHolding: _confirmDeleteHolding,
               ),
               const SizedBox(height: 16),
-
-              // Allocation Drift & Smart Rebalancing Recommendation
-              FinanceCard(
-                title: 'Target Asset Allocation Drift',
-                icon: Icons.notifications_active_outlined,
-                accentColor: AikoColors.warningOrange,
-                child: Column(
-                  children: [
-                    if (alerts.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.check_circle_outline,
-                              color: AikoColors.successGreen,
-                              size: 18,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Portfolio is perfectly balanced!',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      for (final alert in alerts) ...[
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            alert.assetClass,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                          subtitle: Text(
-                            'Drift direction: ${alert.direction}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: alert.direction.contains('underweight')
-                                  ? AikoColors.dangerRed
-                                  : AikoColors.warningOrange,
-                            ),
-                          ),
-                          trailing: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AikoColors.warningOrange.withValues(
-                                alpha: 0.08,
-                              ),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              'Actual: ${alert.actualPercent.toStringAsFixed(0)}% / Target: ${alert.targetPercent.toStringAsFixed(0)}%',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: AikoColors.warningOrange,
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (alert != alerts.last) const Divider(),
-                      ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Smart Capital Gains Calculator Panel
-              FinanceCard(
-                title: 'Capital Gains Tax Estimator',
-                icon: Icons.request_quote_outlined,
-                accentColor: AikoColors.successGreen,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (gains != null && _selectedTaxHolding != null) ...[
-                      const Text(
-                        'Simulate a stock liquidation and compute immediate taxable gains using FIFO estimation rules.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AikoColors.mutedText,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Dropdown holding selector
-                      Row(
-                        children: [
-                          const Text(
-                            'Holding: ',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AikoColors.border),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value: _selectedTaxHolding!.symbol,
-                                  items: holdings.map((h) {
-                                    return DropdownMenuItem<String>(
-                                      value: h.symbol,
-                                      child: Text(
-                                        '${h.symbol} (${h.assetClass})',
-                                      ),
-                                    );
-                                  }).toList(),
-                                  onChanged: (val) {
-                                    if (val == null) return;
-                                    setState(() {
-                                      final matched = holdings.firstWhere(
-                                        (h) => h.symbol == val,
-                                      );
-                                      _selectedTaxHolding = matched;
-                                      _taxQuantitySold = matched.quantity.clamp(
-                                        0.1,
-                                        matched.quantity,
-                                      );
-                                      _taxSalePrice = matched
-                                          .currentPrice
-                                          .amount
-                                          .toDouble();
-                                    });
-                                  },
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      // Quantity to sell slider
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Quantity to Sell:',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                          Text(
-                            _taxQuantitySold.toStringAsFixed(2),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AikoColors.primaryBlue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Slider(
-                        value: _taxQuantitySold.clamp(
-                          0.1,
-                          _selectedTaxHolding!.quantity,
-                        ),
-                        min: 0.1,
-                        max: _selectedTaxHolding!.quantity.clamp(
-                          0.1,
-                          double.infinity,
-                        ),
-                        activeColor: AikoColors.analyticsTeal,
-                        inactiveColor: AikoColors.borderSubtle,
-                        onChanged: (val) {
-                          setState(() {
-                            _taxQuantitySold = val;
-                          });
-                        },
-                      ),
-                      // Sale price slider
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Simulated Sale Price:',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                          Text(
-                            '\$${_taxSalePrice.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AikoColors.primaryBlue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Slider(
-                        value: _taxSalePrice,
-                        min:
-                            (_selectedTaxHolding!.averageCost.amount
-                                        .toDouble() *
-                                    0.2)
-                                .clamp(1.0, double.infinity),
-                        max:
-                            (_selectedTaxHolding!.currentPrice.amount
-                                        .toDouble() *
-                                    2.0)
-                                .clamp(10.0, double.infinity),
-                        activeColor: AikoColors.successGreen,
-                        inactiveColor: AikoColors.borderSubtle,
-                        onChanged: (val) {
-                          setState(() {
-                            _taxSalePrice = val;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 8),
-
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: gains.gainLoss.isNegative
-                              ? AikoColors.dangerRed.withValues(alpha: 0.05)
-                              : AikoColors.successGreen.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: gains.gainLoss.isNegative
-                                ? AikoColors.dangerRed.withValues(alpha: 0.15)
-                                : AikoColors.successGreen.withValues(
-                                    alpha: 0.15,
-                                  ),
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Total Sale Proceeds:',
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                                Text(
-                                  gains.proceeds.format(),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Total Cost Basis:',
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                                Text(
-                                  gains.costBasis.format(),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Divider(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  gains.gainLoss.isNegative
-                                      ? 'Simulated Capital Loss:'
-                                      : 'Simulated Capital Gain:',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                Text(
-                                  gains.gainLoss.format(),
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                    color: gains.gainLoss.isNegative
-                                        ? AikoColors.dangerRed
-                                        : AikoColors.successGreen,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'This estimator utilizes FIFO accounting. Live market pricing updates automatically recompute taxable gains.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey,
-                          height: 1.3,
-                        ),
-                      ),
-                    ] else
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Center(
-                          child: Text(
-                            'Add stock or bond holdings above to calculate simulated capital gains.',
-                            style: TextStyle(
-                              color: AikoColors.mutedText,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+              _AllocationCard(rows: allocationRows),
+              if (alerts.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _RebalanceNotice(alerts: alerts),
+              ],
             ],
           ),
         ),
       ),
     );
   }
+
+  bool get _hasActiveFilters {
+    return _searchQuery.isNotEmpty || _assetClassFilter != 'All';
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _searchController.clear();
+      _searchQuery = '';
+      _assetClassFilter = 'All';
+    });
+  }
+
+  bool _matchesVisibleFilters(InvestmentHolding holding) {
+    if (_assetClassFilter != 'All' && holding.assetClass != _assetClassFilter) {
+      return false;
+    }
+    final query = _searchQuery.toLowerCase();
+    if (query.isEmpty) {
+      return true;
+    }
+    return holding.symbol.toLowerCase().contains(query) ||
+        holding.assetClass.toLowerCase().contains(query);
+  }
+}
+
+class _PortfolioSummaryCard extends StatelessWidget {
+  const _PortfolioSummaryCard({required this.summary});
+
+  final _PortfolioSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return FinanceCard(
+      title: 'Portfolio value',
+      icon: Icons.account_balance_wallet_outlined,
+      accentColor: AikoColors.primaryBlue,
+      prominent: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            summary.totalValue,
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SummaryLine(
+            label: 'Total gain/loss',
+            value: summary.totalGain,
+            valueColor: summary.gainColor,
+          ),
+          const SizedBox(height: 8),
+          _SummaryLine(label: 'Holding count', value: summary.holdingsLabel),
+          const SizedBox(height: 8),
+          _SummaryLine(
+            label: 'Allocation status',
+            value: summary.allocationStatus,
+            valueColor: summary.allocationColor,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryLine extends StatelessWidget {
+  const _SummaryLine({
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AikoColors.mutedText,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: valueColor,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AssetClassFilters extends StatelessWidget {
+  const _AssetClassFilters({
+    required this.selectedAssetClass,
+    required this.onSelected,
+  });
+
+  static const _assetClasses = [
+    'All',
+    'Stocks',
+    'Bonds',
+    'Funds',
+    'Crypto',
+    'Cash',
+  ];
+
+  final String selectedAssetClass;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final assetClass in _assetClasses) ...[
+            ChoiceChip(
+              label: Text(assetClass),
+              selected: selectedAssetClass == assetClass,
+              onSelected: (_) => onSelected(assetClass),
+            ),
+            if (assetClass != _assetClasses.last) const SizedBox(width: 8),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, this.trailing});
+
+  final String title;
+  final String? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        if (trailing != null)
+          Text(
+            trailing!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AikoColors.mutedText,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _HoldingsList extends StatelessWidget {
+  const _HoldingsList({
+    required this.holdings,
+    required this.filteredHoldings,
+    required this.hasActiveFilters,
+    required this.onClearFilters,
+    required this.onAddHolding,
+    required this.onDeleteHolding,
+  });
+
+  final List<InvestmentHolding> holdings;
+  final List<InvestmentHolding> filteredHoldings;
+  final bool hasActiveFilters;
+  final VoidCallback onClearFilters;
+  final VoidCallback onAddHolding;
+  final ValueChanged<InvestmentHolding> onDeleteHolding;
+
+  @override
+  Widget build(BuildContext context) {
+    if (holdings.isEmpty) {
+      return SizedBox(
+        height: 260,
+        child: AikoScreenState.empty(
+          title: 'No investments yet',
+          message: 'Add your first holding to track value and allocation.',
+          action: FilledButton.icon(
+            onPressed: onAddHolding,
+            icon: const Icon(Icons.add),
+            label: const Text('Add holding'),
+          ),
+        ),
+      );
+    }
+
+    if (filteredHoldings.isEmpty) {
+      return SizedBox(
+        height: 240,
+        child: AikoScreenState.empty(
+          title: 'No matching holdings',
+          message: 'Try another symbol, asset class, or clear the filters.',
+          action: hasActiveFilters
+              ? TextButton(
+                  onPressed: onClearFilters,
+                  child: const Text('Clear filters'),
+                )
+              : null,
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (final holding in filteredHoldings)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _HoldingCard(
+              holding: holding,
+              onDelete: () => onDeleteHolding(holding),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _HoldingCard extends StatelessWidget {
+  const _HoldingCard({required this.holding, required this.onDelete});
+
+  final InvestmentHolding holding;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = _assetClassColor(holding.assetClass);
+    final gain = holding.unrealizedGainLoss;
+    final radius = BorderRadius.circular(8);
+
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                _assetClassIcon(holding.assetClass),
+                color: accent,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          holding.symbol,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _AssetClassBadge(
+                        label: holding.assetClass,
+                        color: accent,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_formatQuantity(holding.quantity)} shares x ${holding.currentPrice.format()}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AikoColors.mutedText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 128),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    holding.marketValue.format(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _formatSignedMoney(gain),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: gain.isNegative
+                          ? AikoColors.dangerRed
+                          : AikoColors.successGreen,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: 'Remove ${holding.symbol}',
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete_outline, size: 20),
+              color: AikoColors.mutedText,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AssetClassBadge extends StatelessWidget {
+  const _AssetClassBadge({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AllocationCard extends StatelessWidget {
+  const _AllocationCard({required this.rows});
+
+  final List<_AllocationRowData> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return FinanceCard(
+      title: 'Allocation',
+      icon: Icons.donut_large_outlined,
+      accentColor: AikoColors.analyticsTeal,
+      child: rows.isEmpty
+          ? const Text(
+              'Add holdings to see your asset mix.',
+              style: TextStyle(color: AikoColors.mutedText),
+            )
+          : Column(
+              children: [
+                for (final row in rows) ...[
+                  _AllocationRow(row: row),
+                  if (row != rows.last) const SizedBox(height: 12),
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class _AllocationRow extends StatelessWidget {
+  const _AllocationRow({required this.row});
+
+  final _AllocationRowData row;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                row.assetClass,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Text(
+              '${row.percent.toStringAsFixed(0)}%',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AikoColors.mutedText,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: row.percent / 100,
+            minHeight: 8,
+            color: _assetClassColor(row.assetClass),
+            backgroundColor: Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RebalanceNotice extends StatelessWidget {
+  const _RebalanceNotice({required this.alerts});
+
+  final List<RebalanceAlert> alerts;
+
+  @override
+  Widget build(BuildContext context) {
+    final alert = alerts.first;
+    final extraCount = alerts.length - 1;
+    final message =
+        '${alert.assetClass} is ${alert.direction} by ${alert.driftPercent.abs().toStringAsFixed(0)}%';
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AikoColors.warningOrange.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AikoColors.warningOrange.withValues(alpha: 0.24),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.notifications_active_outlined,
+              color: AikoColors.warningOrange,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                extraCount > 0 ? '$message, plus $extraCount more.' : message,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AikoColors.neutralInk,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PortfolioSummary {
+  const _PortfolioSummary({
+    required this.totalValue,
+    required this.totalGain,
+    required this.gainColor,
+    required this.holdingsLabel,
+    required this.allocationStatus,
+    required this.allocationColor,
+  });
+
+  final String totalValue;
+  final String totalGain;
+  final Color gainColor;
+  final String holdingsLabel;
+  final String allocationStatus;
+  final Color allocationColor;
+
+  factory _PortfolioSummary.fromHoldings({
+    required List<InvestmentHolding> holdings,
+    required List<RebalanceAlert> alerts,
+  }) {
+    final currency = _portfolioCurrency(holdings);
+    final totalValue = _sumMoney(
+      currency: currency,
+      amounts: holdings.map((holding) => holding.marketValue),
+    );
+    final totalGain = _sumMoney(
+      currency: currency,
+      amounts: holdings.map((holding) => holding.unrealizedGainLoss),
+    );
+    final isBalanced = alerts.isEmpty;
+
+    return _PortfolioSummary(
+      totalValue: totalValue.format(),
+      totalGain: _formatSignedMoney(totalGain),
+      gainColor: totalGain.isNegative
+          ? AikoColors.dangerRed
+          : AikoColors.successGreen,
+      holdingsLabel:
+          '${holdings.length} ${holdings.length == 1 ? 'holding' : 'holdings'}',
+      allocationStatus: isBalanced ? 'On track' : 'Needs rebalance',
+      allocationColor: isBalanced
+          ? AikoColors.successGreen
+          : AikoColors.warningOrange,
+    );
+  }
+}
+
+class _AllocationRowData {
+  const _AllocationRowData({
+    required this.assetClass,
+    required this.percent,
+    required this.value,
+  });
+
+  final String assetClass;
+  final double percent;
+  final double value;
+}
+
+List<_AllocationRowData> _allocationRowsFor(List<InvestmentHolding> holdings) {
+  final total = holdings.fold<double>(
+    0,
+    (sum, holding) => sum + holding.marketValue.amount.toDouble(),
+  );
+  if (total <= 0) {
+    return const [];
+  }
+
+  final totalsByClass = <String, double>{};
+  for (final holding in holdings) {
+    totalsByClass.update(
+      holding.assetClass,
+      (value) => value + holding.marketValue.amount.toDouble(),
+      ifAbsent: () => holding.marketValue.amount.toDouble(),
+    );
+  }
+
+  final rows = [
+    for (final entry in totalsByClass.entries)
+      _AllocationRowData(
+        assetClass: entry.key,
+        value: entry.value,
+        percent: entry.value / total * 100,
+      ),
+  ]..sort((a, b) => b.value.compareTo(a.value));
+
+  return rows;
+}
+
+Money _sumMoney({required String currency, required Iterable<Money> amounts}) {
+  var total = Money.zero(currency);
+  for (final amount in amounts) {
+    if (amount.currency == currency) {
+      total = total + amount;
+    }
+  }
+  return total;
+}
+
+String _portfolioCurrency(List<InvestmentHolding> holdings) {
+  if (holdings.isEmpty) {
+    return 'USD';
+  }
+  return holdings.first.currentPrice.currency;
+}
+
+String _formatSignedMoney(Money money) {
+  if (money.isPositive) {
+    return '+${money.format()}';
+  }
+  return money.format();
+}
+
+String _formatQuantity(double quantity) {
+  if (quantity == quantity.roundToDouble()) {
+    return quantity.toStringAsFixed(0);
+  }
+  return quantity.toStringAsFixed(2);
+}
+
+IconData _assetClassIcon(String assetClass) {
+  return switch (assetClass) {
+    'Stocks' => Icons.show_chart,
+    'Bonds' => Icons.account_balance_outlined,
+    'Funds' => Icons.pie_chart_outline,
+    'Crypto' => Icons.currency_bitcoin,
+    'Cash' => Icons.account_balance_wallet_outlined,
+    _ => Icons.category_outlined,
+  };
+}
+
+Color _assetClassColor(String assetClass) {
+  return switch (assetClass) {
+    'Stocks' => AikoColors.primaryBlue,
+    'Bonds' => AikoColors.analyticsTeal,
+    'Funds' => AikoColors.premiumPurple,
+    'Crypto' => AikoColors.warningOrange,
+    'Cash' => AikoColors.successGreen,
+    _ => AikoColors.mutedText,
+  };
 }
 
 class _AddHoldingBottomSheet extends ConsumerStatefulWidget {
@@ -705,12 +890,13 @@ class _AddHoldingBottomSheetState
   final _quantityController = TextEditingController();
   final _averageCostController = TextEditingController();
   final _currentPriceController = TextEditingController();
-  String _selectedAssetClass = 'Stocks';
-  bool _isLoading = false;
+  var _selectedAssetClass = 'Stocks';
+  var _isLoading = false;
 
-  final List<String> _assetClasses = [
+  static const _assetClasses = [
     'Stocks',
     'Bonds',
+    'Funds',
     'Crypto',
     'Cash',
     'Custom',
@@ -725,51 +911,51 @@ class _AddHoldingBottomSheetState
     super.dispose();
   }
 
-  void _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
       final symbol = _symbolController.text.trim().toUpperCase();
       final quantity = double.parse(_quantityController.text.trim());
-      final avgCostVal = _averageCostController.text.trim();
-      final currentPriceVal = _currentPriceController.text.trim().isEmpty
-          ? avgCostVal
+      final averageCost = _averageCostController.text.trim();
+      final currentPrice = _currentPriceController.text.trim().isEmpty
+          ? averageCost
           : _currentPriceController.text.trim();
 
-      final holding = InvestmentHolding(
-        symbol: symbol,
-        assetClass: _selectedAssetClass,
-        quantity: quantity,
-        averageCost: Money.parse(avgCostVal, 'USD'),
-        currentPrice: Money.parse(currentPriceVal, 'USD'),
-      );
-
-      ref.read(portfolioProvider.notifier).addHolding(holding);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
-                Text('Holding $symbol successfully added!'),
-              ],
+      ref
+          .read(portfolioProvider.notifier)
+          .addHolding(
+            InvestmentHolding(
+              symbol: symbol,
+              assetClass: _selectedAssetClass,
+              quantity: quantity,
+              averageCost: Money.parse(averageCost, 'USD'),
+              currentPrice: Money.parse(currentPrice, 'USD'),
             ),
-            backgroundColor: AikoColors.successGreen,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        Navigator.pop(context);
+          );
+
+      if (!mounted) {
+        return;
       }
-    } catch (e) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$symbol added to portfolio.'),
+          backgroundColor: AikoColors.successGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to add investment: ${e.toString()}'),
+            content: Text('Could not add holding: $error'),
             backgroundColor: AikoColors.dangerRed,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -782,176 +968,145 @@ class _AddHoldingBottomSheetState
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        20,
-        20,
-        MediaQuery.of(context).viewInsets.bottom + 30,
+    final theme = Theme.of(context);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Add Investment Asset',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: AikoColors.premiumPurple,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          16,
+          20,
+          MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Add holding',
+                        style: theme.textTheme.titleLarge,
+                      ),
                     ),
+                    IconButton(
+                      tooltip: 'Close',
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedAssetClass,
+                  decoration: const InputDecoration(
+                    labelText: 'Asset class',
+                    prefixIcon: Icon(Icons.category_outlined),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
+                  items: [
+                    for (final assetClass in _assetClasses)
+                      DropdownMenuItem(
+                        value: assetClass,
+                        child: Text(assetClass),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _selectedAssetClass = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _symbolController,
+                  textCapitalization: TextCapitalization.characters,
+                  inputFormatters: [LengthLimitingTextInputFormatter(10)],
+                  decoration: const InputDecoration(
+                    labelText: 'Symbol',
+                    hintText: 'AAPL, VTI, BTC',
+                    prefixIcon: Icon(Icons.label_outline),
                   ),
-                ],
-              ),
-              const Divider(),
-              const SizedBox(height: 12),
-              // Asset Class selector
-              DropdownButtonFormField<String>(
-                initialValue: _selectedAssetClass,
-                decoration: const InputDecoration(
-                  labelText: 'Asset Class',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.category_outlined),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Enter a symbol';
+                    }
+                    return null;
+                  },
                 ),
-                items: _assetClasses.map((item) {
-                  return DropdownMenuItem<String>(
-                    value: item,
-                    child: Text(item),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      _selectedAssetClass = val;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              // Stock ticker/Symbol
-              TextFormField(
-                controller: _symbolController,
-                textCapitalization: TextCapitalization.characters,
-                inputFormatters: [LengthLimitingTextInputFormatter(10)],
-                decoration: const InputDecoration(
-                  labelText: 'Ticker Symbol (e.g. AAPL, BND, BTC)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.label_outline),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _quantityController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Quantity',
+                    prefixIcon: Icon(Icons.pin_outlined),
+                  ),
+                  validator: _positiveNumberValidator,
                 ),
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
-                    return 'Please enter a valid stock symbol or ticker';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              // Quantity
-              TextFormField(
-                controller: _quantityController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _averageCostController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Average cost',
+                    prefixIcon: Icon(Icons.attach_money_outlined),
+                  ),
+                  validator: _positiveNumberValidator,
                 ),
-                decoration: const InputDecoration(
-                  labelText: 'Quantity Owned',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.pin_outlined),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _currentPriceController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Current price',
+                    hintText: 'Optional',
+                    prefixIcon: Icon(Icons.price_change_outlined),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return null;
+                    }
+                    return _positiveNumberValidator(value);
+                  },
                 ),
-                validator: (val) {
-                  if (val == null ||
-                      double.tryParse(val.trim()) == null ||
-                      double.parse(val.trim()) <= 0) {
-                    return 'Please enter a positive numeric quantity';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              // Average Cost
-              TextFormField(
-                controller: _averageCostController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Average Cost Basis per Unit (\$)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.attach_money_outlined),
-                ),
-                validator: (val) {
-                  if (val == null ||
-                      double.tryParse(val.trim()) == null ||
-                      double.parse(val.trim()) <= 0) {
-                    return 'Please enter a valid cost basis';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              // Current Live Price
-              TextFormField(
-                controller: _currentPriceController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(
-                  labelText:
-                      'Current Market Price (\$) [Optional, defaults to cost]',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.price_change_outlined),
-                ),
-                validator: (val) {
-                  if (val != null &&
-                      val.trim().isNotEmpty &&
-                      (double.tryParse(val.trim()) == null ||
-                          double.parse(val.trim()) <= 0)) {
-                    return 'Please enter a positive live price or leave blank';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-              // Active loading button
-              SizedBox(
-                height: 50,
-                child: FilledButton.icon(
+                const SizedBox(height: 20),
+                FilledButton.icon(
                   onPressed: _isLoading ? null : _submit,
                   icon: _isLoading
                       ? const SizedBox.square(
-                          dimension: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.add),
-                  label: const Text(
-                    'Add to Portfolio',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AikoColors.premiumPurple,
-                  ),
+                  label: const Text('Save holding'),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+String? _positiveNumberValidator(String? value) {
+  final number = double.tryParse(value?.trim() ?? '');
+  if (number == null || number <= 0) {
+    return 'Enter a positive number';
+  }
+  return null;
 }

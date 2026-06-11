@@ -8,7 +8,6 @@ import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
 import '../../accounts/presentation/accounts_screen.dart';
 import '../../categories/presentation/category_management_screen.dart';
-import '../../overview/presentation/finance_detail_screens.dart';
 import '../domain/transaction.dart';
 import 'transaction_detail_screen.dart';
 import 'transaction_form_screen.dart';
@@ -24,8 +23,13 @@ class TransactionListScreen extends ConsumerStatefulWidget {
 
 class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
   final _searchController = TextEditingController();
+  final _minAmountController = TextEditingController();
+  final _maxAmountController = TextEditingController();
   String _searchQuery = '';
   bool _isSearching = false;
+  _TransactionTypeFilter _typeFilter = _TransactionTypeFilter.all;
+  _TransactionDateFilter _dateFilter = _TransactionDateFilter.all;
+  bool _showAmountInputs = false;
 
   @override
   void initState() {
@@ -35,11 +39,19 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
         _searchQuery = _searchController.text.trim();
       });
     });
+    _minAmountController.addListener(_onFilterChanged);
+    _maxAmountController.addListener(_onFilterChanged);
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _minAmountController
+      ..removeListener(_onFilterChanged)
+      ..dispose();
+    _maxAmountController
+      ..removeListener(_onFilterChanged)
+      ..dispose();
     super.dispose();
   }
 
@@ -48,11 +60,36 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
   }
 
   void _stopSearch() {
-    _searchController.clear();
     setState(() {
-      _searchQuery = '';
       _isSearching = false;
+      _clearSearchFilters();
     });
+  }
+
+  void _onFilterChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _clearSearchFilters() {
+    _searchController.clear();
+    _minAmountController.clear();
+    _maxAmountController.clear();
+    _searchQuery = '';
+    _typeFilter = _TransactionTypeFilter.all;
+    _dateFilter = _TransactionDateFilter.all;
+    _showAmountInputs = false;
+  }
+
+  _TransactionSearchState get _searchState {
+    return _TransactionSearchState(
+      query: _searchQuery,
+      typeFilter: _typeFilter,
+      dateFilter: _dateFilter,
+      minAmount: _parseAmount(_minAmountController.text),
+      maxAmount: _parseAmount(_maxAmountController.text),
+    );
   }
 
   @override
@@ -67,7 +104,7 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
                 controller: _searchController,
                 autofocus: true,
                 decoration: const InputDecoration(
-                  hintText: 'Search transactions',
+                  hintText: 'Search merchant, note, tag, category',
                   prefixIcon: Icon(Icons.search),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
@@ -89,15 +126,6 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
               onPressed: _startSearch,
               icon: Icon(Icons.search, color: actionColor),
             ),
-          IconButton(
-            tooltip: 'Filters',
-            onPressed: () => Navigator.of(context, rootNavigator: true).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const TransactionSearchFiltersScreen(),
-              ),
-            ),
-            icon: Icon(Icons.tune_outlined, color: actionColor),
-          ),
           IconButton(
             tooltip: 'Accounts',
             onPressed: () => Navigator.of(context, rootNavigator: true).push(
@@ -137,7 +165,18 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
         data: (transactions) {
           return _MonthlyTransactionTabs(
             transactions: transactions,
-            searchQuery: _searchQuery,
+            isSearching: _isSearching,
+            searchState: _searchState,
+            typeFilter: _typeFilter,
+            dateFilter: _dateFilter,
+            minAmountController: _minAmountController,
+            maxAmountController: _maxAmountController,
+            showAmountInputs: _showAmountInputs,
+            onTypeFilterChanged: (value) => setState(() => _typeFilter = value),
+            onDateFilterChanged: (value) => setState(() => _dateFilter = value),
+            onToggleAmountInputs: () =>
+                setState(() => _showAmountInputs = !_showAmountInputs),
+            onClearSearch: () => setState(_clearSearchFilters),
           );
         },
       ),
@@ -153,14 +192,70 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
   }
 }
 
+double? _parseAmount(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) {
+    return null;
+  }
+  return double.tryParse(trimmed);
+}
+
+enum _TransactionTypeFilter { all, income, expense, transfer }
+
+enum _TransactionDateFilter { all, last30Days, thisMonth }
+
+class _TransactionSearchState {
+  const _TransactionSearchState({
+    required this.query,
+    required this.typeFilter,
+    required this.dateFilter,
+    required this.minAmount,
+    required this.maxAmount,
+  });
+
+  final String query;
+  final _TransactionTypeFilter typeFilter;
+  final _TransactionDateFilter dateFilter;
+  final double? minAmount;
+  final double? maxAmount;
+
+  bool get isActive {
+    return query.isNotEmpty ||
+        typeFilter != _TransactionTypeFilter.all ||
+        dateFilter != _TransactionDateFilter.all ||
+        minAmount != null ||
+        maxAmount != null;
+  }
+}
+
 class _MonthlyTransactionTabs extends StatelessWidget {
   const _MonthlyTransactionTabs({
     required this.transactions,
-    required this.searchQuery,
+    required this.isSearching,
+    required this.searchState,
+    required this.typeFilter,
+    required this.dateFilter,
+    required this.minAmountController,
+    required this.maxAmountController,
+    required this.showAmountInputs,
+    required this.onTypeFilterChanged,
+    required this.onDateFilterChanged,
+    required this.onToggleAmountInputs,
+    required this.onClearSearch,
   });
 
   final List<FinanceTransaction> transactions;
-  final String searchQuery;
+  final bool isSearching;
+  final _TransactionSearchState searchState;
+  final _TransactionTypeFilter typeFilter;
+  final _TransactionDateFilter dateFilter;
+  final TextEditingController minAmountController;
+  final TextEditingController maxAmountController;
+  final bool showAmountInputs;
+  final ValueChanged<_TransactionTypeFilter> onTypeFilterChanged;
+  final ValueChanged<_TransactionDateFilter> onDateFilterChanged;
+  final VoidCallback onToggleAmountInputs;
+  final VoidCallback onClearSearch;
 
   @override
   Widget build(BuildContext context) {
@@ -181,6 +276,19 @@ class _MonthlyTransactionTabs extends StatelessWidget {
               tabs: [for (final month in months) Tab(text: month.label)],
             ),
           ),
+          if (isSearching)
+            _TransactionInlineFilters(
+              typeFilter: typeFilter,
+              dateFilter: dateFilter,
+              minAmountController: minAmountController,
+              maxAmountController: maxAmountController,
+              showAmountInputs: showAmountInputs,
+              onTypeFilterChanged: onTypeFilterChanged,
+              onDateFilterChanged: onDateFilterChanged,
+              onToggleAmountInputs: onToggleAmountInputs,
+              onClearSearch: onClearSearch,
+              hasActiveFilters: searchState.isActive,
+            ),
           Expanded(
             child: TabBarView(
               children: [
@@ -188,8 +296,9 @@ class _MonthlyTransactionTabs extends StatelessWidget {
                   _TransactionMonthPage(
                     transactions: _transactionsForMonth(month, transactions),
                     allTransactions: transactions,
-                    searchQuery: searchQuery,
+                    searchState: searchState,
                     monthLabel: month.label,
+                    onClearSearch: onClearSearch,
                   ),
               ],
             ),
@@ -236,42 +345,223 @@ class _MonthlyTransactionTabs extends StatelessWidget {
   }
 }
 
+class _TransactionInlineFilters extends StatelessWidget {
+  const _TransactionInlineFilters({
+    required this.typeFilter,
+    required this.dateFilter,
+    required this.minAmountController,
+    required this.maxAmountController,
+    required this.showAmountInputs,
+    required this.onTypeFilterChanged,
+    required this.onDateFilterChanged,
+    required this.onToggleAmountInputs,
+    required this.onClearSearch,
+    required this.hasActiveFilters,
+  });
+
+  final _TransactionTypeFilter typeFilter;
+  final _TransactionDateFilter dateFilter;
+  final TextEditingController minAmountController;
+  final TextEditingController maxAmountController;
+  final bool showAmountInputs;
+  final ValueChanged<_TransactionTypeFilter> onTypeFilterChanged;
+  final ValueChanged<_TransactionDateFilter> onDateFilterChanged;
+  final VoidCallback onToggleAmountInputs;
+  final VoidCallback onClearSearch;
+  final bool hasActiveFilters;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Material(
+      color: theme.colorScheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  SegmentedButton<_TransactionTypeFilter>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(
+                        value: _TransactionTypeFilter.all,
+                        label: Text('All'),
+                      ),
+                      ButtonSegment(
+                        value: _TransactionTypeFilter.income,
+                        label: Text('Income'),
+                      ),
+                      ButtonSegment(
+                        value: _TransactionTypeFilter.expense,
+                        label: Text('Expense'),
+                      ),
+                      ButtonSegment(
+                        value: _TransactionTypeFilter.transfer,
+                        label: Text('Transfer'),
+                      ),
+                    ],
+                    selected: {typeFilter},
+                    onSelectionChanged: (value) =>
+                        onTypeFilterChanged(value.first),
+                  ),
+                  const SizedBox(width: 8),
+                  FilterChip(
+                    label: const Text('Amount'),
+                    selected: showAmountInputs,
+                    onSelected: (_) => onToggleAmountInputs(),
+                  ),
+                  const SizedBox(width: 8),
+                  PopupMenuButton<_TransactionDateFilter>(
+                    tooltip: 'Date filter',
+                    onSelected: onDateFilterChanged,
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: _TransactionDateFilter.all,
+                        child: Text('All dates'),
+                      ),
+                      PopupMenuItem(
+                        value: _TransactionDateFilter.thisMonth,
+                        child: Text('This month'),
+                      ),
+                      PopupMenuItem(
+                        value: _TransactionDateFilter.last30Days,
+                        child: Text('Last 30 days'),
+                      ),
+                    ],
+                    child: Chip(
+                      avatar: Icon(
+                        Icons.date_range_outlined,
+                        size: 18,
+                        color: dateFilter == _TransactionDateFilter.all
+                            ? AikoColors.mutedText
+                            : theme.colorScheme.primary,
+                      ),
+                      label: Text(_dateFilterLabel(dateFilter)),
+                      backgroundColor: dateFilter == _TransactionDateFilter.all
+                          ? null
+                          : theme.colorScheme.primary.withValues(alpha: 0.12),
+                      side: BorderSide(color: theme.colorScheme.outlineVariant),
+                    ),
+                  ),
+                  if (hasActiveFilters) ...[
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: onClearSearch,
+                      child: const Text('Clear all'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (showAmountInputs) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: minAmountController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Min',
+                        prefixIcon: Icon(Icons.attach_money),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: maxAmountController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Max',
+                        prefixIcon: Icon(Icons.attach_money),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _dateFilterLabel(_TransactionDateFilter filter) {
+  return switch (filter) {
+    _TransactionDateFilter.all => 'Date',
+    _TransactionDateFilter.thisMonth => 'This month',
+    _TransactionDateFilter.last30Days => 'Last 30 days',
+  };
+}
+
 class _TransactionMonthPage extends ConsumerWidget {
   const _TransactionMonthPage({
     required this.transactions,
     required this.allTransactions,
-    required this.searchQuery,
+    required this.searchState,
     required this.monthLabel,
+    required this.onClearSearch,
   });
 
   final List<FinanceTransaction> transactions;
   final List<FinanceTransaction> allTransactions;
-  final String searchQuery;
+  final _TransactionSearchState searchState;
   final String monthLabel;
+  final VoidCallback onClearSearch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final accounts =
+        ref.watch(accountsProvider).whenOrNull(data: (accounts) => accounts) ??
+        const <Account>[];
+    final categories =
+        ref
+            .watch(categoriesProvider)
+            .whenOrNull(data: (categories) => categories) ??
+        const [];
+    final accountsById = {for (final account in accounts) account.id: account};
+    final categoriesById = {
+      for (final category in categories) category.id: category,
+    };
+
     final filtered = transactions.where((tx) {
-      if (searchQuery.isEmpty) return true;
-      final query = searchQuery.toLowerCase();
-      return (tx.merchant ?? '').toLowerCase().contains(query) ||
-          (tx.note ?? '').toLowerCase().contains(query) ||
-          tx.tags.any((tag) => tag.toLowerCase().contains(query));
+      return _matchesSearchState(
+        transaction: tx,
+        searchState: searchState,
+        account: accountsById[tx.accountId],
+        categoryName: categoriesById[tx.categoryId]?.name,
+      );
     }).toList()..sort((a, b) => b.date.compareTo(a.date));
 
     if (filtered.isEmpty) {
       return AikoScreenState.empty(
-        title: 'No transactions in $monthLabel',
-        message: searchQuery.isEmpty
-            ? 'Add a transaction for this month when you are ready.'
-            : 'Try another search, or switch to another month.',
+        title: searchState.isActive
+            ? 'No matching transactions'
+            : 'No transactions in $monthLabel',
+        message: searchState.isActive
+            ? 'Try a different search or clear filters.'
+            : 'Add a transaction for this month when you are ready.',
+        action: searchState.isActive
+            ? TextButton(
+                onPressed: onClearSearch,
+                child: const Text('Clear search'),
+              )
+            : null,
       );
     }
 
     final groups = _groupTransactionsByDate(filtered);
-    final accounts =
-        ref.watch(accountsProvider).whenOrNull(data: (accounts) => accounts) ??
-        const <Account>[];
     final accountLabels = _accountLabelsForTransactions(
       transactions: filtered,
       allTransactions: allTransactions,
@@ -303,6 +593,72 @@ class _TransactionMonthPage extends ConsumerWidget {
         ],
       ],
     );
+  }
+
+  bool _matchesSearchState({
+    required FinanceTransaction transaction,
+    required _TransactionSearchState searchState,
+    required Account? account,
+    required String? categoryName,
+  }) {
+    if (!_matchesType(transaction, searchState.typeFilter)) {
+      return false;
+    }
+    if (!_matchesDate(transaction.date, searchState.dateFilter)) {
+      return false;
+    }
+    final amount = transaction.amount.amount.toDouble().abs();
+    if (searchState.minAmount != null && amount < searchState.minAmount!) {
+      return false;
+    }
+    if (searchState.maxAmount != null && amount > searchState.maxAmount!) {
+      return false;
+    }
+
+    final query = searchState.query.toLowerCase();
+    if (query.isEmpty) {
+      return true;
+    }
+
+    final searchableText = [
+      transaction.merchant,
+      transaction.note,
+      categoryName,
+      account?.name,
+      transaction.amount.amount.toString(),
+      transaction.amount.format(),
+      transaction.type.name,
+      ...transaction.tags,
+    ].whereType<String>().join(' ').toLowerCase();
+
+    return searchableText.contains(query);
+  }
+
+  bool _matchesType(
+    FinanceTransaction transaction,
+    _TransactionTypeFilter filter,
+  ) {
+    return switch (filter) {
+      _TransactionTypeFilter.all => true,
+      _TransactionTypeFilter.income =>
+        transaction.type == TransactionType.income,
+      _TransactionTypeFilter.expense =>
+        transaction.type == TransactionType.expense,
+      _TransactionTypeFilter.transfer =>
+        transaction.type == TransactionType.transfer,
+    };
+  }
+
+  bool _matchesDate(DateTime date, _TransactionDateFilter filter) {
+    final today = _dateOnly(DateTime.now());
+    final currentMonth = DateTime(today.year, today.month);
+    return switch (filter) {
+      _TransactionDateFilter.all => true,
+      _TransactionDateFilter.thisMonth => !date.isBefore(currentMonth),
+      _TransactionDateFilter.last30Days => !date.isBefore(
+        today.subtract(const Duration(days: 30)),
+      ),
+    };
   }
 
   List<_TransactionDateGroup> _groupTransactionsByDate(

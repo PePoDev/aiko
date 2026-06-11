@@ -52,7 +52,7 @@ The May 31, 2026 reference idea boards are product coverage targets, not a separ
 | Idea | Product Coverage | Implemented Route Examples |
 | :--- | :--- | :--- |
 | 1 | Core app, onboarding, dashboard, accounts | `/notifications`, in-page This Month Overview, in-page Edit layout |
-| 2 | Transactions, split/OCR, categories, accounts | `/transactions/search`, `/transactions/split`, `/transactions/receipt-review` |
+| 2 | Transactions, split/OCR, categories, accounts | inline transaction search and filters, `/transactions/split`, `/transactions/receipt-review` |
 | 3 | Budget, goals, cash flow, reports | `/budget/pace`, `/budget/safe-to-spend`, `/budget/cash-flow`, `/budget/cash-flow-sankey`, `/goals/detail`, `/goals/saving-plan`, `/goals/chance-of-success`, `/reports/monthly` |
 | 4 | Credit, debt, loans, net worth, portfolio, tax | `/credit-cards/detail`, `/debt-overview`, `/loans/detail`, `/net-worth`, `/portfolio/allocation`, `/portfolio/holding`, `/tax-analytics` |
 | 5 | Aiko AI, calculators, settings, extras | `/aiko-insights`, `/loan-calculator`, `/calculator-result`, `/profile-security` |

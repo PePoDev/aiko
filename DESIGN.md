@@ -253,7 +253,7 @@ Apply the system in batches:
 3. Money object screens: Accounts, Categories, Goals, Bills, Credit Cards, Debt.
 4. Wealth/planning screens: Portfolio, Assets, Tax Center, Reports, Export, Travel Mode.
 5. Aiko/learning screens: Aiko Assistant, Optimize, Review, Learning Hub, Subscription Plan.
-6. Placeholder screens: Accounting, import/export, calculators, saved scenarios, future expansion.
+6. Placeholder screens: import/export, calculators, saved scenarios, future expansion.
 
 May 31, 2026 idea boards are references for density, hierarchy, and feature coverage, not separate themes. Existing feature screens absorb useful states through subroutes, menus, or inline tools.
 
@@ -285,7 +285,7 @@ Entry points:
 | Goals | Tools menu exposes saving plan, chance of success, detail |
 | Reports | Monthly report opens from reports list |
 | Calculators | Hub links to focused calculators and result states |
-| Planning | Links to budget, goals, recurring transactions, credit, debt, net worth, assets, tax, accounting, portfolio, and travel. Do not expose Accounts or Categories as Planning cards. |
+| Planning | Links to budget, goals, recurring transactions, credit, debt, net worth, assets, tax, portfolio, and travel. Do not expose Accounts, Categories, or Accounting as Planning cards. |
 | Settings | Owns profile, security, privacy, sync, notification preferences |
 
 ## SVG Icons

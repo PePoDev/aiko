@@ -170,6 +170,64 @@ void main() {
     );
   });
 
+  testWidgets('overview editor manages each overview panel separately', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 1400);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _dashboardScope(
+        child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const HomeDashboardScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Edit layout'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Edit layout'));
+    await tester.pumpAndSettle();
+
+    for (final tooltip in const [
+      'Remove Daily spending',
+      'Remove Safe this week',
+      'Remove Daily summary',
+      'Remove Net earnings',
+      'Remove Category budgets',
+      'Remove Spending calendar',
+      'Remove This Month Overview',
+      'Remove Cash flow mapping',
+      'Remove Aiko Goal Simulator',
+    ]) {
+      final finder = find.byTooltip(tooltip);
+      for (
+        var attempt = 0;
+        attempt < 20 && finder.evaluate().isEmpty;
+        attempt++
+      ) {
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+        await tester.pumpAndSettle();
+      }
+      expect(find.byTooltip(tooltip), findsOneWidget);
+    }
+  });
+
   testWidgets(
     'home dashboard shows daily spending gauge and safe week summary',
     (tester) async {
@@ -405,19 +463,29 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Daily summary'), findsOneWidget);
+    expect(find.textContaining('Average spending'), findsOneWidget);
+    expect(find.textContaining('7 days:'), findsOneWidget);
+    expect(find.textContaining('30 days:'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Net earnings'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Net earnings'), findsOneWidget);
     expect(find.textContaining('This month net'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Category budgets'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Category budgets'), findsOneWidget);
+    expect(find.text('Coffee'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Spending calendar'),
       400,
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Spending calendar'), findsOneWidget);
-    expect(find.text('Coffee'), findsOneWidget);
-    expect(find.textContaining('Average spending'), findsOneWidget);
-    expect(find.textContaining('7 days:'), findsOneWidget);
-    expect(find.textContaining('30 days:'), findsOneWidget);
   });
 
   testWidgets('analytics widget opens detail customization screen', (

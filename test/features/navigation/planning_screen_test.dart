@@ -30,7 +30,6 @@ void main() {
       'Credit Cards',
       'Assets',
       'Tax Center',
-      'Accounting',
       'Portfolio',
       'Travel Mode',
     ]) {
@@ -39,5 +38,6 @@ void main() {
 
     expect(find.text('Accounts'), findsNothing);
     expect(find.text('Categories'), findsNothing);
+    expect(find.text('Accounting'), findsNothing);
   });
 }

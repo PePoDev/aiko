@@ -122,7 +122,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   ) {
     final visible = layout.where((item) => item.isVisible).toList();
     final children = <Widget>[];
-    var insertedMonthOverview = false;
 
     for (var index = 0; index < visible.length; index++) {
       if (children.isNotEmpty) {
@@ -130,19 +129,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       }
       final type = visible[index].type;
       children.add(_buildWidget(context, type, summary, dueItemsAsync));
-      if (type == DashboardWidgetType.dueItems) {
-        children
-          ..add(const SizedBox(height: 16))
-          ..add(_ThisMonthOverviewSection(summary: summary));
-        insertedMonthOverview = true;
-      }
-    }
-
-    if (!insertedMonthOverview) {
-      if (children.isNotEmpty) {
-        children.add(const SizedBox(height: 16));
-      }
-      children.add(_ThisMonthOverviewSection(summary: summary));
     }
 
     return children;
@@ -163,8 +149,20 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         prominent: true,
         child: Text(l10n.safeToSpendDescription(summary.safeToSpend.format())),
       ),
-      DashboardWidgetType.quickStats => const _OverviewQuickStatsRow(),
-      DashboardWidgetType.analytics => const _OverviewAnalyticsWidgets(),
+      DashboardWidgetType.dailySpending => const _DailySpendingPanel(),
+      DashboardWidgetType.safeThisWeek => const _SafeThisWeekPanel(),
+      DashboardWidgetType.dailySummary => const _OverviewAnalyticsWidget(
+        kind: _AnalyticsWidgetKind.dailySummary,
+      ),
+      DashboardWidgetType.netEarnings => const _OverviewAnalyticsWidget(
+        kind: _AnalyticsWidgetKind.netEarnings,
+      ),
+      DashboardWidgetType.categoryBudgets => const _OverviewAnalyticsWidget(
+        kind: _AnalyticsWidgetKind.categoryBudgets,
+      ),
+      DashboardWidgetType.spendingCalendar => const _OverviewAnalyticsWidget(
+        kind: _AnalyticsWidgetKind.spendingCalendar,
+      ),
       DashboardWidgetType.insights => const _OverviewInsightsSection(),
       DashboardWidgetType.dueItems => dueItemsAsync.when(
         loading: () => FinanceCard(
@@ -179,6 +177,11 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         ),
         data: (items) => DashboardDueItemsWidget(items: items),
       ),
+      DashboardWidgetType.thisMonthOverview => _ThisMonthOverviewSection(
+        summary: summary,
+      ),
+      DashboardWidgetType.cashFlowMapping => const _CashFlowMappingPanel(),
+      DashboardWidgetType.aikoGoalSimulator => const _AikoGoalSimulatorPanel(),
     };
   }
 }
@@ -425,127 +428,89 @@ class _AddWidgetsPanel extends ConsumerWidget {
   }
 }
 
-class _OverviewQuickStatsRow extends ConsumerWidget {
-  const _OverviewQuickStatsRow();
+class _DailySpendingPanel extends ConsumerWidget {
+  const _DailySpendingPanel();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final budgetsAsync = ref.watch(budgetsProvider);
     final transactionsAsync = ref.watch(transactionsProvider);
-    final summaryAsync = ref.watch(dashboardSummaryProvider);
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: budgetsAsync.when(
-              loading: () => const _OverviewMiniCard(
-                title: 'Daily spending',
-                value: 'Loading',
-                caption: 'Daily limit',
-                icon: Icons.today_outlined,
-                accentColor: AikoColors.warningOrange,
-              ),
-              error: (_, _) => const _OverviewMiniCard(
-                title: 'Daily spending',
-                value: 'Unavailable',
-                caption: 'Daily limit',
-                icon: Icons.today_outlined,
-                accentColor: AikoColors.warningOrange,
-              ),
-              data: (budgets) {
-                Budget? dailyBudget;
-                for (final budget in budgets) {
-                  if (budget.isDailySpending) {
-                    dailyBudget = budget;
-                    break;
-                  }
-                }
-                if (dailyBudget == null) {
-                  return const _OverviewMiniCard(
-                    title: 'Daily spending',
-                    value: 'Set up Daily Spending to track today\'s limit',
-                    caption: '',
-                    icon: Icons.today_outlined,
-                    accentColor: AikoColors.warningOrange,
-                    valueMaxLines: 2,
-                  );
-                }
-
-                return transactionsAsync.when(
-                  loading: () => const _OverviewMiniCard(
-                    title: 'Daily spending',
-                    value: 'Loading',
-                    caption: 'Current / limit',
-                    icon: Icons.today_outlined,
-                    accentColor: AikoColors.warningOrange,
-                  ),
-                  error: (_, _) => const _OverviewMiniCard(
-                    title: 'Daily spending',
-                    value: 'Unavailable',
-                    caption: 'Current / limit',
-                    icon: Icons.today_outlined,
-                    accentColor: AikoColors.warningOrange,
-                  ),
-                  data: (transactions) {
-                    final current = _dailySpendingUsed(
-                      budget: dailyBudget!,
-                      transactions: transactions,
-                    );
-                    final progress = _budgetProgressValue(
-                      used: current,
-                      limit: dailyBudget.amount,
-                    );
-
-                    return _OverviewMiniCard(
-                      title: 'Daily spending',
-                      value:
-                          '${current.format()} / ${dailyBudget.amount.format()}',
-                      caption: 'Current / limit',
-                      icon: Icons.today_outlined,
-                      accentColor: AikoColors.warningOrange,
-                      progressValue: progress,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              BudgetFormScreen(initialBudget: dailyBudget),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: summaryAsync.when(
-              loading: () => const _OverviewMiniCard(
-                title: 'Safe this week',
-                value: 'Loading',
-                caption: 'Estimate',
-                icon: Icons.savings_outlined,
-                accentColor: AikoColors.analyticsTeal,
-              ),
-              error: (_, _) => const _OverviewMiniCard(
-                title: 'Safe this week',
-                value: 'Unavailable',
-                caption: 'Estimate',
-                icon: Icons.savings_outlined,
-                accentColor: AikoColors.analyticsTeal,
-              ),
-              data: (summary) => _OverviewMiniCard(
-                title: 'Safe this week',
-                value: summary.safeToSpend.format(),
-                caption: 'Estimate',
-                icon: Icons.savings_outlined,
-                accentColor: AikoColors.analyticsTeal,
-              ),
-            ),
-          ),
-        ],
+    return budgetsAsync.when(
+      loading: () => const _OverviewMiniCard(
+        title: 'Daily spending',
+        value: 'Loading',
+        caption: 'Daily limit',
+        icon: Icons.today_outlined,
+        accentColor: AikoColors.warningOrange,
       ),
+      error: (_, _) => const _OverviewMiniCard(
+        title: 'Daily spending',
+        value: 'Unavailable',
+        caption: 'Daily limit',
+        icon: Icons.today_outlined,
+        accentColor: AikoColors.warningOrange,
+      ),
+      data: (budgets) {
+        Budget? dailyBudget;
+        for (final budget in budgets) {
+          if (budget.isDailySpending) {
+            dailyBudget = budget;
+            break;
+          }
+        }
+        if (dailyBudget == null) {
+          return const _OverviewMiniCard(
+            title: 'Daily spending',
+            value: 'Set up Daily Spending to track today\'s limit',
+            caption: '',
+            icon: Icons.today_outlined,
+            accentColor: AikoColors.warningOrange,
+            valueMaxLines: 2,
+          );
+        }
+
+        return transactionsAsync.when(
+          loading: () => const _OverviewMiniCard(
+            title: 'Daily spending',
+            value: 'Loading',
+            caption: 'Current / limit',
+            icon: Icons.today_outlined,
+            accentColor: AikoColors.warningOrange,
+          ),
+          error: (_, _) => const _OverviewMiniCard(
+            title: 'Daily spending',
+            value: 'Unavailable',
+            caption: 'Current / limit',
+            icon: Icons.today_outlined,
+            accentColor: AikoColors.warningOrange,
+          ),
+          data: (transactions) {
+            final current = _dailySpendingUsed(
+              budget: dailyBudget!,
+              transactions: transactions,
+            );
+            final progress = _budgetProgressValue(
+              used: current,
+              limit: dailyBudget.amount,
+            );
+
+            return _OverviewMiniCard(
+              title: 'Daily spending',
+              value: '${current.format()} / ${dailyBudget.amount.format()}',
+              caption: 'Current / limit',
+              icon: Icons.today_outlined,
+              accentColor: AikoColors.warningOrange,
+              progressValue: progress,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => BudgetFormScreen(initialBudget: dailyBudget),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -579,6 +544,39 @@ class _OverviewQuickStatsRow extends ConsumerWidget {
       return 0;
     }
     return (used.amount.toDouble() / limit.amount.toDouble()).clamp(0.0, 1.0);
+  }
+}
+
+class _SafeThisWeekPanel extends ConsumerWidget {
+  const _SafeThisWeekPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summaryAsync = ref.watch(dashboardSummaryProvider);
+
+    return summaryAsync.when(
+      loading: () => const _OverviewMiniCard(
+        title: 'Safe this week',
+        value: 'Loading',
+        caption: 'Estimate',
+        icon: Icons.savings_outlined,
+        accentColor: AikoColors.analyticsTeal,
+      ),
+      error: (_, _) => const _OverviewMiniCard(
+        title: 'Safe this week',
+        value: 'Unavailable',
+        caption: 'Estimate',
+        icon: Icons.savings_outlined,
+        accentColor: AikoColors.analyticsTeal,
+      ),
+      data: (summary) => _OverviewMiniCard(
+        title: 'Safe this week',
+        value: summary.safeToSpend.format(),
+        caption: 'Estimate',
+        icon: Icons.savings_outlined,
+        accentColor: AikoColors.analyticsTeal,
+      ),
+    );
   }
 }
 
@@ -689,141 +687,34 @@ class _OverviewInsightsSection extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final textTheme = Theme.of(context).textTheme;
     final insightsAsync = ref.watch(aikoInsightsProvider);
-    final summaryAsync = ref.watch(dashboardSummaryProvider);
-    final goalsAsync = ref.watch(goalsProvider);
 
     return insightsAsync.when(
-      loading: () => const AikoScreenState.loading(),
-      error: (error, stack) => AikoScreenState.error(
-        title: l10n.insights,
-        message: l10n.dashboardUnavailableMessage,
+      loading: () => const FinanceCard(
+        title: 'Insights',
+        icon: Icons.insights,
+        accentColor: AikoColors.analyticsTeal,
+        child: Text('Loading Aiko insights...'),
       ),
-      data: (insights) => Column(
-        children: [
-          summaryAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, _) => const SizedBox.shrink(),
-            data: (summary) {
-              var totalIncome = summary.monthlyIncome.amount.toDouble();
-              if (totalIncome <= 0) totalIncome = 5000.0;
-              var totalSpending = summary.monthlySpending.amount.toDouble();
-              if (totalSpending <= 0) totalSpending = 2500.0;
+      error: (error, stack) => FinanceCard(
+        title: l10n.insights,
+        icon: Icons.insights,
+        accentColor: AikoColors.analyticsTeal,
+        child: Text(l10n.dashboardUnavailableMessage),
+      ),
+      data: (insights) {
+        if (insights.isEmpty) {
+          return const FinanceCard(
+            title: 'Insights',
+            icon: Icons.insights,
+            accentColor: AikoColors.analyticsTeal,
+            child: Text(
+              'Aiko will show personalized insights here after more activity.',
+            ),
+          );
+        }
 
-              var bills = totalIncome * 0.45;
-              var discretionary = totalIncome * 0.35;
-              var savings = totalIncome * 0.20;
-
-              if (totalSpending > totalIncome) {
-                bills = totalIncome * 0.55;
-                discretionary = totalIncome * 0.40;
-                savings = totalIncome * 0.05;
-              }
-
-              final currencyFormat = NumberFormat.simpleCurrency(name: 'USD');
-
-              return FinanceCard(
-                title: 'Cash Flow Mapping',
-                icon: Icons.bubble_chart_outlined,
-                accentColor: AikoColors.analyticsTeal,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'A visual mapping of your monthly income flows into bills, discretionary spending, and savings cushions.',
-                      style: textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 4,
-                                height: 40,
-                                color: AikoColors.successGreen,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(l10n.income, style: textTheme.bodySmall),
-                              Text(
-                                currencyFormat.format(totalIncome),
-                                style: textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          flex: 4,
-                          child: SizedBox(
-                            height: 150,
-                            child: CustomPaint(
-                              painter: _SankeyPainter(
-                                billsRatio: bills / totalIncome,
-                                discretionaryRatio: discretionary / totalIncome,
-                                savingsRatio: savings / totalIncome,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 3,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              _FlowAmount(
-                                label: 'Fixed Bills',
-                                amount: currencyFormat.format(bills),
-                                color: AikoColors.warningOrange,
-                              ),
-                              const SizedBox(height: 20),
-                              _FlowAmount(
-                                label: 'Discretionary',
-                                amount: currencyFormat.format(discretionary),
-                                color: AikoColors.deepBlue,
-                              ),
-                              const SizedBox(height: 20),
-                              _FlowAmount(
-                                label: 'Savings',
-                                amount: currencyFormat.format(savings),
-                                color: AikoColors.analyticsTeal,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          goalsAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, _) => const SizedBox.shrink(),
-            data: (goals) {
-              final activeGoals = goals
-                  .where((goal) => goal.status == GoalStatus.active)
-                  .toList();
-              if (activeGoals.isEmpty) {
-                return const _MockGoalSimulationCard();
-              }
-
-              return Column(
-                children: [
-                  for (final goal in activeGoals) ...[
-                    _GoalMonteCarloCard(goal: goal),
-                    const SizedBox(height: 16),
-                  ],
-                ],
-              );
-            },
-          ),
-          if (insights.isNotEmpty)
+        return Column(
+          children: [
             for (final insight in insights) ...[
               FinanceCard(
                 title: insight.title,
@@ -846,8 +737,173 @@ class _OverviewInsightsSection extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
             ],
-        ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _CashFlowMappingPanel extends ConsumerWidget {
+  const _CashFlowMappingPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final textTheme = Theme.of(context).textTheme;
+    final summaryAsync = ref.watch(dashboardSummaryProvider);
+
+    return summaryAsync.when(
+      loading: () => const FinanceCard(
+        title: 'Cash flow mapping',
+        icon: Icons.bubble_chart_outlined,
+        accentColor: AikoColors.analyticsTeal,
+        child: Text('Loading cash flow mapping...'),
       ),
+      error: (_, _) => const FinanceCard(
+        title: 'Cash flow mapping',
+        icon: Icons.bubble_chart_outlined,
+        accentColor: AikoColors.analyticsTeal,
+        child: Text('Unable to load cash flow mapping right now.'),
+      ),
+      data: (summary) {
+        var totalIncome = summary.monthlyIncome.amount.toDouble();
+        if (totalIncome <= 0) totalIncome = 5000.0;
+        var totalSpending = summary.monthlySpending.amount.toDouble();
+        if (totalSpending <= 0) totalSpending = 2500.0;
+
+        var bills = totalIncome * 0.45;
+        var discretionary = totalIncome * 0.35;
+        var savings = totalIncome * 0.20;
+
+        if (totalSpending > totalIncome) {
+          bills = totalIncome * 0.55;
+          discretionary = totalIncome * 0.40;
+          savings = totalIncome * 0.05;
+        }
+
+        final currencyFormat = NumberFormat.simpleCurrency(name: 'USD');
+
+        return FinanceCard(
+          title: 'Cash flow mapping',
+          icon: Icons.bubble_chart_outlined,
+          accentColor: AikoColors.analyticsTeal,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'A visual mapping of your monthly income flows into bills, discretionary spending, and savings cushions.',
+                style: textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 40,
+                          color: AikoColors.successGreen,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(l10n.income, style: textTheme.bodySmall),
+                        Text(
+                          currencyFormat.format(totalIncome),
+                          style: textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    flex: 4,
+                    child: SizedBox(
+                      height: 150,
+                      child: CustomPaint(
+                        painter: _SankeyPainter(
+                          billsRatio: bills / totalIncome,
+                          discretionaryRatio: discretionary / totalIncome,
+                          savingsRatio: savings / totalIncome,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _FlowAmount(
+                          label: 'Fixed Bills',
+                          amount: currencyFormat.format(bills),
+                          color: AikoColors.warningOrange,
+                        ),
+                        const SizedBox(height: 20),
+                        _FlowAmount(
+                          label: 'Discretionary',
+                          amount: currencyFormat.format(discretionary),
+                          color: AikoColors.deepBlue,
+                        ),
+                        const SizedBox(height: 20),
+                        _FlowAmount(
+                          label: 'Savings',
+                          amount: currencyFormat.format(savings),
+                          color: AikoColors.analyticsTeal,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AikoGoalSimulatorPanel extends ConsumerWidget {
+  const _AikoGoalSimulatorPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final goalsAsync = ref.watch(goalsProvider);
+
+    return goalsAsync.when(
+      loading: () => const FinanceCard(
+        title: 'Aiko Goal Simulator',
+        icon: Icons.query_stats_outlined,
+        accentColor: AikoColors.premiumPurple,
+        child: Text('Loading goal simulation...'),
+      ),
+      error: (_, _) => const FinanceCard(
+        title: 'Aiko Goal Simulator',
+        icon: Icons.query_stats_outlined,
+        accentColor: AikoColors.premiumPurple,
+        child: Text('Unable to load goal simulation right now.'),
+      ),
+      data: (goals) {
+        final activeGoals = goals
+            .where((goal) => goal.status == GoalStatus.active)
+            .toList();
+        if (activeGoals.isEmpty) {
+          return const _MockGoalSimulationCard();
+        }
+
+        return Column(
+          children: [
+            for (final goal in activeGoals) ...[
+              _GoalMonteCarloCard(goal: goal),
+              const SizedBox(height: 16),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -1215,8 +1271,10 @@ class _QuickAddMenu extends StatelessWidget {
   }
 }
 
-class _OverviewAnalyticsWidgets extends ConsumerWidget {
-  const _OverviewAnalyticsWidgets();
+class _OverviewAnalyticsWidget extends ConsumerWidget {
+  const _OverviewAnalyticsWidget({required this.kind});
+
+  final _AnalyticsWidgetKind kind;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1225,13 +1283,13 @@ class _OverviewAnalyticsWidgets extends ConsumerWidget {
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return transactionsAsync.when(
-      loading: () => const FinanceCard(
-        title: 'Daily summary',
+      loading: () => FinanceCard(
+        title: kind.title,
         icon: Icons.bar_chart_outlined,
         child: Text('Loading transaction analytics...'),
       ),
       error: (error, stack) => FinanceCard(
-        title: 'Daily summary',
+        title: kind.title,
         icon: Icons.bar_chart_outlined,
         child: Text('Unable to load transaction analytics right now.'),
       ),
@@ -1242,55 +1300,50 @@ class _OverviewAnalyticsWidgets extends ConsumerWidget {
             categoriesAsync.whenOrNull(data: (items) => items) ??
             const <Category>[];
 
-        return Column(
-          children: [
-            _DailySummaryCard(
-              transactions: transactions,
-              onTap: () => _openAnalyticsDetail(
-                context,
-                kind: _AnalyticsWidgetKind.dailySummary,
-                transactions: transactions,
-                budgets: budgets,
-                categories: categories,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _MonthlyNetEarningsCard(
-              transactions: transactions,
-              onTap: () => _openAnalyticsDetail(
-                context,
-                kind: _AnalyticsWidgetKind.netEarnings,
-                transactions: transactions,
-                budgets: budgets,
-                categories: categories,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _CategoryBudgetCard(
+        return switch (kind) {
+          _AnalyticsWidgetKind.dailySummary => _DailySummaryCard(
+            transactions: transactions,
+            onTap: () => _openAnalyticsDetail(
+              context,
+              kind: kind,
               transactions: transactions,
               budgets: budgets,
               categories: categories,
-              onTap: () => _openAnalyticsDetail(
-                context,
-                kind: _AnalyticsWidgetKind.categoryBudgets,
-                transactions: transactions,
-                budgets: budgets,
-                categories: categories,
-              ),
             ),
-            const SizedBox(height: 16),
-            _SpendingCalendarCard(
+          ),
+          _AnalyticsWidgetKind.netEarnings => _MonthlyNetEarningsCard(
+            transactions: transactions,
+            onTap: () => _openAnalyticsDetail(
+              context,
+              kind: kind,
               transactions: transactions,
-              onTap: () => _openAnalyticsDetail(
-                context,
-                kind: _AnalyticsWidgetKind.spendingCalendar,
-                transactions: transactions,
-                budgets: budgets,
-                categories: categories,
-              ),
+              budgets: budgets,
+              categories: categories,
             ),
-          ],
-        );
+          ),
+          _AnalyticsWidgetKind.categoryBudgets => _CategoryBudgetCard(
+            transactions: transactions,
+            budgets: budgets,
+            categories: categories,
+            onTap: () => _openAnalyticsDetail(
+              context,
+              kind: kind,
+              transactions: transactions,
+              budgets: budgets,
+              categories: categories,
+            ),
+          ),
+          _AnalyticsWidgetKind.spendingCalendar => _SpendingCalendarCard(
+            transactions: transactions,
+            onTap: () => _openAnalyticsDetail(
+              context,
+              kind: kind,
+              transactions: transactions,
+              budgets: budgets,
+              categories: categories,
+            ),
+          ),
+        };
       },
     );
   }
@@ -1320,6 +1373,17 @@ enum _AnalyticsWidgetKind {
   netEarnings,
   categoryBudgets,
   spendingCalendar,
+}
+
+extension on _AnalyticsWidgetKind {
+  String get title {
+    return switch (this) {
+      _AnalyticsWidgetKind.dailySummary => 'Daily summary',
+      _AnalyticsWidgetKind.netEarnings => 'Net earnings',
+      _AnalyticsWidgetKind.categoryBudgets => 'Category budgets',
+      _AnalyticsWidgetKind.spendingCalendar => 'Spending calendar',
+    };
+  }
 }
 
 class _DailySummaryCard extends StatelessWidget {

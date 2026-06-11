@@ -26,10 +26,10 @@ platforms:
 ## 2. Information Architecture & App Structure
 The app uses GoRouter for routing and is structured around a bottom navigation shell with 5 primary tabs:
 
-1.  **Overview (`/home`)**: Customizable dashboard with widgets (Aiko greeting, This Month Overview metrics, Net Worth, Safe-to-Spend, Budget Progress, Recent Transactions), primary-color action icons, and a scrollable Edit layout action at the bottom of the page content.
+1.  **Overview (`/home`)**: Customizable dashboard with independently managed panels (Aiko greeting, Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, Aiko Goal Simulator), primary-color action icons, and a scrollable Edit layout action at the bottom of the page content.
 2.  **Transactions (`/transactions`)**: Unified search, filters, recurring entries, and auto-categorization rules.
 3.  **Aiko Assistant (`/aiko`)**: Direct chat UI (`/aiko-assistant`), optimization engine (`/aiko-optimize`), and personalized course hub.
-4.  **Planning (`/planning`)**: Budget, goals, recurring transactions, credit/debt, net worth, assets, tax, accounting, portfolio, and travel planning entry points.
+4.  **Planning (`/planning`)**: Budget, goals, recurring transactions, credit/debt, net worth, assets, tax, portfolio, and travel planning entry points.
 5.  **Settings (`/settings`)**: Profile, security, privacy, sync, notification, language, and secondary workspace entry points.
 
 Planning intentionally does not show Accounts or Categories cards. Those remain direct feature routes or contextual tools owned by their feature flows.
@@ -131,7 +131,7 @@ Saved calculations store as `SavedCalculatorScenario` and can be converted into 
 ## 7. UX Acceptance Criteria
 *   **Offline-first usability:** Supplemental product routes must render useful local/demo states without requiring Supabase authentication.
 *   **Task completion:** Search/filter, save, confirm, split, and calculator result screens use clear primary actions, preferably sticky bottom actions on mobile.
-*   **Dashboard customization:** This Month Overview content lives inside the main Overview scroll. Layout editing uses a scrollable in-page action; Overview and Transactions app-bar action icons use the same primary action color.
+*   **Dashboard customization:** Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, and Aiko Goal Simulator are separate Overview panels that can be managed in layout editing. Layout editing uses a scrollable in-page action; Overview and Transactions app-bar action icons use the same primary action color.
 *   **No duplicate destinations:** Main tabs own core workflows; extra idea-board states are exposed through existing navigation, action menus, or detail routes.
 *   **Financial clarity:** Primary balances, progress, and risk states appear before supporting Aiko guidance.
 *   **Accessibility:** Icons need semantic labels or adjacent text where meaning is not obvious.

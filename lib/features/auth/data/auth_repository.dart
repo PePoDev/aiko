@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_client_provider.dart';
@@ -16,13 +17,20 @@ class AuthRepository {
   AuthRepository({
     SecureStorageService? storage,
     AuthBootstrapGateway? bootstrapGateway,
+    AuthOAuthSignInGateway? oauthGateway,
   }) : _storage = storage ?? FlutterSecureStorageService(),
-       _bootstrapGateway = bootstrapGateway;
+       _bootstrapGateway = bootstrapGateway,
+       _oauthGateway = oauthGateway;
 
   static const _knownAccountKey = 'aiko_known_account';
+  static const googleOAuthRedirectUrl = String.fromEnvironment(
+    'GOOGLE_OAUTH_REDIRECT_URL',
+    defaultValue: 'aiko://login-callback',
+  );
 
   final SecureStorageService _storage;
   final AuthBootstrapGateway? _bootstrapGateway;
+  final AuthOAuthSignInGateway? _oauthGateway;
   AuthSession? _session;
 
   Future<bool> hasKnownAccount() async {
@@ -102,9 +110,17 @@ class AuthRepository {
     return _session!;
   }
 
-  Future<void> signInWithGoogle() async {
-    final client = AikoSupabase.requireClient();
-    await client.auth.signInWithOAuth(OAuthProvider.google);
+  Stream<AuthState> authStateChanges() {
+    final gateway = _oauthGateway ?? _trySupabaseOAuthGateway();
+    return gateway?.authStateChanges() ?? const Stream.empty();
+  }
+
+  Future<bool> signInWithGoogle() {
+    final gateway = _oauthGateway ?? _requireSupabaseOAuthGateway();
+    return gateway.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: kIsWeb ? null : googleOAuthRedirectUrl,
+    );
   }
 
   Future<void> signOut() async {
@@ -197,6 +213,40 @@ class AuthRepository {
     String email,
   ) {
     return _ensureProfileAndDefaultsExist(userId, email);
+  }
+
+  AuthOAuthSignInGateway? _trySupabaseOAuthGateway() {
+    final client = AikoSupabase.tryClient();
+    if (client == null) {
+      return null;
+    }
+    return SupabaseAuthOAuthSignInGateway(client);
+  }
+
+  AuthOAuthSignInGateway _requireSupabaseOAuthGateway() {
+    return SupabaseAuthOAuthSignInGateway(AikoSupabase.requireClient());
+  }
+}
+
+abstract interface class AuthOAuthSignInGateway {
+  Stream<AuthState> authStateChanges();
+
+  Future<bool> signInWithOAuth(OAuthProvider provider, {String? redirectTo});
+}
+
+class SupabaseAuthOAuthSignInGateway implements AuthOAuthSignInGateway {
+  const SupabaseAuthOAuthSignInGateway(this._client);
+
+  final SupabaseClient _client;
+
+  @override
+  Stream<AuthState> authStateChanges() {
+    return _client.auth.onAuthStateChange;
+  }
+
+  @override
+  Future<bool> signInWithOAuth(OAuthProvider provider, {String? redirectTo}) {
+    return _client.auth.signInWithOAuth(provider, redirectTo: redirectTo);
   }
 }
 

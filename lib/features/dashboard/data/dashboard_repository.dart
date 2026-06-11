@@ -118,10 +118,19 @@ class DashboardRepository {
   ) {
     final type = switch (row['widget_key'] as String? ?? '') {
       'summary' => DashboardWidgetType.aikoWelcome,
-      'pace' => DashboardWidgetType.quickStats,
+      'pace' => DashboardWidgetType.dailySpending,
       'goals' => DashboardWidgetType.insights,
-      'analytics' => DashboardWidgetType.analytics,
+      'analytics' => DashboardWidgetType.dailySummary,
       'due_items' => DashboardWidgetType.dueItems,
+      'this_month_overview' => DashboardWidgetType.thisMonthOverview,
+      'daily_spending' => DashboardWidgetType.dailySpending,
+      'safe_this_week' => DashboardWidgetType.safeThisWeek,
+      'daily_summary' => DashboardWidgetType.dailySummary,
+      'net_earnings' => DashboardWidgetType.netEarnings,
+      'category_budgets' => DashboardWidgetType.categoryBudgets,
+      'spending_calendar' => DashboardWidgetType.spendingCalendar,
+      'cash_flow_mapping' => DashboardWidgetType.cashFlowMapping,
+      'aiko_goal_simulator' => DashboardWidgetType.aikoGoalSimulator,
       _ => DashboardWidgetType.aikoWelcome,
     };
 

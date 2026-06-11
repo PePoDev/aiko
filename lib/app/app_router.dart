@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../features/accounting/presentation/accounting_screen.dart';
 import '../features/accounts/presentation/accounts_screen.dart';
 import '../features/aiko_assistant/presentation/aiko_assistant_screen.dart';
 import '../features/aiko_optimize/presentation/aiko_optimize_screen.dart';
@@ -256,10 +255,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
           GoRoute(
             path: '/calculator-result',
             builder: (context, state) => const CalculatorResultScreen(),
-          ),
-          GoRoute(
-            path: '/accounting',
-            builder: (context, state) => const AccountingScreen(),
           ),
           GoRoute(
             path: '/learning-hub',

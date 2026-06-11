@@ -1,23 +1,46 @@
 enum DashboardWidgetType {
   aikoWelcome,
-  quickStats,
-  analytics,
+  dailySpending,
+  safeThisWeek,
+  dailySummary,
+  netEarnings,
+  categoryBudgets,
+  spendingCalendar,
   insights,
-  dueItems;
+  dueItems,
+  thisMonthOverview,
+  cashFlowMapping,
+  aikoGoalSimulator;
 
   String get storageKey => name;
 
   String get label {
     return switch (this) {
       DashboardWidgetType.aikoWelcome => 'Aiko welcome',
-      DashboardWidgetType.quickStats => 'Quick stats',
-      DashboardWidgetType.analytics => 'Analytics',
+      DashboardWidgetType.dailySpending => 'Daily spending',
+      DashboardWidgetType.safeThisWeek => 'Safe this week',
+      DashboardWidgetType.dailySummary => 'Daily summary',
+      DashboardWidgetType.netEarnings => 'Net earnings',
+      DashboardWidgetType.categoryBudgets => 'Category budgets',
+      DashboardWidgetType.spendingCalendar => 'Spending calendar',
       DashboardWidgetType.insights => 'Insights',
-      DashboardWidgetType.dueItems => 'Due items',
+      DashboardWidgetType.dueItems => 'Upcoming due dates',
+      DashboardWidgetType.thisMonthOverview => 'This Month Overview',
+      DashboardWidgetType.cashFlowMapping => 'Cash flow mapping',
+      DashboardWidgetType.aikoGoalSimulator => 'Aiko Goal Simulator',
     };
   }
 
   static DashboardWidgetType? fromStorageKey(String value) {
+    final legacyType = switch (value) {
+      'quickStats' => DashboardWidgetType.dailySpending,
+      'analytics' => DashboardWidgetType.dailySummary,
+      _ => null,
+    };
+    if (legacyType != null) {
+      return legacyType;
+    }
+
     for (final type in values) {
       if (type.storageKey == value) {
         return type;
@@ -45,24 +68,59 @@ class DashboardWidgetPreference {
       position: 0,
     ),
     DashboardWidgetPreference(
-      type: DashboardWidgetType.quickStats,
+      type: DashboardWidgetType.dailySpending,
       isVisible: true,
       position: 1,
     ),
     DashboardWidgetPreference(
-      type: DashboardWidgetType.analytics,
+      type: DashboardWidgetType.safeThisWeek,
       isVisible: true,
       position: 2,
     ),
     DashboardWidgetPreference(
-      type: DashboardWidgetType.insights,
+      type: DashboardWidgetType.dailySummary,
       isVisible: true,
       position: 3,
     ),
     DashboardWidgetPreference(
-      type: DashboardWidgetType.dueItems,
+      type: DashboardWidgetType.netEarnings,
       isVisible: true,
       position: 4,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.categoryBudgets,
+      isVisible: true,
+      position: 5,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.spendingCalendar,
+      isVisible: true,
+      position: 6,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.insights,
+      isVisible: true,
+      position: 7,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.dueItems,
+      isVisible: true,
+      position: 8,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.thisMonthOverview,
+      isVisible: true,
+      position: 9,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.cashFlowMapping,
+      isVisible: true,
+      position: 10,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.aikoGoalSimulator,
+      isVisible: true,
+      position: 11,
     ),
   ];
 

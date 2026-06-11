@@ -71,13 +71,6 @@ class PlanningScreen extends StatelessWidget {
       color: AikoColors.warningOrange,
     ),
     _PlanningItem(
-      title: 'Accounting',
-      description: 'Review journals, reconciliation, and ledger balances.',
-      path: '/accounting',
-      icon: Icons.fact_check_outlined,
-      color: AikoColors.primaryBlue,
-    ),
-    _PlanningItem(
       title: 'Portfolio',
       description: 'Track holdings, gains, allocation, and rebalance alerts.',
       path: '/portfolio',

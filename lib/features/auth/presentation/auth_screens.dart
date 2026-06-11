@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -109,26 +111,38 @@ class _SplashScreenState extends State<SplashScreen> {
 }
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({AuthRepository? authRepository, super.key})
+    : _authRepository = authRepository;
+
+  final AuthRepository? _authRepository;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _authRepository = AuthRepository();
+  late final AuthRepository _authRepository;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  StreamSubscription<AuthState>? _authSubscription;
   var _isSubmitting = false;
+  var _isGoogleSignInPending = false;
 
   @override
   void initState() {
     super.initState();
+    _authRepository = widget._authRepository ?? AuthRepository();
     _emailController.text = 'name@email.com';
+    _authSubscription = _authRepository.authStateChanges().listen((state) {
+      if (state.event == AuthChangeEvent.signedIn && _isGoogleSignInPending) {
+        unawaited(_completeGoogleSignIn());
+      }
+    });
   }
 
   @override
   void dispose() {
+    unawaited(_authSubscription?.cancel());
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -186,26 +200,56 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleGoogleSignIn() async {
+    setState(() {
+      _isSubmitting = true;
+      _isGoogleSignInPending = true;
+    });
+    try {
+      final launched = await _authRepository.signInWithGoogle();
+      if (!mounted) return;
+      if (launched) {
+        _showMessage(
+          'Continue Google sign-in in browser, then return to Aiko.',
+        );
+        setState(() => _isSubmitting = false);
+      } else {
+        _isGoogleSignInPending = false;
+        setState(() => _isSubmitting = false);
+        _showMessage('Unable to open Google sign-in.');
+      }
+    } on AuthException catch (error) {
+      _isGoogleSignInPending = false;
+      _showMessage(error.message);
+      if (mounted) setState(() => _isSubmitting = false);
+    } on StateError catch (error) {
+      _isGoogleSignInPending = false;
+      _showMessage(error.message);
+      if (mounted) setState(() => _isSubmitting = false);
+    } catch (_) {
+      _isGoogleSignInPending = false;
+      _showMessage('Unable to sign in with Google right now.');
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _completeGoogleSignIn() async {
+    if (!mounted) return;
+    _isGoogleSignInPending = false;
     setState(() => _isSubmitting = true);
     try {
-      await _authRepository.signInWithGoogle();
-      if (!mounted) return;
-
       await _authRepository.restoreSession();
       if (!mounted) return;
       if (_authRepository.hasActiveSession()) {
         context.go('/home');
       } else {
-        _showMessage(
-          'Continue Google sign-in in browser, then return to Aiko.',
-        );
+        _showMessage('Google sign-in completed, but no session was found.');
       }
     } on AuthException catch (error) {
       _showMessage(error.message);
     } on StateError catch (error) {
       _showMessage(error.message);
     } catch (_) {
-      _showMessage('Unable to sign in with Google right now.');
+      _showMessage('Unable to finish Google sign-in right now.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

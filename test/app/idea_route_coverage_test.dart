@@ -49,6 +49,14 @@ void main() {
     expect(find.text('Route not found'), findsOneWidget);
     expect(find.text('This Month Overview'), findsNothing);
   });
+
+  testWidgets('/accounting has been removed', (tester) async {
+    await tester.pumpWidget(_routerApp('/accounting'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Route not found'), findsOneWidget);
+    expect(find.text('Accounting'), findsNothing);
+  });
 }
 
 Widget _routerApp(String initialLocation) {

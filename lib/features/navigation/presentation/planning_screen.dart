@@ -57,21 +57,6 @@ class PlanningScreen extends StatelessWidget {
       color: AikoColors.successGreen,
     ),
     _PlanningItem(
-      title: 'Accounts',
-      description:
-          'Manage bank, cash, wallet, credit, loan, and asset accounts.',
-      path: '/accounts',
-      icon: Icons.account_balance_wallet_outlined,
-      color: AikoColors.primaryBlue,
-    ),
-    _PlanningItem(
-      title: 'Categories',
-      description: 'Organize transaction and budget categories.',
-      path: '/categories',
-      icon: Icons.category_outlined,
-      color: AikoColors.analyticsTeal,
-    ),
-    _PlanningItem(
       title: 'Assets',
       description: 'Log assets and net worth records.',
       path: '/assets',

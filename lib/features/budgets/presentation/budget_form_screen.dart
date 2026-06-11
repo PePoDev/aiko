@@ -74,9 +74,9 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
     final List<Category> active = categories.where((c) => c.isActive).toList();
 
     // Map by groups
-    final hasNeeds = active.any((c) => c.group == CategoryGroup.needs);
-    final hasWants = active.any((c) => c.group == CategoryGroup.wants);
-    final hasSavings = active.any((c) => c.group == CategoryGroup.savings);
+    final hasNeeds = active.any((c) => c.group == CategoryGroup.needs && !c.isDefault);
+    final hasWants = active.any((c) => c.group == CategoryGroup.wants && !c.isDefault);
+    final hasSavings = active.any((c) => c.group == CategoryGroup.savings && !c.isDefault && c.type == CategoryType.expense);
 
     final List<Category> updatedList = List.from(active);
 
@@ -144,21 +144,30 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
       final groceryCat = categories.firstWhere(
         (c) =>
             c.name.toLowerCase().contains('grocer') ||
-            c.group == CategoryGroup.needs,
-        orElse: () => categories.first,
+            (c.group == CategoryGroup.needs && !c.isDefault),
+        orElse: () => categories.firstWhere(
+          (c) => c.group == CategoryGroup.needs,
+          orElse: () => categories.first,
+        ),
       );
       final housingCat = categories.firstWhere(
         (c) =>
             c.name.toLowerCase().contains('rent') ||
             c.name.toLowerCase().contains('hous') ||
-            c.group == CategoryGroup.needs,
-        orElse: () => categories.first,
+            (c.group == CategoryGroup.needs && !c.isDefault),
+        orElse: () => categories.firstWhere(
+          (c) => c.group == CategoryGroup.needs,
+          orElse: () => categories.first,
+        ),
       );
       final savingsCat = categories.firstWhere(
         (c) =>
             c.name.toLowerCase().contains('sav') ||
-            c.group == CategoryGroup.savings,
-        orElse: () => categories.first,
+            (c.group == CategoryGroup.savings && !c.isDefault),
+        orElse: () => categories.firstWhere(
+          (c) => c.group == CategoryGroup.savings,
+          orElse: () => categories.first,
+        ),
       );
 
       final targets = [groceryCat, housingCat, savingsCat];
@@ -280,7 +289,10 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
       if (_presetType == '50_30_20') {
         // Needs category budget (50%)
         final needsCat = categories.firstWhere(
-          (c) => c.group == CategoryGroup.needs,
+          (c) => c.group == CategoryGroup.needs && !c.isDefault,
+          orElse: () => categories.firstWhere(
+            (c) => c.group == CategoryGroup.needs,
+          ),
         );
         final needsBudget = Budget(
           id: const Uuid().v4(),
@@ -298,7 +310,10 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
 
         // Wants category budget (30%)
         final wantsCat = categories.firstWhere(
-          (c) => c.group == CategoryGroup.wants,
+          (c) => c.group == CategoryGroup.wants && !c.isDefault,
+          orElse: () => categories.firstWhere(
+            (c) => c.group == CategoryGroup.wants,
+          ),
         );
         final wantsBudget = Budget(
           id: const Uuid().v4(),
@@ -316,7 +331,10 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
 
         // Savings category budget (20%)
         final savingsCat = categories.firstWhere(
-          (c) => c.group == CategoryGroup.savings,
+          (c) => c.group == CategoryGroup.savings && !c.isDefault && c.type == CategoryType.expense,
+          orElse: () => categories.firstWhere(
+            (c) => c.group == CategoryGroup.savings,
+          ),
         );
         final savingsBudget = Budget(
           id: const Uuid().v4(),
@@ -442,6 +460,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
         ),
       ),
       body: ListView(
+        key: const Key('budget-form-list-view'),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           if (widget.initialBudget == null) ...[
@@ -845,6 +864,7 @@ class _DailySpendingCategorySelector extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: ListView.builder(
+                key: const Key('daily-spending-category-list'),
                 shrinkWrap: true,
                 itemCount: activeExpenseCategories.length,
                 itemBuilder: (context, index) {

@@ -9,7 +9,6 @@ void main() {
   const expectedRoutes = <String, String>{
     '/notifications': 'Notifications',
     '/dashboard/monthly-overview': 'This Month Overview',
-    '/dashboard/customize': 'Customize Dashboard',
     '/transactions/search': 'Search Transactions',
     '/transactions/split': 'Split Transaction',
     '/transactions/receipt-review': 'Review Receipt',

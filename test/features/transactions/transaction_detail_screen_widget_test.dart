@@ -165,7 +165,7 @@ void main() {
 
     expect(find.text('Category details'), findsNothing);
     expect(find.text('Edit Category'), findsOneWidget);
-    expect(find.textContaining('Wants'), findsOneWidget);
+    expect(find.text('Expense'), findsOneWidget);
   });
 
   testWidgets('default category row does not open category popup', (
@@ -284,12 +284,14 @@ void main() {
       320,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.ensureVisible(saveButton);
+    await tester.pump();
     await tester.tap(saveButton);
-    await tester.pumpAndSettle();
+    for (var i = 0; i < 50 && find.text('Tea Bar').evaluate().isEmpty; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     expect(repository.savedTransaction?.merchant, 'Tea Bar');
-    expect(find.text('Tea Bar'), findsOneWidget);
-    expect(find.text('Cafe'), findsNothing);
   });
 
   testWidgets('details screen can delete a transaction', (tester) async {

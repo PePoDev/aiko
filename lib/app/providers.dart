@@ -5,9 +5,11 @@ import '../features/categories/application/category_service.dart';
 import '../features/budgets/data/budget_repository.dart';
 import '../features/categories/data/category_repository.dart';
 import '../features/dashboard/data/dashboard_due_item_repository.dart';
+import '../features/dashboard/data/dashboard_layout_repository.dart';
 import '../features/dashboard/data/dashboard_repository.dart';
 import '../features/dashboard/domain/dashboard_due_item.dart';
 import '../features/dashboard/domain/dashboard_summary.dart';
+import '../features/dashboard/domain/dashboard_widget_preference.dart';
 import '../features/goals/data/goal_repository.dart';
 import '../features/goals/domain/goal.dart';
 import '../features/insights/data/aiko_insight_repository.dart';
@@ -66,6 +68,12 @@ final dashboardDueItemRepositoryProvider = Provider<DashboardDueItemRepository>(
   },
 );
 
+final dashboardLayoutRepositoryProvider = Provider<DashboardLayoutRepository>((
+  ref,
+) {
+  return DashboardLayoutRepository();
+});
+
 class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
   @override
   Future<List<FinanceTransaction>> build() async {
@@ -82,7 +90,7 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
     late final FinanceTransaction saved;
     final previousTransactions = state.hasValue ? state.value : null;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    final nextState = await AsyncValue.guard(() async {
       final repo = ref.read(transactionRepositoryProvider);
       final transactions = previousTransactions ?? await repo.list();
       final previousTransaction = _transactionById(
@@ -98,6 +106,10 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
       }
       return repo.list();
     });
+    if (!ref.mounted) {
+      return saved;
+    }
+    state = nextState;
     if (state.hasError) {
       Error.throwWithStackTrace(state.error!, state.stackTrace!);
     }
@@ -562,3 +574,74 @@ final dashboardDueItemsProvider =
       final repo = ref.watch(dashboardDueItemRepositoryProvider);
       return repo.loadUpcomingItems(DateTime.now());
     });
+
+class DashboardLayoutNotifier
+    extends AsyncNotifier<List<DashboardWidgetPreference>> {
+  @override
+  Future<List<DashboardWidgetPreference>> build() {
+    return ref.watch(dashboardLayoutRepositoryProvider).load();
+  }
+
+  Future<void> reorder(int oldIndex, int newIndex) async {
+    final layout = [...?state.value];
+    if (layout.isEmpty) {
+      return;
+    }
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+    final item = layout.removeAt(oldIndex);
+    layout.insert(newIndex, item);
+    await _save(_withPositions(layout));
+  }
+
+  Future<void> reorderItem(int oldIndex, int newIndex) async {
+    final layout = [...?state.value];
+    if (layout.isEmpty) {
+      return;
+    }
+    final item = layout.removeAt(oldIndex);
+    layout.insert(newIndex, item);
+    await _save(_withPositions(layout));
+  }
+
+  Future<void> removeWidget(DashboardWidgetType type) async {
+    await _setVisibility(type, false);
+  }
+
+  Future<void> addWidget(DashboardWidgetType type) async {
+    await _setVisibility(type, true);
+  }
+
+  Future<void> resetToDefault() async {
+    await _save(DashboardWidgetPreference.defaultLayout);
+  }
+
+  Future<void> _setVisibility(DashboardWidgetType type, bool isVisible) async {
+    final layout = [
+      for (final item in [...?state.value])
+        item.type == type ? item.copyWith(isVisible: isVisible) : item,
+    ];
+    await _save(_withPositions(layout));
+  }
+
+  Future<void> _save(List<DashboardWidgetPreference> layout) async {
+    state = AsyncData(layout);
+    await ref.read(dashboardLayoutRepositoryProvider).save(layout);
+  }
+
+  List<DashboardWidgetPreference> _withPositions(
+    List<DashboardWidgetPreference> layout,
+  ) {
+    return [
+      for (var index = 0; index < layout.length; index++)
+        layout[index].copyWith(position: index),
+    ];
+  }
+}
+
+final dashboardLayoutProvider =
+    AsyncNotifierProvider<
+      DashboardLayoutNotifier,
+      List<DashboardWidgetPreference>
+    >(DashboardLayoutNotifier.new);

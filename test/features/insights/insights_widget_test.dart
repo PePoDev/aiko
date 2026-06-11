@@ -1,6 +1,7 @@
 import 'package:aiko/app/providers.dart';
 import 'package:aiko/features/insights/domain/aiko_insight.dart';
 import 'package:aiko/features/dashboard/domain/dashboard_summary.dart';
+import 'package:aiko/features/dashboard/domain/dashboard_widget_preference.dart';
 import 'package:aiko/features/dashboard/presentation/home_dashboard_screen.dart';
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/budgets/domain/budget.dart';
@@ -35,6 +36,7 @@ void main() {
               ),
             ),
             dashboardDueItemsProvider.overrideWith((ref) async => const []),
+            dashboardLayoutProvider.overrideWith(_DashboardLayoutNotifier.new),
             goalsProvider.overrideWith(() => _GoalsNotifier()),
             budgetsProvider.overrideWith(() => _BudgetsNotifier()),
             transactionsProvider.overrideWith(() => _TransactionsNotifier()),
@@ -82,6 +84,13 @@ void main() {
       expect(find.text('Open monthly review'), findsNothing);
     },
   );
+}
+
+class _DashboardLayoutNotifier extends DashboardLayoutNotifier {
+  @override
+  Future<List<DashboardWidgetPreference>> build() async {
+    return DashboardWidgetPreference.defaultLayout;
+  }
 }
 
 class _GoalsNotifier extends GoalsNotifier {

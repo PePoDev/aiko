@@ -74,10 +74,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             builder: (context, state) => const DashboardMonthlyOverviewScreen(),
           ),
           GoRoute(
-            path: '/dashboard/customize',
-            builder: (context, state) => const DashboardCustomizationScreen(),
-          ),
-          GoRoute(
             path: '/transactions',
             pageBuilder: (context, state) =>
                 _fadePage(context, state, const TransactionListScreen()),

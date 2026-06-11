@@ -28,8 +28,6 @@ void main() {
       'Recurring Transactions',
       'Debt and Loans',
       'Credit Cards',
-      'Accounts',
-      'Categories',
       'Assets',
       'Tax Center',
       'Accounting',
@@ -38,5 +36,8 @@ void main() {
     ]) {
       expect(find.text(label), findsOneWidget);
     }
+
+    expect(find.text('Accounts'), findsNothing);
+    expect(find.text('Categories'), findsNothing);
   });
 }

@@ -70,7 +70,7 @@ void main() {
     expect(find.text('Planning'), findsOneWidget);
     expect(find.text('Menu'), findsOneWidget);
     expect(find.text('Settings'), findsNothing);
-    expect(find.byIcon(Icons.menu), findsOneWidget);
+    expect(find.byIcon(Icons.grid_view_outlined), findsOneWidget);
     expect(find.byIcon(Icons.settings_outlined), findsNothing);
     expect(find.text('Insights'), findsNothing);
 

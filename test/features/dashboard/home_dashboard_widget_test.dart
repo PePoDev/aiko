@@ -4,6 +4,7 @@ import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/budgets/domain/budget.dart';
 import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/dashboard/domain/dashboard_summary.dart';
+import 'package:aiko/features/dashboard/domain/dashboard_widget_preference.dart';
 import 'package:aiko/features/dashboard/presentation/home_dashboard_screen.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
 import 'package:aiko/l10n/app_localizations.dart';
@@ -43,6 +44,61 @@ void main() {
       expect(find.text('Safe this week'), findsOneWidget);
     },
   );
+
+  testWidgets('overview actions use bottom edit control and primary icons', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 1400);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final theme = AikoTheme.light();
+
+    await tester.pumpWidget(
+      _dashboardScope(
+        child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: theme,
+          home: const HomeDashboardScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit layout'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.text('Edit layout'),
+      ),
+      findsNothing,
+    );
+    expect(tester.getCenter(find.text('Edit layout')).dy, greaterThan(1200));
+
+    final calendarIcon = tester.widget<Icon>(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byIcon(Icons.calendar_month_outlined),
+      ),
+    );
+    final notificationIcon = tester.widget<Icon>(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byIcon(Icons.notifications_none),
+      ),
+    );
+    expect(calendarIcon.color, theme.colorScheme.primary);
+    expect(notificationIcon.color, theme.colorScheme.primary);
+  });
 
   testWidgets(
     'home dashboard shows daily spending gauge and safe week summary',
@@ -348,6 +404,7 @@ Widget _dashboardScope({
         ),
       ),
       dashboardDueItemsProvider.overrideWith((ref) async => const []),
+      dashboardLayoutProvider.overrideWith(_DashboardLayoutNotifier.new),
       transactionsProvider.overrideWith(
         () => _TransactionsNotifier(transactions),
       ),
@@ -357,6 +414,13 @@ Widget _dashboardScope({
     ],
     child: child,
   );
+}
+
+class _DashboardLayoutNotifier extends DashboardLayoutNotifier {
+  @override
+  Future<List<DashboardWidgetPreference>> build() async {
+    return DashboardWidgetPreference.defaultLayout;
+  }
 }
 
 class _TransactionsNotifier extends TransactionsNotifier {

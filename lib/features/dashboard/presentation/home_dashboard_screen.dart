@@ -14,19 +14,32 @@ import '../../../theme/aiko_colors.dart';
 import '../../budgets/domain/budget.dart';
 import '../../budgets/presentation/budget_form_screen.dart';
 import '../../categories/domain/category.dart';
+import '../domain/dashboard_due_item.dart';
+import '../domain/dashboard_summary.dart';
+import '../domain/dashboard_widget_preference.dart';
 import '../../goals/domain/goal.dart';
 import '../../transactions/domain/transaction.dart';
 import '../../transactions/presentation/transaction_form_screen.dart';
 import 'widgets/dashboard_due_items_widget.dart';
 
-class HomeDashboardScreen extends ConsumerWidget {
+class HomeDashboardScreen extends ConsumerStatefulWidget {
   const HomeDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeDashboardScreen> createState() =>
+      _HomeDashboardScreenState();
+}
+
+class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
+  var _isEditing = false;
+
+  @override
+  Widget build(BuildContext context) {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
     final dueItemsAsync = ref.watch(dashboardDueItemsProvider);
+    final layoutAsync = ref.watch(dashboardLayoutProvider);
     final l10n = AppLocalizations.of(context);
+    final actionColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       appBar: AppBar(
@@ -35,64 +48,249 @@ class HomeDashboardScreen extends ConsumerWidget {
           IconButton(
             tooltip: 'Monthly overview',
             onPressed: () => context.push('/dashboard/monthly-overview'),
-            icon: const Icon(Icons.calendar_month_outlined),
-          ),
-          IconButton(
-            tooltip: 'Customize dashboard',
-            onPressed: () => context.push('/dashboard/customize'),
-            icon: const Icon(Icons.dashboard_customize_outlined),
+            icon: Icon(Icons.calendar_month_outlined, color: actionColor),
           ),
           IconButton(
             tooltip: 'Notifications',
             onPressed: () => context.push('/notifications'),
-            icon: const Icon(Icons.notifications_none),
+            icon: Icon(Icons.notifications_none, color: actionColor),
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-        children: summaryAsync.when(
-          loading: () => [const AikoScreenState.loading()],
-          error: (error, stack) => [
+      body: summaryAsync.when(
+        loading: () => ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+          children: [AikoScreenState.loading()],
+        ),
+        error: (error, stack) => ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+          children: [
             AikoScreenState.error(
               title: l10n.dashboardUnavailable,
               message: l10n.dashboardUnavailableMessage,
             ),
           ],
-          data: (summary) => [
-            FinanceCard(
-              title: l10n.hiAiko,
-              icon: Icons.auto_awesome,
-              accentColor: AikoColors.premiumPurple,
-              prominent: true,
-              child: Text(
-                l10n.safeToSpendDescription(summary.safeToSpend.format()),
+        ),
+        data: (summary) => layoutAsync.when(
+          loading: () => ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+            children: [AikoScreenState.loading()],
+          ),
+          error: (_, _) => ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+            children: _layoutChildren(
+              context,
+              DashboardWidgetPreference.defaultLayout,
+              summary,
+              dueItemsAsync,
+            ),
+          ),
+          data: (layout) => _isEditing
+              ? _EditableDashboardList(
+                  layout: layout,
+                  itemBuilder: (type) =>
+                      _buildWidget(context, type, summary, dueItemsAsync),
+                )
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+                  children: _layoutChildren(
+                    context,
+                    layout,
+                    summary,
+                    dueItemsAsync,
+                  ),
+                ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: TextButton.icon(
+            onPressed: () => setState(() => _isEditing = !_isEditing),
+            style: TextButton.styleFrom(
+              foregroundColor: actionColor,
+              minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
-            const SizedBox(height: 16),
-            const _OverviewQuickStatsRow(),
-            const SizedBox(height: 16),
-            const _OverviewAnalyticsWidgets(),
-            const SizedBox(height: 16),
-            const _OverviewInsightsSection(),
-            const SizedBox(height: 16),
-            dueItemsAsync.when(
-              loading: () => FinanceCard(
-                title: l10n.upcomingDueDates,
-                icon: Icons.event_available_outlined,
-                child: Text(l10n.loadingBills),
-              ),
-              error: (error, stack) => FinanceCard(
-                title: l10n.upcomingDueDates,
-                icon: Icons.event_available_outlined,
-                child: Text(l10n.unableToLoadDueDates),
-              ),
-              data: (items) => DashboardDueItemsWidget(items: items),
-            ),
-          ],
+            icon: Icon(_isEditing ? Icons.check : Icons.edit_outlined),
+            label: Text(_isEditing ? 'Done' : 'Edit layout'),
+          ),
         ),
       ),
       floatingActionButton: const _QuickAddMenu(),
+    );
+  }
+
+  List<Widget> _layoutChildren(
+    BuildContext context,
+    List<DashboardWidgetPreference> layout,
+    DashboardSummary summary,
+    AsyncValue<List<DashboardDueItem>> dueItemsAsync,
+  ) {
+    final visible = layout.where((item) => item.isVisible).toList();
+    return [
+      for (var index = 0; index < visible.length; index++) ...[
+        if (index > 0) const SizedBox(height: 16),
+        _buildWidget(context, visible[index].type, summary, dueItemsAsync),
+      ],
+    ];
+  }
+
+  Widget _buildWidget(
+    BuildContext context,
+    DashboardWidgetType type,
+    DashboardSummary summary,
+    AsyncValue<List<DashboardDueItem>> dueItemsAsync,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    return switch (type) {
+      DashboardWidgetType.aikoWelcome => FinanceCard(
+        title: l10n.hiAiko,
+        icon: Icons.auto_awesome,
+        accentColor: AikoColors.premiumPurple,
+        prominent: true,
+        child: Text(l10n.safeToSpendDescription(summary.safeToSpend.format())),
+      ),
+      DashboardWidgetType.quickStats => const _OverviewQuickStatsRow(),
+      DashboardWidgetType.analytics => const _OverviewAnalyticsWidgets(),
+      DashboardWidgetType.insights => const _OverviewInsightsSection(),
+      DashboardWidgetType.dueItems => dueItemsAsync.when(
+        loading: () => FinanceCard(
+          title: l10n.upcomingDueDates,
+          icon: Icons.event_available_outlined,
+          child: Text(l10n.loadingBills),
+        ),
+        error: (error, stack) => FinanceCard(
+          title: l10n.upcomingDueDates,
+          icon: Icons.event_available_outlined,
+          child: Text(l10n.unableToLoadDueDates),
+        ),
+        data: (items) => DashboardDueItemsWidget(items: items),
+      ),
+    };
+  }
+}
+
+class _EditableDashboardList extends ConsumerWidget {
+  const _EditableDashboardList({
+    required this.layout,
+    required this.itemBuilder,
+  });
+
+  final List<DashboardWidgetPreference> layout;
+  final Widget Function(DashboardWidgetType type) itemBuilder;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visible = layout.where((item) => item.isVisible).toList();
+    final hidden = layout.where((item) => !item.isVisible).toList();
+    final notifier = ref.read(dashboardLayoutProvider.notifier);
+
+    return ReorderableListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+      itemCount: visible.length + 1,
+      onReorderItem: notifier.reorderItem,
+      buildDefaultDragHandles: false,
+      itemBuilder: (context, index) {
+        if (index == visible.length) {
+          return _AddWidgetsPanel(
+            key: const ValueKey('dashboard-add-widgets'),
+            hidden: hidden,
+          );
+        }
+        final item = visible[index];
+        return Padding(
+          key: ValueKey(item.type),
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Stack(
+            children: [
+              AnimatedScale(
+                scale: 0.99,
+                duration: const Duration(milliseconds: 150),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AikoColors.primaryBlue),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: itemBuilder(item.type),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Row(
+                  children: [
+                    IconButton.filledTonal(
+                      tooltip: 'Remove ${item.type.label}',
+                      onPressed: () => notifier.removeWidget(item.type),
+                      icon: const Icon(Icons.delete_outline),
+                    ),
+                    const SizedBox(width: 8),
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: const IconButton.filledTonal(
+                        tooltip: 'Drag to reorder',
+                        onPressed: null,
+                        icon: Icon(Icons.drag_handle),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AddWidgetsPanel extends ConsumerWidget {
+  const _AddWidgetsPanel({super.key, required this.hidden});
+
+  final List<DashboardWidgetPreference> hidden;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(dashboardLayoutProvider.notifier);
+    return FinanceCard(
+      title: 'Add widgets',
+      icon: Icons.add_chart_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (hidden.isEmpty)
+            Text(
+              'All overview widgets are visible.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            )
+          else
+            for (final item in hidden)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(item.type.label),
+                trailing: IconButton(
+                  tooltip: 'Add ${item.type.label}',
+                  onPressed: () => notifier.addWidget(item.type),
+                  icon: const Icon(Icons.add_circle_outline),
+                ),
+              ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: notifier.resetToDefault,
+              icon: const Icon(Icons.restart_alt),
+              label: const Text('Reset to default'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

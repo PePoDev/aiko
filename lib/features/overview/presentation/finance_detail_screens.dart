@@ -137,75 +137,6 @@ class DashboardMonthlyOverviewScreen extends StatelessWidget {
   }
 }
 
-class DashboardCustomizationScreen extends StatefulWidget {
-  const DashboardCustomizationScreen({super.key});
-
-  @override
-  State<DashboardCustomizationScreen> createState() =>
-      _DashboardCustomizationScreenState();
-}
-
-class _DashboardCustomizationScreenState
-    extends State<DashboardCustomizationScreen> {
-  final Map<String, bool> _cards = {
-    'Net Worth': true,
-    'Safe to Spend': true,
-    'Monthly Budget': true,
-    'Cash Flow': true,
-    'Goals': true,
-    'Portfolio': true,
-    'Recent Transactions': false,
-    'Top Spending Categories': false,
-    'Spending Insights': false,
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    return AikoDetailScaffold(
-      title: 'Customize Dashboard',
-      actions: [
-        TextButton(
-          onPressed: () {
-            setState(() {
-              for (final key in _cards.keys) {
-                _cards[key] = true;
-              }
-            });
-          },
-          child: const Text('Reset'),
-        ),
-      ],
-      children: [
-        const AikoInlineNotice(
-          title: 'Choose what you scan first',
-          message:
-              'Dashboard cards stay compact and ordered for one-handed review.',
-          icon: Icons.dashboard_customize_outlined,
-        ),
-        Card(
-          child: Column(
-            children: [
-              for (final entry in _cards.entries)
-                SwitchListTile(
-                  value: entry.value,
-                  title: Text(entry.key),
-                  secondary: Icon(_dashboardIcon(entry.key)),
-                  onChanged: (value) =>
-                      setState(() => _cards[entry.key] = value),
-                ),
-            ],
-          ),
-        ),
-        FilledButton.icon(
-          onPressed: () => _showSnack(context, 'Dashboard preferences saved.'),
-          icon: const Icon(Icons.save_outlined),
-          label: const Text('Save Changes'),
-        ),
-      ],
-    );
-  }
-}
-
 class TransactionSearchFiltersScreen extends StatefulWidget {
   const TransactionSearchFiltersScreen({super.key});
 
@@ -1727,20 +1658,6 @@ class _SliderCard extends StatelessWidget {
       ),
     );
   }
-}
-
-IconData _dashboardIcon(String label) {
-  return switch (label) {
-    'Net Worth' => Icons.account_balance_wallet_outlined,
-    'Safe to Spend' => Icons.savings_outlined,
-    'Monthly Budget' => Icons.pie_chart_outline,
-    'Cash Flow' => Icons.waterfall_chart,
-    'Goals' => Icons.flag_outlined,
-    'Portfolio' => Icons.trending_up_outlined,
-    'Recent Transactions' => Icons.receipt_long_outlined,
-    'Top Spending Categories' => Icons.category_outlined,
-    _ => Icons.lightbulb_outline,
-  };
 }
 
 void _showSnack(BuildContext context, String message) {

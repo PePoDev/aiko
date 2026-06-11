@@ -116,16 +116,19 @@ class DashboardRepository {
   static DashboardWidgetPreference _preferenceFromRow(
     Map<String, dynamic> row,
   ) {
-    final size = DashboardWidgetSize.values.firstWhere(
-      (item) => item.name == (row['size'] as String? ?? 'compact'),
-      orElse: () => DashboardWidgetSize.compact,
-    );
+    final type = switch (row['widget_key'] as String? ?? '') {
+      'summary' => DashboardWidgetType.aikoWelcome,
+      'pace' => DashboardWidgetType.quickStats,
+      'goals' => DashboardWidgetType.insights,
+      'analytics' => DashboardWidgetType.analytics,
+      'due_items' => DashboardWidgetType.dueItems,
+      _ => DashboardWidgetType.aikoWelcome,
+    };
 
     return DashboardWidgetPreference(
-      widgetKey: row['widget_key'] as String,
+      type: type,
       isVisible: row['is_visible'] as bool? ?? true,
       position: row['position'] as int? ?? 0,
-      size: size,
     );
   }
 
@@ -153,25 +156,6 @@ class DashboardRepository {
   }
 
   static List<DashboardWidgetPreference> _defaultPreferences() {
-    return const [
-      DashboardWidgetPreference(
-        widgetKey: 'summary',
-        isVisible: true,
-        position: 0,
-        size: DashboardWidgetSize.expanded,
-      ),
-      DashboardWidgetPreference(
-        widgetKey: 'pace',
-        isVisible: true,
-        position: 1,
-        size: DashboardWidgetSize.compact,
-      ),
-      DashboardWidgetPreference(
-        widgetKey: 'goals',
-        isVisible: true,
-        position: 2,
-        size: DashboardWidgetSize.compact,
-      ),
-    ];
+    return DashboardWidgetPreference.defaultLayout;
   }
 }

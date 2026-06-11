@@ -304,7 +304,14 @@ void main() {
       find.widgetWithText(TextField, 'Daily limit'),
       '250',
     );
-    await tester.tap(find.text('Dining'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Included categories'),
+      50.0,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Coffee'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save changes'));
     await tester.pumpAndSettle();
@@ -312,7 +319,7 @@ void main() {
     expect(repository._budgets.single.amount.amount.toString(), '250');
     expect(repository._budgets.single.includedCategoryIds, [
       'groceries',
-      'dining',
+      'default-expense-coffee',
     ]);
     expect(repository._budgets.single.isAppDefined, isTrue);
   });

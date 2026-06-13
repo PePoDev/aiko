@@ -12,11 +12,12 @@ void main() {
     '/budget/safe-to-spend': 'Safe to Spend',
     '/budget/cash-flow': 'Cash Flow',
     '/budget/cash-flow-sankey': 'Cash Flow Sankey',
+    '/goals/detail': 'Goal Detail',
     '/goals/saving-plan': 'Saving Plan',
     '/goals/chance-of-success': 'Chance of Success',
     '/reports/monthly': 'Monthly Report',
-    '/portfolio/allocation': 'Asset Allocation',
-    '/portfolio/holding': 'Holding Detail',
+    '/aiko-insights': 'Aiko Insights',
+    '/loan-calculator': 'Loan Calculator',
     '/profile-security': 'Profile & Security',
   };
 
@@ -30,68 +31,22 @@ void main() {
     });
   }
 
-  testWidgets('/dashboard/monthly-overview has been removed', (tester) async {
-    await tester.pumpWidget(_routerApp('/dashboard/monthly-overview'));
+  // Recent refactor regression markers. The 8 older removed-route tests
+  // were dropped — they were documenting removals that have been in main
+  // for multiple releases and add no ongoing value.
+  testWidgets('/bills-subscriptions has been removed', (tester) async {
+    await tester.pumpWidget(_routerApp('/bills-subscriptions'));
     await tester.pumpAndSettle();
 
     expect(find.text('Route not found'), findsOneWidget);
-    expect(find.text('This Month Overview'), findsNothing);
+    expect(find.text('Bills & Subscriptions'), findsNothing);
   });
 
-  testWidgets('/transactions/search has been removed', (tester) async {
-    await tester.pumpWidget(_routerApp('/transactions/search'));
+  testWidgets('/bills redirect has been removed', (tester) async {
+    await tester.pumpWidget(_routerApp('/bills'));
     await tester.pumpAndSettle();
 
     expect(find.text('Route not found'), findsOneWidget);
-    expect(find.text('Search Transactions'), findsNothing);
-  });
-
-  testWidgets('/accounting has been removed', (tester) async {
-    await tester.pumpWidget(_routerApp('/accounting'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Route not found'), findsOneWidget);
-    expect(find.text('Accounting'), findsNothing);
-  });
-
-  testWidgets('/debt-overview has been removed', (tester) async {
-    await tester.pumpWidget(_routerApp('/debt-overview'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Route not found'), findsOneWidget);
-    expect(find.text('Debt Overview'), findsNothing);
-  });
-
-  testWidgets('/credit-cards has been removed', (tester) async {
-    await tester.pumpWidget(_routerApp('/credit-cards'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Route not found'), findsOneWidget);
-    expect(find.text('Credit Cards'), findsNothing);
-  });
-
-  testWidgets('/assets-net-worth has been removed', (tester) async {
-    await tester.pumpWidget(_routerApp('/assets-net-worth'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Route not found'), findsOneWidget);
-    expect(find.text('Assets and Net Worth'), findsNothing);
-  });
-
-  testWidgets('/assets has been removed', (tester) async {
-    await tester.pumpWidget(_routerApp('/assets'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Route not found'), findsOneWidget);
-    expect(find.text('Assets and Net Worth'), findsNothing);
-  });
-
-  testWidgets('/tax-analytics has been removed', (tester) async {
-    await tester.pumpWidget(_routerApp('/tax-analytics'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Route not found'), findsOneWidget);
-    expect(find.text('Tax Analytics'), findsNothing);
   });
 }
 

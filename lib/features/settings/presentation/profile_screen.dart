@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -263,6 +264,44 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           Icons.lock_outline,
                           size: 16,
                           color: AikoColors.mutedText,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                        ),
+                        leading: const Icon(
+                          Icons.fingerprint,
+                          color: AikoColors.mutedText,
+                        ),
+                        title: Text(
+                          'User ID',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AikoColors.mutedText),
+                        ),
+                        subtitle: Text(
+                          profile.id,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        trailing: IconButton(
+                          tooltip: 'Copy User ID',
+                          icon: const Icon(
+                            Icons.copy_outlined,
+                            size: 18,
+                            color: AikoColors.mutedText,
+                          ),
+                          onPressed: () async {
+                            await Clipboard.setData(
+                              ClipboardData(text: profile.id),
+                            );
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('User ID copied'),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],

@@ -23,14 +23,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    final emailField = find.byWidgetPredicate(
-      (widget) =>
-          widget is TextField &&
-          widget.controller?.text == 'person@example.com',
-    );
-
-    expect(emailField, findsOneWidget);
-    expect(tester.widget<TextField>(emailField).readOnly, isTrue);
+    // Email is displayed as a non-editable subtitle text in the profile header.
+    expect(find.text('person@example.com'), findsOneWidget);
   });
 
   testWidgets('saving profile preserves account email', (tester) async {

@@ -1,4 +1,5 @@
 import 'package:brick_offline_first_with_supabase/brick_offline_first_with_supabase.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../brick/repository.dart';
 import '../supabase/supabase_client_provider.dart';
@@ -16,14 +17,42 @@ class OfflineStore {
   bool get canSyncRemote => _canSyncRemote;
 
   OfflineFirstGetPolicy get readPolicy => _canSyncRemote
-      ? OfflineFirstGetPolicy.alwaysHydrate
+      ? OfflineFirstGetPolicy.awaitRemoteWhenNoneExist
       : OfflineFirstGetPolicy.localOnly;
 
   Future<List<TModel>> get<TModel extends OfflineFirstWithSupabaseModel>({
     Query? query,
     OfflineFirstGetPolicy? policy,
-  }) {
-    return _repository.get<TModel>(query: query, policy: policy ?? readPolicy);
+  }) async {
+    // Honor an explicit policy, and stay local-only when there is no signed-in
+    // Supabase session to sync against.
+    if (policy != null || !_canSyncRemote) {
+      return _repository.get<TModel>(
+        query: query,
+        policy: policy ?? OfflineFirstGetPolicy.localOnly,
+      );
+    }
+
+    // Signed in: when nothing is cached locally for this query (e.g. a fresh
+    // install signing back into an existing account), await the Supabase fetch
+    // so existing rows are returned on the first read instead of an empty list.
+    // `alwaysHydrate` alone would return the empty local result immediately and
+    // only hydrate in an unawaited background pass, which is why a reinstall
+    // previously showed nothing but locally-seeded data.
+    final hasLocalData =
+        (await _repository.get<TModel>(
+          query: query,
+          policy: OfflineFirstGetPolicy.localOnly,
+        )).isNotEmpty;
+
+    // Once local data exists, return it immediately but keep refreshing from
+    // Supabase in the background so later reads stay in sync across devices.
+    return _repository.get<TModel>(
+      query: query,
+      policy: hasLocalData
+          ? OfflineFirstGetPolicy.alwaysHydrate
+          : OfflineFirstGetPolicy.awaitRemoteWhenNoneExist,
+    );
   }
 
   Future<TModel> upsert<TModel extends OfflineFirstWithSupabaseModel>(
@@ -31,11 +60,24 @@ class OfflineStore {
     Query? query,
   }) async {
     if (_canSyncRemote) {
-      return _repository.upsert<TModel>(
-        model,
-        query: query,
-        policy: OfflineFirstUpsertPolicy.optimisticLocal,
-      );
+      try {
+        final saved = await _repository.upsert<TModel>(
+          model,
+          query: query,
+          policy: OfflineFirstUpsertPolicy.optimisticLocal,
+        );
+        if (kDebugMode) {
+          debugPrint('[aiko-sync] upsert $TModel pushed to Supabase');
+        }
+        return saved;
+      } catch (error) {
+        // Brick queues network failures internally; anything surfacing here is
+        // a real rejection (RLS, foreign key, schema) worth seeing.
+        if (kDebugMode) {
+          debugPrint('[aiko-sync] upsert $TModel remote push FAILED: $error');
+        }
+        rethrow;
+      }
     }
 
     model.primaryKey = await _repository.sqliteProvider.upsert<TModel>(
@@ -43,6 +85,14 @@ class OfflineStore {
       query: query,
       repository: _repository,
     );
+    if (kDebugMode) {
+      debugPrint(
+        '[aiko-sync] upsert $TModel saved LOCAL-ONLY '
+        '(remoteSyncEnabled=${_repository.remoteSyncEnabled}, '
+        'signedIn=${AikoSupabase.tryClient()?.auth.currentUser != null}) — '
+        'will not reach Supabase until sign-in',
+      );
+    }
     return model;
   }
 

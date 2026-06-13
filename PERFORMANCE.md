@@ -5,9 +5,7 @@ Building a **personal finance app in Flutter**.
 Backend decision:
 
 ```text
-Supabase Cloud for Auth + Postgres only
-No Supabase Storage
-No Cloudflare R2
+Supabase Cloud for Auth + Postgres
 Use Riverpod
 Use offline-first/local-first architecture
 ```
@@ -38,18 +36,6 @@ Brick Repository
 SQLite local cache     Supabase Postgres
   ↓                    ↓
 Offline-first app      Remote source of truth
-```
-
-For receipt/file handling:
-
-```text
-Receipt images
-  ↓
-Local device filesystem only
-  ↓
-Metadata stored in SQLite/Postgres
-  ↓
-No remote file upload in MVP
 ```
 
 ---

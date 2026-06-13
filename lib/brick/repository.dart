@@ -2,6 +2,7 @@ import 'package:brick_offline_first_with_supabase/brick_offline_first_with_supab
 import 'package:brick_sqlite/brick_sqlite.dart';
 import 'package:brick_sqlite/memory_cache_provider.dart';
 import 'package:brick_supabase/brick_supabase.dart';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart' show databaseFactory;
 import 'package:supabase_flutter/supabase_flutter.dart' show SupabaseClient;
 
@@ -49,6 +50,17 @@ class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
       databaseFactory: databaseFactory,
       databasePath: 'aiko_offline_queue.sqlite',
       ignorePaths: const {'/auth/v1', '/storage/v1', '/functions/v1'},
+      onReattempt: (request, statusCode) {
+        // Surfaces the HTTP status Supabase returned for a queued write that is
+        // being retried (e.g. 409 foreign key, 403 RLS), which is otherwise
+        // swallowed by the optimistic-local upsert policy.
+        if (kDebugMode) {
+          debugPrint(
+            '[aiko-sync] queue reattempt ${request.method} '
+            '${request.url.path} -> HTTP $statusCode',
+          );
+        }
+      },
     );
 
     if (config.enableSupabase) {

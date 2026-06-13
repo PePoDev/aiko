@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/offline/offline_data_migrator.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../../../core/storage/secure_storage_service.dart';
+import '../../categories/data/category_repository.dart';
 
 class AuthSession {
   const AuthSession({required this.userId, required this.email});
@@ -83,6 +85,7 @@ class AuthRepository {
 
     if (client.auth.currentSession != null) {
       await _ensureProfileAndDefaultsExist(user.id, user.email ?? email);
+      await _prepareOfflineDataForSync(user.id);
     }
     await _markKnownAccount();
     _session = AuthSession(userId: user.id, email: user.email ?? email);
@@ -105,9 +108,27 @@ class AuthRepository {
     }
 
     await _ensureProfileAndDefaultsExist(user.id, user.email ?? email);
+    await _prepareOfflineDataForSync(user.id);
     await _markKnownAccount();
     _session = AuthSession(userId: user.id, email: user.email ?? email);
     return _session!;
+  }
+
+  /// Prepares locally-held data to sync to Supabase for the now signed-in
+  /// [userId]: seeds the built-in default categories (so transactions that
+  /// reference a `default-*` category id satisfy the foreign key) and reassigns
+  /// data created while signed out (under an anonymous `local:` id). Seeding
+  /// runs first so parent categories reach Supabase before the transactions
+  /// that depend on them. Never throws so it cannot block sign-in.
+  Future<void> _prepareOfflineDataForSync(String userId) async {
+    try {
+      await const CategoryRepository().ensureDefaultsPersisted();
+      await OfflineDataMigrator().claimAnonymousData(userId);
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('[aiko-sync] offline data prepare skipped: $error');
+      }
+    }
   }
 
   Stream<AuthState> authStateChanges() {
@@ -164,6 +185,10 @@ class AuthRepository {
       // A cached Supabase session is enough to continue offline. Local data
       // will be read from Brick and queued writes will sync when online.
     }
+    // Seed default categories and reclaim any data still orphaned under an
+    // anonymous `local:` id from a session where the user used the app before
+    // signing in, so both reach Supabase.
+    await _prepareOfflineDataForSync(session.userId);
     try {
       await _markKnownAccount();
     } catch (_) {

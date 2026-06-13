@@ -147,7 +147,7 @@ void main() {
       lessThan(tester.getTopLeft(find.text('This Month Overview')).dy),
     );
     expect(find.text('Total balance'), findsOneWidget);
-    expect(find.text('Safe to spend'), findsOneWidget);
+    expect(find.text('Safe this week'), findsOneWidget);
     expect(find.text('Left to save'), findsOneWidget);
     expect(find.text('Cash flow'), findsOneWidget);
     final monthOverviewCard = find

@@ -372,12 +372,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   children: [
                     const Expanded(child: Divider()),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        'or continue with',
-                        style: textTheme.labelMedium?.copyWith(
-                          color: AikoColors.mutedText,
+                    Flexible(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.center,
+                          child: Text(
+                            'or continue with',
+                            style: textTheme.labelMedium?.copyWith(
+                              color: AikoColors.mutedText,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -390,17 +396,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   label: 'Continue with Google',
                   onPressed: _isSubmitting ? null : _handleGoogleSignIn,
                 ),
-                const SizedBox(height: 10),
-                _SocialButton(
-                  icon: Icons.apple,
-                  label: 'Continue with Apple',
-                  onPressed: _isSubmitting
-                      ? null
-                      : () => _showMessage('Apple sign-in is coming soon.'),
-                ),
+                // Apple sign-in removed per request.
                 const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
                   children: [
                     Text(
                       "Don't have an account?",

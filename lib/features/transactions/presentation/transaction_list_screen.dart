@@ -103,13 +103,15 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
+                textAlignVertical: TextAlignVertical.center,
                 decoration: const InputDecoration(
                   hintText: 'Search merchant, note, tag, category',
                   prefixIcon: Icon(Icons.search),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 16),
                 ),
               )
             : const Text('Transactions'),
@@ -179,9 +181,6 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
             onClearSearch: () => setState(_clearSearchFilters),
           );
         },
-      ),
-      bottomNavigationBar: SizedBox(
-        height: MediaQuery.paddingOf(context).bottom.clamp(16.0, double.infinity) + 80.0,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.of(context, rootNavigator: true).push(

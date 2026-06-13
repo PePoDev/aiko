@@ -19,7 +19,10 @@ enum DashboardWidgetType {
   assetsLiabilities,
   topAssets,
   totalDebt,
-  debtBreakdown;
+  debtBreakdown,
+  taxLiability,
+  taxBreakdown,
+  topDeductions;
 
   String get storageKey => name;
 
@@ -46,6 +49,9 @@ enum DashboardWidgetType {
       DashboardWidgetType.topAssets => 'Top assets',
       DashboardWidgetType.totalDebt => 'Total debt',
       DashboardWidgetType.debtBreakdown => 'Debt breakdown',
+      DashboardWidgetType.taxLiability => 'Tax liability',
+      DashboardWidgetType.taxBreakdown => 'Tax breakdown',
+      DashboardWidgetType.topDeductions => 'Top deductions',
     };
   }
 
@@ -184,6 +190,21 @@ class DashboardWidgetPreference {
       type: DashboardWidgetType.debtBreakdown,
       isVisible: true,
       position: 20,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.taxLiability,
+      isVisible: true,
+      position: 21,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.taxBreakdown,
+      isVisible: true,
+      position: 22,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.topDeductions,
+      isVisible: true,
+      position: 23,
     ),
   ];
 

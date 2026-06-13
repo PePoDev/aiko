@@ -179,9 +179,7 @@ class _CategoryGroupEditorSheetState
     setState(() => _isDeleting = true);
 
     try {
-      await ref
-          .read(categoryGroupsProvider.notifier)
-          .deleteGroup(group.id);
+      await ref.read(categoryGroupsProvider.notifier).deleteGroup(group.id);
 
       if (mounted) {
         Navigator.pop(context, true);
@@ -333,8 +331,7 @@ class _CategoryGroupEditorSheetState
                     final isSelected = _selectedColorHex == colorHex;
 
                     return GestureDetector(
-                      onTap: () =>
-                          setState(() => _selectedColorHex = colorHex),
+                      onTap: () => setState(() => _selectedColorHex = colorHex),
                       child: Container(
                         width: 44,
                         height: 44,
@@ -386,15 +383,15 @@ class _CategoryGroupEditorSheetState
                       final gridWidth =
                           tileSize * crossAxisCount +
                           spacing * (crossAxisCount - 1);
-                      final rowCount = (aikoCategoryIconPresets.length /
-                              crossAxisCount)
-                          .ceil();
+                      final rowCount =
+                          (aikoCategoryIconPresets.length / crossAxisCount)
+                              .ceil();
 
                       return Center(
                         child: SizedBox(
                           width: gridWidth,
-                          height: tileSize * rowCount +
-                              spacing * (rowCount - 1),
+                          height:
+                              tileSize * rowCount + spacing * (rowCount - 1),
                           child: GridView.builder(
                             physics: const NeverScrollableScrollPhysics(),
                             shrinkWrap: true,
@@ -413,9 +410,8 @@ class _CategoryGroupEditorSheetState
 
                               return InkWell(
                                 borderRadius: BorderRadius.circular(12),
-                                onTap: () => setState(
-                                  () => _selectedIconKey = key,
-                                ),
+                                onTap: () =>
+                                    setState(() => _selectedIconKey = key),
                                 child: DecoratedBox(
                                   decoration: BoxDecoration(
                                     color: isSelected

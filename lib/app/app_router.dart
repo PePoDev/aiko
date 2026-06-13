@@ -5,7 +5,6 @@ import '../features/accounts/presentation/accounts_screen.dart';
 import '../features/aiko_assistant/presentation/aiko_assistant_screen.dart';
 import '../features/auth/presentation/auth_screens.dart';
 import '../features/budgets/presentation/budget_overview_screen.dart';
-import '../features/bills/presentation/bills_screen.dart';
 import '../features/categories/presentation/category_management_screen.dart';
 import '../features/calculators/presentation/calculator_library_screen.dart';
 import '../features/export/presentation/export_screen.dart';
@@ -68,14 +67,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             path: '/transactions',
             pageBuilder: (context, state) =>
                 _fadePage(context, state, const TransactionListScreen()),
-          ),
-          GoRoute(
-            path: '/transactions/split',
-            builder: (context, state) => const SplitTransactionScreen(),
-          ),
-          GoRoute(
-            path: '/transactions/receipt-review',
-            builder: (context, state) => const ReceiptReviewScreen(),
           ),
           GoRoute(
             path: '/transaction-rules',
@@ -173,28 +164,12 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             builder: (context, state) => const ImportExportScreen(),
           ),
           GoRoute(
-            path: '/bills-subscriptions',
-            builder: (context, state) => const BillsScreen(),
-          ),
-          GoRoute(
-            path: '/bills',
-            redirect: (context, state) => '/bills-subscriptions',
-          ),
-          GoRoute(
             path: '/notification-settings',
             builder: (context, state) => const NotificationSettingsScreen(),
           ),
           GoRoute(
-            path: '/credit-cards/detail',
-            builder: (context, state) => const CreditCardDetailScreen(),
-          ),
-          GoRoute(
             path: '/debt-loans',
             builder: (context, state) => const DebtPayoffPlanScreen(),
-          ),
-          GoRoute(
-            path: '/loans/detail',
-            builder: (context, state) => const LoanDetailScreen(),
           ),
           GoRoute(
             path: '/portfolio',
@@ -213,16 +188,8 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             builder: (context, state) => const TaxCenterScreen(),
           ),
           GoRoute(
-            path: '/tax-analytics',
-            builder: (context, state) => const TaxAnalyticsScreen(),
-          ),
-          GoRoute(
             path: '/loan-calculator',
             builder: (context, state) => const LoanCalculatorScreen(),
-          ),
-          GoRoute(
-            path: '/calculator-result',
-            builder: (context, state) => const CalculatorResultScreen(),
           ),
           GoRoute(
             path: '/learning-hub',

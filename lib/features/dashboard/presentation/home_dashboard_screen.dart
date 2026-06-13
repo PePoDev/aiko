@@ -110,9 +110,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                 ),
         ),
       ),
-      bottomNavigationBar: SizedBox(
-        height: MediaQuery.paddingOf(context).bottom.clamp(16.0, double.infinity) + 80.0,
-      ),
       floatingActionButton: const _QuickAddMenu(),
     );
   }
@@ -171,7 +168,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         loading: () => FinanceCard(
           title: l10n.upcomingDueDates,
           icon: Icons.event_available_outlined,
-          child: Text(l10n.loadingBills),
+          child: const Text('Loading upcoming due dates…'),
         ),
         error: (error, stack) => FinanceCard(
           title: l10n.upcomingDueDates,
@@ -194,6 +191,9 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       DashboardWidgetType.topAssets => const _TopAssetsPanel(),
       DashboardWidgetType.totalDebt => const _TotalDebtPanel(),
       DashboardWidgetType.debtBreakdown => const _DebtBreakdownPanel(),
+      DashboardWidgetType.taxLiability => const _TaxLiabilityPanel(),
+      DashboardWidgetType.taxBreakdown => const _TaxBreakdownPanel(),
+      DashboardWidgetType.topDeductions => const _TopDeductionsPanel(),
     };
   }
 }
@@ -367,6 +367,64 @@ class _DebtBreakdownPanel extends StatelessWidget {
           value: '\$5,000.00',
           color: AikoColors.mutedText,
         ),
+      ],
+    );
+  }
+}
+
+class _TaxLiabilityPanel extends StatelessWidget {
+  const _TaxLiabilityPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return const AikoMetricCard(
+      label: 'Estimated Tax Liability',
+      value: r'$8,750.00',
+      change: r'-$520 vs 2025',
+      icon: Icons.request_quote_outlined,
+      accentColor: AikoColors.successGreen,
+    );
+  }
+}
+
+class _TaxBreakdownPanel extends StatelessWidget {
+  const _TaxBreakdownPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Card(
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: AikoDonutChart(
+          values: [6250.0, 1500.0, 600.0, 400.0],
+          colors: [
+            AikoColors.primaryBlue,
+            AikoColors.dangerRed,
+            AikoColors.analyticsTeal,
+            AikoColors.warningOrange,
+          ],
+          centerLabel:
+              r'$8,750'
+              '\nTax',
+        ),
+      ),
+    );
+  }
+}
+
+class _TopDeductionsPanel extends StatelessWidget {
+  const _TopDeductionsPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return const AikoDataListCard(
+      title: 'Top Deductions',
+      icon: Icons.fact_check_outlined,
+      rows: [
+        AikoDataRow(label: 'Mortgage Interest', value: r'$3,650.00'),
+        AikoDataRow(label: 'Charitable Donations', value: r'$2,020.00'),
+        AikoDataRow(label: 'Medical Expenses', value: r'$1,450.00'),
+        AikoDataRow(label: 'Business Expenses', value: r'$1,230.00'),
       ],
     );
   }

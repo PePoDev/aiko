@@ -52,7 +52,7 @@ class NotificationsCenterScreen extends StatelessWidget {
           icon: Icons.history,
           rows: [
             AikoDataRow(
-              label: 'Bill reminder',
+              label: 'Recurring reminder',
               subtitle: 'Netflix renews soon.',
               value: '9:00 PM',
               color: AikoColors.premiumPurple,
@@ -65,194 +65,6 @@ class NotificationsCenterScreen extends StatelessWidget {
               icon: Icons.summarize_outlined,
             ),
           ],
-        ),
-      ],
-    );
-  }
-}
-
-class SplitTransactionScreen extends StatefulWidget {
-  const SplitTransactionScreen({super.key});
-
-  @override
-  State<SplitTransactionScreen> createState() => _SplitTransactionScreenState();
-}
-
-class _SplitTransactionScreenState extends State<SplitTransactionScreen> {
-  final _amounts = [70.0, 30.0, 20.0];
-  bool _byAmount = true;
-
-  double get _total => _amounts.fold(0, (sum, value) => sum + value);
-
-  @override
-  Widget build(BuildContext context) {
-    return AikoDetailScaffold(
-      title: 'Split Transaction',
-      children: [
-        AikoMetricCard(
-          label: 'Total Amount',
-          value: '\$120.00',
-          change: 'H-E-B, May 25, 2026',
-          icon: Icons.receipt_long_outlined,
-        ),
-        SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment(value: true, label: Text('By Amount')),
-            ButtonSegment(value: false, label: Text('By Percentage')),
-          ],
-          selected: {_byAmount},
-          onSelectionChanged: (value) =>
-              setState(() => _byAmount = value.first),
-        ),
-        Card(
-          child: Column(
-            children: [
-              _SplitTile(
-                label: 'Groceries',
-                value: _amounts[0],
-                color: AikoColors.premiumPurple,
-                icon: Icons.local_grocery_store_outlined,
-                onChanged: (value) => setState(() => _amounts[0] = value),
-              ),
-              const Divider(),
-              _SplitTile(
-                label: 'Household',
-                value: _amounts[1],
-                color: AikoColors.primaryBlue,
-                icon: Icons.home_repair_service_outlined,
-                onChanged: (value) => setState(() => _amounts[1] = value),
-              ),
-              const Divider(),
-              _SplitTile(
-                label: 'Snacks',
-                value: _amounts[2],
-                color: AikoColors.warningOrange,
-                icon: Icons.cookie_outlined,
-                onChanged: (value) => setState(() => _amounts[2] = value),
-              ),
-            ],
-          ),
-        ),
-        AikoDataListCard(
-          title: 'Split Total',
-          rows: [
-            AikoDataRow(
-              label: 'Assigned',
-              value: '\$${_total.toStringAsFixed(2)}',
-              color: (_total - 120).abs() < 0.01
-                  ? AikoColors.successGreen
-                  : AikoColors.warningOrange,
-            ),
-            const AikoDataRow(label: 'Transaction', value: '\$120.00'),
-          ],
-        ),
-        AikoInlineNotice(
-          title: 'Nice split',
-          message:
-              'Splitting keeps groceries, household, and snacks accurate for your budget.',
-          action: FilledButton(
-            onPressed: (_total - 120).abs() < 0.01
-                ? () => _showSnack(context, 'Split saved.')
-                : null,
-            child: const Text('Save Split'),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class ReceiptReviewScreen extends StatefulWidget {
-  const ReceiptReviewScreen({super.key});
-
-  @override
-  State<ReceiptReviewScreen> createState() => _ReceiptReviewScreenState();
-}
-
-class _ReceiptReviewScreenState extends State<ReceiptReviewScreen> {
-  bool _editing = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return AikoDetailScaffold(
-      title: 'Review Receipt',
-      actions: [
-        TextButton(
-          onPressed: () => _showSnack(context, 'Ready for another scan.'),
-          child: const Text('Retake'),
-        ),
-      ],
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Column(
-                    children: [
-                      Text(
-                        'H-E-B',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text('H-E-B Plus, Austin, TX'),
-                      SizedBox(height: 16),
-                      Text('BANANAS     \$1.58'),
-                      Text('WHOLE MILK  \$4.48'),
-                      Text('CHICKEN     \$7.92'),
-                      Text('BROCCOLI    \$2.48'),
-                      Text('TAX         \$1.05'),
-                      Divider(),
-                      Text('TOTAL       \$23.97'),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        AikoDataListCard(
-          title: 'Extracted Details',
-          icon: Icons.document_scanner_outlined,
-          rows: const [
-            AikoDataRow(label: 'Merchant', value: 'H-E-B'),
-            AikoDataRow(label: 'Date', value: 'May 25, 2026'),
-            AikoDataRow(label: 'Total Amount', value: '\$23.97'),
-          ],
-        ),
-        if (_editing)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  TextField(decoration: InputDecoration(labelText: 'Merchant')),
-                  SizedBox(height: 12),
-                  TextField(decoration: InputDecoration(labelText: 'Amount')),
-                ],
-              ),
-            ),
-          ),
-        FilledButton.icon(
-          onPressed: () => _showSnack(context, 'Receipt saved.'),
-          icon: const Icon(Icons.check),
-          label: const Text('Confirm & Save'),
-        ),
-        OutlinedButton(
-          onPressed: () => setState(() => _editing = !_editing),
-          child: Text(_editing ? 'Close Details' : 'Edit Details'),
         ),
       ],
     );
@@ -342,7 +154,7 @@ class SafeToSpendScreen extends StatelessWidget {
               color: AikoColors.successGreen,
             ),
             AikoDataRow(
-              label: 'Bills & Subscriptions',
+              label: 'Recurring payments',
               value: '-\$1,950.00',
               color: AikoColors.dangerRed,
             ),
@@ -822,51 +634,6 @@ class _LoanCalculatorScreenState extends State<LoanCalculatorScreen> {
   }
 }
 
-class CalculatorResultScreen extends StatelessWidget {
-  const CalculatorResultScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return AikoDetailScaffold(
-      title: 'Calculator Result',
-      children: [
-        const AikoInlineNotice(
-          title: 'Your Monthly EMI',
-          message: '\$1,447.71',
-          icon: Icons.celebration_outlined,
-        ),
-        const AikoDataListCard(
-          title: 'Loan Summary',
-          icon: Icons.request_quote_outlined,
-          rows: [
-            AikoDataRow(label: 'Loan Amount', value: '\$200,000.00'),
-            AikoDataRow(label: 'Interest Rate', value: '6.50% p.a.'),
-            AikoDataRow(label: 'Loan Tenure', value: '20 years'),
-            AikoDataRow(
-              label: 'Total Interest',
-              value: '\$147,450.40',
-              color: AikoColors.warningOrange,
-            ),
-            AikoDataRow(label: 'Total Payment', value: '\$347,450.40'),
-          ],
-        ),
-        const Card(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: AikoDonutChart(
-              values: [200000, 147450],
-              colors: [AikoColors.primaryBlue, AikoColors.warningOrange],
-              centerLabel: '58% principal',
-            ),
-          ),
-        ),
-        OutlinedButton(onPressed: null, child: Text('Amortization Schedule')),
-        FilledButton(onPressed: null, child: Text('Save Result')),
-      ],
-    );
-  }
-}
-
 class AssetAllocationScreen extends StatelessWidget {
   const AssetAllocationScreen({super.key});
 
@@ -931,118 +698,6 @@ class AssetAllocationScreen extends StatelessWidget {
           title: 'Great balance',
           message: 'Your portfolio is well diversified.',
           icon: Icons.auto_awesome,
-        ),
-      ],
-    );
-  }
-}
-
-class CreditCardDetailScreen extends StatelessWidget {
-  const CreditCardDetailScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return AikoDetailScaffold(
-      title: 'Credit Card Detail',
-      actions: [
-        IconButton(
-          tooltip: 'Card settings',
-          onPressed: () => _showSnack(context, 'Card settings opened.'),
-          icon: const Icon(Icons.settings_outlined),
-        ),
-      ],
-      children: [
-        const AikoMetricCard(
-          label: 'Chase Sapphire Preferred',
-          value: '\$2,850.00',
-          change: '38% utilization',
-          icon: Icons.credit_card,
-          accentColor: AikoColors.primaryBlue,
-          progress: 0.38,
-        ),
-        const AikoDataListCard(
-          title: 'Payment Due',
-          icon: Icons.event_outlined,
-          rows: [
-            AikoDataRow(label: 'Due Date', value: 'May 28, 2026'),
-            AikoDataRow(label: 'Minimum Payment', value: '\$250.00'),
-            AikoDataRow(label: 'Available Credit', value: '\$4,650.00'),
-          ],
-        ),
-        AikoInlineNotice(
-          title: 'Card rewards',
-          message:
-              '60,250 points are available for travel or statement credit.',
-          icon: Icons.redeem_outlined,
-          action: OutlinedButton(
-            onPressed: () => _showSnack(context, 'Rewards flow opened.'),
-            child: const Text('Redeem'),
-          ),
-        ),
-        const AikoDataListCard(
-          title: 'Recent Activity',
-          icon: Icons.history,
-          rows: [
-            AikoDataRow(
-              label: 'Starbucks',
-              value: '-\$5.45',
-              color: AikoColors.dangerRed,
-            ),
-            AikoDataRow(
-              label: 'Uber',
-              value: '-\$18.90',
-              color: AikoColors.dangerRed,
-            ),
-            AikoDataRow(
-              label: 'Whole Foods',
-              value: '-\$87.63',
-              color: AikoColors.dangerRed,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class LoanDetailScreen extends StatelessWidget {
-  const LoanDetailScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return AikoDetailScaffold(
-      title: 'Loans Detail',
-      children: [
-        const AikoMetricCard(
-          label: 'Student Loan',
-          value: '\$28,500.00',
-          change: 'Federal unsubsidized, 4.25%',
-          icon: Icons.school_outlined,
-          accentColor: AikoColors.primaryBlue,
-        ),
-        const AikoDataListCard(
-          title: 'Loan Progress',
-          icon: Icons.timeline,
-          rows: [
-            AikoDataRow(
-              label: 'Paid',
-              value: '\$11,500.00',
-              color: AikoColors.successGreen,
-            ),
-            AikoDataRow(label: 'Original Balance', value: '\$40,000.00'),
-            AikoDataRow(label: 'Disbursed Date', value: 'Aug 20, 2022'),
-            AikoDataRow(label: 'Next Due Date', value: 'Jun 15, 2026'),
-            AikoDataRow(label: 'Next Payment', value: '\$350.00'),
-          ],
-        ),
-        FilledButton.icon(
-          onPressed: () => _showSnack(context, 'Payment flow opened.'),
-          icon: const Icon(Icons.payments_outlined),
-          label: const Text('Make a Payment'),
-        ),
-        OutlinedButton(
-          onPressed: () => _showSnack(context, 'Loan statements opened.'),
-          child: const Text('View Loan Statements'),
         ),
       ],
     );
@@ -1119,51 +774,6 @@ class HoldingDetailScreen extends StatelessWidget {
                 child: const Text('Sell'),
               ),
             ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class TaxAnalyticsScreen extends StatelessWidget {
-  const TaxAnalyticsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const AikoDetailScaffold(
-      title: 'Tax Analytics',
-      children: [
-        AikoMetricCard(
-          label: 'Estimated Tax Liability',
-          value: '\$8,750.00',
-          change: '-\$520 vs 2025',
-          icon: Icons.request_quote_outlined,
-          accentColor: AikoColors.successGreen,
-        ),
-        Card(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: AikoDonutChart(
-              values: [6250, 1500, 600, 400],
-              colors: [
-                AikoColors.primaryBlue,
-                AikoColors.dangerRed,
-                AikoColors.analyticsTeal,
-                AikoColors.warningOrange,
-              ],
-              centerLabel: '\$8,750\nTax',
-            ),
-          ),
-        ),
-        AikoDataListCard(
-          title: 'Top Deductions',
-          icon: Icons.fact_check_outlined,
-          rows: [
-            AikoDataRow(label: 'Mortgage Interest', value: '\$3,650.00'),
-            AikoDataRow(label: 'Charitable Donations', value: '\$2,020.00'),
-            AikoDataRow(label: 'Medical Expenses', value: '\$1,450.00'),
-            AikoDataRow(label: 'Business Expenses', value: '\$1,230.00'),
           ],
         ),
       ],
@@ -1249,51 +859,6 @@ class _SegmentedHeader extends StatelessWidget {
       ],
       selected: const {0},
       onSelectionChanged: (_) {},
-    );
-  }
-}
-
-class _SplitTile extends StatelessWidget {
-  const _SplitTile({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.color,
-    required this.onChanged,
-  });
-
-  final String label;
-  final double value;
-  final IconData icon;
-  final Color color;
-  final ValueChanged<double> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color),
-              const SizedBox(width: 8),
-              Expanded(child: Text(label)),
-              Text(
-                '\$${value.toStringAsFixed(0)}.00',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-            ],
-          ),
-          Slider(
-            value: value,
-            min: 0,
-            max: 120,
-            activeColor: color,
-            onChanged: onChanged,
-          ),
-        ],
-      ),
     );
   }
 }

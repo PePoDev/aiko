@@ -61,6 +61,16 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   String? _selectedToAccountId; // For transfer type
   final List<TransactionAttachment> _attachments = [];
 
+  // Recurring transaction state. Defaults mirror a one-off transaction so the
+  // form keeps its current behaviour until the user opts in.
+  bool _isRecurring = false;
+  RecurringFrequency _recurringFrequency = RecurringFrequency.monthly;
+  DateTime? _recurringEndDate;
+  int? _recurringMaxOccurrences;
+  int? _recurringDayOfWeek;
+  int? _recurringDayOfMonth;
+  int? _recurringMonthOfYear;
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -91,6 +101,19 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _selectedCategoryId = transaction.categoryId;
     _selectedAccountId = transaction.accountId;
     _tags.addAll(transaction.tags);
+    _isRecurring = transaction.isRecurring;
+    final frequency = transaction.recurringFrequency;
+    if (frequency != null) {
+      _recurringFrequency = frequency;
+    }
+    final settings = transaction.recurringSettings;
+    if (settings != null) {
+      _recurringEndDate = settings.endDate;
+      _recurringMaxOccurrences = settings.maxOccurrences;
+      _recurringDayOfWeek = settings.dayOfWeek;
+      _recurringDayOfMonth = settings.dayOfMonth;
+      _recurringMonthOfYear = settings.monthOfYear;
+    }
   }
 
   void _addTag(String value) {
@@ -1042,6 +1065,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       tags: tags,
       splits: existingTransaction?.splits ?? const [],
       status: existingTransaction?.status ?? TransactionStatus.posted,
+      isRecurring: _isRecurring,
+      recurringFrequency: _isRecurring ? _recurringFrequency : null,
+      recurringSettings: _isRecurring ? _buildRecurringSettings() : null,
     );
 
     final saved = await ref
@@ -1396,6 +1422,43 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 );
               });
             },
+          ),
+          const SizedBox(height: 16),
+
+          _RecurringSection(
+            isRecurring: _isRecurring,
+            frequency: _recurringFrequency,
+            endDate: _recurringEndDate,
+            maxOccurrences: _recurringMaxOccurrences,
+            dayOfWeek: _recurringDayOfWeek,
+            dayOfMonth: _recurringDayOfMonth,
+            monthOfYear: _recurringMonthOfYear,
+            onToggle: (value) {
+              setState(() {
+                _isRecurring = value;
+                if (value) {
+                  // Re-derive the cadence-specific knobs for the active
+                  // frequency so the per-cadence panel is always populated.
+                  _applyFrequencyDefaults(_recurringFrequency);
+                }
+              });
+            },
+            onFrequencyChanged: (frequency) {
+              setState(() {
+                _recurringFrequency = frequency;
+                _applyFrequencyDefaults(frequency);
+              });
+            },
+            onEndDateChanged: (value) =>
+                setState(() => _recurringEndDate = value),
+            onMaxOccurrencesChanged: (value) =>
+                setState(() => _recurringMaxOccurrences = value),
+            onDayOfWeekChanged: (value) =>
+                setState(() => _recurringDayOfWeek = value),
+            onDayOfMonthChanged: (value) =>
+                setState(() => _recurringDayOfMonth = value),
+            onMonthOfYearChanged: (value) =>
+                setState(() => _recurringMonthOfYear = value),
           ),
           const SizedBox(height: 16),
 
@@ -2149,6 +2212,661 @@ class _CategoryMark extends StatelessWidget {
   }
 }
 
+class _RecurringSection extends StatelessWidget {
+  const _RecurringSection({
+    required this.isRecurring,
+    required this.frequency,
+    required this.endDate,
+    required this.maxOccurrences,
+    required this.dayOfWeek,
+    required this.dayOfMonth,
+    required this.monthOfYear,
+    required this.onToggle,
+    required this.onFrequencyChanged,
+    required this.onEndDateChanged,
+    required this.onMaxOccurrencesChanged,
+    required this.onDayOfWeekChanged,
+    required this.onDayOfMonthChanged,
+    required this.onMonthOfYearChanged,
+  });
+
+  final bool isRecurring;
+  final RecurringFrequency frequency;
+  final DateTime? endDate;
+  final int? maxOccurrences;
+  final int? dayOfWeek;
+  final int? dayOfMonth;
+  final int? monthOfYear;
+  final ValueChanged<bool> onToggle;
+  final ValueChanged<RecurringFrequency> onFrequencyChanged;
+  final ValueChanged<DateTime?> onEndDateChanged;
+  final ValueChanged<int?> onMaxOccurrencesChanged;
+  final ValueChanged<int?> onDayOfWeekChanged;
+  final ValueChanged<int?> onDayOfMonthChanged;
+  final ValueChanged<int?> onMonthOfYearChanged;
+
+  static const _frequencies = <RecurringFrequency, _FrequencyChoiceMeta>{
+    RecurringFrequency.once: _FrequencyChoiceMeta(
+      label: 'Once',
+      icon: Icons.event_outlined,
+      hint: 'Runs only on the picked date.',
+    ),
+    RecurringFrequency.daily: _FrequencyChoiceMeta(
+      label: 'Daily',
+      icon: Icons.today_outlined,
+      hint: 'Repeats every day.',
+    ),
+    RecurringFrequency.weekly: _FrequencyChoiceMeta(
+      label: 'Weekly',
+      icon: Icons.view_week_outlined,
+      hint: 'Repeats every week on a chosen day.',
+    ),
+    RecurringFrequency.monthly: _FrequencyChoiceMeta(
+      label: 'Monthly',
+      icon: Icons.calendar_view_month_outlined,
+      hint: 'Repeats every month on a chosen day.',
+    ),
+    RecurringFrequency.annually: _FrequencyChoiceMeta(
+      label: 'Annually',
+      icon: Icons.calendar_today_outlined,
+      hint: 'Repeats every year on a chosen date.',
+    ),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      key: const Key('transaction-recurring-section'),
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.event_repeat_outlined),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Recurring transaction',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isRecurring
+                            ? 'Repeats on a schedule you can edit below.'
+                            : 'Mark this transaction as repeating on a schedule.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AikoColors.mutedText,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  key: const Key('transaction-recurring-toggle'),
+                  value: isRecurring,
+                  onChanged: onToggle,
+                ),
+              ],
+            ),
+            if (isRecurring) ...[
+              const SizedBox(height: 12),
+              _FrequencyPicker(
+                frequency: frequency,
+                frequencies: _frequencies,
+                onChanged: onFrequencyChanged,
+              ),
+              const SizedBox(height: 12),
+              _FrequencySettingsPanel(
+                frequency: frequency,
+                endDate: endDate,
+                maxOccurrences: maxOccurrences,
+                dayOfWeek: dayOfWeek,
+                dayOfMonth: dayOfMonth,
+                monthOfYear: monthOfYear,
+                onEndDateChanged: onEndDateChanged,
+                onMaxOccurrencesChanged: onMaxOccurrencesChanged,
+                onDayOfWeekChanged: onDayOfWeekChanged,
+                onDayOfMonthChanged: onDayOfMonthChanged,
+                onMonthOfYearChanged: onMonthOfYearChanged,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FrequencyChoiceMeta {
+  const _FrequencyChoiceMeta({
+    required this.label,
+    required this.icon,
+    required this.hint,
+  });
+
+  final String label;
+  final IconData icon;
+  final String hint;
+}
+
+class _FrequencyPicker extends StatelessWidget {
+  const _FrequencyPicker({
+    required this.frequency,
+    required this.frequencies,
+    required this.onChanged,
+  });
+
+  final RecurringFrequency frequency;
+  final Map<RecurringFrequency, _FrequencyChoiceMeta> frequencies;
+  final ValueChanged<RecurringFrequency> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = frequencies.entries.toList(growable: false);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final entry in entries)
+          ChoiceChip(
+            key: Key('recurring-frequency-${entry.key.name}'),
+            selected: entry.key == frequency,
+            label: Text(entry.value.label),
+            avatar: Icon(entry.value.icon, size: 18),
+            onSelected: (selected) {
+              if (selected) {
+                onChanged(entry.key);
+              }
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _FrequencySettingsPanel extends StatelessWidget {
+  const _FrequencySettingsPanel({
+    required this.frequency,
+    required this.endDate,
+    required this.maxOccurrences,
+    required this.dayOfWeek,
+    required this.dayOfMonth,
+    required this.monthOfYear,
+    required this.onEndDateChanged,
+    required this.onMaxOccurrencesChanged,
+    required this.onDayOfWeekChanged,
+    required this.onDayOfMonthChanged,
+    required this.onMonthOfYearChanged,
+  });
+
+  final RecurringFrequency frequency;
+  final DateTime? endDate;
+  final int? maxOccurrences;
+  final int? dayOfWeek;
+  final int? dayOfMonth;
+  final int? monthOfYear;
+  final ValueChanged<DateTime?> onEndDateChanged;
+  final ValueChanged<int?> onMaxOccurrencesChanged;
+  final ValueChanged<int?> onDayOfWeekChanged;
+  final ValueChanged<int?> onDayOfMonthChanged;
+  final ValueChanged<int?> onMonthOfYearChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hint = _RecurringSection
+        ._frequencies[frequency]!
+        .hint;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AikoColors.warningOrange.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AikoColors.warningOrange.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            hint,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AikoColors.mutedText,
+            ),
+          ),
+          const SizedBox(height: 12),
+          switch (frequency) {
+            RecurringFrequency.once => _OnceSettings(
+                endDate: endDate,
+                onEndDateChanged: onEndDateChanged,
+              ),
+            RecurringFrequency.daily => _DailySettings(
+                endDate: endDate,
+                maxOccurrences: maxOccurrences,
+                onEndDateChanged: onEndDateChanged,
+                onMaxOccurrencesChanged: onMaxOccurrencesChanged,
+              ),
+            RecurringFrequency.weekly => _WeeklySettings(
+                endDate: endDate,
+                maxOccurrences: maxOccurrences,
+                dayOfWeek: dayOfWeek,
+                onEndDateChanged: onEndDateChanged,
+                onMaxOccurrencesChanged: onMaxOccurrencesChanged,
+                onDayOfWeekChanged: onDayOfWeekChanged,
+              ),
+            RecurringFrequency.monthly => _MonthlySettings(
+                endDate: endDate,
+                maxOccurrences: maxOccurrences,
+                dayOfMonth: dayOfMonth,
+                onEndDateChanged: onEndDateChanged,
+                onMaxOccurrencesChanged: onMaxOccurrencesChanged,
+                onDayOfMonthChanged: onDayOfMonthChanged,
+              ),
+            RecurringFrequency.annually => _AnnualSettings(
+                endDate: endDate,
+                maxOccurrences: maxOccurrences,
+                monthOfYear: monthOfYear,
+                dayOfMonth: dayOfMonth,
+                onEndDateChanged: onEndDateChanged,
+                onMaxOccurrencesChanged: onMaxOccurrencesChanged,
+                onMonthOfYearChanged: onMonthOfYearChanged,
+                onDayOfMonthChanged: onDayOfMonthChanged,
+              ),
+          },
+        ],
+      ),
+    );
+  }
+}
+
+class _DateField extends StatelessWidget {
+  const _DateField({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final DateTime? value;
+  final ValueChanged<DateTime?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final formatted = value == null
+        ? 'No end date'
+        : DateFormat('yyyy-MM-dd').format(value!);
+    return Material(
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: InkWell(
+        onTap: () async {
+          final now = DateTime.now();
+          final initial = value ?? now;
+          final picked = await showDatePicker(
+            context: context,
+            initialDate: initial.isBefore(now) ? now : initial,
+            firstDate: now,
+            lastDate: DateTime(now.year + 10),
+            builder: (context, child) {
+              return Theme(
+                data: Theme.of(context).copyWith(
+                  colorScheme: const ColorScheme.light(
+                    primary: AikoColors.primaryBlue,
+                    onPrimary: Colors.white,
+                    onSurface: AikoColors.darkNavy,
+                  ),
+                ),
+                child: child!,
+              );
+            },
+          );
+          if (picked != null) {
+            onChanged(picked);
+          }
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: [
+              const Icon(Icons.event_outlined, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AikoColors.mutedText,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      formatted,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (value != null)
+                IconButton(
+                  tooltip: 'Clear end date',
+                  onPressed: () => onChanged(null),
+                  icon: const Icon(Icons.close, size: 18),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _IntField extends StatelessWidget {
+  const _IntField({
+    required this.label,
+    required this.hint,
+    required this.value,
+    required this.onChanged,
+    this.min = 1,
+    this.max = 31,
+  });
+
+  final String label;
+  final String hint;
+  final int? value;
+  final ValueChanged<int?> onChanged;
+  final int min;
+  final int max;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = TextEditingController(
+      text: value == null ? '' : '$value',
+    );
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        border: const OutlineInputBorder(),
+      ),
+      keyboardType: const TextInputType.numberWithOptions(),
+      onChanged: (raw) {
+        final trimmed = raw.trim();
+        if (trimmed.isEmpty) {
+          onChanged(null);
+          return;
+        }
+        final parsed = int.tryParse(trimmed);
+        if (parsed == null) {
+          return;
+        }
+        onChanged(parsed.clamp(min, max));
+      },
+    );
+  }
+}
+
+class _OnceSettings extends StatelessWidget {
+  const _OnceSettings({required this.endDate, required this.onEndDateChanged});
+
+  final DateTime? endDate;
+  final ValueChanged<DateTime?> onEndDateChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _DateField(
+      label: 'Schedule for',
+      value: endDate,
+      onChanged: onEndDateChanged,
+    );
+  }
+}
+
+class _DailySettings extends StatelessWidget {
+  const _DailySettings({
+    required this.endDate,
+    required this.maxOccurrences,
+    required this.onEndDateChanged,
+    required this.onMaxOccurrencesChanged,
+  });
+
+  final DateTime? endDate;
+  final int? maxOccurrences;
+  final ValueChanged<DateTime?> onEndDateChanged;
+  final ValueChanged<int?> onMaxOccurrencesChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _DateField(
+          label: 'Stops on',
+          value: endDate,
+          onChanged: onEndDateChanged,
+        ),
+        const SizedBox(height: 12),
+        _IntField(
+          label: 'Or after (occurrences)',
+          hint: 'e.g. 30',
+          value: maxOccurrences,
+          onChanged: onMaxOccurrencesChanged,
+        ),
+      ],
+    );
+  }
+}
+
+class _WeeklySettings extends StatelessWidget {
+  const _WeeklySettings({
+    required this.endDate,
+    required this.maxOccurrences,
+    required this.dayOfWeek,
+    required this.onEndDateChanged,
+    required this.onMaxOccurrencesChanged,
+    required this.onDayOfWeekChanged,
+  });
+
+  final DateTime? endDate;
+  final int? maxOccurrences;
+  final int? dayOfWeek;
+  final ValueChanged<DateTime?> onEndDateChanged;
+  final ValueChanged<int?> onMaxOccurrencesChanged;
+  final ValueChanged<int?> onDayOfWeekChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        DropdownButtonFormField<int>(
+          key: const Key('recurring-weekly-day'),
+          initialValue: dayOfWeek,
+          decoration: const InputDecoration(
+            labelText: 'On day',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.calendar_view_week_outlined),
+          ),
+          items: const [
+            DropdownMenuItem(value: 1, child: Text('Monday')),
+            DropdownMenuItem(value: 2, child: Text('Tuesday')),
+            DropdownMenuItem(value: 3, child: Text('Wednesday')),
+            DropdownMenuItem(value: 4, child: Text('Thursday')),
+            DropdownMenuItem(value: 5, child: Text('Friday')),
+            DropdownMenuItem(value: 6, child: Text('Saturday')),
+            DropdownMenuItem(value: 7, child: Text('Sunday')),
+          ],
+          onChanged: onDayOfWeekChanged,
+        ),
+        const SizedBox(height: 12),
+        _DateField(
+          label: 'Stops on',
+          value: endDate,
+          onChanged: onEndDateChanged,
+        ),
+        const SizedBox(height: 12),
+        _IntField(
+          label: 'Or after (occurrences)',
+          hint: 'e.g. 12',
+          value: maxOccurrences,
+          onChanged: onMaxOccurrencesChanged,
+        ),
+      ],
+    );
+  }
+}
+
+class _MonthlySettings extends StatelessWidget {
+  const _MonthlySettings({
+    required this.endDate,
+    required this.maxOccurrences,
+    required this.dayOfMonth,
+    required this.onEndDateChanged,
+    required this.onMaxOccurrencesChanged,
+    required this.onDayOfMonthChanged,
+  });
+
+  final DateTime? endDate;
+  final int? maxOccurrences;
+  final int? dayOfMonth;
+  final ValueChanged<DateTime?> onEndDateChanged;
+  final ValueChanged<int?> onMaxOccurrencesChanged;
+  final ValueChanged<int?> onDayOfMonthChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _IntField(
+          label: 'Day of month',
+          hint: '1–31',
+          value: dayOfMonth,
+          onChanged: onDayOfMonthChanged,
+          min: 1,
+          max: 31,
+        ),
+        const SizedBox(height: 12),
+        _DateField(
+          label: 'Stops on',
+          value: endDate,
+          onChanged: onEndDateChanged,
+        ),
+        const SizedBox(height: 12),
+        _IntField(
+          label: 'Or after (occurrences)',
+          hint: 'e.g. 12',
+          value: maxOccurrences,
+          onChanged: onMaxOccurrencesChanged,
+        ),
+      ],
+    );
+  }
+}
+
+class _AnnualSettings extends StatelessWidget {
+  const _AnnualSettings({
+    required this.endDate,
+    required this.maxOccurrences,
+    required this.monthOfYear,
+    required this.dayOfMonth,
+    required this.onEndDateChanged,
+    required this.onMaxOccurrencesChanged,
+    required this.onMonthOfYearChanged,
+    required this.onDayOfMonthChanged,
+  });
+
+  final DateTime? endDate;
+  final int? maxOccurrences;
+  final int? monthOfYear;
+  final int? dayOfMonth;
+  final ValueChanged<DateTime?> onEndDateChanged;
+  final ValueChanged<int?> onMaxOccurrencesChanged;
+  final ValueChanged<int?> onMonthOfYearChanged;
+  final ValueChanged<int?> onDayOfMonthChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<int>(
+                key: const Key('recurring-annual-month'),
+                initialValue: monthOfYear,
+                decoration: const InputDecoration(
+                  labelText: 'Month',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 1, child: Text('January')),
+                  DropdownMenuItem(value: 2, child: Text('February')),
+                  DropdownMenuItem(value: 3, child: Text('March')),
+                  DropdownMenuItem(value: 4, child: Text('April')),
+                  DropdownMenuItem(value: 5, child: Text('May')),
+                  DropdownMenuItem(value: 6, child: Text('June')),
+                  DropdownMenuItem(value: 7, child: Text('July')),
+                  DropdownMenuItem(value: 8, child: Text('August')),
+                  DropdownMenuItem(value: 9, child: Text('September')),
+                  DropdownMenuItem(value: 10, child: Text('October')),
+                  DropdownMenuItem(value: 11, child: Text('November')),
+                  DropdownMenuItem(value: 12, child: Text('December')),
+                ],
+                onChanged: onMonthOfYearChanged,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _IntField(
+                label: 'Day',
+                hint: '1–31',
+                value: dayOfMonth,
+                onChanged: onDayOfMonthChanged,
+                min: 1,
+                max: 31,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _DateField(
+          label: 'Stops on',
+          value: endDate,
+          onChanged: onEndDateChanged,
+        ),
+        const SizedBox(height: 12),
+        _IntField(
+          label: 'Or after (occurrences)',
+          hint: 'e.g. 5',
+          value: maxOccurrences,
+          onChanged: onMaxOccurrencesChanged,
+        ),
+      ],
+    );
+  }
+}
+
 class _AmountCalculatorSheet extends StatefulWidget {
   const _AmountCalculatorSheet({
     required this.initialUnitPrice,
@@ -2795,16 +3513,16 @@ String _accountTypeLabel(AccountType type) {
   return buffer.toString();
 }
 
-String _categoryGroupLabel(CategoryGroup group) {
+String _categoryGroupLabel(CategoryBudgetGroup group) {
   return switch (group) {
-    CategoryGroup.needs => 'Needs',
-    CategoryGroup.wants => 'Wants',
-    CategoryGroup.savings => 'Savings',
-    CategoryGroup.debt => 'Debt',
-    CategoryGroup.investment => 'Investment',
-    CategoryGroup.tax => 'Tax',
-    CategoryGroup.business => 'Business',
-    CategoryGroup.custom => 'Custom',
+    CategoryBudgetGroup.needs => 'Needs',
+    CategoryBudgetGroup.wants => 'Wants',
+    CategoryBudgetGroup.savings => 'Savings',
+    CategoryBudgetGroup.debt => 'Debt',
+    CategoryBudgetGroup.investment => 'Investment',
+    CategoryBudgetGroup.tax => 'Tax',
+    CategoryBudgetGroup.business => 'Business',
+    CategoryBudgetGroup.custom => 'Custom',
   };
 }
 

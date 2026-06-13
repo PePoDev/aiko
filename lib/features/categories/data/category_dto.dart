@@ -11,7 +11,10 @@ class CategoryDto {
       userId: json['user_id'] as String,
       name: json['name'] as String,
       type: CategoryType.values.byName(json['type'] as String? ?? 'expense'),
-      group: CategoryGroup.values.byName(json['group'] as String? ?? 'custom'),
+      group: CategoryBudgetGroup.values.byName(
+        json['group'] as String? ?? 'custom',
+      ),
+      groupId: json['group_id'] as String?,
       parentId: json['parent_id'] as String?,
       icon: json['icon'] as String? ?? 'category',
       color: json['color'] as String? ?? '#3B82F6',

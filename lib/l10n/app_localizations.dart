@@ -446,11 +446,11 @@ abstract class AppLocalizations {
   /// **'Upcoming due dates'**
   String get upcomingDueDates;
 
-  /// No description provided for @loadingBills.
+  /// No description provided for @loadingDueDates.
   ///
   /// In en, this message translates to:
-  /// **'Loading bills and card payments...'**
-  String get loadingBills;
+  /// **'Loading due dates…'**
+  String get loadingDueDates;
 
   /// No description provided for @unableToLoadDueDates.
   ///

@@ -24,18 +24,18 @@ class AikoAssistantService {
       return const AikoResponse(
         type: AikoResponseType.missingData,
         answer:
-            'I need income, bills, goals, and spending before I can estimate safe-to-spend.',
-        missingData: ['income', 'bills', 'goals', 'transactions'],
+            'I need income, recurring obligations, goals, and spending before I can estimate safe-to-spend.',
+        missingData: ['income', 'recurring', 'goals', 'transactions'],
       );
     }
     return AikoResponse(
       type: AikoResponseType.answer,
       answer: 'You have ${safeToSpendAmount.format()} safe to spend this week.',
       explanation:
-          'This reserves bills, planned savings, goal contributions, and current spending.',
+          'This reserves recurring payments, planned savings, goal contributions, and current spending.',
       sourceSummary: const [
         'monthly_income',
-        'fixed_bills',
+        'recurring_payments',
         'goal_contributions',
         'posted_transactions',
       ],
@@ -79,10 +79,10 @@ class AikoAssistantService {
         type: AikoResponseType.answer,
         answer:
             topInsight?.recommendation ??
-            'Start with the largest recurring bill, then review budget categories that are above pace.',
+            'Start with the largest recurring transaction, then review budget categories that are above pace.',
         explanation:
             'Aiko prioritizes actions that are recurring, high-confidence, and easy to verify.',
-        sourceSummary: const ['aiko_insights', 'budgets', 'subscriptions'],
+        sourceSummary: const ['aiko_insights', 'budgets', 'recurring_transactions'],
         recommendation:
             topInsight?.title ?? 'Review your highest-impact budget next.',
         disclaimer: 'Aiko provides estimates, not certified financial advice.',

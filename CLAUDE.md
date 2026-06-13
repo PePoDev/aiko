@@ -1,1 +1,0 @@
-C:/Users/pepod/Projects/aiko/AGENTS.md

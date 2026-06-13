@@ -13,14 +13,14 @@ void main() {
       userId: 'user',
       name: 'Food',
       type: CategoryType.expense,
-      group: CategoryGroup.needs,
+      group: CategoryBudgetGroup.needs,
     );
     const income = Category(
       id: 'salary',
       userId: 'user',
       name: 'Salary',
       type: CategoryType.income,
-      group: CategoryGroup.custom,
+      group: CategoryBudgetGroup.custom,
     );
 
     expect(() => service.mergeInto(expense, income), throwsArgumentError);
@@ -52,7 +52,7 @@ void main() {
       userId: 'user',
       name: 'Food',
       type: CategoryType.expense,
-      group: CategoryGroup.wants,
+      group: CategoryBudgetGroup.wants,
     );
 
     expect(
@@ -69,7 +69,7 @@ void main() {
         userId: 'user',
         name: 'Coffee',
         type: CategoryType.expense,
-        group: CategoryGroup.wants,
+        group: CategoryBudgetGroup.wants,
       ),
     ]);
     final container = ProviderContainer(
@@ -101,7 +101,7 @@ void main() {
           userId: 'user',
           name: 'Coffee',
           type: CategoryType.expense,
-          group: CategoryGroup.wants,
+          group: CategoryBudgetGroup.wants,
         ),
       );
       final container = ProviderContainer(
@@ -137,7 +137,7 @@ void main() {
           userId: 'user',
           name: 'Coffee',
           type: CategoryType.expense,
-          group: CategoryGroup.wants,
+          group: CategoryBudgetGroup.wants,
           isActive: false,
         ),
       ]);
@@ -163,7 +163,7 @@ void main() {
         userId: 'user',
         name: 'Consulting',
         type: CategoryType.income,
-        group: CategoryGroup.business,
+        group: CategoryBudgetGroup.business,
         createdAt: DateTime(2026, 1, 1),
       );
       final newerCustom = Category(
@@ -171,7 +171,7 @@ void main() {
         userId: 'user',
         name: 'Royalties',
         type: CategoryType.income,
-        group: CategoryGroup.investment,
+        group: CategoryBudgetGroup.investment,
         createdAt: DateTime(2026, 2, 1),
       );
       final repository = _InMemoryCategoryRepository([

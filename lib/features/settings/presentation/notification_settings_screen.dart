@@ -13,7 +13,7 @@ class NotificationSettingsScreen extends StatefulWidget {
 
 class _NotificationSettingsScreenState
     extends State<NotificationSettingsScreen> {
-  bool _billReminders = true;
+  bool _recurringReminders = true;
   bool _budgetAlerts = true;
 
   @override
@@ -31,9 +31,10 @@ class _NotificationSettingsScreenState
               children: [
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  value: _billReminders,
-                  onChanged: (value) => setState(() => _billReminders = value),
-                  title: const Text('Bill reminders'),
+                  value: _recurringReminders,
+                  onChanged: (value) =>
+                      setState(() => _recurringReminders = value),
+                  title: const Text('Recurring reminders'),
                   subtitle: const Text('Upcoming due dates and renewals.'),
                 ),
                 const Divider(),

@@ -9,6 +9,7 @@ import '../features/transactions/domain/transaction.dart';
 import 'models/account.model.dart';
 import 'models/budget.model.dart';
 import 'models/category.model.dart';
+import 'models/category_group.model.dart';
 import 'models/goal.model.dart';
 import 'models/investment_holding.model.dart';
 import 'models/profile.model.dart';
@@ -92,10 +93,11 @@ extension OfflineCategoryMapper on OfflineCategory {
       name: name,
       type: _enumByName(CategoryType.values, type, CategoryType.expense),
       group: _enumByName(
-        CategoryGroup.values,
+        CategoryBudgetGroup.values,
         categoryGroup,
-        CategoryGroup.custom,
+        CategoryBudgetGroup.custom,
       ),
+      groupId: groupId,
       parentId: parentId,
       icon: icon,
       color: color,
@@ -114,11 +116,40 @@ extension CategoryOfflineMapper on Category {
       name: name,
       type: type.name,
       categoryGroup: group.name,
+      groupId: groupId,
       parentId: parentId,
       icon: icon,
       color: color,
       budgetEnabled: budgetEnabled,
       isActive: isActive,
+      createdAt: createdAt,
+    );
+  }
+}
+
+extension OfflineCategoryGroupMapper on OfflineCategoryGroup {
+  CategoryGroup toDomain() {
+    return CategoryGroup(
+      id: id,
+      userId: userId,
+      name: name,
+      icon: icon,
+      color: color,
+      sortOrder: sortOrder,
+      createdAt: createdAt,
+    );
+  }
+}
+
+extension CategoryGroupOfflineMapper on CategoryGroup {
+  OfflineCategoryGroup toOffline({required String userId}) {
+    return OfflineCategoryGroup(
+      id: id,
+      userId: userId,
+      name: name,
+      icon: icon,
+      color: color,
+      sortOrder: sortOrder,
       createdAt: createdAt,
     );
   }
@@ -223,6 +254,25 @@ extension OfflineTransactionMapper on OfflineTransaction {
         status,
         TransactionStatus.posted,
       ),
+      isRecurring: isRecurring,
+      recurringFrequency: _optionalEnumByName(
+        RecurringFrequency.values,
+        recurringFrequency,
+      ),
+      recurringSettings: _buildRecurringSettings(),
+    );
+  }
+
+  RecurringSettings? _buildRecurringSettings() {
+    if (!isRecurring) {
+      return null;
+    }
+    return RecurringSettings(
+      endDate: recurringEndDate,
+      maxOccurrences: recurringMaxOccurrences,
+      dayOfWeek: recurringDayOfWeek,
+      dayOfMonth: recurringDayOfMonth,
+      monthOfYear: recurringMonthOfYear,
     );
   }
 }
@@ -242,6 +292,13 @@ extension TransactionOfflineMapper on FinanceTransaction {
       note: note,
       tags: tags,
       status: status.name,
+      isRecurring: isRecurring,
+      recurringFrequency: recurringFrequency?.name,
+      recurringEndDate: recurringSettings?.endDate,
+      recurringMaxOccurrences: recurringSettings?.maxOccurrences,
+      recurringDayOfWeek: recurringSettings?.dayOfWeek,
+      recurringDayOfMonth: recurringSettings?.dayOfMonth,
+      recurringMonthOfYear: recurringSettings?.monthOfYear,
     );
   }
 }
@@ -289,4 +346,16 @@ T _enumByName<T extends Enum>(Iterable<T> values, String name, T fallback) {
     }
   }
   return fallback;
+}
+
+T? _optionalEnumByName<T extends Enum>(Iterable<T> values, String? name) {
+  if (name == null) {
+    return null;
+  }
+  for (final value in values) {
+    if (value.name == name) {
+      return value;
+    }
+  }
+  return null;
 }

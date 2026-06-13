@@ -323,7 +323,7 @@ void main() {
                 'groceries',
                 'Groceries',
                 CategoryType.expense,
-                group: CategoryGroup.needs,
+                group: CategoryBudgetGroup.needs,
                 icon: 'food',
                 color: '#F97316',
               ),
@@ -1361,7 +1361,7 @@ Category _category(
   String id,
   String name,
   CategoryType type, {
-  CategoryGroup group = CategoryGroup.custom,
+  CategoryBudgetGroup group = CategoryBudgetGroup.custom,
   String icon = 'category',
   String color = '#3B82F6',
 }) {

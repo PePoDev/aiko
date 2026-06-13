@@ -73,7 +73,7 @@
   "pyramidLevel5": "Level 5 (Peak)",
   "pyramidLevel5Desc": "Retire and build a retirement income strategy, fulfill your dreams, donate money, and plan your legacy.",
   "upcomingDueDates": "Upcoming due dates",
-  "loadingBills": "Loading bills and card payments...",
+  "loadingDueDates": "Loading due dates…",
   "unableToLoadDueDates": "Unable to load due dates right now.",
   "quickAdd": "Quick add",
   "addTransaction": "Transaction",

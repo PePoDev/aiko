@@ -22,13 +22,6 @@ class PlanningScreen extends StatelessWidget {
       color: AikoColors.successGreen,
     ),
     _PlanningItem(
-      title: 'Recurring Transactions',
-      description: 'Track bills, subscriptions, renewals, and recurring plans.',
-      path: '/bills-subscriptions',
-      icon: Icons.event_repeat_outlined,
-      color: AikoColors.primaryBlue,
-    ),
-    _PlanningItem(
       title: 'Debt and Loans',
       description: 'Compare snowball and avalanche payoff plans.',
       path: '/debt-loans',
@@ -47,6 +40,27 @@ class PlanningScreen extends StatelessWidget {
       description: 'Track holdings, gains, allocation, and rebalance alerts.',
       path: '/portfolio',
       icon: Icons.show_chart_outlined,
+      color: AikoColors.analyticsTeal,
+    ),
+    _PlanningItem(
+      title: 'Asset Allocation',
+      description: 'Analyze allocation by class, currency, and risk.',
+      path: '/portfolio/allocation',
+      icon: Icons.donut_small_outlined,
+      color: AikoColors.analyticsTeal,
+    ),
+    _PlanningItem(
+      title: 'Holding Detail',
+      description: 'Inspect a single holding performance and history.',
+      path: '/portfolio/holding',
+      icon: Icons.trending_up_outlined,
+      color: AikoColors.analyticsTeal,
+    ),
+    _PlanningItem(
+      title: 'Assets and Net Worth',
+      description: 'View total assets, liabilities, and net worth over time.',
+      path: '/assets-net-worth',
+      icon: Icons.account_balance_wallet_outlined,
       color: AikoColors.analyticsTeal,
     ),
     _PlanningItem(

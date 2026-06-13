@@ -197,7 +197,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get upcomingDueDates => 'Upcoming due dates';
 
   @override
-  String get loadingBills => 'Loading bills and card payments...';
+  String get loadingDueDates => 'Loading due dates…';
 
   @override
   String get unableToLoadDueDates => 'Unable to load due dates right now.';

@@ -127,6 +127,9 @@ class TransactionRepository {
       note: original.note,
       tags: original.tags,
       splits: original.splits,
+      isRecurring: original.isRecurring,
+      recurringFrequency: original.recurringFrequency,
+      recurringSettings: original.recurringSettings,
     );
     return save(copy);
   }

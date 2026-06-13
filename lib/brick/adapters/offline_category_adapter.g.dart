@@ -12,6 +12,7 @@ Future<OfflineCategory> _$OfflineCategoryFromSupabase(
     name: data['name'] as String,
     type: data['type'] as String,
     categoryGroup: data['group'] as String,
+    groupId: data['group_id'] == null ? null : data['group_id'] as String?,
     parentId: data['parent_id'] == null ? null : data['parent_id'] as String?,
     icon: data['icon'] as String,
     color: data['color'] as String,
@@ -36,6 +37,7 @@ Future<Map<String, dynamic>> _$OfflineCategoryToSupabase(
     'name': instance.name,
     'type': instance.type,
     'group': instance.categoryGroup,
+    'group_id': instance.groupId,
     'parent_id': instance.parentId,
     'icon': instance.icon,
     'color': instance.color,
@@ -56,6 +58,7 @@ Future<OfflineCategory> _$OfflineCategoryFromSqlite(
     name: data['name'] as String,
     type: data['type'] as String,
     categoryGroup: data['category_group'] as String,
+    groupId: data['group_id'] == null ? null : data['group_id'] as String?,
     parentId: data['parent_id'] == null ? null : data['parent_id'] as String?,
     icon: data['icon'] as String,
     color: data['color'] as String,
@@ -80,6 +83,7 @@ Future<Map<String, dynamic>> _$OfflineCategoryToSqlite(
     'name': instance.name,
     'type': instance.type,
     'category_group': instance.categoryGroup,
+    'group_id': instance.groupId,
     'parent_id': instance.parentId,
     'icon': instance.icon,
     'color': instance.color,
@@ -119,6 +123,10 @@ class OfflineCategoryAdapter
     'categoryGroup': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'group',
+    ),
+    'groupId': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'group_id',
     ),
     'parentId': const RuntimeSupabaseColumnDefinition(
       association: false,
@@ -184,6 +192,12 @@ class OfflineCategoryAdapter
     'categoryGroup': const RuntimeSqliteColumnDefinition(
       association: false,
       columnName: 'category_group',
+      iterable: false,
+      type: String,
+    ),
+    'groupId': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'group_id',
       iterable: false,
       type: String,
     ),

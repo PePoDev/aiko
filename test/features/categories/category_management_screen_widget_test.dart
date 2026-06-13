@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('categories show expense first and switch to income by swipe', (
+  testWidgets('expense tab shows ungrouped by default and switches to income', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -22,7 +22,7 @@ void main() {
                 userId: 'user',
                 name: 'Salary',
                 type: CategoryType.income,
-                group: CategoryGroup.custom,
+                group: CategoryBudgetGroup.custom,
                 icon: 'salary',
                 color: '#22C55E',
                 budgetEnabled: false,
@@ -32,7 +32,7 @@ void main() {
                 userId: 'user',
                 name: 'Groceries',
                 type: CategoryType.expense,
-                group: CategoryGroup.needs,
+                group: CategoryBudgetGroup.needs,
                 icon: 'food',
                 color: '#F97316',
                 budgetEnabled: true,
@@ -42,7 +42,7 @@ void main() {
                 userId: 'user',
                 name: 'Side Hustle',
                 type: CategoryType.income,
-                group: CategoryGroup.business,
+                group: CategoryBudgetGroup.business,
                 icon: 'salary',
                 color: '#14B8A6',
                 budgetEnabled: false,
@@ -52,13 +52,14 @@ void main() {
                 userId: 'user',
                 name: 'Coffee',
                 type: CategoryType.expense,
-                group: CategoryGroup.wants,
+                group: CategoryBudgetGroup.wants,
                 icon: 'coffee',
                 color: '#8B5CF6',
                 budgetEnabled: true,
               ),
             ]),
           ),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(const [])),
         ],
         child: MaterialApp(
           theme: AikoTheme.light(),
@@ -77,8 +78,7 @@ void main() {
       tester.widget<TabBar>(find.byType(TabBar)).labelColor,
       AikoColors.dangerRed,
     );
-    expect(find.text('Default'), findsNothing);
-    expect(find.text('Custom'), findsNothing);
+    expect(find.text('Ungrouped'), findsOneWidget);
     expect(find.text('Salary'), findsNothing);
     expect(find.text('Side Hustle'), findsNothing);
     expect(find.text('Groceries'), findsOneWidget);
@@ -100,6 +100,168 @@ void main() {
     expect(find.byIcon(Icons.info_outline), findsNothing);
   });
 
+  testWidgets('user-defined groups section categories by group on the screen', (
+    tester,
+  ) async {
+    final groups = [
+      const CategoryGroup(
+        id: 'group-household',
+        userId: 'user',
+        name: 'Household',
+        icon: 'home',
+        color: '#0EA5E9',
+        sortOrder: 0,
+      ),
+      const CategoryGroup(
+        id: 'group-side',
+        userId: 'user',
+        name: 'Side Income',
+        icon: 'work',
+        color: '#7C3AED',
+        sortOrder: 1,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              const Category(
+                id: 'cat-rent',
+                userId: 'user',
+                name: 'Rent',
+                type: CategoryType.expense,
+                group: CategoryBudgetGroup.needs,
+                groupId: 'group-household',
+                icon: 'home',
+                color: '#0EA5E9',
+                budgetEnabled: true,
+              ),
+              const Category(
+                id: 'cat-utilities',
+                userId: 'user',
+                name: 'Utilities',
+                type: CategoryType.expense,
+                group: CategoryBudgetGroup.needs,
+                groupId: 'group-household',
+                icon: 'utilities',
+                color: '#0284C7',
+                budgetEnabled: true,
+              ),
+              const Category(
+                id: 'cat-freelance',
+                userId: 'user',
+                name: 'Freelance',
+                type: CategoryType.income,
+                group: CategoryBudgetGroup.business,
+                groupId: 'group-side',
+                icon: 'work',
+                color: '#7C3AED',
+                budgetEnabled: false,
+              ),
+              const Category(
+                id: 'cat-loose',
+                userId: 'user',
+                name: 'Pet Care',
+                type: CategoryType.expense,
+                group: CategoryBudgetGroup.custom,
+                icon: 'category',
+                color: '#22C55E',
+                budgetEnabled: true,
+              ),
+            ]),
+          ),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(groups)),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const CategoryManagementScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // Expense tab: Household (rent + utilities) and Ungrouped (pet care).
+    expect(find.text('Household'), findsOneWidget);
+    expect(find.text('Side Income'), findsNothing);
+    expect(find.text('Ungrouped'), findsOneWidget);
+    expect(find.text('Rent'), findsOneWidget);
+    expect(find.text('Utilities'), findsOneWidget);
+    expect(find.text('Pet Care'), findsOneWidget);
+    expect(find.text('Freelance'), findsNothing);
+
+    // The Household group should be the first expense group, and the
+    // ungrouped bucket follows it.
+    final householdFinder = find.text('Household');
+    final ungroupedFinder = find.text('Ungrouped');
+    expect(
+      tester.getTopLeft(householdFinder).dy,
+      lessThan(tester.getTopLeft(ungroupedFinder).dy),
+    );
+
+    // Switch to Income tab: Side Income (freelance) and Ungrouped (the
+    // system defaults we don't seed here leave it empty for this test).
+    await tester.drag(find.byType(TabBarView), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Side Income'), findsOneWidget);
+    expect(find.text('Freelance'), findsOneWidget);
+    expect(find.text('Household'), findsNothing);
+  });
+
+  testWidgets('group section header can be collapsed and expanded', (
+    tester,
+  ) async {
+    final groups = [
+      const CategoryGroup(
+        id: 'group-household',
+        userId: 'user',
+        name: 'Household',
+        icon: 'home',
+        color: '#0EA5E9',
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              const Category(
+                id: 'cat-rent',
+                userId: 'user',
+                name: 'Rent',
+                type: CategoryType.expense,
+                group: CategoryBudgetGroup.needs,
+                groupId: 'group-household',
+                icon: 'home',
+                color: '#0EA5E9',
+                budgetEnabled: true,
+              ),
+            ]),
+          ),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(groups)),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const CategoryManagementScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    expect(find.text('Rent'), findsOneWidget);
+
+    await tester.tap(find.text('Household'));
+    await tester.pumpAndSettle();
+    expect(find.text('Rent'), findsNothing);
+
+    await tester.tap(find.text('Household'));
+    await tester.pumpAndSettle();
+    expect(find.text('Rent'), findsOneWidget);
+  });
+
   testWidgets('default category tap does not open a popup or route', (
     tester,
   ) async {
@@ -113,13 +275,14 @@ void main() {
                 userId: 'user',
                 name: 'Salary',
                 type: CategoryType.income,
-                group: CategoryGroup.custom,
+                group: CategoryBudgetGroup.custom,
                 icon: 'salary',
                 color: '#22C55E',
                 budgetEnabled: false,
               ),
             ]),
           ),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(const [])),
         ],
         child: MaterialApp(
           theme: AikoTheme.light(),
@@ -150,13 +313,14 @@ void main() {
                 userId: 'user',
                 name: 'Coffee',
                 type: CategoryType.expense,
-                group: CategoryGroup.wants,
+                group: CategoryBudgetGroup.wants,
                 icon: 'coffee',
                 color: '#8B5CF6',
                 budgetEnabled: true,
               ),
             ]),
           ),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(const [])),
         ],
         child: MaterialApp(
           theme: AikoTheme.light(),
@@ -178,6 +342,7 @@ void main() {
     expect(find.text('Budget'), findsNothing);
     expect(find.text('Enabled'), findsNothing);
     expect(find.byIcon(Icons.coffee_outlined), findsWidgets);
+    expect(find.byKey(const Key('category-group-picker')), findsOneWidget);
   });
 
   testWidgets('edit category sheet can delete a custom category', (
@@ -189,7 +354,7 @@ void main() {
         userId: 'user',
         name: 'Coffee',
         type: CategoryType.expense,
-        group: CategoryGroup.wants,
+        group: CategoryBudgetGroup.wants,
         icon: 'coffee',
         color: '#8B5CF6',
         budgetEnabled: true,
@@ -198,7 +363,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [categoriesProvider.overrideWith(() => notifier)],
+        overrides: [
+          categoriesProvider.overrideWith(() => notifier),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(const [])),
+        ],
         child: MaterialApp(
           theme: AikoTheme.light(),
           home: const CategoryManagementScreen(),
@@ -242,13 +410,14 @@ void main() {
                 userId: 'user',
                 name: 'Coffee',
                 type: CategoryType.expense,
-                group: CategoryGroup.wants,
+                group: CategoryBudgetGroup.wants,
                 icon: 'coffee',
                 color: '#8B5CF6',
                 budgetEnabled: true,
               ),
             ]),
           ),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(const [])),
         ],
         child: MaterialApp(
           theme: AikoTheme.light(),
@@ -259,12 +428,13 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    final itemFinder = find.ancestor(
-      of: find.text('Coffee'),
-      matching: find.byType(Card),
-    );
+    final itemFinder = find.byKey(const ValueKey('category-card-coffee'));
 
     expect(itemFinder, findsOneWidget);
+    expect(
+      find.descendant(of: itemFinder, matching: find.text('Coffee')),
+      findsOneWidget,
+    );
 
     expect(find.byType(ListTile), findsNothing);
     expect(find.byIcon(Icons.chevron_right), findsNothing);
@@ -285,7 +455,7 @@ void main() {
                 userId: 'user',
                 name: 'Salary',
                 type: CategoryType.income,
-                group: CategoryGroup.custom,
+                group: CategoryBudgetGroup.custom,
                 icon: 'salary',
                 color: '#22C55E',
               ),
@@ -294,12 +464,13 @@ void main() {
                 userId: 'user',
                 name: 'Side Hustle',
                 type: CategoryType.income,
-                group: CategoryGroup.business,
+                group: CategoryBudgetGroup.business,
                 icon: 'salary',
                 color: '#14B8A6',
               ),
             ]),
           ),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(const [])),
         ],
         child: MaterialApp(
           theme: AikoTheme.light(),
@@ -312,18 +483,16 @@ void main() {
     await tester.tap(find.text('Income'));
     await tester.pumpAndSettle();
 
-    final defaultCardFinder = find.ancestor(
-      of: find.text('Salary'),
-      matching: find.byType(Card),
+    final defaultCardFinder = find.byKey(
+      ValueKey('category-card-${CategoryDefaults.salaryId}'),
     );
-    final customCardFinder = find.ancestor(
-      of: find.text('Side Hustle'),
-      matching: find.byType(Card),
+    final customCardFinder = find.byKey(
+      const ValueKey('category-card-side-hustle'),
     );
     final defaultCard = tester.widget<Card>(defaultCardFinder);
     final customCard = tester.widget<Card>(customCardFinder);
 
-    expect(find.text('Default'), findsNothing);
+    expect(find.text('Ungrouped'), findsOneWidget);
     expect(defaultCard.color, customCard.color);
     expect(
       find.descendant(
@@ -350,7 +519,7 @@ void main() {
         userId: 'user',
         name: 'Coffee',
         type: CategoryType.expense,
-        group: CategoryGroup.wants,
+        group: CategoryBudgetGroup.wants,
         icon: 'coffee',
         color: '#8B5CF6',
         budgetEnabled: true,
@@ -359,7 +528,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [categoriesProvider.overrideWith(() => notifier)],
+        overrides: [
+          categoriesProvider.overrideWith(() => notifier),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(const [])),
+        ],
         child: MaterialApp(
           theme: AikoTheme.light(),
           home: const CategoryManagementScreen(),
@@ -393,7 +565,7 @@ void main() {
 
     expect(notifier.savedCategory?.name, 'Gym');
     expect(notifier.savedCategory?.budgetEnabled, isTrue);
-    expect(notifier.savedCategory?.group, CategoryGroup.custom);
+    expect(notifier.savedCategory?.group, CategoryBudgetGroup.custom);
   });
 
   testWidgets('add category sheet limits type selector to income and expense', (
@@ -403,7 +575,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [categoriesProvider.overrideWith(() => notifier)],
+        overrides: [
+          categoriesProvider.overrideWith(() => notifier),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(const [])),
+        ],
         child: MaterialApp(
           theme: AikoTheme.light(),
           home: const CategoryManagementScreen(),
@@ -461,13 +636,16 @@ void main() {
         userId: 'user',
         name: 'Coffee',
         type: CategoryType.expense,
-        group: CategoryGroup.custom,
+        group: CategoryBudgetGroup.custom,
       ),
     ]);
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [categoriesProvider.overrideWith(() => notifier)],
+        overrides: [
+          categoriesProvider.overrideWith(() => notifier),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(const [])),
+        ],
         child: MaterialApp(
           theme: AikoTheme.light(),
           home: const CategoryManagementScreen(),
@@ -508,6 +686,7 @@ void main() {
           categoriesProvider.overrideWith(
             () => _SavingCategoriesNotifier(const []),
           ),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(const [])),
         ],
         child: MaterialApp(
           theme: AikoTheme.light(),
@@ -537,6 +716,54 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets('group edit button opens the group editor sheet for that group', (
+    tester,
+  ) async {
+    final groups = [
+      const CategoryGroup(
+        id: 'group-household',
+        userId: 'user',
+        name: 'Household',
+        icon: 'home',
+        color: '#0EA5E9',
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              const Category(
+                id: 'cat-rent',
+                userId: 'user',
+                name: 'Rent',
+                type: CategoryType.expense,
+                group: CategoryBudgetGroup.needs,
+                groupId: 'group-household',
+                icon: 'home',
+                color: '#0EA5E9',
+                budgetEnabled: true,
+              ),
+            ]),
+          ),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(groups)),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const CategoryManagementScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Edit group'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit Group'), findsOneWidget);
+    expect(find.text('Household'), findsWidgets);
+  });
 }
 
 class _CategoriesNotifier extends CategoriesNotifier {
@@ -546,6 +773,15 @@ class _CategoriesNotifier extends CategoriesNotifier {
 
   @override
   Future<List<Category>> build() async => categories;
+}
+
+class _GroupsNotifier extends CategoryGroupsNotifier {
+  _GroupsNotifier(this.groups);
+
+  final List<CategoryGroup> groups;
+
+  @override
+  Future<List<CategoryGroup>> build() async => groups;
 }
 
 class _SavingCategoriesNotifier extends _CategoriesNotifier {

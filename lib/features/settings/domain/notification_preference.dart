@@ -1,24 +1,22 @@
 enum NotificationType {
-  billDue,
+  recurringDue,
   creditCardDue,
   budgetThreshold,
   goalMilestone,
   lowBalance,
   unusualSpending,
-  subscriptionRenewal,
   taxDeadline,
   portfolioDrift,
   aikoReviewReady,
 }
 
 enum NotificationSourceModule {
-  bills,
+  recurring,
   creditCards,
   budgets,
   goals,
   accounts,
   transactions,
-  subscriptions,
   tax,
   portfolio,
   reports,

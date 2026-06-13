@@ -602,9 +602,7 @@ class _GroupPicker extends StatelessWidget {
           isExpanded: true,
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.folder_outlined),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
           hint: const Text('Ungrouped'),
           items: <DropdownMenuItem<String?>>[

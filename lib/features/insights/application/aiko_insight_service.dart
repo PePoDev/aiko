@@ -40,7 +40,7 @@ class AikoInsightService {
       description:
           'Income was ${income.format()}, expenses were ${expenses.format()}, and planned savings were ${savings.format()}.',
       recommendation: leftover.isNegative
-          ? 'Review $topCategoryName and fixed bills to bring cash flow positive.'
+          ? 'Review $topCategoryName and fixed recurring payments to bring cash flow positive.'
           : 'Keep the ${leftover.format()} cushion for next month or move part of it to a goal.',
       confidenceScore: 0.84,
       sourceDataSummary: const [

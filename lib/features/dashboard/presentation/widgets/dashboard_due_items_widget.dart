@@ -29,11 +29,7 @@ class DashboardDueItemsWidget extends StatelessWidget {
           for (final item in items)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Icon(
-                item.kind == DashboardDueItemKind.bill
-                    ? Icons.receipt_long_outlined
-                    : Icons.credit_card_outlined,
-              ),
+              leading: const Icon(Icons.credit_card_outlined),
               title: Text(item.title),
               subtitle: Text(_dueLabel(item.dueDate)),
               trailing: Text(item.amount.format()),

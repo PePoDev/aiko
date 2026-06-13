@@ -12,6 +12,7 @@ class OfflineCategory extends OfflineFirstWithSupabaseModel {
     required this.name,
     required this.type,
     required this.categoryGroup,
+    this.groupId,
     this.parentId,
     this.icon = 'category',
     this.color = '#3B82F6',
@@ -33,6 +34,10 @@ class OfflineCategory extends OfflineFirstWithSupabaseModel {
   @Sqlite(name: 'category_group')
   @Supabase(name: 'group')
   final String categoryGroup;
+
+  @Sqlite(name: 'group_id')
+  @Supabase(name: 'group_id')
+  final String? groupId;
 
   final String? parentId;
   final String icon;

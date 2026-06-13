@@ -68,7 +68,7 @@ class GoalsOverviewScreen extends ConsumerWidget {
           final accounts = accountsAsync.value ?? [];
 
           return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
             itemCount: goals.length,
             itemBuilder: (context, index) {
               final goal = goals[index];
@@ -203,16 +203,6 @@ class GoalsOverviewScreen extends ConsumerWidget {
             },
           );
         },
-      ),
-      bottomNavigationBar: SizedBox(
-        height: MediaQuery.paddingOf(context).bottom.clamp(16.0, double.infinity) + 80.0,
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddGoalSheet(context),
-        label: const Text('Add SMART Goal'),
-        icon: const Icon(Icons.add_task),
-        backgroundColor: AikoColors.primaryBlue,
-        foregroundColor: Colors.white,
       ),
     );
   }

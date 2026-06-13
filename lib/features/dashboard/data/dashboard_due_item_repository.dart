@@ -1,6 +1,5 @@
 import '../../../core/money/money.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
-import '../../bills/domain/bill_subscription.dart';
 import '../../credit_cards/domain/credit_card_detail.dart';
 import '../application/dashboard_due_item_service.dart';
 import '../domain/dashboard_due_item.dart';
@@ -19,21 +18,8 @@ class DashboardDueItemRepository {
       return const [];
     }
 
-    final windowEnd = asOf.add(const Duration(days: 30));
-    final List<dynamic> billsResponse;
     final List<dynamic> cardsResponse;
     try {
-      billsResponse = await client
-          .from('bill_subscriptions')
-          .select()
-          .eq('user_id', user.id)
-          .neq('cancellation_status', 'canceled')
-          .gte('next_billing_date', asOf.toIso8601String().substring(0, 10))
-          .lte(
-            'next_billing_date',
-            windowEnd.toIso8601String().substring(0, 10),
-          )
-          .order('next_billing_date');
       cardsResponse = await client
           .from('credit_card_profiles')
           .select()
@@ -43,39 +29,15 @@ class DashboardDueItemRepository {
     }
 
     return _service.upcomingItems(
-      bills: billsResponse
-          .map((row) => _billFromRow(Map<String, dynamic>.from(row)))
-          .toList(growable: false),
       creditCards: cardsResponse
           .map(
-            (row) => _creditCardFromRow(Map<String, dynamic>.from(row), asOf),
+            (row) => _creditCardFromRow(
+              Map<String, dynamic>.from(row),
+              asOf,
+            ),
           )
           .toList(growable: false),
       asOf: asOf,
-    );
-  }
-
-  static BillSubscription _billFromRow(Map<String, dynamic> row) {
-    final cycle = BillingCycle.values.firstWhere(
-      (item) => item.name == row['billing_cycle'],
-      orElse: () => BillingCycle.monthly,
-    );
-    final cancellationStatus = CancellationStatus.values.firstWhere(
-      (item) =>
-          item.name == (row['cancellation_status'] as String? ?? 'active'),
-      orElse: () => CancellationStatus.active,
-    );
-    final currency = row['currency'] as String? ?? 'THB';
-
-    return BillSubscription(
-      id: row['id'] as String,
-      userId: row['user_id'] as String,
-      merchant: row['merchant'] as String,
-      amount: Money.parse('${row['amount'] ?? 0}', currency),
-      billingCycle: cycle,
-      nextDueDate: DateTime.parse(row['next_billing_date'] as String),
-      categoryId: row['category_id'] as String?,
-      cancellationStatus: cancellationStatus,
     );
   }
 

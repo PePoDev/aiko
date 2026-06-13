@@ -19,6 +19,13 @@ class OfflineTransaction extends OfflineFirstWithSupabaseModel {
     this.note,
     this.tags = const [],
     this.status = 'posted',
+    this.isRecurring = false,
+    this.recurringFrequency,
+    this.recurringEndDate,
+    this.recurringMaxOccurrences,
+    this.recurringDayOfWeek,
+    this.recurringDayOfMonth,
+    this.recurringMonthOfYear,
   });
 
   @Sqlite(unique: true)
@@ -45,4 +52,26 @@ class OfflineTransaction extends OfflineFirstWithSupabaseModel {
   final String? note;
   final List<String> tags;
   final String status;
+
+  /// True when the row is part of a recurring series.
+  final bool isRecurring;
+
+  /// One of: once, daily, weekly, monthly, annually. null when
+  /// [isRecurring] is false.
+  final String? recurringFrequency;
+
+  /// Inclusive date the series stops. null = open-ended.
+  final DateTime? recurringEndDate;
+
+  /// Cap on the number of generated occurrences. null = no cap.
+  final int? recurringMaxOccurrences;
+
+  /// Weekly anchor (1 = Monday … 7 = Sunday). Weekly series only.
+  final int? recurringDayOfWeek;
+
+  /// Monthly anchor (1–31). Monthly series only.
+  final int? recurringDayOfMonth;
+
+  /// Annual anchor (1–12). Annually series only.
+  final int? recurringMonthOfYear;
 }

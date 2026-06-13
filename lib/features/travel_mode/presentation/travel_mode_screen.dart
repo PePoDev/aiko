@@ -233,9 +233,6 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: SizedBox(
-        height: MediaQuery.paddingOf(context).bottom.clamp(16.0, double.infinity) + 80.0,
-      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showLogFeeBottomSheet(trip),
         backgroundColor: AikoColors.analyticsTeal,

@@ -1,6 +1,6 @@
 import '../../../core/money/money.dart';
 
-enum DashboardDueItemKind { bill, creditCard }
+enum DashboardDueItemKind { creditCard }
 
 class DashboardDueItem {
   const DashboardDueItem({

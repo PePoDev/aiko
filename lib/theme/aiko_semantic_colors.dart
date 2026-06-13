@@ -14,7 +14,7 @@ extension AikoSemanticColors on ColorScheme {
       ? const Color(0xFF16A34A)
       : const Color(0xFF4ADE80);
 
-  /// Bills, thresholds, upcoming due dates.
+  /// Recurring obligations, thresholds, upcoming due dates.
   Color get warning => brightness == Brightness.light
       ? const Color(0xFFF59E0B)
       : const Color(0xFFFBBF24);

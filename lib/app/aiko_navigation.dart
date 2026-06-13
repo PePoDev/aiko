@@ -94,7 +94,7 @@ const aikoNavigationGroups = [
         label: 'Notifications',
         path: '/notification-settings',
         icon: Icons.notifications_outlined,
-        description: 'Configure bill, budget, goal, and insight alerts.',
+        description: 'Configure recurring, budget, goal, and insight alerts.',
       ),
       AikoNavigationItem(
         label: 'Notifications Center',

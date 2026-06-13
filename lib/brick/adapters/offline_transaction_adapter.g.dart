@@ -21,6 +21,27 @@ Future<OfflineTransaction> _$OfflineTransactionFromSupabase(
     note: data['note'] == null ? null : data['note'] as String?,
     tags: data['tags'].toList().cast<String>(),
     status: data['status'] as String,
+    isRecurring: data['is_recurring'] as bool,
+    recurringFrequency: data['recurring_frequency'] == null
+        ? null
+        : data['recurring_frequency'] as String?,
+    recurringEndDate: data['recurring_end_date'] == null
+        ? null
+        : data['recurring_end_date'] == null
+        ? null
+        : DateTime.tryParse(data['recurring_end_date'] as String),
+    recurringMaxOccurrences: data['recurring_max_occurrences'] == null
+        ? null
+        : data['recurring_max_occurrences'] as int?,
+    recurringDayOfWeek: data['recurring_day_of_week'] == null
+        ? null
+        : data['recurring_day_of_week'] as int?,
+    recurringDayOfMonth: data['recurring_day_of_month'] == null
+        ? null
+        : data['recurring_day_of_month'] as int?,
+    recurringMonthOfYear: data['recurring_month_of_year'] == null
+        ? null
+        : data['recurring_month_of_year'] as int?,
   );
 }
 
@@ -42,6 +63,13 @@ Future<Map<String, dynamic>> _$OfflineTransactionToSupabase(
     'note': instance.note,
     'tags': instance.tags,
     'status': instance.status,
+    'is_recurring': instance.isRecurring,
+    'recurring_frequency': instance.recurringFrequency,
+    'recurring_end_date': instance.recurringEndDate?.toIso8601String(),
+    'recurring_max_occurrences': instance.recurringMaxOccurrences,
+    'recurring_day_of_week': instance.recurringDayOfWeek,
+    'recurring_day_of_month': instance.recurringDayOfMonth,
+    'recurring_month_of_year': instance.recurringMonthOfYear,
   };
 }
 
@@ -65,6 +93,27 @@ Future<OfflineTransaction> _$OfflineTransactionFromSqlite(
     note: data['note'] == null ? null : data['note'] as String?,
     tags: jsonDecode(data['tags']).toList().cast<String>(),
     status: data['status'] as String,
+    isRecurring: data['is_recurring'] == 1,
+    recurringFrequency: data['recurring_frequency'] == null
+        ? null
+        : data['recurring_frequency'] as String?,
+    recurringEndDate: data['recurring_end_date'] == null
+        ? null
+        : data['recurring_end_date'] == null
+        ? null
+        : DateTime.tryParse(data['recurring_end_date'] as String),
+    recurringMaxOccurrences: data['recurring_max_occurrences'] == null
+        ? null
+        : data['recurring_max_occurrences'] as int?,
+    recurringDayOfWeek: data['recurring_day_of_week'] == null
+        ? null
+        : data['recurring_day_of_week'] as int?,
+    recurringDayOfMonth: data['recurring_day_of_month'] == null
+        ? null
+        : data['recurring_day_of_month'] as int?,
+    recurringMonthOfYear: data['recurring_month_of_year'] == null
+        ? null
+        : data['recurring_month_of_year'] as int?,
   )..primaryKey = data['_brick_id'] as int;
 }
 
@@ -86,6 +135,13 @@ Future<Map<String, dynamic>> _$OfflineTransactionToSqlite(
     'note': instance.note,
     'tags': jsonEncode(instance.tags),
     'status': instance.status,
+    'is_recurring': instance.isRecurring ? 1 : 0,
+    'recurring_frequency': instance.recurringFrequency,
+    'recurring_end_date': instance.recurringEndDate?.toIso8601String(),
+    'recurring_max_occurrences': instance.recurringMaxOccurrences,
+    'recurring_day_of_week': instance.recurringDayOfWeek,
+    'recurring_day_of_month': instance.recurringDayOfMonth,
+    'recurring_month_of_year': instance.recurringMonthOfYear,
   };
 }
 
@@ -147,6 +203,34 @@ class OfflineTransactionAdapter
     'status': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'status',
+    ),
+    'isRecurring': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'is_recurring',
+    ),
+    'recurringFrequency': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'recurring_frequency',
+    ),
+    'recurringEndDate': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'recurring_end_date',
+    ),
+    'recurringMaxOccurrences': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'recurring_max_occurrences',
+    ),
+    'recurringDayOfWeek': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'recurring_day_of_week',
+    ),
+    'recurringDayOfMonth': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'recurring_day_of_month',
+    ),
+    'recurringMonthOfYear': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'recurring_month_of_year',
     ),
   };
   @override
@@ -232,6 +316,48 @@ class OfflineTransactionAdapter
       columnName: 'status',
       iterable: false,
       type: String,
+    ),
+    'isRecurring': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'is_recurring',
+      iterable: false,
+      type: bool,
+    ),
+    'recurringFrequency': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'recurring_frequency',
+      iterable: false,
+      type: String,
+    ),
+    'recurringEndDate': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'recurring_end_date',
+      iterable: false,
+      type: DateTime,
+    ),
+    'recurringMaxOccurrences': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'recurring_max_occurrences',
+      iterable: false,
+      type: int,
+    ),
+    'recurringDayOfWeek': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'recurring_day_of_week',
+      iterable: false,
+      type: int,
+    ),
+    'recurringDayOfMonth': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'recurring_day_of_month',
+      iterable: false,
+      type: int,
+    ),
+    'recurringMonthOfYear': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'recurring_month_of_year',
+      iterable: false,
+      type: int,
     ),
   };
   @override

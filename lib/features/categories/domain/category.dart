@@ -10,7 +10,9 @@ enum CategoryType {
   adjustment,
 }
 
-enum CategoryGroup {
+/// Built-in spending classification used by the 50/30/20 budgeting templates.
+/// This is a fixed taxonomy and is distinct from user-defined [CategoryGroup]s.
+enum CategoryBudgetGroup {
   needs,
   wants,
   savings,
@@ -21,6 +23,10 @@ enum CategoryGroup {
   custom,
 }
 
+/// Sentinel used so [Category.copyWith] can distinguish "leave unchanged" from
+/// "explicitly set to null" for nullable fields such as [Category.groupId].
+const Object _unset = Object();
+
 class Category {
   const Category({
     required this.id,
@@ -28,6 +34,7 @@ class Category {
     required this.name,
     required this.type,
     required this.group,
+    this.groupId,
     this.parentId,
     this.icon = 'category',
     this.color = '#3B82F6',
@@ -40,7 +47,12 @@ class Category {
   final String userId;
   final String name;
   final CategoryType type;
-  final CategoryGroup group;
+  final CategoryBudgetGroup group;
+
+  /// Id of the user-defined [CategoryGroup] this category belongs to, or null
+  /// when the category is ungrouped (default/system categories are always
+  /// ungrouped).
+  final String? groupId;
   final String? parentId;
   final String icon;
   final String color;
@@ -53,7 +65,8 @@ class Category {
   Category copyWith({
     String? name,
     CategoryType? type,
-    CategoryGroup? group,
+    CategoryBudgetGroup? group,
+    Object? groupId = _unset,
     String? parentId,
     String? icon,
     String? color,
@@ -67,11 +80,54 @@ class Category {
       name: name ?? this.name,
       type: type ?? this.type,
       group: group ?? this.group,
+      groupId: identical(groupId, _unset) ? this.groupId : groupId as String?,
       parentId: parentId ?? this.parentId,
       icon: icon ?? this.icon,
       color: color ?? this.color,
       budgetEnabled: budgetEnabled ?? this.budgetEnabled,
       isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+}
+
+/// A user-defined group that bundles related categories together (e.g.
+/// "Household", "Car", "Kids"). Groups are owned by a single user and are
+/// purely organisational — they section the Categories screen and do not
+/// affect budgeting math.
+class CategoryGroup {
+  const CategoryGroup({
+    required this.id,
+    required this.userId,
+    required this.name,
+    this.icon = 'category',
+    this.color = '#3B82F6',
+    this.sortOrder = 0,
+    this.createdAt,
+  });
+
+  final String id;
+  final String userId;
+  final String name;
+  final String icon;
+  final String color;
+  final int sortOrder;
+  final DateTime? createdAt;
+
+  CategoryGroup copyWith({
+    String? name,
+    String? icon,
+    String? color,
+    int? sortOrder,
+    DateTime? createdAt,
+  }) {
+    return CategoryGroup(
+      id: id,
+      userId: userId,
+      name: name ?? this.name,
+      icon: icon ?? this.icon,
+      color: color ?? this.color,
+      sortOrder: sortOrder ?? this.sortOrder,
       createdAt: createdAt ?? this.createdAt,
     );
   }

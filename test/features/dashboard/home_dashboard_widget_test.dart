@@ -425,7 +425,7 @@ void main() {
             userId: 'user',
             name: 'Coffee',
             type: CategoryType.expense,
-            group: CategoryGroup.wants,
+            group: CategoryBudgetGroup.wants,
             color: '#8B5CF6',
           ),
         ],

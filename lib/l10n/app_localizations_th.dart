@@ -197,7 +197,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get upcomingDueDates => 'วันครบกำหนดที่จะถึง';
 
   @override
-  String get loadingBills => 'กำลังโหลดบิลและการชำระบัตร...';
+  String get loadingDueDates => 'กำลังโหลดวันครบกำหนด...';
 
   @override
   String get unableToLoadDueDates => 'ไม่สามารถโหลดวันครบกำหนดได้ในขณะนี้';

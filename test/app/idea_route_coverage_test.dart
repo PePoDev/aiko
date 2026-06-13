@@ -8,8 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const expectedRoutes = <String, String>{
     '/notifications': 'Notifications',
-    '/transactions/split': 'Split Transaction',
-    '/transactions/receipt-review': 'Review Receipt',
     '/budget/pace': 'Pace Overview',
     '/budget/safe-to-spend': 'Safe to Spend',
     '/budget/cash-flow': 'Cash Flow',
@@ -20,12 +18,8 @@ void main() {
     '/reports/monthly': 'Monthly Report',
     '/aiko-insights': 'Aiko Insights',
     '/loan-calculator': 'Loan Calculator',
-    '/calculator-result': 'Calculator Result',
-    '/credit-cards/detail': 'Credit Card Detail',
-    '/loans/detail': 'Loans Detail',
     '/portfolio/allocation': 'Asset Allocation',
     '/portfolio/holding': 'Holding Detail',
-    '/tax-analytics': 'Tax Analytics',
     '/profile-security': 'Profile & Security',
   };
 
@@ -93,6 +87,14 @@ void main() {
 
     expect(find.text('Route not found'), findsOneWidget);
     expect(find.text('Assets and Net Worth'), findsNothing);
+  });
+
+  testWidgets('/tax-analytics has been removed', (tester) async {
+    await tester.pumpWidget(_routerApp('/tax-analytics'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Route not found'), findsOneWidget);
+    expect(find.text('Tax Analytics'), findsNothing);
   });
 }
 

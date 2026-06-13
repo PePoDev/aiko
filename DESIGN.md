@@ -86,6 +86,19 @@ Rules:
 - Never rely on color alone. Pair color with text, icon, label, or number.
 - Inactive states are neutral, not pale saturated variants.
 
+### Color Ramps
+
+Use 10-stop ramps for charts, progress bars, and selected states:
+
+| Ramp | Stops |
+|---|---|
+| Primary blue | `#071426`, `#0B356F`, `#0C4A9A`, `#0B5DBD`, `#1D74E8`, `#3B82F6`, `#75A4F5`, `#A5C4F6`, `#D8E5FF`, `#FFFFFF` |
+| Secondary blue | `#071426`, `#0B2A7A`, `#073AA8`, `#1D4ED8`, `#4268EA`, `#6385F0`, `#8AA4F5`, `#AFC0F8`, `#DCE5FF`, `#FFFFFF` |
+| Tertiary purple | `#071426`, `#240052`, `#3B0785`, `#5B0BC0`, `#6D28D9`, `#7C3AED`, `#9B67F2`, `#B894F5`, `#DCCBFF`, `#FFFFFF` |
+| Neutral | `#071426`, `#0F172A`, `#293348`, `#414B60`, `#5B6578`, `#778196`, `#9BA4B8`, `#BAC3D6`, `#DCE4F8`, `#FFFFFF` |
+
+Aiko character artwork should be tested on both dark and light backgrounds. Use a subtle glow or border if the artwork has transparent regions that blend into dark surfaces.
+
 ## Typography
 
 | Role | Font | Use |
@@ -154,9 +167,25 @@ Density rules: daily lists are compact, detail screens breathe, dashboard uses f
 
 `FinanceCard` is for financial objects, metrics, and grouped task panels: 8px radius, 16px default padding, 20px prominent padding, outline-variant border, no default shadow, `titleMedium` title, `bodyMedium` body, 40px icon tile with 8px radius and 12 percent accent opacity, stable `InkWell` tap state. Never use it as a decorative wrapper around another card.
 
+Cards carry a strict three-tier hierarchy:
+
+1. Primary number or title.
+2. Supporting metadata.
+3. One clear action or status.
+
+Avoid decorative cards that do not hold a real object, metric, or action.
+
 Buttons: filled for primary, outlined for secondary, text for low-emphasis inline actions, icon buttons for familiar commands. Minimum height is 48px, radius is 8px, disabled state must be visible and non-interactive, and familiar commands should use icons.
 
-Inputs and pickers: visible labels, 54px minimum height, 8px radius, primary focus border, danger error border. Custom pickers show selected value plus context such as category group or account balance. Bottom-sheet pickers use compact list rows with selected checkmarks.
+Icon buttons: 40–48px touch target, 48px minimum tap target. Use circular tiles for primary and destructive actions, square or circular tiles for AI actions.
+
+| Icon button | Style |
+|---|---|
+| Primary | Blue circle, white icon |
+| AI / premium | Purple square or circle, white icon |
+| Destructive | Red circle, white icon |
+
+Inputs and pickers: visible labels, 54px minimum height, 8px radius, pale blue fill, thin blue-gray border, leading icon for search, primary focus border, danger error border. Placeholder text uses muted neutral. Do not place long helper text inside inputs — put validation or helper copy below the field. Custom pickers show selected value plus context such as category group or account balance. Bottom-sheet pickers use compact list rows with selected checkmarks.
 
 Lists: compact `ListTile` rows, 48px tap target, single-line titles unless needed, trailing amounts/statuses aligned, dividers or card borders instead of nested containers.
 
@@ -169,6 +198,16 @@ Overview layout editing is a scrollable in-page action labeled `Edit layout` / `
 Sheets and dialogs: use bottom sheets for mobile creation/editing and dialogs for destructive confirmation. Sheets need drag handle, safe area, scrollable content, and 20px top radius. Destructive dialogs name the object and effect.
 
 Charts and progress: every chart needs a text summary. Every progress bar needs current, target, and period. Use semantic color plus label. Progress height is 8px compact and 10-12px on dashboards.
+
+Interactive states:
+
+| State | Treatment |
+|---|---|
+| Pressed / splash | Primary color at 12% opacity |
+| Hover (web/desktop) | Surface tint at 8% opacity |
+| Focused | 2px primary outline offset by 2px |
+| Disabled | 40% opacity, no interaction |
+| Dragging | Slight scale (1.02) with subtle shadow |
 
 States: use `AikoScreenState` unless specialized. Loading uses skeleton/quiet progress with no fake data. Empty explains what is missing and gives one action. Error explains retry/recovery. Offline explains local mode. Locked explains authentication.
 
@@ -186,6 +225,49 @@ Use `lib/shared/widgets/aiko_data_widgets.dart` for idea-backed supplemental scr
 | `AikoMiniBarChart`, `AikoDonutChart`, `AikoGauge`, `AikoSankeyPreview` | Lightweight labeled preview charts |
 
 Prefer shared widgets over local one-off cards or painters. Do not nest `AikoDataListCard`. Use sticky bottom actions through `AikoDetailScaffold.bottomBar` unless a feature already has a pattern.
+
+## Iconography
+
+Use Material Icons as the primary icon set. Custom SVG icons are acceptable for brand moments (Aiko logo, onboarding illustrations) but should not replace standard icons for common actions.
+
+Sizes:
+
+| Context | Size |
+|---|---:|
+| Inline with body text | 16 |
+| List tile leading | 20 |
+| Action bar / toolbar | 24 |
+| Empty state / hero | 48 |
+
+Icon color rules:
+
+| Context | Color |
+|---|---|
+| Default | `onSurface` |
+| Active / selected | `primary` |
+| Destructive | `danger` |
+| AI / premium | `tertiary` |
+| Muted / disabled | `mutedText` |
+
+## Aiko Character Usage
+
+Use Aiko purposefully. She adds warmth, reassurance, or guidance — never decoration.
+
+Use Aiko for:
+
+- Onboarding welcome and completion.
+- Insight explanations.
+- Goal encouragement.
+- Budget warnings.
+- Empty states that need reassurance.
+- Aiko assistant chat.
+
+Do not place Aiko on every screen. She must not cover tables, charts, balances, forms, or critical actions.
+
+Tone:
+
+- Use: "You are still on track. Groceries are running a little high, so I found two easy places to adjust."
+- Avoid: "You spent too much again."
 
 ## Ownership
 
@@ -212,11 +294,12 @@ Motion:
 |---|---:|---|
 | Tap feedback | 80-150 ms | Material state layer |
 | Small reveal | 150-200 ms | `Curves.easeOut` |
-| Sheet entrance | 250-300 ms | `Curves.easeOut` |
+| Sheet / modal entrance | 250-300 ms | `Curves.easeOut` |
 | Page transition | 250-300 ms | `Curves.easeInOut` |
 | Progress fill | 300-400 ms | `Curves.easeInOut` |
+| Emphasis (celebrate, alert) | ~600 ms | `Curves.elasticOut` |
 
-Animate opacity and transform, not layout size. Do not animate financial numbers while users read them. Avoid continuous looping animation except loading indicators. Respect reduced motion. No hover-only affordances.
+Animate opacity and transform, not layout size. Do not animate financial numbers while users read them — settle within 300 ms. Use `AnimatedSwitcher` for state transitions (loading to loaded, empty to populated). Avoid continuous looping animation except loading indicators. Respect reduced motion. No hover-only affordances.
 
 Accessibility:
 

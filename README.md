@@ -41,7 +41,7 @@ The May 31, 2026 reference idea boards are implemented as in-app flows and suppl
 | Idea 2 | Transactions, transaction detail, add/split transaction, receipt review, search filters, categories, account detail |
 | Idea 3 | Budget, pace, safe-to-spend, goals, saving plans, cash flow, Sankey, reports, monthly report |
 | Idea 4 | Credit cards, debt payoff, loans, net worth, assets, portfolio, allocation, tax center, tax analytics |
-| Idea 5 | Ask Aiko, Aiko insights/review/optimize, calculators, bills, learning hub, travel mode, settings, profile security |
+| Idea 5 | Ask Aiko, Aiko insights/review/optimize, calculators, learning hub, travel mode, settings, profile security |
 
 ### Idea Boards
 
@@ -182,7 +182,6 @@ lib/
 │   ├── aiko_optimize/           # AI optimization engine
 │   ├── assets/                  # Assets, allocation, net worth
 │   ├── auth/                    # Authentication (Supabase Auth)
-│   ├── bills/                   # Bills, subscriptions, cancellation
 │   ├── budgets/                 # Budgets (envelope, zero-based, 50/30/20)
 │   ├── calculators/             # 60+ financial calculators
 │   ├── categories/              # Category management
@@ -298,7 +297,7 @@ Feature modules under `lib/features/<name>/` follow the current layered layout:
 
 - Primary color: Blue (`#3B82F6`). The full palette lives in `lib/theme/aiko_colors.dart`.
 - Light and dark themes live in `lib/theme/aiko_theme.dart`.
-- Semantic colors: green for success/savings, orange for warnings/bills, red for danger/overspending, purple for premium/AI, and teal for analytics/portfolio.
+- Semantic colors: green for success/savings, orange for warnings/recurring obligations, red for danger/overspending, purple for premium/AI, and teal for analytics/portfolio.
 - Overview and Transactions app-bar action icons use the primary action color, and dashboard layout editing uses a scrollable in-page action at the bottom of Overview content instead of an app-bar or fixed bottom action.
 - Overview dashboard panels for Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, and Aiko Goal Simulator must stay separately manageable in the layout editor.
 - Aiko follows "Data first, Aiko enhanced": use the character purposefully for welcome, insights, goals, warnings, and reviews, never over numbers or charts.
@@ -314,7 +313,7 @@ Drag-and-drop widget dashboard with Aiko welcome card, separately managed Daily 
 
 ### 💰 Money Tracking
 
-13 transaction types (income, expense, transfer, refund, investment buy/sell, dividend, interest, loan payment, credit card payment, tax payment, fee, adjustment). Split transactions, receipt attachments, recurring entries, and duplicate detection.
+13 transaction types (income, expense, transfer, refund, investment buy/sell, dividend, interest, loan payment, credit card payment, tax payment, fee, adjustment). Split transactions, receipt attachments, recurring transactions (Once, Daily, Weekly, Monthly, Annually — each with its own end date and cadence-specific settings), and duplicate detection.
 
 ### 📊 Smart Budgeting
 
@@ -330,7 +329,7 @@ Spending trends, cash flow analysis with Sankey diagrams, pace monitoring, lefto
 
 ### 🤖 Aiko AI Assistant
 
-Natural-language chat for financial questions. Personalized spending insights, budget recommendations, debt payoff strategies, subscription cancellation suggestions, and monthly financial reviews.
+Natural-language chat for financial questions. Personalized spending insights, budget recommendations, debt payoff strategies, and monthly financial reviews.
 
 ### 💳 Credit Card & Debt Management
 
@@ -365,7 +364,7 @@ Multi-currency accounts, automatic exchange rate updates, travel budgets, foreig
 
 ## Database Schema
 
-The Supabase backend uses 17 core tables, all protected by Row Level Security:
+The Supabase backend uses 15 core tables, all protected by Row Level Security:
 
 | Table | Purpose |
 | --- | --- |
@@ -381,8 +380,6 @@ The Supabase backend uses 17 core tables, all protected by Row Level Security:
 | `liabilities` | Debt and loan records |
 | `investment_holdings` | Portfolio holdings and market values |
 | `tax_records` | Tax-year income, deductions, documents |
-| `subscriptions` | Recurring subscription tracking |
-| `bills` | Recurring bill tracking |
 | `saved_calculator_scenarios` | Saved calculator inputs and results |
 | `aiko_insights` | AI-generated financial insights |
 | `devices` | Registered devices for sync |
@@ -413,7 +410,7 @@ All tables enforce `user_id = auth.uid()` via RLS policies — users can only ac
 | Pale Blue | `#EFF6FF` | Light backgrounds, info cards |
 | Dark Navy | `#0F172A` | Dark mode base, premium sections |
 | Success Green | — | Savings, positive cash flow, completed goals |
-| Warning Orange | — | Upcoming bills, budget caution |
+| Warning Orange | — | Recurring obligations, budget caution |
 | Danger Red | — | Overspending, overdue, high debt risk |
 | Purple | — | Premium AI insights, optimization |
 | Teal | — | Analytics, portfolio, cash flow |
@@ -497,7 +494,7 @@ Aiko insights, spending analysis, cash flow, pace/leftover, prediction engine, A
 
 ### Phase 4 — Advanced Finance ✅
 
-Credit cards, debt/loan management, payoff plans, bills/subscriptions, cancellation/bill-lowering, calculators.
+Credit cards, debt/loan management, payoff plans, recurring transactions, calculators.
 
 ### Phase 5 — Wealth ✅
 

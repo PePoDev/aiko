@@ -4,6 +4,7 @@ import '../features/accounts/data/account_repository.dart';
 import '../features/categories/application/category_service.dart';
 import '../features/budgets/data/budget_repository.dart';
 import '../features/categories/data/category_repository.dart';
+import '../features/categories/data/category_group_repository.dart';
 import '../features/dashboard/data/dashboard_due_item_repository.dart';
 import '../features/dashboard/data/dashboard_layout_repository.dart';
 import '../features/dashboard/data/dashboard_repository.dart';
@@ -20,8 +21,6 @@ import '../features/transactions/domain/transaction.dart';
 import '../features/accounts/domain/account.dart';
 import '../features/budgets/domain/budget.dart';
 import '../features/categories/domain/category.dart';
-import '../features/bills/data/bill_subscription_repository.dart';
-import '../features/bills/domain/bill_subscription.dart';
 import '../features/investments/data/investment_holding_repository.dart';
 import '../core/money/money.dart';
 
@@ -37,6 +36,12 @@ final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
   return CategoryRepository();
 });
 
+final categoryGroupRepositoryProvider = Provider<CategoryGroupRepository>((
+  ref,
+) {
+  return const CategoryGroupRepository();
+});
+
 final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
   return BudgetRepository();
 });
@@ -44,12 +49,6 @@ final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
 final goalRepositoryProvider = Provider<GoalRepository>((ref) {
   return const GoalRepository();
 });
-
-final billSubscriptionRepositoryProvider = Provider<BillSubscriptionRepository>(
-  (ref) {
-    return const BillSubscriptionRepository();
-  },
-);
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
   return const ProfileRepository();
@@ -405,6 +404,57 @@ final categoriesProvider =
       return CategoriesNotifier();
     });
 
+class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
+  @override
+  Future<List<CategoryGroup>> build() async {
+    final repo = ref.watch(categoryGroupRepositoryProvider);
+    return repo.list();
+  }
+
+  Future<void> saveGroup(CategoryGroup group) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(categoryGroupRepositoryProvider);
+      await repo.save(group);
+      return repo.list();
+    });
+    if (state.hasError) {
+      Error.throwWithStackTrace(state.error!, state.stackTrace!);
+    }
+  }
+
+  /// Deletes a group. Categories assigned to it are moved back to "Ungrouped"
+  /// by clearing their `groupId`, then the categories list is refreshed.
+  Future<void> deleteGroup(String id) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final categoryRepo = ref.read(categoryRepositoryProvider);
+      final categories = await categoryRepo.list();
+      for (final category in categories) {
+        if (category.groupId == id) {
+          await categoryRepo.save(category.copyWith(groupId: null));
+        }
+      }
+
+      final groupRepo = ref.read(categoryGroupRepositoryProvider);
+      await groupRepo.delete(id);
+      return groupRepo.list();
+    });
+    if (state.hasError) {
+      Error.throwWithStackTrace(state.error!, state.stackTrace!);
+    }
+    ref.invalidate(categoriesProvider);
+  }
+}
+
+final categoryGroupsProvider =
+    AsyncNotifierProvider.autoDispose<
+      CategoryGroupsNotifier,
+      List<CategoryGroup>
+    >(() {
+      return CategoryGroupsNotifier();
+    });
+
 class BudgetsNotifier extends AsyncNotifier<List<Budget>> {
   @override
   Future<List<Budget>> build() async {
@@ -478,81 +528,6 @@ class GoalsNotifier extends AsyncNotifier<List<Goal>> {
 final goalsProvider =
     AsyncNotifierProvider.autoDispose<GoalsNotifier, List<Goal>>(() {
       return GoalsNotifier();
-    });
-
-class BillSubscriptionsNotifier extends AsyncNotifier<List<BillSubscription>> {
-  // In-memory fallback for offline/mock mode when no session exists
-  final List<BillSubscription> _localFallback = [
-    BillSubscription(
-      id: 'local-bill-1',
-      merchant: 'Streaming Plus',
-      amount: Money.parse('18', 'USD'),
-      billingCycle: BillingCycle.monthly,
-      nextBillingDate: DateTime(2026, 6, 1),
-    ),
-    BillSubscription(
-      id: 'local-bill-2',
-      merchant: 'Cloud Trial',
-      amount: Money.parse('29', 'USD'),
-      billingCycle: BillingCycle.monthly,
-      nextBillingDate: DateTime(2026, 5, 28),
-      categoryId: 'trial',
-    ),
-  ];
-
-  @override
-  Future<List<BillSubscription>> build() async {
-    final repo = ref.watch(billSubscriptionRepositoryProvider);
-    try {
-      return await repo.list();
-    } catch (_) {
-      // Offline/Mock fallback
-      return _localFallback;
-    }
-  }
-
-  Future<void> addBillSubscription(BillSubscription bill) async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final repo = ref.read(billSubscriptionRepositoryProvider);
-      try {
-        await repo.save(bill);
-        return await repo.list();
-      } catch (_) {
-        // Fallback local update
-        final idx = _localFallback.indexWhere((b) => b.id == bill.id);
-        if (idx != -1) {
-          _localFallback[idx] = bill;
-        } else {
-          _localFallback.add(bill);
-        }
-        return [..._localFallback];
-      }
-    });
-  }
-
-  Future<void> deleteBillSubscription(String id) async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final repo = ref.read(billSubscriptionRepositoryProvider);
-      try {
-        await repo.delete(id);
-        return await repo.list();
-      } catch (_) {
-        // Fallback local update
-        _localFallback.removeWhere((b) => b.id == id);
-        return [..._localFallback];
-      }
-    });
-  }
-}
-
-final billSubscriptionsProvider =
-    AsyncNotifierProvider.autoDispose<
-      BillSubscriptionsNotifier,
-      List<BillSubscription>
-    >(() {
-      return BillSubscriptionsNotifier();
     });
 
 final profileProvider = FutureProvider.autoDispose<Profile>((ref) {

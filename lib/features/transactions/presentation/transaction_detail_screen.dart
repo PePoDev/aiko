@@ -8,7 +8,7 @@ import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
 import '../../accounts/presentation/accounts_screen.dart';
 import '../../categories/domain/category.dart';
-import '../../categories/presentation/category_management_screen.dart';
+import '../../categories/presentation/category_editor_sheet.dart';
 import '../domain/transaction.dart';
 import 'transaction_form_screen.dart';
 

@@ -5,6 +5,7 @@ import 'package:aiko/features/budgets/domain/budget.dart';
 import 'package:aiko/features/budgets/presentation/budget_overview_screen.dart';
 import 'package:aiko/features/categories/data/category_repository.dart';
 import 'package:aiko/features/categories/domain/category.dart';
+import 'package:aiko/features/categories/domain/category_defaults.dart';
 import 'package:aiko/theme/aiko_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -319,7 +320,7 @@ void main() {
     expect(repository._budgets.single.amount.amount.toString(), '250');
     expect(repository._budgets.single.includedCategoryIds, [
       'groceries',
-      'default-expense-coffee',
+      CategoryDefaults.coffeeId,
     ]);
     expect(repository._budgets.single.isAppDefined, isTrue);
   });

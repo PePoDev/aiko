@@ -5,13 +5,19 @@
   Track money · Budget · Save · Invest · Plan — with a friendly AI companion.
 </p>
 
-> This README is the canonical source of truth for both human contributors and coding agents.
+> This README is the single canonical source of truth for both human contributors
+> and coding agents. It covers product scope, the visual design system, and
+> implementation rules. If screen code, product behavior, or UI appearance
+> conflicts with this file, update the code (or surface the conflict) unless this
+> file is wrong.
 
 ---
 
 ## What Is Aiko?
 
 Aiko is a cross-platform personal finance app for iOS and Android, built with Flutter and powered by Supabase Cloud. At its core is **Aiko** — a cute, anime-style AI assistant with blue hair who helps users understand their money, build wealth, and reach financial goals through friendly, non-judgmental guidance.
+
+Aiko is a calm, data-first personal finance app. The UI makes money, risk, progress, and next actions easy to scan before it adds personality. Aiko, the assistant character, appears only where warmth or explanation helps a user decide.
 
 Aiko is not just an expense tracker. It's a **personal financial operating system** combining:
 
@@ -31,9 +37,44 @@ Aiko is not just an expense tracker. It's a **personal financial operating syste
 
 ---
 
+## Brand Identity & Voice
+
+- **App Name:** Aiko (financial companion avatar: blue-haired, supportive, smart, calm, non-judgmental).
+- **Brand Voice:** Warm, clear, positive reinforcement, solution-oriented — never shame-based.
+- **Primary Color:** Blue (`#3B82F6`) representing trust and stability.
+- **Color System:** Primary blue (`#3B82F6` | Deep `#1D4ED8` | Soft `#93C5FD` | Pale `#EFF6FF`). Semantic: Success Green (savings, income), Warning Orange (bills, limits), Danger Red (overspending), Purple (Premium/AI), Teal (analytics, portfolio).
+- **Character Principle:** *Data first, Aiko enhanced.* The character guides onboarding, dashboard greetings, monthly reviews, and insights without obscuring critical data or charts.
+
+### Product Register
+
+Aiko is product UI, not a marketing site. It should feel trustworthy, native, repeatable, and efficient for daily finance work. Use familiar app patterns, dense but readable hierarchy, consistent components, explanatory motion, and AI warmth only when it clarifies, reassures, or guides a decision.
+
+Avoid decorative gradients, glassmorphism, ornamental cards, nested cards, oversized task-screen heroes, meaningless purple/blue accents, and Aiko artwork covering numbers, charts, forms, or actions. Category forms do not control budget inclusion; budget forms own it.
+
+### Voice
+
+Tone is clear, supportive, specific, and non-judgmental.
+
+- Use: "Groceries are pacing high. Lower flexible spending by $18 this week to stay on track."
+- Avoid: "You overspent again."
+
+### Design Tenets
+
+1. Data first, Aiko enhanced.
+2. One primary action per screen region.
+3. Every financial number needs context: period, account, category, target, or status.
+4. Lists are compact by default; detail screens can breathe.
+5. Cards represent real objects, metrics, or grouped tasks.
+6. Forms disclose advanced controls only when the feature owns that choice.
+7. Empty states teach the next action; errors explain recovery.
+8. Dark mode is first-class.
+9. Every tappable control has a 48px minimum touch target.
+
+---
+
 ## Design Ideas
 
-The May 31, 2026 reference idea boards are implemented as in-app flows and supplemental detail states. They guide layout density, screen hierarchy, icon coverage, and Aiko placement; `DESIGN.md` is the detailed route-by-route design source.
+The May 31, 2026 reference idea boards are implemented as in-app flows and supplemental detail states. They guide layout density, screen hierarchy, icon coverage, and Aiko placement. They are coverage targets, not a separate theme — existing feature screens remain the source of truth, and idea-specific states are integrated as subroutes, menu tools, or inline actions to avoid duplicated screens. See [Route and Idea Coverage](#route-and-idea-coverage) for the route map.
 
 | Idea | Coverage |
 | --- | --- |
@@ -42,6 +83,8 @@ The May 31, 2026 reference idea boards are implemented as in-app flows and suppl
 | Idea 3 | Budget, pace, safe-to-spend, goals, saving plans, cash flow, Sankey, reports, monthly report |
 | Idea 4 | Credit cards, debt payoff, loans, net worth, assets, portfolio, allocation, tax center, tax analytics |
 | Idea 5 | Ask Aiko, Aiko insights/review/optimize, calculators, learning hub, travel mode, settings, profile security |
+
+Product rule: when an idea board overlaps an existing feature, improve the existing flow instead of creating a parallel screen.
 
 ### Idea Boards
 
@@ -218,6 +261,35 @@ integration_test/                # Integration tests
 
 ---
 
+## Information Architecture & Navigation
+
+The app uses GoRouter for routing and is structured around a bottom navigation shell with 5 primary tabs:
+
+1. **Overview (`/home`)** — Customizable dashboard with independently managed panels (Aiko greeting, Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, Aiko Goal Simulator), primary-color action icons, and a scrollable Edit layout action at the bottom of the page content.
+2. **Transactions (`/transactions`)** — Unified search, filters, recurring entries, and auto-categorization rules.
+3. **Aiko Assistant (`/aiko`)** — Direct chat UI (`/aiko-assistant`), optimization engine (`/aiko-optimize`), and personalized course hub.
+4. **Planning (`/planning`)** — Budget, goals, recurring transactions, credit/debt, net worth, assets, tax, portfolio, and travel planning entry points.
+5. **Settings (`/settings`)** — Profile, security, privacy, sync, notification, language, and secondary workspace entry points.
+
+Planning intentionally does not show Accounts or Categories cards. Those remain direct feature routes or contextual tools owned by their feature flows.
+
+### Secondary Routes
+
+| Route | Purpose |
+| --- | --- |
+| `/accounts` | Bank/Cash/Wallet accounts |
+| `/credit-cards` | Credit card limit & payment tracking |
+| `/bills` | Recurring bills & subscription cancellations |
+| `/goals` | SMART savings & debt payoff progress |
+| `/portfolio` | Investment holdings & asset allocation |
+| `/assets` | Physical asset tracking & Net Worth |
+| `/tax-center` | Tax deduction logs & reports |
+| `/calculators` | Built-in financial calculator hub |
+| `/learning-hub` | Financial education courses & quizzes |
+| `/settings` | Profile, Security (PIN/Biometric), Sync settings |
+
+---
+
 ## Offline-First Data Architecture
 
 Aiko reads and writes core finance data locally first. The app uses [Brick](https://github.com/GetDutchie/brick) with SQLite for the local store and Supabase as the remote provider.
@@ -290,35 +362,31 @@ Feature modules under `lib/features/<name>/` follow the current layered layout:
 - Database tables and columns: `snake_case`
 - Feature directories: `snake_case`
 
-### Design and Aiko Rules
-
-- Primary color: Blue (`#3B82F6`). The full palette lives in `lib/theme/aiko_colors.dart`.
-- Light and dark themes live in `lib/theme/aiko_theme.dart`.
-- Semantic colors: green for success/savings, orange for warnings/recurring obligations, red for danger/overspending, purple for premium/AI, and teal for analytics/portfolio.
-- Overview and Transactions app-bar action icons use the primary action color, and dashboard layout editing uses a scrollable in-page action at the bottom of Overview content instead of an app-bar or fixed bottom action.
-- Overview dashboard panels for Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, and Aiko Goal Simulator must stay separately manageable in the layout editor.
-- Aiko follows "Data first, Aiko enhanced": use the character purposefully for welcome, insights, goals, warnings, and reviews, never over numbers or charts.
-- Aiko's voice is warm, supportive, and non-judgmental. Never shame users about their finances.
-
 ---
 
-## Feature Highlights
+## Core Features
 
 ### 🏠 Customizable Dashboard
 
 Drag-and-drop widget dashboard with Aiko welcome card, separately managed Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, Aiko Goal Simulator panels, quick-add transaction, and scrollable Edit layout action.
 
-### 💰 Money Tracking
+### 💰 Money Tracking & Automation
 
 13 transaction types (income, expense, transfer, refund, investment buy/sell, dividend, interest, loan payment, credit card payment, tax payment, fee, adjustment). Split transactions, receipt attachments, recurring transactions (Once, Daily, Weekly, Monthly, Annually — each with its own end date and cadence-specific settings), and duplicate detection.
+
+- **Quick Entry:** Amount-first flow, receipt scanning (OCR), and voice input.
+- **Transaction Rules:** Automate categories, tags, splits, or names based on merchant keywords, accounts, or amounts.
 
 ### 📊 Smart Budgeting
 
 Monthly, weekly, yearly, and custom-period budgets. Category-level and account-level budgets. Envelope, zero-based, and 50/30/20 templates. Rollover support. Aiko alerts at 50%, 75%, 90%, and 100% usage.
 
+- **Safe-to-Spend (Leftover):** Real-time spending safety cushion: `Leftover = Income - Fixed Bills - Reserves - Debt - Goals - Current Spending`.
+- **Pace:** Real-time indicator comparing current spending velocity against budget limits.
+
 ### 🎯 Financial Goals
 
-SMART goals with target amount and date. Auto-calculated monthly contributions. Goal progress forecast and success probability via Monte Carlo simulations. Saving plans with milestone alerts.
+SMART goals with target amount and date. Priority ranking, auto-calculated monthly contributions, goal progress forecast, and success probability via Monte Carlo simulations. Saving plans with milestone alerts.
 
 ### 📈 Insights & Predictions
 
@@ -330,19 +398,28 @@ Natural-language chat for financial questions. Personalized spending insights, b
 
 ### 💳 Credit Card & Debt Management
 
-Credit card tracking with utilization, rewards, and due dates. Debt payoff plans using snowball or avalanche methods. Extra payment simulation with interest savings estimates.
+Credit card tracking with statement balances, APR, rewards, due dates, and credit utilization. Debt payoff plans using snowball or avalanche methods. Extra payment simulation with interest savings estimates.
 
-### 📱 Portfolio & Assets
+### 📱 Portfolio, Assets & Tax
 
-Investment holdings with performance charts, allocation analysis, dividends, and realized/unrealized gains. Asset allocation by class, currency, geography, and risk level. Net worth tracking with trend charts.
-
-### 🧮 60+ Financial Calculators
-
-Covering finance & investment, loans & mortgages, retirement, stocks & portfolio, credit cards, auto loans, tax & salary, business & accounting, and everyday tools. Save scenarios, compare side-by-side, and convert results into goals or plans.
+Investment holdings with performance charts, allocation analysis, dividends, and realized/unrealized gains. Asset allocation by class, currency, geography, and risk level. Net worth tracking with trend charts. Tax Center for tax-deductible expense flagging, capital gains, document storage, and estimated tax reports.
 
 ### 🌍 Travel Mode
 
 Multi-currency accounts, automatic exchange rate updates, travel budgets, foreign transaction fee tracking, and trip-based expense reports.
+
+---
+
+## Financial Calculator Suite (~60 Tools)
+
+Saved calculations store as `SavedCalculatorScenario` and can be converted into active budgets or goals. Compare scenarios side-by-side and convert results into goals or plans.
+
+- **Finance & Investment:** Time Value of Money (TVM), Compound Interest, ROI, IRR/NPV, Savings Goal, Certificate of Deposit (CD), Bond, Tax Equivalent Yield, Rule of 72.
+- **Loan & Mortgage:** Loan Amortization & Comparison, Refinance, APR, Rent vs. Buy, Home Affordability, bi-weekly payments, Rental Property.
+- **Retirement:** Retirement Savings & Income Planner, Traditional vs. Roth IRAs, Required Minimum Distributions (RMD), Social Security Estimator, Annuity.
+- **Credit Card & Auto:** CC Payoff & Minimum Payment, Balance Transfer, Auto Loan vs. Lease.
+- **Stock & Portfolio:** Weighted Average Cost of Capital (WACC), Black-Scholes Options, Expected Return, CAPM, Holding Period Return, Capital Gains.
+- **Everyday & Tax:** Salary to Hourly, Paycheck Tax, Inflation, Effective Rate, Margin/Markup, Tip & Percentage.
 
 ---
 
@@ -351,11 +428,19 @@ Multi-currency accounts, automatic exchange rate updates, travel budgets, foreig
 - Rule-based forecasting powers MVP predictions such as end-of-month balance, budget overrun risk, and goal completion.
 - Moving averages track recurring expense trends.
 - Seasonality detection identifies monthly spending patterns.
-- Monte Carlo simulations support advanced goal and retirement probability.
+- Monte Carlo simulations support advanced goal and retirement probability under three scenarios (optimistic, expected, conservative).
 - Scenario modeling supports optimistic, normal, and conservative outcomes.
 - Prediction logic lives in `lib/core/prediction/`.
 - AI suggestions are stored as `AikoInsight` records in Supabase.
-- AI features must include disclaimers: Aiko provides estimates, not certified financial advice.
+
+**Aiko Insights System.** AI evaluates transaction telemetry to generate recommendations in four dimensions:
+
+- *Descriptive:* "You spent $450 on dining out this month."
+- *Diagnostic:* "Dining out increased by 20% due to restaurant visits on weekends."
+- *Predictive:* "At this pace, you will exceed your dining budget in 5 days."
+- *Prescriptive:* "Limit flexible weekend spending to $15/day to stay on track."
+
+**Safety & disclaimers.** Aiko operates as an informative dashboard and advisor. AI features must include the disclaimer: *AI insights are estimates, not certified financial, investment, or tax advice.*
 
 ---
 
@@ -383,6 +468,26 @@ The Supabase backend uses 15 core tables, all protected by Row Level Security:
 
 All tables enforce `user_id = auth.uid()` via RLS policies — users can only access their own data. Exception: `categories` uses split policies — SELECT allows `user_id IS NULL OR user_id = auth.uid()` so global system categories are readable by all authenticated users; INSERT/UPDATE/DELETE remain scoped to `auth.uid()`.
 
+### Entity Field Reference
+
+| Entity | Fields |
+| :--- | :--- |
+| **User** | `id` (UUID), `name`, `email`, `base_currency`, `country`, `timezone`, `preferred_theme`, `aiko_personality_setting`, `created_at` |
+| **Account** | `id`, `user_id`, `name`, `type` (cash, bank, card, loan, etc), `currency`, `current_balance`, `is_active` |
+| **Transaction** | `id`, `user_id`, `account_id`, `type`, `amount`, `currency`, `exchange_rate`, `category_id`, `date`, `merchant`, `note`, `tags`, `is_recurring`, `tax_flag` |
+| **Category** | `id`, `user_id`, `name`, `parent_id`, `type`, `icon`, `color`, `budget_enabled` |
+| **TransactionRule** | `id`, `user_id`, `rule_name`, `condition_type`, `condition_value`, `target_category_id`, `target_account_id`, `tags_to_apply`, `priority`, `is_active` |
+| **Budget** | `id`, `user_id`, `category_id`, `amount`, `period` (weekly, monthly, custom), `rollover_enabled`, `alert_thresholds` |
+| **Goal** | `id`, `user_id`, `name`, `target_amount`, `current_amount`, `target_date`, `linked_account_id`, `priority`, `success_probability` |
+| **CreditCard** | `id`, `user_id`, `account_id`, `credit_limit`, `statement_day`, `due_day`, `apr`, `rewards_type` |
+| **Asset** | `id`, `user_id`, `name`, `asset_class`, `value`, `currency`, `liquidity_level`, `risk_level` |
+| **Liability** | `id`, `user_id`, `name`, `type`, `balance`, `interest_rate`, `monthly_payment`, `due_date` |
+| **InvestmentHolding** | `id`, `user_id`, `symbol`, `asset_class`, `quantity`, `average_cost`, `current_price`, `currency`, `market_value` |
+| **TaxRecord** | `id`, `user_id`, `tax_year`, `income_type`, `amount`, `deduction_type`, `document_id` |
+| **Subscription** | `id`, `user_id`, `merchant`, `amount`, `billing_cycle`, `next_billing_date`, `category_id`, `cancellation_status` |
+| **SavedScenario** | `id`, `user_id`, `calculator_type`, `input_json`, `result_json`, `notes`, `created_at` |
+| **AikoInsight** | `id`, `user_id`, `insight_type`, `title`, `description`, `recommendation`, `confidence_score`, `source_data`, `dismissed_at`, `created_at` |
+
 ---
 
 ## Supabase Backend Rules
@@ -397,39 +502,373 @@ All tables enforce `user_id = auth.uid()` via RLS policies — users can only ac
 
 ## Design System
 
-### Color Palette
+This section is the source of truth for Aiko's visual system, screen patterns, and component rules. If screen code conflicts with it, update the screen or shared component unless product requirements say otherwise. Do not add one-off colors or radii to feature screens when a token or theme value exists.
 
-| Role | Color | Usage |
+### Tokens
+
+Use a three-layer model:
+
+| Layer | Purpose | Flutter home |
 | --- | --- | --- |
-| Primary Blue | `#3B82F6` | Main buttons, active tabs, highlights |
-| Deep Blue | `#1D4ED8` | Header accents, important actions |
-| Soft Blue | `#93C5FD` | Secondary highlights, empty states |
-| Pale Blue | `#EFF6FF` | Light backgrounds, info cards |
-| Dark Navy | `#0F172A` | Dark mode base, premium sections |
-| Success Green | — | Savings, positive cash flow, completed goals |
-| Warning Orange | — | Recurring obligations, budget caution |
-| Danger Red | — | Overspending, overdue, high debt risk |
-| Purple | — | Premium AI insights, optimization |
-| Teal | — | Analytics, portfolio, cash flow |
+| Primitive | Raw colors, type sizes, spacing, radius | `AikoColors`, `AikoTypography` |
+| Semantic | Meaning: primary, danger, surface, muted, outline | `ColorScheme`, theme extensions |
+| Component | Button, card, input, sheet, chip, nav specs | `AikoTheme`, shared widgets |
 
-### Themes
+Theme values live in `lib/theme/aiko_colors.dart`, `lib/theme/aiko_theme.dart`, `lib/theme/aiko_typography.dart`, and `lib/theme/aiko_spacing.dart`.
 
-- **Light Mode:** White/soft-gray backgrounds, blue primary, pastel cards
-- **Dark Mode:** Dark navy backgrounds, white text, blue highlights, soft glow on AI elements
+### Color
 
-### Aiko Character
+Primitive and semantic colors:
 
-Six expression variants: `happy`, `thinking`, `encouraging`, `warning`, `celebrating`, `welcome`.
+| Role | Light | Dark | Use |
+| --- | ---: | ---: | --- |
+| Primary | `#3B82F6` | `#93C5FD` | Primary actions, selected state, active nav |
+| Secondary | `#1D4ED8` | `#3B82F6` | Strong selection, key blue charts |
+| AI/Premium | `#7C3AED` | `#B894F5` | Aiko, AI, optimization, premium |
+| Scaffold | `#D8E0F5` | `#0F172A` | Main background |
+| Alternate scaffold | `#F6F8FF` | `#0F172A` | Light alternate screens |
+| Surface | `#EEF2FF` | `#121C31` | Cards, sheets, grouped controls |
+| Surface strong | `#E3E9FF` | `#1B2740` | Selected or high-emphasis panels |
+| Text primary | `#0F172A` | theme on-surface | Primary text |
+| Text secondary | `#293348` | theme on-surface-variant | Secondary text |
+| Text muted | `#778196` | theme muted | Metadata and helper text |
+| Outline | `#BAC3D6` | `#414B60` | Focusable or visible borders |
+| Outline subtle | `#DCE4F8` | `#293348` | Dividers and quiet outlines |
+| Success | `#16A34A` | `#4ADE80` | Income, savings, completed, positive trend |
+| Warning | `#F59E0B` | `#FBBF24` | Bills, due soon, budget caution |
+| Danger | `#DC2626` | `#F87171` | Errors, destructive actions, overspending |
+| Analytics | `#0D9488` | `#2DD4BF` | Reports, portfolio, allocation, analysis |
 
-**Placement principle:** *"Data first, Aiko enhanced."* — Aiko appears purposefully (welcome, insights, goals, reviews), never covering data or cluttering screens.
+Rules:
+
+- Primary blue means current, continue, or main action.
+- Overview and Transactions app-bar action icons use the primary action color so action treatment stays consistent across daily workflows.
+- Purple is reserved for Aiko, AI, optimization, premium, or review.
+- Green, orange, red, and teal keep their semantic finance meanings.
+- Never rely on color alone. Pair color with text, icon, label, or number.
+- Inactive states are neutral, not pale saturated variants.
+
+#### Color Ramps
+
+Use 10-stop ramps for charts, progress bars, and selected states:
+
+| Ramp | Stops |
+| --- | --- |
+| Primary blue | `#071426`, `#0B356F`, `#0C4A9A`, `#0B5DBD`, `#1D74E8`, `#3B82F6`, `#75A4F5`, `#A5C4F6`, `#D8E5FF`, `#FFFFFF` |
+| Secondary blue | `#071426`, `#0B2A7A`, `#073AA8`, `#1D4ED8`, `#4268EA`, `#6385F0`, `#8AA4F5`, `#AFC0F8`, `#DCE5FF`, `#FFFFFF` |
+| Tertiary purple | `#071426`, `#240052`, `#3B0785`, `#5B0BC0`, `#6D28D9`, `#7C3AED`, `#9B67F2`, `#B894F5`, `#DCCBFF`, `#FFFFFF` |
+| Neutral | `#071426`, `#0F172A`, `#293348`, `#414B60`, `#5B6578`, `#778196`, `#9BA4B8`, `#BAC3D6`, `#DCE4F8`, `#FFFFFF` |
+
+Aiko character artwork should be tested on both dark and light backgrounds. Use a subtle glow or border if the artwork has transparent regions that blend into dark surfaces.
+
+### Typography
+
+| Role | Font | Use |
+| --- | --- | --- |
+| Headline | Hanken Grotesk | Screen titles, major balances, hero numbers |
+| Body | Manrope | Body text, forms, lists, settings |
+| Label | Manrope | Buttons, chips, tabs, metadata |
+
+| Theme style | Size | Weight | Use |
+| --- | ---: | ---: | --- |
+| `displayLarge` | 48 | 700 | Rare onboarding or report moments |
+| `headlineLarge` | 36 | 700 | Major balance or summary number |
+| `headlineMedium` | 28 | 700 | Screen-level headline inside body |
+| `titleLarge` | 20 | 700 | App bar title, card title |
+| `titleMedium` | 16 | 700 | Section title, prominent row title |
+| `titleSmall` | 14 | 700 | Dense list title |
+| `bodyLarge` | 16 | 400 | Primary readable text |
+| `bodyMedium` | 14 | 400 | Default body and metadata |
+| `bodySmall` | 12 | 500 | Helper text |
+| `labelLarge` | 14 | 700 | Buttons and tabs |
+| `labelMedium` | 12 | 700 | Chips and badges |
+| `labelSmall` | 11 | 700 | Dense status labels |
+
+Letter spacing is `0`. Use tabular figures for aligned money columns. Do not use display-scale text inside compact cards, lists, settings rows, sidebars, or form controls.
+
+### Spacing, Shape, and Surfaces
+
+Spacing follows a 4/8px rhythm:
+
+| Token | Value | Use |
+| --- | ---: | --- |
+| `space-1` | 4 | Icon/text gaps, dense metadata |
+| `space-2` | 8 | Row and chip gaps |
+| `space-3` | 12 | Compact card internals |
+| `space-4` | 16 | Screen gutters, form gaps, default card padding |
+| `space-5` | 20 | Prominent card padding |
+| `space-6` | 24 | Section gaps |
+| `space-8` | 32 | Major screen rhythm |
+
+Shape and surface rules:
+
+- Cards, rows, inputs, chips, segmented controls: 8px radius.
+- Bottom sheets: 20px top radius.
+- FABs may use 16px radius.
+- Avoid 20px+ radii in product cards and decorative shadows.
+- Use scaffold, surface, surface strong, input fill, outline subtle, and outline by job.
+- Do not put cards inside cards. Use rows and dividers for related content inside one card.
+- Repeated objects use list tiles or object cards, not section cards wrapping cards.
+
+Density rules: daily lists are compact, detail screens breathe, dashboard uses fewer stronger metrics, settings use grouped rows, and forms use full-width controls with consistent 16px gaps.
+
+### Screen Archetypes
+
+| Archetype | Examples | Rules |
+| --- | --- | --- |
+| Dashboard | Home, Budget overview, Portfolio overview | Lead with one primary financial summary, then 2-4 supporting metrics. Put data before copy. Label charts with numbers and periods. |
+| List and detail | Transactions, Accounts, Categories, Bills, Goals | Compact tappable rows with type mark, title, subtitle, trailing amount/status, and chevron. Details lead with primary number/title and grouped facts. |
+| Form | Add transaction, Budget form, Profile, Add category | Required controls first, full-width fields, helper text under controls, primary save button, progressive disclosure. |
+| Settings | Settings, Notifications, Profile | Grouped rows with icon, title, short description, and status/control. Separate security and destructive actions. |
+| Assistant and AI | Aiko assistant, Optimize, Review | Cite financial context, give actions or dismiss reasons, avoid filler, keep finance states semantic even when AI uses purple. |
+| Planning and education | Goals, Learning Hub, Calculators, Reports | Use progressive disclosure. Show progress or saved state. Calculators show input, result, conversion action. Reports pair chart visuals with summary text. |
+| Supplemental tools | Filters, split transaction, receipt review, cash flow, loan calculator, profile security | Extend an owning feature, never duplicate top-level screens. First viewport shows the task object. Required completion actions use sticky bottom bars on mobile. |
+| Placeholders | Expansion screens | State what the feature will do and provide one action. Do not show fake finished dashboards. Prefer `AikoScreenState` or `AikoFeatureOverviewScreen`. |
+
+### Components
+
+`FinanceCard` is for financial objects, metrics, and grouped task panels: 8px radius, 16px default padding, 20px prominent padding, outline-variant border, no default shadow, `titleMedium` title, `bodyMedium` body, 40px icon tile with 8px radius and 12 percent accent opacity, stable `InkWell` tap state. Never use it as a decorative wrapper around another card.
+
+Cards carry a strict three-tier hierarchy:
+
+1. Primary number or title.
+2. Supporting metadata.
+3. One clear action or status.
+
+Avoid decorative cards that do not hold a real object, metric, or action.
+
+Buttons: filled for primary, outlined for secondary, text for low-emphasis inline actions, icon buttons for familiar commands. Minimum height is 48px, radius is 8px, disabled state must be visible and non-interactive, and familiar commands should use icons.
+
+Icon buttons: 40–48px touch target, 48px minimum tap target. Use circular tiles for primary and destructive actions, square or circular tiles for AI actions.
+
+| Icon button | Style |
+| --- | --- |
+| Primary | Blue circle, white icon |
+| AI / premium | Purple square or circle, white icon |
+| Destructive | Red circle, white icon |
+
+Inputs and pickers: visible labels, 54px minimum height, 8px radius, pale blue fill, thin blue-gray border, leading icon for search, primary focus border, danger error border. Placeholder text uses muted neutral. Do not place long helper text inside inputs — put validation or helper copy below the field. Custom pickers show selected value plus context such as category group or account balance. Bottom-sheet pickers use compact list rows with selected checkmarks.
+
+Lists: compact `ListTile` rows, 48px tap target, single-line titles unless needed, trailing amounts/statuses aligned, dividers or card borders instead of nested containers.
+
+Chips and badges: short labels for filters, tags, and small statuses. Status color must match semantic meaning and include text.
+
+Navigation: authenticated shell tabs are Overview, Transactions, Aiko, Planning, Settings. Bottom nav stays visible, active state uses primary with white active icon, secondary feature routes live in Planning or Settings groups.
+
+Overview layout editing is a scrollable in-page action labeled `Edit layout` / `Done` at the bottom of Overview content. Keep the Overview app bar reserved for utility navigation such as notifications.
+
+Sheets and dialogs: use bottom sheets for mobile creation/editing and dialogs for destructive confirmation. Sheets need drag handle, safe area, scrollable content, and 20px top radius. Destructive dialogs name the object and effect.
+
+Charts and progress: every chart needs a text summary. Every progress bar needs current, target, and period. Use semantic color plus label. Progress height is 8px compact and 10-12px on dashboards.
+
+Interactive states:
+
+| State | Treatment |
+| --- | --- |
+| Pressed / splash | Primary color at 12% opacity |
+| Hover (web/desktop) | Surface tint at 8% opacity |
+| Focused | 2px primary outline offset by 2px |
+| Disabled | 40% opacity, no interaction |
+| Dragging | Slight scale (1.02) with subtle shadow |
+
+States: use `AikoScreenState` unless specialized. Loading uses skeleton/quiet progress with no fake data. Empty explains what is missing and gives one action. Error explains retry/recovery. Offline explains local mode. Locked explains authentication.
+
+### Shared Widgets
+
+Use `lib/shared/widgets/aiko_data_widgets.dart` for idea-backed supplemental screens and new finance detail screens.
+
+| Widget | Use |
+| --- | --- |
+| `AikoDetailScaffold` | Detail/tool screens with app bar, scroll body, optional sticky bottom action |
+| `AikoInlineNotice` | Aiko tips, warnings, review notes, contextual explanations |
+| `AikoMetricCard` / `AikoMetricGrid` | Compact financial summaries |
+| `AikoProgressBar` / `AikoProgressRow` | Budget, debt, goal, portfolio, tax progress |
+| `AikoDataListCard` / `AikoDataRow` | Grouped facts and settings-style rows |
+| `AikoMiniBarChart`, `AikoDonutChart`, `AikoGauge`, `AikoSankeyPreview` | Lightweight labeled preview charts |
+
+Prefer shared widgets over local one-off cards or painters. Do not nest `AikoDataListCard`. Use sticky bottom actions through `AikoDetailScaffold.bottomBar` unless a feature already has a pattern.
+
+### Iconography
+
+Use Material Icons as the primary icon set. Custom SVG icons are acceptable for brand moments (Aiko logo, onboarding illustrations) but should not replace standard icons for common actions.
+
+Sizes:
+
+| Context | Size |
+| --- | ---: |
+| Inline with body text | 16 |
+| List tile leading | 20 |
+| Action bar / toolbar | 24 |
+| Empty state / hero | 48 |
+
+Icon color rules:
+
+| Context | Color |
+| --- | --- |
+| Default | `onSurface` |
+| Active / selected | `primary` |
+| Destructive | `danger` |
+| AI / premium | `tertiary` |
+| Muted / disabled | `mutedText` |
 
 ### SVG Icons
 
-Reusable SVG icons live in `assets/icons/` with the `aiko_<name>.svg` naming pattern. Icons use `viewBox="0 0 24 24"` and `currentColor` so they can be recolored consistently across Flutter UI, exports, and future web surfaces.
+Reusable SVG icons live in `assets/icons/`, use `aiko_<name>.svg`, `viewBox="0 0 24 24"`, and `currentColor` so they can be recolored consistently across Flutter UI, exports, and future web surfaces.
 
-Current icon families cover navigation, accounts, cards, transactions, search/filter, receipts, categories, budget, goals, cash flow, debt, loans, portfolio, tax, calculators, travel, security, notifications, and Aiko assistant states.
+Required assets: `aiko_home.svg`, `aiko_transactions.svg`, `aiko_budget.svg`, `aiko_insights.svg`, `aiko_aiko.svg`, `aiko_account.svg`, `aiko_bank.svg`, `aiko_wallet.svg`, `aiko_credit_card.svg`, `aiko_category.svg`, `aiko_receipt.svg`, `aiko_search_filter.svg`, `aiko_goal.svg`, `aiko_cash_flow.svg`, `aiko_debt.svg`, `aiko_loan.svg`, `aiko_portfolio.svg`, `aiko_tax.svg`, `aiko_calculator.svg`, `aiko_travel.svg`, `aiko_security.svg`, `aiko_notification.svg`.
 
-Add new required SVGs with tests in `test/shared/widgets/aiko_svg_assets_test.dart`.
+Keep icons stroke-based, single-color, 24x24, and friendly but not cartoonish. Do not mix filled, duotone, and outline styles in the same control group. Use Material icons for platform-standard commands and SVGs for brand-owned navigation, exports, and reusable assets. New required SVGs need tests in `test/shared/widgets/aiko_svg_assets_test.dart` before UI reliance.
+
+### Aiko Character Usage
+
+Six expression variants: `happy`, `thinking`, `encouraging`, `warning`, `celebrating`, `welcome`. Use Aiko purposefully — she adds warmth, reassurance, or guidance, never decoration.
+
+Use Aiko for:
+
+- Onboarding welcome and completion.
+- Insight explanations.
+- Goal encouragement.
+- Budget warnings.
+- Empty states that need reassurance.
+- Aiko assistant chat.
+
+Do not place Aiko on every screen. She must not cover tables, charts, balances, forms, or critical actions.
+
+Tone:
+
+- Use: "You are still on track. Groceries are running a little high, so I found two easy places to adjust."
+- Avoid: "You spent too much again."
+
+### Ownership
+
+| Owner | Owns |
+| --- | --- |
+| Categories | Name, type, group, icon, color, active/archive state |
+| Budgets | Category inclusion, limits, periods, rollover, alerts |
+| Transactions | Account, category, amount, merchant, notes, tags, receipt, voice, split data |
+| Accounts | Balances, currency, account type, active state, net-worth inclusion |
+| Settings | App config, profile, privacy, security, sync, notification, route links |
+| Aiko | AI explanation, suggestions, review, optimization, chat |
+| Dashboard | In-page monthly overview, scrollable layout customization, notifications, cross-feature summaries |
+| Reports | Generated summaries and monthly report presentation |
+| Calculators | Inputs, results, saved scenarios, conversion actions |
+| Portfolio | Holdings and allocation detail |
+| Assets/net worth | Household asset summaries |
+| Debt/credit | Payoff, utilization, loan, statement detail states |
+
+### Motion and Accessibility
+
+Motion:
+
+| Motion | Duration | Curve |
+| --- | ---: | --- |
+| Tap feedback | 80-150 ms | Material state layer |
+| Small reveal | 150-200 ms | `Curves.easeOut` |
+| Sheet / modal entrance | 250-300 ms | `Curves.easeOut` |
+| Page transition | 250-300 ms | `Curves.easeInOut` |
+| Progress fill | 300-400 ms | `Curves.easeInOut` |
+| Emphasis (celebrate, alert) | ~600 ms | `Curves.elasticOut` |
+
+Animate opacity and transform, not layout size. Do not animate financial numbers while users read them — settle within 300 ms. Use `AnimatedSwitcher` for state transitions (loading to loaded, empty to populated). Avoid continuous looping animation except loading indicators. Respect reduced motion. No hover-only affordances.
+
+Accessibility:
+
+- Body text contrast: at least 4.5:1; secondary text: at least 3:1.
+- Touch targets: at least 48x48.
+- Focus indicators must be visible.
+- Icon-only buttons need semantic labels or tooltips.
+- Color never carries meaning alone.
+- Text must not clip with dynamic type.
+- Charts need labels, legends, or summaries.
+- Form errors appear near the relevant field.
+- Snackbars/toasts are not the only record of important changes.
+
+### Flutter Implementation Rules
+
+- Theme values live in `lib/theme/aiko_colors.dart`, `lib/theme/aiko_theme.dart`, and `lib/theme/aiko_typography.dart`.
+- Shared UI primitives live in `lib/shared/widgets/`.
+- Feature screens consume shared primitives instead of re-creating card, button, empty-state, or picker styles.
+- Idea-backed detail/tool screens use `AikoDetailScaffold` and `lib/shared/widgets/aiko_data_widgets.dart`.
+- Use `Money` for money values.
+- Use Riverpod providers for state.
+- Screens do not call persistence APIs directly.
+- Prefer `AikoScreenState` for loading, empty, error, offline, locked, and permission states.
+- Custom components cover default, pressed, focused, disabled, loading, error, and success where applicable.
+- Required SVG assets are covered by `test/shared/widgets/aiko_svg_assets_test.dart`.
+- Supplemental route coverage lives in `test/app/idea_route_coverage_test.dart`.
+
+### Route and Idea Coverage
+
+Apply the design system in batches:
+
+1. Shared foundation: `FinanceCard`, `AikoScreenState`, action buttons, icon tiles, shell navigation.
+2. Core daily screens: Home, Transactions, Add transaction, Budget, Settings.
+3. Money object screens: Accounts, Categories, Goals, Bills, Credit Cards, Debt.
+4. Wealth/planning screens: Portfolio, Assets, Tax Center, Reports, Export, Travel Mode.
+5. Aiko/learning screens: Aiko Assistant, Optimize, Review, Learning Hub, Subscription Plan.
+6. Placeholder screens: import/export, calculators, saved scenarios, future expansion.
+
+The May 31, 2026 idea boards are references for density, hierarchy, and feature coverage, not separate themes. Existing feature screens absorb useful states through subroutes, menus, or inline tools.
+
+| Idea group | Existing owner | Supplemental routes |
+| --- | --- | --- |
+| Core app screens | Auth, onboarding, dashboard, accounts | `/notifications`, in-page This Month Overview, in-page Edit layout |
+| Transactions, categories, accounts | Transactions, categories, accounts | inline transaction search and filters, `/transactions/split`, `/transactions/receipt-review` |
+| Budget, goals, cash flow, reports | Budget, goals, reports | `/budget/pace`, `/budget/safe-to-spend`, `/budget/cash-flow`, `/budget/cash-flow-sankey`, `/goals/detail`, `/goals/saving-plan`, `/goals/chance-of-success`, `/reports/monthly` |
+| Credit, debt, portfolio, tax | Credit cards, debt, portfolio, assets, tax | `/credit-cards/detail`, `/debt-overview`, `/loans/detail`, `/net-worth`, `/portfolio/allocation`, `/portfolio/holding`, `/tax-analytics` |
+| Aiko AI, calculators, settings, extras | Aiko, calculators, bills, learning, travel, settings | `/aiko-insights`, `/calculator-result`, `/profile-security` |
+
+Route rules:
+
+- Do not duplicate an existing feature screen to match an idea board.
+- Use sticky bottom actions for filter, save, confirm, and calculator-result screens when required.
+- Use a scrollable in-page action for Overview layout editing; do not put the dashboard edit layout control in the app bar or fixed bottom bar.
+- Keep sample data realistic and scoped to preview/offline states.
+- Real repositories remain the source of persisted user data.
+- Aiko guidance appears after the primary number or decision, except onboarding and assistant chat.
+- Every supplemental route must render without a Supabase session.
+
+Entry points:
+
+| Owner screen | Access pattern |
+| --- | --- |
+| Home dashboard | App bar action for notifications; in-page This Month Overview and scrollable Edit layout action for customization |
+| Transactions | Search in app bar with inline filters for type, amount, and date; split and receipt review remain transaction tools |
+| Budget | Tools menu exposes pace, safe-to-spend, cash flow, Sankey |
+| Goals | Tools menu exposes saving plan, chance of success, detail |
+| Reports | Monthly report opens from reports list |
+| Calculators | Hub links to focused calculators and result states |
+| Planning | Links to budget, goals, recurring transactions, credit, debt, net worth, assets, tax, portfolio, and travel. Do not expose Accounts, Categories, or Accounting as Planning cards. |
+| Settings | Owns profile, security, privacy, sync, notification preferences |
+
+### QA Checklist
+
+Before a screen is design-complete:
+
+- Main task is visible in the first viewport.
+- Primary action is obvious and reachable while scrolling when required.
+- Financial numbers appear before AI guidance and include context.
+- Lists are compact and tappable.
+- Form fields have labels and recovery-oriented validation.
+- Empty, loading, error, and offline states exist or are intentionally inherited.
+- No nested cards, decorative shadows, or oversized radii.
+- Raw colors are limited to theme files or explicit data visualization needs.
+- Text does not overlap or clip at small phone widths.
+- Dark theme contrast is sufficient.
+- Aiko appears only when useful.
+- The screen does not duplicate an existing main feature route.
+- Widget tests cover critical rendering and interactions.
+
+---
+
+## UX Acceptance Criteria
+
+- **Offline-first usability:** Supplemental product routes must render useful local/demo states without requiring Supabase authentication.
+- **Task completion:** Search/filter, save, confirm, split, and calculator result screens use clear primary actions, preferably sticky bottom actions on mobile.
+- **Dashboard customization:** Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, and Aiko Goal Simulator are separate Overview panels that can be managed in layout editing. Layout editing uses a scrollable in-page action; Overview and Transactions app-bar action icons use the same primary action color.
+- **No duplicate destinations:** Main tabs own core workflows; extra idea-board states are exposed through existing navigation, action menus, or detail routes.
+- **Financial clarity:** Primary balances, progress, and risk states appear before supporting Aiko guidance.
+- **Accessibility:** Icons need semantic labels or adjacent text where meaning is not obvious.
 
 ---
 
@@ -465,13 +904,19 @@ flutter test integration_test
 
 ---
 
-## Monetization
+## Monetization & Security
+
+### Plans
 
 | Plan | Includes |
 | --- | --- |
 | **Free** | Manual tracking, basic categories & budgets, basic charts, limited calculators, CSV export, basic Aiko insights |
 | **Premium** | Unlimited accounts, advanced reports, AI recommendations, forecasting, receipt OCR, credit card optimization, portfolio analytics, tax reports, PDF/Excel export, multi-device sync |
-| **Pro** | Advanced accounting, business reports, invoices, multi-user access, advanced tax tools, estate planning, Monte Carlo simulations, API access |
+| **Pro** | Advanced accounting (double-entry, balance sheets, reconciliation), business reports, invoices, multi-user access, advanced tax tools, estate planning, full Monte Carlo simulations, API access |
+
+### Security Architecture
+
+PIN and Biometrics (Face ID/Touch ID) for local access, secure token storage, remote device logout, cloud sync conflict resolution, and granular data privacy options (opt-in AI parsing, local-only mode).
 
 ---
 
@@ -571,8 +1016,9 @@ supabase db push
 4. Add Brick models and regenerate adapters when a feature needs offline-first storage.
 5. Add RLS policies to all new Supabase tables.
 6. Write unit tests for new models and providers.
-7. Run all quality gates before submitting changes.
-8. Follow Aiko's brand voice: warm, supportive, non-judgmental.
+7. Follow the [Design System](#design-system) — consume shared primitives and tokens instead of one-off styles, and run the QA checklist before treating a screen as complete.
+8. Run all quality gates before submitting changes.
+9. Follow Aiko's brand voice: warm, supportive, non-judgmental.
 
 ---
 

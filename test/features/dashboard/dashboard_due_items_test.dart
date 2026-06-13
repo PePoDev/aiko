@@ -5,30 +5,27 @@ import 'package:aiko/features/dashboard/domain/dashboard_due_item.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test(
-    'maps upcoming credit card due dates into sorted due items',
-    () {
-      const service = DashboardDueItemService();
-      final asOf = DateTime(2026, 5, 19);
+  test('maps upcoming credit card due dates into sorted due items', () {
+    const service = DashboardDueItemService();
+    final asOf = DateTime(2026, 5, 19);
 
-      final items = service.upcomingItems(
-        creditCards: [
-          CreditCardDetail(
-            id: 'card',
-            userId: 'user',
-            accountId: 'account',
-            statementBalance: Money.parse('300', 'USD'),
-            paymentDueDate: DateTime(2026, 5, 22),
-          ),
-        ],
-        asOf: asOf,
-      );
+    final items = service.upcomingItems(
+      creditCards: [
+        CreditCardDetail(
+          id: 'card',
+          userId: 'user',
+          accountId: 'account',
+          statementBalance: Money.parse('300', 'USD'),
+          paymentDueDate: DateTime(2026, 5, 22),
+        ),
+      ],
+      asOf: asOf,
+    );
 
-      expect(items.single.kind, DashboardDueItemKind.creditCard);
-      expect(items.single.title, 'Credit card payment');
-      expect(items.single.daysUntil(asOf), 3);
-    },
-  );
+    expect(items.single.kind, DashboardDueItemKind.creditCard);
+    expect(items.single.title, 'Credit card payment');
+    expect(items.single.daysUntil(asOf), 3);
+  });
 
   test('excludes zero-balance credit cards', () {
     const service = DashboardDueItemService();

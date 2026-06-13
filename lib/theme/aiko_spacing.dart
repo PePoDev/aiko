@@ -1,4 +1,5 @@
-/// Spacing tokens based on the 8 px grid defined in DESIGN.md.
+/// Spacing tokens based on the 8 px grid defined in the Design System
+/// section of README.md.
 ///
 /// Usage:
 /// ```dart

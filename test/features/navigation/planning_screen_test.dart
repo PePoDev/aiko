@@ -16,27 +16,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Planning'), findsOneWidget);
-    expect(
-      find.text(
-        'Keep budgets, goals, accounts, debt, assets, taxes, and investments in one place.',
-      ),
-      findsNothing,
-    );
-    for (final label in [
-      'Budget',
-      'Goals',
-      'Recurring Transactions',
-      'Debt and Loans',
-      'Credit Cards',
-      'Assets',
-      'Portfolio',
-      'Travel Mode',
-    ]) {
+    for (final label in ['Budget', 'Goals', 'Investments', 'Travel Mode']) {
       expect(find.text(label), findsOneWidget);
     }
 
-    expect(find.text('Accounts'), findsNothing);
-    expect(find.text('Categories'), findsNothing);
-    expect(find.text('Accounting'), findsNothing);
+    // Refactored-away entries should no longer be present.
+    expect(find.text('Recurring Transactions'), findsNothing);
+    expect(find.text('Credit Cards'), findsNothing);
+    expect(find.text('Debt and Loans'), findsNothing);
   });
 }

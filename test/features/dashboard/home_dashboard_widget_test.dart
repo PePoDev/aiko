@@ -133,6 +133,10 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    // 'Safe this week' sits at the top of the layout (position 2) and gets
+    // disposed by the lazy ListView once we scroll past it. Assert it
+    // exists up front.
+    expect(find.text('Safe this week'), findsOneWidget);
     expect(find.text('Total balance'), findsNothing);
 
     await tester.scrollUntilVisible(
@@ -147,7 +151,6 @@ void main() {
       lessThan(tester.getTopLeft(find.text('This Month Overview')).dy),
     );
     expect(find.text('Total balance'), findsOneWidget);
-    expect(find.text('Safe this week'), findsOneWidget);
     expect(find.text('Left to save'), findsOneWidget);
     expect(find.text('Cash flow'), findsOneWidget);
     final monthOverviewCard = find

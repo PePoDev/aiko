@@ -41,11 +41,7 @@ void main() {
     };
 
     test('no banned color tokens in presentation/shared code', () async {
-      final roots = [
-        'lib/features',
-        'lib/shared/widgets',
-        'lib/app',
-      ];
+      final roots = ['lib/features', 'lib/shared/widgets', 'lib/app'];
       final violations = <String>[];
 
       for (final root in roots) {
@@ -89,9 +85,7 @@ Future<void> _scanDir(
 
       for (final token in banned) {
         if (line.contains(token)) {
-          violations.add(
-            '${entity.path}:${i + 1}: $line',
-          );
+          violations.add('${entity.path}:${i + 1}: $line');
         }
       }
     }

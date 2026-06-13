@@ -10,7 +10,10 @@ enum DashboardWidgetType {
   dueItems,
   thisMonthOverview,
   cashFlowMapping,
-  aikoGoalSimulator;
+  aikoGoalSimulator,
+  totalBalance,
+  leftToSave,
+  cashFlow;
 
   String get storageKey => name;
 
@@ -28,6 +31,9 @@ enum DashboardWidgetType {
       DashboardWidgetType.thisMonthOverview => 'This Month Overview',
       DashboardWidgetType.cashFlowMapping => 'Cash flow mapping',
       DashboardWidgetType.aikoGoalSimulator => 'Aiko Goal Simulator',
+      DashboardWidgetType.totalBalance => 'Total balance',
+      DashboardWidgetType.leftToSave => 'Left to save',
+      DashboardWidgetType.cashFlow => 'Cash flow',
     };
   }
 
@@ -108,19 +114,34 @@ class DashboardWidgetPreference {
       position: 8,
     ),
     DashboardWidgetPreference(
-      type: DashboardWidgetType.thisMonthOverview,
+      type: DashboardWidgetType.totalBalance,
       isVisible: true,
       position: 9,
     ),
     DashboardWidgetPreference(
-      type: DashboardWidgetType.cashFlowMapping,
+      type: DashboardWidgetType.thisMonthOverview,
       isVisible: true,
       position: 10,
     ),
     DashboardWidgetPreference(
-      type: DashboardWidgetType.aikoGoalSimulator,
+      type: DashboardWidgetType.leftToSave,
       isVisible: true,
       position: 11,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.cashFlow,
+      isVisible: true,
+      position: 12,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.cashFlowMapping,
+      isVisible: true,
+      position: 13,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.aikoGoalSimulator,
+      isVisible: true,
+      position: 14,
     ),
   ];
 

@@ -182,6 +182,9 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       ),
       DashboardWidgetType.cashFlowMapping => const _CashFlowMappingPanel(),
       DashboardWidgetType.aikoGoalSimulator => const _AikoGoalSimulatorPanel(),
+      DashboardWidgetType.totalBalance => const _TotalBalancePanel(),
+      DashboardWidgetType.leftToSave => const _LeftToSavePanel(),
+      DashboardWidgetType.cashFlow => const _CashFlowPanel(),
     };
   }
 }
@@ -285,67 +288,63 @@ class _ThisMonthOverviewSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final netCashFlow = summary.monthlyIncome - summary.monthlySpending;
-    final leftToSave = netCashFlow - summary.safeToSpend;
 
-    return Column(
-      children: [
-        AikoMetricGrid(
-          children: [
-            AikoMetricCard(
-              label: 'Total balance',
-              value: summary.netWorth.format(),
-              change: 'Cash ${summary.totalCash.format()}',
-              icon: Icons.account_balance_wallet_outlined,
-              accentColor: AikoColors.successGreen,
-              progress: _moneyRatio(summary.totalCash, summary.netWorth),
-            ),
-            AikoMetricCard(
-              label: 'Safe to spend',
-              value: summary.safeToSpend.format(),
-              change: 'Available this period',
-              icon: Icons.savings_outlined,
-            ),
-            AikoMetricCard(
-              label: 'Left to save',
-              value: leftToSave.format(),
-              change: 'After safe spending',
-              icon: Icons.flag_outlined,
-              accentColor: AikoColors.analyticsTeal,
-            ),
-            AikoMetricCard(
-              label: 'Cash flow',
-              value: netCashFlow.format(),
-              change: 'Income minus expenses',
-              icon: Icons.waterfall_chart,
-              accentColor: netCashFlow.isNegative
-                  ? AikoColors.dangerRed
-                  : AikoColors.successGreen,
-            ),
-          ],
+    return AikoDataListCard(
+      title: 'This Month Overview',
+      icon: Icons.calendar_month_outlined,
+      rows: [
+        AikoDataRow(
+          label: 'Income',
+          value: summary.monthlyIncome.format(),
+          color: AikoColors.successGreen,
         ),
-        const SizedBox(height: 16),
-        AikoDataListCard(
-          title: 'This Month Overview',
-          icon: Icons.calendar_month_outlined,
-          rows: [
-            AikoDataRow(
-              label: 'Income',
-              value: summary.monthlyIncome.format(),
-              color: AikoColors.successGreen,
-            ),
-            AikoDataRow(
-              label: 'Expenses',
-              value: '-${summary.monthlySpending.format()}',
-              color: AikoColors.dangerRed,
-            ),
-            AikoDataRow(
-              label: 'Savings',
-              value: netCashFlow.format(),
-              color: AikoColors.analyticsTeal,
-            ),
-          ],
+        AikoDataRow(
+          label: 'Expenses',
+          value: '-${summary.monthlySpending.format()}',
+          color: AikoColors.dangerRed,
+        ),
+        AikoDataRow(
+          label: 'Savings',
+          value: netCashFlow.format(),
+          color: AikoColors.analyticsTeal,
         ),
       ],
+    );
+  }
+}
+
+class _TotalBalancePanel extends ConsumerWidget {
+  const _TotalBalancePanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summaryAsync = ref.watch(dashboardSummaryProvider);
+    return summaryAsync.when(
+      loading: () => const _OverviewMiniCard(
+        title: 'Total balance',
+        value: 'Loading',
+        caption: 'Cash',
+        icon: Icons.account_balance_wallet_outlined,
+        accentColor: AikoColors.successGreen,
+      ),
+      error: (_, _) => const _OverviewMiniCard(
+        title: 'Total balance',
+        value: 'Unavailable',
+        caption: 'Cash',
+        icon: Icons.account_balance_wallet_outlined,
+        accentColor: AikoColors.successGreen,
+      ),
+      data: (summary) {
+        final progress = _moneyRatio(summary.totalCash, summary.netWorth);
+        return _OverviewMiniCard(
+          title: 'Total balance',
+          value: summary.netWorth.format(),
+          caption: 'Cash ${summary.totalCash.format()}',
+          icon: Icons.account_balance_wallet_outlined,
+          accentColor: AikoColors.successGreen,
+          progressValue: progress,
+        );
+      },
     );
   }
 
@@ -355,6 +354,79 @@ class _ThisMonthOverviewSection extends StatelessWidget {
       return 0;
     }
     return (value.amount.toDouble() / target.amount.toDouble()).clamp(0.0, 1.0);
+  }
+}
+
+class _LeftToSavePanel extends ConsumerWidget {
+  const _LeftToSavePanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summaryAsync = ref.watch(dashboardSummaryProvider);
+    return summaryAsync.when(
+      loading: () => const _OverviewMiniCard(
+        title: 'Left to save',
+        value: 'Loading',
+        caption: 'After safe spending',
+        icon: Icons.flag_outlined,
+        accentColor: AikoColors.analyticsTeal,
+      ),
+      error: (_, _) => const _OverviewMiniCard(
+        title: 'Left to save',
+        value: 'Unavailable',
+        caption: 'After safe spending',
+        icon: Icons.flag_outlined,
+        accentColor: AikoColors.analyticsTeal,
+      ),
+      data: (summary) {
+        final netCashFlow = summary.monthlyIncome - summary.monthlySpending;
+        final leftToSave = netCashFlow - summary.safeToSpend;
+        return _OverviewMiniCard(
+          title: 'Left to save',
+          value: leftToSave.format(),
+          caption: 'After safe spending',
+          icon: Icons.flag_outlined,
+          accentColor: AikoColors.analyticsTeal,
+        );
+      },
+    );
+  }
+}
+
+class _CashFlowPanel extends ConsumerWidget {
+  const _CashFlowPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summaryAsync = ref.watch(dashboardSummaryProvider);
+    return summaryAsync.when(
+      loading: () => const _OverviewMiniCard(
+        title: 'Cash flow',
+        value: 'Loading',
+        caption: 'Income minus expenses',
+        icon: Icons.waterfall_chart,
+        accentColor: AikoColors.successGreen,
+      ),
+      error: (_, _) => const _OverviewMiniCard(
+        title: 'Cash flow',
+        value: 'Unavailable',
+        caption: 'Income minus expenses',
+        icon: Icons.waterfall_chart,
+        accentColor: AikoColors.successGreen,
+      ),
+      data: (summary) {
+        final netCashFlow = summary.monthlyIncome - summary.monthlySpending;
+        return _OverviewMiniCard(
+          title: 'Cash flow',
+          value: netCashFlow.format(),
+          caption: 'Income minus expenses',
+          icon: Icons.waterfall_chart,
+          accentColor: netCashFlow.isNegative
+              ? AikoColors.dangerRed
+              : AikoColors.successGreen,
+        );
+      },
+    );
   }
 }
 

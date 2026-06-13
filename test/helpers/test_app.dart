@@ -7,7 +7,6 @@ Widget buildTestApp() {
     config: AppConfig(
       supabaseUrl: '',
       supabaseAnonKey: '',
-      environment: 'test',
       enableSupabase: false,
     ),
   );

@@ -36,7 +36,6 @@ Future<void> bootstrapIntegrationTest(WidgetTester tester) async {
   const config = AppConfig(
     supabaseUrl: integrationSupabaseUrl,
     supabaseAnonKey: integrationSupabaseAnonKey,
-    environment: 'test',
     enableSupabase:
         integrationSupabaseUrl != '' && integrationSupabaseAnonKey != '',
   );

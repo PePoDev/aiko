@@ -112,7 +112,6 @@ Edit `.env`:
 ```sh
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_ANON_KEY=your-cloud-anon-key
-AIKO_ENV=development
 ```
 
 > **⚠️ Security:** Never put a Supabase service-role key in the mobile app, `.env`, dart-defines, or any client-visible config.
@@ -142,14 +141,12 @@ psql <your-supabase-db-url> -f supabase/seed.sql
 # Android
 flutter run -d android \
   --dart-define=SUPABASE_URL=https://your-project-ref.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=<your-cloud-anon-key> \
-  --dart-define=AIKO_ENV=development
+  --dart-define=SUPABASE_ANON_KEY=<your-cloud-anon-key>
 
 # iOS
 flutter run -d ios \
   --dart-define=SUPABASE_URL=https://your-project-ref.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=<your-cloud-anon-key> \
-  --dart-define=AIKO_ENV=development
+  --dart-define=SUPABASE_ANON_KEY=<your-cloud-anon-key>
 ```
 
 > Without `SUPABASE_URL` and `SUPABASE_ANON_KEY`, the app runs in local-only offline mode. Core finance data is stored in SQLite through Brick; cloud sync starts when Supabase is configured and the user is authenticated.

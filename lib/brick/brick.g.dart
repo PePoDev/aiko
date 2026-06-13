@@ -21,6 +21,7 @@ import '../brick/models/account.model.dart';
 import '../brick/models/budget.model.dart';
 import '../brick/models/category.model.dart';
 import '../brick/models/goal.model.dart';
+import '../brick/models/investment_holding.model.dart';
 import '../brick/models/profile.model.dart';
 import '../brick/models/transaction.model.dart';
 
@@ -28,6 +29,7 @@ part 'adapters/offline_account_adapter.g.dart';
 part 'adapters/offline_budget_adapter.g.dart';
 part 'adapters/offline_category_adapter.g.dart';
 part 'adapters/offline_goal_adapter.g.dart';
+part 'adapters/offline_investment_holding_adapter.g.dart';
 part 'adapters/offline_profile_adapter.g.dart';
 part 'adapters/offline_transaction_adapter.g.dart';
 
@@ -37,6 +39,7 @@ final Map<Type, SupabaseAdapter<SupabaseModel>> supabaseMappings = {
   OfflineBudget: OfflineBudgetAdapter(),
   OfflineCategory: OfflineCategoryAdapter(),
   OfflineGoal: OfflineGoalAdapter(),
+  OfflineInvestmentHolding: OfflineInvestmentHoldingAdapter(),
   OfflineProfile: OfflineProfileAdapter(),
   OfflineTransaction: OfflineTransactionAdapter()
 };
@@ -48,6 +51,7 @@ final Map<Type, SqliteAdapter<SqliteModel>> sqliteMappings = {
   OfflineBudget: OfflineBudgetAdapter(),
   OfflineCategory: OfflineCategoryAdapter(),
   OfflineGoal: OfflineGoalAdapter(),
+  OfflineInvestmentHolding: OfflineInvestmentHoldingAdapter(),
   OfflineProfile: OfflineProfileAdapter(),
   OfflineTransaction: OfflineTransactionAdapter()
 };

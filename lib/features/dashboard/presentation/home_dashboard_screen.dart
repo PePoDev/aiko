@@ -185,6 +185,11 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       DashboardWidgetType.totalBalance => const _TotalBalancePanel(),
       DashboardWidgetType.leftToSave => const _LeftToSavePanel(),
       DashboardWidgetType.cashFlow => const _CashFlowPanel(),
+      DashboardWidgetType.netWorth => const _NetWorthPanel(),
+      DashboardWidgetType.netWorthTrend => const _NetWorthTrendPanel(),
+      DashboardWidgetType.assetsLiabilities =>
+        const _AssetsLiabilitiesPanel(),
+      DashboardWidgetType.topAssets => const _TopAssetsPanel(),
     };
   }
 }
@@ -426,6 +431,259 @@ class _CashFlowPanel extends ConsumerWidget {
               : AikoColors.successGreen,
         );
       },
+    );
+  }
+}
+
+class _NetWorthPanel extends ConsumerWidget {
+  const _NetWorthPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summaryAsync = ref.watch(dashboardSummaryProvider);
+    return summaryAsync.when(
+      loading: () => const _OverviewMiniCard(
+        title: 'Net worth',
+        value: 'Loading',
+        caption: 'Assets minus liabilities',
+        icon: Icons.account_balance_wallet_outlined,
+        accentColor: AikoColors.successGreen,
+      ),
+      error: (_, _) => const _OverviewMiniCard(
+        title: 'Net worth',
+        value: 'Unavailable',
+        caption: 'Assets minus liabilities',
+        icon: Icons.account_balance_wallet_outlined,
+        accentColor: AikoColors.successGreen,
+      ),
+      data: (summary) {
+        return _OverviewMiniCard(
+          title: 'Net worth',
+          value: summary.netWorth.format(),
+          caption: 'Assets minus liabilities',
+          icon: Icons.account_balance_wallet_outlined,
+          accentColor: AikoColors.successGreen,
+        );
+      },
+    );
+  }
+}
+
+class _NetWorthTrendPanel extends StatelessWidget {
+  const _NetWorthTrendPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return FinanceCard(
+      title: 'Net worth trend',
+      icon: Icons.trending_up_outlined,
+      accentColor: AikoColors.primaryBlue,
+      child: SizedBox(
+        height: 120,
+        child: BarChart(
+          BarChartData(
+            barGroups: _generateTrendData(),
+            titlesData: const FlTitlesData(show: false),
+            gridData: const FlGridData(show: false),
+            borderData: FlBorderData(show: false),
+            barTouchData: BarTouchData(enabled: false),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<BarChartGroupData> _generateTrendData() {
+    final values = [80, 82, 84, 90, 88, 95, 100, 106, 111, 118, 126, 148];
+    return List.generate(values.length, (index) {
+      return BarChartGroupData(
+        x: index,
+        barRods: [
+          BarChartRodData(
+            toY: values[index].toDouble(),
+            color: AikoColors.primaryBlue,
+            width: 8,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+class _AssetsLiabilitiesPanel extends ConsumerWidget {
+  const _AssetsLiabilitiesPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summaryAsync = ref.watch(dashboardSummaryProvider);
+    return summaryAsync.when(
+      loading: () => const FinanceCard(
+        title: 'Assets & liabilities',
+        icon: Icons.balance_outlined,
+        accentColor: AikoColors.analyticsTeal,
+        child: Text('Loading...'),
+      ),
+      error: (_, _) => const FinanceCard(
+        title: 'Assets & liabilities',
+        icon: Icons.balance_outlined,
+        accentColor: AikoColors.analyticsTeal,
+        child: Text('Unavailable'),
+      ),
+      data: (summary) {
+        final assets = summary.netWorth + summary.totalCash;
+        final liabilities = summary.totalCash;
+        return FinanceCard(
+          title: 'Assets & liabilities',
+          icon: Icons.balance_outlined,
+          accentColor: AikoColors.analyticsTeal,
+          child: Row(
+            children: [
+              Expanded(
+                child: _MetricTile(
+                  label: 'Assets',
+                  value: assets.format(),
+                  icon: Icons.add_chart,
+                  color: AikoColors.successGreen,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _MetricTile(
+                  label: 'Liabilities',
+                  value: liabilities.format(),
+                  icon: Icons.remove_circle_outline,
+                  color: AikoColors.dangerRed,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  const _MetricTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: AikoColors.mutedText,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TopAssetsPanel extends ConsumerWidget {
+  const _TopAssetsPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summaryAsync = ref.watch(dashboardSummaryProvider);
+    return summaryAsync.when(
+      loading: () => const FinanceCard(
+        title: 'Top assets',
+        icon: Icons.inventory_2_outlined,
+        accentColor: AikoColors.analyticsTeal,
+        child: Text('Loading...'),
+      ),
+      error: (_, _) => const FinanceCard(
+        title: 'Top assets',
+        icon: Icons.inventory_2_outlined,
+        accentColor: AikoColors.analyticsTeal,
+        child: Text('Unavailable'),
+      ),
+      data: (summary) {
+        return FinanceCard(
+          title: 'Top assets',
+          icon: Icons.inventory_2_outlined,
+          accentColor: AikoColors.analyticsTeal,
+          child: Column(
+            children: [
+              _AssetRow(
+                label: 'Cash & Bank',
+                value: summary.totalCash.format(),
+                color: AikoColors.primaryBlue,
+              ),
+              const SizedBox(height: 12),
+              _AssetRow(
+                label: 'Net worth',
+                value: summary.netWorth.format(),
+                color: AikoColors.successGreen,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AssetRow extends StatelessWidget {
+  const _AssetRow({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }

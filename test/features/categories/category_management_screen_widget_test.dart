@@ -1,5 +1,6 @@
 import 'package:aiko/app/providers.dart';
 import 'package:aiko/features/categories/domain/category.dart';
+import 'package:aiko/features/categories/domain/category_defaults.dart';
 import 'package:aiko/features/categories/presentation/category_management_screen.dart';
 import 'package:aiko/theme/aiko_colors.dart';
 import 'package:aiko/theme/aiko_theme.dart';
@@ -16,8 +17,8 @@ void main() {
         overrides: [
           categoriesProvider.overrideWith(
             () => _CategoriesNotifier([
-              const Category(
-                id: 'default-income-salary',
+              Category(
+                id: CategoryDefaults.salaryId,
                 userId: 'user',
                 name: 'Salary',
                 type: CategoryType.income,
@@ -26,8 +27,8 @@ void main() {
                 color: '#22C55E',
                 budgetEnabled: false,
               ),
-              const Category(
-                id: 'default-expense-groceries',
+              Category(
+                id: CategoryDefaults.groceriesId,
                 userId: 'user',
                 name: 'Groceries',
                 type: CategoryType.expense,
@@ -107,8 +108,8 @@ void main() {
         overrides: [
           categoriesProvider.overrideWith(
             () => _CategoriesNotifier([
-              const Category(
-                id: 'default-income-salary',
+              Category(
+                id: CategoryDefaults.salaryId,
                 userId: 'user',
                 name: 'Salary',
                 type: CategoryType.income,
@@ -279,8 +280,8 @@ void main() {
         overrides: [
           categoriesProvider.overrideWith(
             () => _CategoriesNotifier([
-              const Category(
-                id: 'default-income-salary',
+              Category(
+                id: CategoryDefaults.salaryId,
                 userId: 'user',
                 name: 'Salary',
                 type: CategoryType.income,

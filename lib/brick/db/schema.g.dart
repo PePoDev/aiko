@@ -1,17 +1,19 @@
 // GENERATED CODE DO NOT EDIT
 // This file should be version controlled
 import 'package:brick_sqlite/db.dart';
-part '20260607174822.migration.dart';
+part '20260613095807.migration.dart';
 part '20260523055312.migration.dart';
 part '20260523183433.migration.dart';
 part '20260603133701.migration.dart';
+part '20260607174822.migration.dart';
 
 /// All intelligently-generated migrations from all `@Migratable` classes on disk
 final migrations = <Migration>{
-  const Migration20260607174822(),
+  const Migration20260613095807(),
   const Migration20260523055312(),
   const Migration20260523183433(),
   const Migration20260603133701(),
+  const Migration20260607174822(),
 };
 
 /// A consumable database structure including the latest generated migration.
@@ -119,6 +121,33 @@ final schema = Schema(
         SchemaColumn('priority', Column.integer),
         SchemaColumn('success_probability', Column.Double),
         SchemaColumn('status', Column.varchar),
+      },
+      indices: <SchemaIndex>{
+        SchemaIndex(columns: ['user_id'], unique: false),
+      },
+    ),
+    SchemaTable(
+      'OfflineInvestmentHolding',
+      columns: <SchemaColumn>{
+        SchemaColumn(
+          '_brick_id',
+          Column.integer,
+          autoincrement: true,
+          nullable: false,
+          isPrimaryKey: true,
+        ),
+        SchemaColumn('id', Column.varchar, unique: true),
+        SchemaColumn('user_id', Column.varchar),
+        SchemaColumn('symbol', Column.varchar),
+        SchemaColumn('asset_class', Column.varchar),
+        SchemaColumn('quantity', Column.varchar),
+        SchemaColumn('average_cost', Column.varchar),
+        SchemaColumn('current_price', Column.varchar),
+        SchemaColumn('currency', Column.varchar),
+        SchemaColumn('market_value', Column.varchar),
+        SchemaColumn('target_allocation_percent', Column.Double),
+        SchemaColumn('created_at', Column.datetime),
+        SchemaColumn('updated_at', Column.datetime),
       },
       indices: <SchemaIndex>{
         SchemaIndex(columns: ['user_id'], unique: false),

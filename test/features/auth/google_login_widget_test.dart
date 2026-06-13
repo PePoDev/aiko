@@ -10,6 +10,24 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
+  testWidgets('email field starts empty on login screen', (tester) async {
+    final repository = _FakeGoogleAuthRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AikoTheme.light(),
+        home: LoginScreen(authRepository: repository),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final emailField = tester.widget<TextField>(find.byType(TextField).first);
+
+    expect(emailField.controller?.text, isEmpty);
+  });
+
   testWidgets('google sign in completion routes to home', (tester) async {
     final repository = _FakeGoogleAuthRepository();
     addTearDown(repository.dispose);

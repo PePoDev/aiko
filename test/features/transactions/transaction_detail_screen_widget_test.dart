@@ -2,6 +2,7 @@ import 'package:aiko/app/providers.dart';
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/categories/domain/category.dart';
+import 'package:aiko/features/categories/domain/category_defaults.dart';
 import 'package:aiko/features/transactions/data/transaction_repository.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
 import 'package:aiko/features/transactions/presentation/transaction_detail_screen.dart';
@@ -180,8 +181,8 @@ void main() {
           accountsProvider.overrideWith(() => _AccountsNotifier(const [])),
           categoriesProvider.overrideWith(
             () => _CategoriesNotifier([
-              const Category(
-                id: 'default-expense-groceries',
+              Category(
+                id: CategoryDefaults.groceriesId,
                 userId: 'user',
                 name: 'Groceries',
                 type: CategoryType.expense,
@@ -199,7 +200,7 @@ void main() {
               id: 'tx-1',
               userId: 'user',
               accountId: 'cash',
-              categoryId: 'default-expense-groceries',
+              categoryId: CategoryDefaults.groceriesId,
               type: TransactionType.expense,
               amount: Money.parse('4.50', 'USD'),
               date: DateTime(2026, 5, 23, 9, 30),

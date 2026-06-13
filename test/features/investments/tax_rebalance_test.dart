@@ -1,13 +1,14 @@
 import 'package:aiko/core/money/money.dart';
-import 'package:aiko/features/portfolio/application/portfolio_allocation_service.dart';
-import 'package:aiko/features/portfolio/domain/allocation_target.dart';
-import 'package:aiko/features/portfolio/domain/investment_holding.dart';
+import 'package:aiko/features/investments/application/allocation_service.dart';
+import 'package:aiko/features/investments/domain/allocation_target.dart';
+import 'package:aiko/features/investments/domain/investment_holding.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('estimates capital gains for partial sale', () {
-    final estimate = const PortfolioAllocationService().capitalGainsOnSale(
+    final estimate = const AllocationService().capitalGainsOnSale(
       holding: InvestmentHolding(
+        id: 'test-1',
         symbol: 'ABC',
         assetClass: 'Stocks',
         quantity: 10,
@@ -24,9 +25,10 @@ void main() {
   });
 
   test('returns rebalance alerts when allocations drift', () {
-    final service = const PortfolioAllocationService();
+    final service = const AllocationService();
     final holdings = [
       InvestmentHolding(
+        id: 'test-2',
         symbol: 'ABC',
         assetClass: 'Stocks',
         quantity: 10,

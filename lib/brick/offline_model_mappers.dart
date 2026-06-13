@@ -3,12 +3,14 @@ import '../features/accounts/domain/account.dart';
 import '../features/budgets/domain/budget.dart';
 import '../features/categories/domain/category.dart';
 import '../features/goals/domain/goal.dart';
+import '../features/investments/domain/investment_holding.dart';
 import '../features/settings/domain/profile.dart';
 import '../features/transactions/domain/transaction.dart';
 import 'models/account.model.dart';
 import 'models/budget.model.dart';
 import 'models/category.model.dart';
 import 'models/goal.model.dart';
+import 'models/investment_holding.model.dart';
 import 'models/profile.model.dart';
 import 'models/transaction.model.dart';
 
@@ -240,6 +242,42 @@ extension TransactionOfflineMapper on FinanceTransaction {
       note: note,
       tags: tags,
       status: status.name,
+    );
+  }
+}
+
+extension OfflineInvestmentHoldingMapper on OfflineInvestmentHolding {
+  InvestmentHolding toDomain() {
+    return InvestmentHolding(
+      id: id,
+      userId: userId,
+      symbol: symbol,
+      assetClass: assetClass,
+      quantity: double.parse(quantity),
+      averageCost: Money.parse(averageCost, currency),
+      currentPrice: Money.parse(currentPrice, currency),
+      targetAllocationPercent: targetAllocationPercent,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
+  }
+}
+
+extension InvestmentHoldingOfflineMapper on InvestmentHolding {
+  OfflineInvestmentHolding toOffline({required String userId}) {
+    return OfflineInvestmentHolding(
+      id: id,
+      userId: userId,
+      symbol: symbol,
+      assetClass: assetClass,
+      quantity: quantity.toString(),
+      averageCost: averageCost.amount.toString(),
+      currentPrice: currentPrice.amount.toString(),
+      currency: currentPrice.currency,
+      marketValue: marketValue.amount.toString(),
+      targetAllocationPercent: targetAllocationPercent,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 }

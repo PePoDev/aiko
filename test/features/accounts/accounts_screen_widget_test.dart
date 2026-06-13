@@ -34,6 +34,57 @@ void main() {
     expect(find.text('\$25.00'), findsOneWidget);
   });
 
+  testWidgets('accounts screen groups accounts by account type', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _accountsApp(
+        _AccountsNotifier([
+          _account(
+            id: 'checking',
+            name: 'Everyday Checking',
+            type: AccountType.bank,
+          ),
+          _account(id: 'cash', name: 'Pocket Cash', type: AccountType.cash),
+          _account(
+            id: 'visa',
+            name: 'Visa Rewards',
+            type: AccountType.creditCard,
+          ),
+          _account(id: 'loan', name: 'Student Loan', type: AccountType.loan),
+          _account(
+            id: 'savings',
+            name: 'High Yield Savings',
+            type: AccountType.bank,
+          ),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cash'), findsOneWidget);
+    expect(find.text('Bank'), findsOneWidget);
+    expect(find.text('Credit Card'), findsOneWidget);
+    expect(find.text('Loan'), findsOneWidget);
+
+    expect(
+      tester.getTopLeft(find.text('Cash')).dy,
+      lessThan(tester.getTopLeft(find.text('Pocket Cash')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('Bank')).dy,
+      lessThan(tester.getTopLeft(find.text('Everyday Checking')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('Bank')).dy,
+      lessThan(tester.getTopLeft(find.text('High Yield Savings')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('Credit Card')).dy,
+      lessThan(tester.getTopLeft(find.text('Visa Rewards')).dy),
+    );
+  });
+
   testWidgets('app bar add action opens account creation popup', (
     tester,
   ) async {
@@ -434,6 +485,20 @@ Account _cashAccount() {
     name: 'Cash Wallet',
     type: AccountType.cash,
     currentBalance: Money.parse('25', 'USD'),
+  );
+}
+
+Account _account({
+  required String id,
+  required String name,
+  required AccountType type,
+}) {
+  return Account(
+    id: id,
+    userId: 'user',
+    name: name,
+    type: type,
+    currentBalance: Money.parse('10', 'USD'),
   );
 }
 

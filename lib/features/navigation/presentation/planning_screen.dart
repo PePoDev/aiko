@@ -50,13 +50,6 @@ class PlanningScreen extends StatelessWidget {
       color: AikoColors.primaryBlue,
     ),
     _PlanningItem(
-      title: 'Net Worth',
-      description: 'Compare assets, liabilities, and monthly change.',
-      path: '/net-worth',
-      icon: Icons.trending_up_outlined,
-      color: AikoColors.successGreen,
-    ),
-    _PlanningItem(
       title: 'Assets',
       description: 'Log assets and net worth records.',
       path: '/assets',

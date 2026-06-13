@@ -62,9 +62,9 @@ Future<OfflineBudget> _$OfflineBudgetFromSqlite(
     period: data['period'] as String,
     alertThresholds: jsonDecode(data['alert_thresholds']).toList().cast<int>(),
     status: data['status'] as String,
-    includedCategoryIds: data['included_category_ids'] == null
-        ? const []
-        : jsonDecode(data['included_category_ids']).toList().cast<String>(),
+    includedCategoryIds: jsonDecode(
+      data['included_category_ids'],
+    ).toList().cast<String>(),
     isAppDefined: data['is_app_defined'] == 1,
   )..primaryKey = data['_brick_id'] as int;
 }

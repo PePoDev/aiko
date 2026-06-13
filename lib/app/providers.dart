@@ -22,6 +22,7 @@ import '../features/budgets/domain/budget.dart';
 import '../features/categories/domain/category.dart';
 import '../features/bills/data/bill_subscription_repository.dart';
 import '../features/bills/domain/bill_subscription.dart';
+import '../features/investments/data/investment_holding_repository.dart';
 import '../core/money/money.dart';
 
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
@@ -73,6 +74,11 @@ final dashboardLayoutRepositoryProvider = Provider<DashboardLayoutRepository>((
 ) {
   return DashboardLayoutRepository();
 });
+
+final investmentHoldingRepositoryProvider =
+    Provider<InvestmentHoldingRepository>((ref) {
+      return const InvestmentHoldingRepository();
+    });
 
 class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
   @override

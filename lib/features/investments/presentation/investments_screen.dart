@@ -1,34 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/money/money.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
-import '../application/portfolio_allocation_service.dart';
-import '../application/portfolio_provider.dart';
+import '../application/allocation_service.dart';
+import '../application/investments_provider.dart';
 import '../domain/allocation_target.dart';
 import '../domain/investment_holding.dart';
 
-class PortfolioScreen extends ConsumerStatefulWidget {
-  const PortfolioScreen({super.key});
+class InvestmentsScreen extends ConsumerStatefulWidget {
+  const InvestmentsScreen({super.key});
 
-  static const _allocationService = PortfolioAllocationService();
+  static const _allocationService = AllocationService();
   static const _targetAllocation = [
     AllocationTarget(assetClass: 'Stocks', targetPercent: 70),
     AllocationTarget(assetClass: 'Bonds', targetPercent: 30),
   ];
 
   @override
-  ConsumerState<PortfolioScreen> createState() => _PortfolioScreenState();
+  ConsumerState<InvestmentsScreen> createState() => _InvestmentsScreenState();
 }
 
-class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
+class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
   final _searchController = TextEditingController();
   var _isSearching = false;
   var _searchQuery = '';
   var _assetClassFilter = 'All';
+  var _isRefreshing = false;
 
   @override
   void initState() {
@@ -60,10 +62,25 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
     });
   }
 
+  Future<void> _refreshPrices() async {
+    if (_isRefreshing) {
+      return;
+    }
+    setState(() => _isRefreshing = true);
+    try {
+      await ref.read(investmentsProvider.notifier).refreshPrices();
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
+  }
+
   void _showAddHoldingBottomSheet() {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const _AddHoldingBottomSheet(),
     );
@@ -85,9 +102,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             ),
             FilledButton(
               onPressed: () {
-                ref
-                    .read(portfolioProvider.notifier)
-                    .deleteHolding(holding.symbol);
+                ref.read(investmentsProvider.notifier).deleteHolding(holding.id);
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -110,18 +125,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(portfolioProvider);
-    final holdings = state.holdings;
-    final alerts = PortfolioScreen._allocationService.rebalanceAlerts(
-      portfolio: holdings,
-      targets: PortfolioScreen._targetAllocation,
-    );
-    final summary = _PortfolioSummary.fromHoldings(
-      holdings: holdings,
-      alerts: alerts,
-    );
-    final filteredHoldings = holdings.where(_matchesVisibleFilters).toList();
-    final allocationRows = _allocationRowsFor(holdings);
+    final holdingsAsync = ref.watch(investmentsProvider);
     final actionColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
@@ -140,7 +144,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                   contentPadding: EdgeInsets.zero,
                 ),
               )
-            : const Text('Portfolio'),
+            : const Text('Investments'),
         actions: [
           if (_isSearching)
             IconButton(
@@ -156,10 +160,8 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             ),
           IconButton(
             tooltip: 'Refresh prices',
-            onPressed: state.isRefreshing
-                ? null
-                : () => ref.read(portfolioProvider.notifier).refreshPrices(),
-            icon: state.isRefreshing
+            onPressed: _isRefreshing ? null : _refreshPrices,
+            icon: _isRefreshing
                 ? SizedBox.square(
                     dimension: 18,
                     child: CircularProgressIndicator(
@@ -171,55 +173,77 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddHoldingBottomSheet,
-        icon: const Icon(Icons.add),
-        label: const Text('Add holding'),
-      ),
-      body: RefreshIndicator(
-        onRefresh: () => ref.read(portfolioProvider.notifier).refreshPrices(),
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (state.isRefreshing) ...[
-                const LinearProgressIndicator(minHeight: 3),
-                const SizedBox(height: 12),
-              ],
-              _PortfolioSummaryCard(summary: summary),
-              const SizedBox(height: 12),
-              _AssetClassFilters(
-                selectedAssetClass: _assetClassFilter,
-                onSelected: (value) {
-                  setState(() => _assetClassFilter = value);
-                },
-              ),
-              const SizedBox(height: 16),
-              _SectionHeader(
-                title: 'Holdings',
-                trailing: holdings.isEmpty
-                    ? null
-                    : '${filteredHoldings.length} of ${holdings.length}',
-              ),
-              const SizedBox(height: 8),
-              _HoldingsList(
-                holdings: holdings,
-                filteredHoldings: filteredHoldings,
-                hasActiveFilters: _hasActiveFilters,
-                onClearFilters: _clearFilters,
-                onAddHolding: _showAddHoldingBottomSheet,
-                onDeleteHolding: _confirmDeleteHolding,
-              ),
-              const SizedBox(height: 16),
-              _AllocationCard(rows: allocationRows),
-              if (alerts.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _RebalanceNotice(alerts: alerts),
-              ],
-            ],
+      body: holdingsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => AikoScreenState.error(
+          title: 'Could not load portfolio',
+          message: error.toString(),
+          action: FilledButton.icon(
+            onPressed: () => ref.invalidate(investmentsProvider),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
           ),
+        ),
+        data: (holdings) => _buildHoldingsBody(holdings),
+      ),
+    );
+  }
+
+  Widget _buildHoldingsBody(List<InvestmentHolding> holdings) {
+    final alerts = InvestmentsScreen._allocationService.rebalanceAlerts(
+      portfolio: holdings,
+      targets: InvestmentsScreen._targetAllocation,
+    );
+    final summary = _PortfolioSummary.fromHoldings(
+      holdings: holdings,
+      alerts: alerts,
+    );
+    final filteredHoldings = holdings.where(_matchesVisibleFilters).toList();
+    final allocationRows = _allocationRowsFor(holdings);
+
+    return RefreshIndicator(
+      onRefresh: _refreshPrices,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_isRefreshing) ...[
+              const LinearProgressIndicator(minHeight: 3),
+              const SizedBox(height: 12),
+            ],
+            _PortfolioSummaryCard(summary: summary),
+            const SizedBox(height: 12),
+            _AssetClassFilters(
+              selectedAssetClass: _assetClassFilter,
+              onSelected: (value) {
+                setState(() => _assetClassFilter = value);
+              },
+            ),
+            const SizedBox(height: 16),
+            _SectionHeader(
+              title: 'Holdings',
+              trailing: holdings.isEmpty
+                  ? null
+                  : '${filteredHoldings.length} of ${holdings.length}',
+            ),
+            const SizedBox(height: 8),
+            _HoldingsList(
+              holdings: holdings,
+              filteredHoldings: filteredHoldings,
+              hasActiveFilters: _hasActiveFilters,
+              onClearFilters: _clearFilters,
+              onAddHolding: _showAddHoldingBottomSheet,
+              onDeleteHolding: _confirmDeleteHolding,
+            ),
+            const SizedBox(height: 16),
+            _AllocationCard(rows: allocationRows),
+            if (alerts.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _RebalanceNotice(alerts: alerts),
+            ],
+          ],
         ),
       ),
     );
@@ -260,7 +284,7 @@ class _PortfolioSummaryCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return FinanceCard(
-      title: 'Portfolio value',
+      title: 'Investments value',
       icon: Icons.account_balance_wallet_outlined,
       accentColor: AikoColors.primaryBlue,
       prominent: true,
@@ -427,7 +451,7 @@ class _HoldingsList extends StatelessWidget {
   Widget build(BuildContext context) {
     if (holdings.isEmpty) {
       return SizedBox(
-        height: 260,
+        height: 360,
         child: AikoScreenState.empty(
           title: 'No investments yet',
           message: 'Add your first holding to track value and allocation.',
@@ -927,9 +951,10 @@ class _AddHoldingBottomSheetState
           : _currentPriceController.text.trim();
 
       ref
-          .read(portfolioProvider.notifier)
+          .read(investmentsProvider.notifier)
           .addHolding(
             InvestmentHolding(
+              id: const Uuid().v4(),
               symbol: symbol,
               assetClass: _selectedAssetClass,
               quantity: quantity,
@@ -970,21 +995,20 @@ class _AddHoldingBottomSheetState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          16,
-          20,
-          MediaQuery.of(context).viewInsets.bottom + 24,
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Form(
+            key: _formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1005,7 +1029,7 @@ class _AddHoldingBottomSheetState
                   ],
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
+                  DropdownButtonFormField<String>(
                   initialValue: _selectedAssetClass,
                   decoration: const InputDecoration(
                     labelText: 'Asset class',

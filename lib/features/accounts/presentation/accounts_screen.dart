@@ -58,29 +58,101 @@ class AccountsScreen extends ConsumerWidget {
             );
           }
 
-          return ListView.separated(
+          final accountSections = _groupAccountsByType(accounts);
+
+          return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-            itemCount: accounts.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final account = accounts[index];
-              final currentBalance = _currentBalanceForAccount(
-                account,
-                transactions,
-              );
-              return _AccountListItem(
-                account: account,
-                currentBalance: currentBalance,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => AccountDetailScreen(account: account),
-                  ),
+            children: [
+              for (final section in accountSections) ...[
+                _AccountTypeHeader(
+                  type: section.type,
+                  accountCount: section.accounts.length,
                 ),
-              );
-            },
+                const SizedBox(height: 8),
+                for (
+                  var accountIndex = 0;
+                  accountIndex < section.accounts.length;
+                  accountIndex++
+                ) ...[
+                  _AccountListItem(
+                    account: section.accounts[accountIndex],
+                    currentBalance: _currentBalanceForAccount(
+                      section.accounts[accountIndex],
+                      transactions,
+                    ),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => AccountDetailScreen(
+                          account: section.accounts[accountIndex],
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (accountIndex != section.accounts.length - 1)
+                    const SizedBox(height: 8),
+                ],
+                const SizedBox(height: 16),
+              ],
+            ],
           );
         },
       ),
+    );
+  }
+}
+
+class _AccountTypeSection {
+  const _AccountTypeSection({required this.type, required this.accounts});
+
+  final AccountType type;
+  final List<Account> accounts;
+}
+
+List<_AccountTypeSection> _groupAccountsByType(List<Account> accounts) {
+  return [
+    for (final type in AccountType.values)
+      if (accounts.any((account) => account.type == type))
+        _AccountTypeSection(
+          type: type,
+          accounts: [
+            for (final account in accounts)
+              if (account.type == type) account,
+          ],
+        ),
+  ];
+}
+
+class _AccountTypeHeader extends StatelessWidget {
+  const _AccountTypeHeader({required this.type, required this.accountCount});
+
+  final AccountType type;
+  final int accountCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = _colorForAccount(type);
+
+    return Row(
+      children: [
+        Icon(_iconForAccount(type), size: 18, color: accent),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            _accountTypeLabel(type),
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+        ),
+        Text(
+          '$accountCount',
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }

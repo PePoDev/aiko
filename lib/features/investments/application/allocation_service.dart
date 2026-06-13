@@ -4,8 +4,8 @@ import '../../../core/money/money.dart';
 import '../domain/allocation_target.dart';
 import '../domain/investment_holding.dart';
 
-class PortfolioAllocationService {
-  const PortfolioAllocationService();
+class AllocationService {
+  const AllocationService();
 
   Money marketValue(InvestmentHolding holding) {
     return holding.currentPrice.times(Decimal.parse('${holding.quantity}'));

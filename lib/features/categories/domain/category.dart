@@ -1,3 +1,5 @@
+import 'category_defaults.dart';
+
 enum CategoryType {
   income,
   expense,
@@ -46,7 +48,7 @@ class Category {
   final bool isActive;
   final DateTime? createdAt;
 
-  bool get isDefault => id.startsWith('default-');
+  bool get isDefault => CategoryDefaults.allIds.contains(id);
 
   Category copyWith({
     String? name,

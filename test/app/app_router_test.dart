@@ -115,4 +115,28 @@ void main() {
     expect(find.text('Aiko is locked'), findsNothing);
     expect(find.text('Unlock'), findsNothing);
   });
+
+  testWidgets('router no longer exposes the removed Aiko Optimize route', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp.router(
+        locale: const Locale('en'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: AikoTheme.light(),
+        routerConfig: createAikoRouter(initialLocation: '/aiko-optimize'),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Route not found'), findsOneWidget);
+    expect(find.text('Aiko Optimize'), findsNothing);
+  });
 }

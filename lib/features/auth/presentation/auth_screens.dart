@@ -132,7 +132,6 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _authRepository = widget._authRepository ?? AuthRepository();
-    _emailController.text = 'name@email.com';
     _authSubscription = _authRepository.authStateChanges().listen((state) {
       if (state.event == AuthChangeEvent.signedIn && _isGoogleSignInPending) {
         unawaited(_completeGoogleSignIn());

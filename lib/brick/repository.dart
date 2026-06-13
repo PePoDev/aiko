@@ -106,4 +106,19 @@ class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
     final queueDb = await queueManager.getDb();
     await queueDb.delete(queueManager.tableName);
   }
+
+  /// Deletes offline queue entries whose serialised request body contains
+  /// [bodyPattern] (SQL LIKE syntax, e.g. `'%"default-%'`). Returns the
+  /// number of rows deleted. Safe to call when the queue is empty.
+  static Future<int> flushQueueEntriesContaining(String bodyPattern) async {
+    final repository = _singleton;
+    if (repository == null) return 0;
+    final queueManager = repository.offlineRequestQueue.client.requestManager;
+    final queueDb = await queueManager.getDb();
+    return queueDb.delete(
+      queueManager.tableName,
+      where: 'body LIKE ?',
+      whereArgs: [bodyPattern],
+    );
+  }
 }

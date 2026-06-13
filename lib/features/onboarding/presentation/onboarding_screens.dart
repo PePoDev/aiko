@@ -66,7 +66,18 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
     );
 
     try {
-      await ref.read(accountRepositoryProvider).save(account);
+      final repo = ref.read(accountRepositoryProvider);
+      final existingAccounts = await repo.list();
+      final alreadyExists = existingAccounts.any(
+        (existing) =>
+            existing.name == account.name &&
+            existing.type == account.type &&
+            existing.currency == account.currency &&
+            existing.institution == account.institution,
+      );
+      if (!alreadyExists) {
+        await repo.save(account);
+      }
     } catch (error) {
       debugPrint('Saved first account locally: $error');
     }

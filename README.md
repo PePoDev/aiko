@@ -198,7 +198,7 @@ lib/
 │   ├── monetization/            # Subscription plans & paywall
 │   ├── onboarding/              # 10-step onboarding flow
 │   ├── overview/                # Idea-backed supplemental detail routes
-│   ├── portfolio/               # Investment portfolio tracking
+│   ├── investments/               # Investment holdings, allocation, portfolio tracking
 │   ├── reports/                 # Report builder (13+ report types)
 │   ├── settings/                # Settings screens
 │   ├── tax_center/              # Tax management & analytics
@@ -261,6 +261,7 @@ Feature modules under `lib/features/<name>/` follow the current layered layout:
 - Repositories must gracefully handle offline/no-session states by returning local data, empty lists, or safe defaults instead of surfacing backend errors in normal UI flows.
 - Do not use `AikoSupabase.requireSession()` in user-facing repositories unless the operation truly cannot work offline. Prefer `tryClient()` plus an offline fallback.
 - After editing files in `lib/brick/models/`, run `dart run build_runner build` and commit generated adapters, schema, and migrations.
+- System (default) categories are global Supabase rows (`user_id = NULL`) inserted by migration and injected in-memory at the provider layer via `CategoryDefaults` (`lib/features/categories/domain/category_defaults.dart`). They are never stored in Brick/SQLite per user and are not writable by users. Their fixed UUIDs are stable constants — never change them.
 
 ### State Management Rules
 
@@ -371,7 +372,7 @@ The Supabase backend uses 17 core tables, all protected by Row Level Security:
 | `profiles` | User profile, preferences, base currency |
 | `accounts` | Financial accounts (cash, bank, e-wallet, credit card, loan, investment, asset) |
 | `transactions` | All financial transactions (13 types) |
-| `categories` | Hierarchical spending categories |
+| `categories` | Hierarchical spending categories — 30 global system rows (`user_id = NULL`, `is_default = true`) plus user-created custom rows |
 | `transaction_rules` | Auto-categorization rules |
 | `budgets` | Budget definitions and alert thresholds |
 | `goals` | Financial goals and progress tracking |
@@ -386,7 +387,7 @@ The Supabase backend uses 17 core tables, all protected by Row Level Security:
 | `aiko_insights` | AI-generated financial insights |
 | `devices` | Registered devices for sync |
 
-All tables enforce `user_id = auth.uid()` via RLS policies — users can only access their own data.
+All tables enforce `user_id = auth.uid()` via RLS policies — users can only access their own data. Exception: `categories` uses split policies — SELECT allows `user_id IS NULL OR user_id = auth.uid()` so global system categories are readable by all authenticated users; INSERT/UPDATE/DELETE remain scoped to `auth.uid()`.
 
 ---
 

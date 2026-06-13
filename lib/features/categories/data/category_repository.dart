@@ -1,12 +1,10 @@
-import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
-
 import '../../../brick/offline_model_mappers.dart';
 import '../../../brick/repository.dart';
 import '../../../brick/models/category.model.dart';
 import '../../../core/offline/offline_store.dart';
 import '../../../core/offline/offline_user_context.dart';
-import '../application/category_service.dart';
 import '../domain/category.dart';
+import '../domain/category_defaults.dart';
 
 class CategoryRepository {
   const CategoryRepository();
@@ -22,38 +20,6 @@ class CategoryRepository {
     return categories
         .map((category) => category.toDomain())
         .toList(growable: false);
-  }
-
-  /// Persists any built-in default categories that are not yet stored so that
-  /// transactions referencing a `default-*` category id satisfy the Supabase
-  /// foreign key on `transactions.category_id`. Without this, the defaults are
-  /// only generated in memory and never exist remotely, so every categorized
-  /// transaction is rejected by Supabase and stuck retrying in the offline
-  /// queue. Idempotent: only missing defaults are inserted.
-  Future<int> ensureDefaultsPersisted() async {
-    final userId = await OfflineUserContext().resolveUserId();
-    final existing = await OfflineStore().get<OfflineCategory>(
-      query: Query(where: [Where.exact('userId', userId)]),
-      policy: OfflineFirstGetPolicy.localOnly,
-    );
-    final existingIds = existing.map((category) => category.id).toSet();
-
-    final defaults = const CategoryService().defaultCategoriesFor(userId);
-    var seeded = 0;
-    for (final category in defaults) {
-      if (existingIds.contains(category.id)) {
-        continue;
-      }
-      await OfflineStore().upsert(category.toOffline(userId: userId));
-      seeded++;
-    }
-
-    if (kDebugMode && seeded > 0) {
-      debugPrint(
-        '[aiko-sync] seeded $seeded default categories for $userId',
-      );
-    }
-    return seeded;
   }
 
   Future<Category> save(Category category) async {
@@ -88,7 +54,7 @@ class CategoryRepository {
   }
 
   Future<void> delete(String id) async {
-    if (id.startsWith('default-')) {
+    if (CategoryDefaults.allIds.contains(id)) {
       throw StateError('Default categories cannot be deleted.');
     }
 

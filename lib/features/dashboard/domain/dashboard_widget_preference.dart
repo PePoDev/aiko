@@ -13,7 +13,11 @@ enum DashboardWidgetType {
   aikoGoalSimulator,
   totalBalance,
   leftToSave,
-  cashFlow;
+  cashFlow,
+  netWorth,
+  netWorthTrend,
+  assetsLiabilities,
+  topAssets;
 
   String get storageKey => name;
 
@@ -34,6 +38,10 @@ enum DashboardWidgetType {
       DashboardWidgetType.totalBalance => 'Total balance',
       DashboardWidgetType.leftToSave => 'Left to save',
       DashboardWidgetType.cashFlow => 'Cash flow',
+      DashboardWidgetType.netWorth => 'Net worth',
+      DashboardWidgetType.netWorthTrend => 'Net worth trend',
+      DashboardWidgetType.assetsLiabilities => 'Assets & liabilities',
+      DashboardWidgetType.topAssets => 'Top assets',
     };
   }
 
@@ -142,6 +150,26 @@ class DashboardWidgetPreference {
       type: DashboardWidgetType.aikoGoalSimulator,
       isVisible: true,
       position: 14,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.netWorth,
+      isVisible: true,
+      position: 15,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.netWorthTrend,
+      isVisible: true,
+      position: 16,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.assetsLiabilities,
+      isVisible: true,
+      position: 17,
+    ),
+    DashboardWidgetPreference(
+      type: DashboardWidgetType.topAssets,
+      isVisible: true,
+      position: 18,
     ),
   ];
 

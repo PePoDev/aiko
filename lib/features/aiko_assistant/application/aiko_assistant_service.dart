@@ -84,7 +84,7 @@ class AikoAssistantService {
             'Aiko prioritizes actions that are recurring, high-confidence, and easy to verify.',
         sourceSummary: const ['aiko_insights', 'budgets', 'subscriptions'],
         recommendation:
-            topInsight?.title ?? 'Open Aiko Optimize for ranked next steps.',
+            topInsight?.title ?? 'Review your highest-impact budget next.',
         disclaimer: 'Aiko provides estimates, not certified financial advice.',
       );
     }

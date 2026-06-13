@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../features/accounts/presentation/accounts_screen.dart';
 import '../features/aiko_assistant/presentation/aiko_assistant_screen.dart';
-import '../features/aiko_optimize/presentation/aiko_optimize_screen.dart';
 import '../features/assets/presentation/assets_net_worth_screen.dart';
 import '../features/auth/presentation/auth_screens.dart';
 import '../features/budgets/presentation/budget_overview_screen.dart';
@@ -20,7 +19,7 @@ import '../features/learning_hub/presentation/learning_hub_screen.dart';
 import '../features/navigation/presentation/planning_screen.dart';
 import '../features/onboarding/presentation/onboarding_screens.dart';
 import '../features/overview/presentation/finance_detail_screens.dart';
-import '../features/portfolio/presentation/portfolio_screen.dart';
+import '../features/investments/presentation/investments_screen.dart';
 import '../features/reports/presentation/aiko_review_screen.dart';
 import '../features/reports/presentation/reports_screen.dart';
 import '../features/settings/presentation/profile_screen.dart';
@@ -213,12 +212,8 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             builder: (context, state) => const LoanDetailScreen(),
           ),
           GoRoute(
-            path: '/net-worth',
-            builder: (context, state) => const NetWorthOverviewScreen(),
-          ),
-          GoRoute(
             path: '/portfolio',
-            builder: (context, state) => const PortfolioScreen(),
+            builder: (context, state) => const InvestmentsScreen(),
           ),
           GoRoute(
             path: '/portfolio/allocation',
@@ -259,10 +254,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
           GoRoute(
             path: '/travel-mode',
             builder: (context, state) => const TravelModeScreen(),
-          ),
-          GoRoute(
-            path: '/aiko-optimize',
-            builder: (context, state) => const AikoOptimizeScreen(),
           ),
         ],
       ),

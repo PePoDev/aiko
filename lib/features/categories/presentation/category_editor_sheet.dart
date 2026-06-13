@@ -33,7 +33,7 @@ Future<bool?> showCategoryEditorSheet(
   );
 }
 
-Color categoryTypeAccent(CategoryType type) {
+Color categoryTypeAccent(BuildContext context, CategoryType type) {
   return switch (type) {
     CategoryType.income => AikoColors.successGreen,
     CategoryType.expense => AikoColors.dangerRed,
@@ -41,7 +41,7 @@ Color categoryTypeAccent(CategoryType type) {
     CategoryType.finance => AikoColors.primaryBlue,
     CategoryType.tax => AikoColors.warningOrange,
     CategoryType.investment => AikoColors.analyticsTeal,
-    CategoryType.adjustment => AikoColors.mutedText,
+    CategoryType.adjustment => Theme.of(context).colorScheme.onSurfaceVariant,
   };
 }
 
@@ -305,7 +305,7 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                 style: ButtonStyle(
                   backgroundColor: WidgetStateProperty.resolveWith((states) {
                     if (states.contains(WidgetState.selected)) {
-                      return categoryTypeAccent(_selectedType);
+                      return categoryTypeAccent(context, _selectedType);
                     }
                     return null;
                   }),
@@ -492,9 +492,9 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                                     border: Border.all(
                                       color: isSelected
                                           ? activeColor
-                                          : Theme.of(context)
-                                              .colorScheme
-                                              .outlineVariant,
+                                          : Theme.of(
+                                              context,
+                                            ).colorScheme.outlineVariant,
                                       width: 2,
                                     ),
                                   ),
@@ -502,9 +502,9 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                                     iconData,
                                     color: isSelected
                                         ? activeColor
-                                        : Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
+                                        : Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                     size: 23,
                                   ),
                                 ),

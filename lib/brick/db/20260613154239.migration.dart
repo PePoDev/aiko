@@ -12,14 +12,23 @@ part of 'schema.g.dart';
 const List<MigrationCommand> _migration_20260613154239_up = [
   InsertTable('OfflineCategoryGroup'),
   InsertColumn('group_id', Column.varchar, onTable: 'OfflineCategory'),
-  InsertColumn('id', Column.varchar, onTable: 'OfflineCategoryGroup', unique: true),
+  InsertColumn(
+    'id',
+    Column.varchar,
+    onTable: 'OfflineCategoryGroup',
+    unique: true,
+  ),
   InsertColumn('user_id', Column.varchar, onTable: 'OfflineCategoryGroup'),
   InsertColumn('name', Column.varchar, onTable: 'OfflineCategoryGroup'),
   InsertColumn('icon', Column.varchar, onTable: 'OfflineCategoryGroup'),
   InsertColumn('color', Column.varchar, onTable: 'OfflineCategoryGroup'),
   InsertColumn('sort_order', Column.integer, onTable: 'OfflineCategoryGroup'),
   InsertColumn('created_at', Column.datetime, onTable: 'OfflineCategoryGroup'),
-  CreateIndex(columns: ['user_id'], onTable: 'OfflineCategoryGroup', unique: false)
+  CreateIndex(
+    columns: ['user_id'],
+    onTable: 'OfflineCategoryGroup',
+    unique: false,
+  ),
 ];
 
 const List<MigrationCommand> _migration_20260613154239_down = [
@@ -32,7 +41,7 @@ const List<MigrationCommand> _migration_20260613154239_down = [
   DropColumn('color', onTable: 'OfflineCategoryGroup'),
   DropColumn('sort_order', onTable: 'OfflineCategoryGroup'),
   DropColumn('created_at', onTable: 'OfflineCategoryGroup'),
-  DropIndex('index_OfflineCategoryGroup_on_user_id')
+  DropIndex('index_OfflineCategoryGroup_on_user_id'),
 ];
 
 //

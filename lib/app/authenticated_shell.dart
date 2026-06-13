@@ -104,7 +104,6 @@ class AuthenticatedShell extends StatelessWidget {
         location.startsWith('/reports/monthly') ||
         location.startsWith('/export') ||
         location.startsWith('/calculators') ||
-        location.startsWith('/import-export-backup') ||
         location.startsWith('/notification-settings') ||
         location.startsWith('/notifications') ||
         location.startsWith('/profile-security') ||
@@ -141,9 +140,7 @@ class _AikoBottomNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final background = theme.brightness == Brightness.dark
-        ? AikoColors.surfacePanelDarkStrong
-        : AikoColors.surfacePanel;
+    final background = colorScheme.surfaceContainerHighest;
 
     return SafeArea(
       top: false,
@@ -155,7 +152,7 @@ class _AikoBottomNavigation extends StatelessWidget {
           border: Border.all(color: colorScheme.outlineVariant),
           boxShadow: [
             BoxShadow(
-              color: AikoColors.darkNavy.withValues(alpha: 0.08),
+              color: colorScheme.onSurface.withValues(alpha: 0.08),
               blurRadius: 24,
               offset: const Offset(0, 10),
             ),

@@ -59,12 +59,6 @@ const aikoNavigationGroups = [
         icon: Icons.file_download_outlined,
         description: 'Create CSV, Excel-compatible, and PDF-ready outputs.',
       ),
-      AikoNavigationItem(
-        label: 'Import, Export, Backup',
-        path: '/import-export-backup',
-        icon: Icons.import_export,
-        description: 'Import files, preview changes, export, and back up data.',
-      ),
     ],
   ),
   AikoNavigationGroup(

@@ -170,9 +170,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
               children: [
                 AikoPrimaryButton(
                   label: _page == _stepsCount - 1
-                      ? (_isFinishing
-                            ? 'Finishing...'
-                            : 'Finish')
+                      ? (_isFinishing ? 'Finishing...' : 'Finish')
                       : 'Next',
                   onPressed: _isFinishing ? null : _handleNext,
                 ),

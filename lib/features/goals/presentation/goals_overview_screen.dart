@@ -148,7 +148,9 @@ class GoalsOverviewScreen extends ConsumerWidget {
                         Text(
                           'Remaining: ${goal.remaining.format()}',
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 13,
                           ),
                         ),
@@ -361,10 +363,7 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365 * 30)),
       builder: (context, child) {
-        return Theme(
-          data: Theme.of(context),
-          child: child!,
-        );
+        return Theme(data: Theme.of(context), child: child!);
       },
     );
 

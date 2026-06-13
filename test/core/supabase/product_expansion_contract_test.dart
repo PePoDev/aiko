@@ -5,9 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const expansionTables = [
     'aiko_character_profiles',
-    'import_jobs',
-    'export_packages',
-    'backup_snapshots',
     'bill_subscriptions',
     'credit_card_profiles',
     'debt_loan_plans',

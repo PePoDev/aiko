@@ -164,7 +164,6 @@ lib/
 │   ├── config/                  # Environment & constants
 │   ├── errors/                  # Exception handling
 │   ├── formatting/              # Currency, date, number formatters
-│   ├── import_export/           # File parsers & generators
 │   ├── monetization/            # Feature gating (Free/Premium/Pro)
 │   ├── money/                   # Decimal-safe Money type
 │   ├── notifications/           # Local notification scheduling
@@ -191,7 +190,6 @@ lib/
 │   ├── devices/                 # Multi-device management
 │   ├── export/                  # Data export (CSV/PDF/Excel/JSON/Image)
 │   ├── goals/                   # SMART goals, saving plans
-│   ├── import_export/           # Data import (CSV/Excel/OFX/QIF)
 │   ├── insights/                # Spending insights, cash flow, pace, review
 │   ├── learning_hub/            # PFM courses & lessons
 │   ├── monetization/            # Subscription plans & paywall

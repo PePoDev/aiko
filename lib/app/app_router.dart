@@ -7,10 +7,10 @@ import '../features/auth/presentation/auth_screens.dart';
 import '../features/budgets/presentation/budget_overview_screen.dart';
 import '../features/categories/presentation/category_management_screen.dart';
 import '../features/calculators/presentation/calculator_library_screen.dart';
-import '../features/export/presentation/export_screen.dart';
 import '../features/dashboard/presentation/home_dashboard_screen.dart';
+import '../features/export/presentation/export_screen.dart';
 import '../features/goals/presentation/goals_overview_screen.dart';
-import '../features/import_export/presentation/import_export_screen.dart';
+
 import '../features/learning_hub/presentation/learning_hub_screen.dart';
 import '../features/navigation/presentation/planning_screen.dart';
 import '../features/onboarding/presentation/onboarding_screens.dart';
@@ -143,10 +143,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
           GoRoute(
             path: '/profile-security',
             builder: (context, state) => const ProfileSecurityScreen(),
-          ),
-          GoRoute(
-            path: '/import-export-backup',
-            builder: (context, state) => const ImportExportScreen(),
           ),
           GoRoute(
             path: '/notification-settings',

@@ -196,9 +196,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const SizedBox(height: 8),
                 Text(
                   '$error',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: AikoColors.mutedText),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
@@ -247,23 +247,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 4,
                         ),
-                        leading: const Icon(
+                        leading: Icon(
                           Icons.email_outlined,
-                          color: AikoColors.mutedText,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         title: Text(
                           'Email address',
                           style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AikoColors.mutedText),
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
                         ),
                         subtitle: Text(
                           profile.email,
                           style: Theme.of(context).textTheme.bodyLarge,
                         ),
-                        trailing: const Icon(
+                        trailing: Icon(
                           Icons.lock_outline,
                           size: 16,
-                          color: AikoColors.mutedText,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -271,14 +275,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 4,
                         ),
-                        leading: const Icon(
+                        leading: Icon(
                           Icons.fingerprint,
-                          color: AikoColors.mutedText,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         title: Text(
                           'User ID',
                           style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AikoColors.mutedText),
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
                         ),
                         subtitle: Text(
                           profile.id,
@@ -286,10 +294,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         trailing: IconButton(
                           tooltip: 'Copy User ID',
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.copy_outlined,
                             size: 18,
-                            color: AikoColors.mutedText,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                           onPressed: () async {
                             await Clipboard.setData(
@@ -461,15 +471,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               context,
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
-          if (profile.email.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              profile.email,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyLarge?.copyWith(color: AikoColors.mutedText),
-            ),
-          ],
         ],
       ),
     );

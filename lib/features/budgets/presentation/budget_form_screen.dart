@@ -299,8 +299,9 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
         // Needs category budget (50%)
         final needsCat = categories.firstWhere(
           (c) => c.group == CategoryBudgetGroup.needs && !c.isDefault,
-          orElse: () =>
-              categories.firstWhere((c) => c.group == CategoryBudgetGroup.needs),
+          orElse: () => categories.firstWhere(
+            (c) => c.group == CategoryBudgetGroup.needs,
+          ),
         );
         final needsBudget = Budget(
           id: const Uuid().v4(),
@@ -319,8 +320,9 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
         // Wants category budget (30%)
         final wantsCat = categories.firstWhere(
           (c) => c.group == CategoryBudgetGroup.wants && !c.isDefault,
-          orElse: () =>
-              categories.firstWhere((c) => c.group == CategoryBudgetGroup.wants),
+          orElse: () => categories.firstWhere(
+            (c) => c.group == CategoryBudgetGroup.wants,
+          ),
         );
         final wantsBudget = Budget(
           id: const Uuid().v4(),
@@ -342,8 +344,9 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
               c.group == CategoryBudgetGroup.savings &&
               !c.isDefault &&
               c.type == CategoryType.expense,
-          orElse: () =>
-              categories.firstWhere((c) => c.group == CategoryBudgetGroup.savings),
+          orElse: () => categories.firstWhere(
+            (c) => c.group == CategoryBudgetGroup.savings,
+          ),
         );
         final savingsBudget = Budget(
           id: const Uuid().v4(),
@@ -660,7 +663,9 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                           'Aiko Advice: Splits your income into Needs (Housing/Food), Wants (Fun/Dining), and Savings/Debt payoff automatically.',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -765,7 +770,9 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                           'Input cash limits for your core discretionary envelopes. Aiko will track these envelopes in real-time.',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         const SizedBox(height: 16),

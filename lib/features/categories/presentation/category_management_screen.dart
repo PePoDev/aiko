@@ -418,13 +418,14 @@ class _UngroupedSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasCustom = categories.any((c) => !c.isDefault);
+    final scheme = Theme.of(context).colorScheme;
 
     return Card(
       key: const Key('ungrouped-section'),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        side: BorderSide(color: scheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -434,7 +435,7 @@ class _UngroupedSection extends StatelessWidget {
             subtitle:
                 '${categories.length} categor${categories.length == 1 ? "y" : "ies"}'
                 '${hasCustom ? "" : " · built-in"}',
-            color: AikoColors.mutedText,
+            color: scheme.onSurfaceVariant,
             icon: Icons.inbox_outlined,
             isExpanded: isExpanded,
             onToggle: onToggle,

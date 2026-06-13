@@ -269,8 +269,9 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Theme.of(context).colorScheme.outline
-                      .withValues(alpha: 0.1),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outline.withValues(alpha: 0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -451,7 +452,9 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                           'Accelerated Payoff',
                           style: TextStyle(
                             fontSize: 11,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -478,7 +481,9 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                           'Total Interest Saved',
                           style: TextStyle(
                             fontSize: 11,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -617,7 +622,9 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                               '${d.interestRatePercent}% APR | min \$${d.monthlyPayment.amount.toStringAsFixed(0)}/mo',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -638,7 +645,9 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                           IconButton(
                             icon: Icon(
                               Icons.delete_outline,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                               size: 18,
                             ),
                             onPressed: () {

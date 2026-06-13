@@ -421,9 +421,9 @@ class _CategoryGroupEditorSheetState
                                     border: Border.all(
                                       color: isSelected
                                           ? activeColor
-                                          : Theme.of(context)
-                                              .colorScheme
-                                              .outlineVariant,
+                                          : Theme.of(
+                                              context,
+                                            ).colorScheme.outlineVariant,
                                       width: 2,
                                     ),
                                   ),
@@ -431,9 +431,9 @@ class _CategoryGroupEditorSheetState
                                     iconData,
                                     color: isSelected
                                         ? activeColor
-                                        : Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
+                                        : Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                     size: 23,
                                   ),
                                 ),

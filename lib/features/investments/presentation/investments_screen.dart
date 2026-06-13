@@ -131,7 +131,6 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
     final actionColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
-      backgroundColor: AikoColors.appBackgroundLight,
       appBar: AppBar(
         title: _isSearching
             ? TextField(
@@ -506,7 +505,7 @@ class _HoldingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final accent = _assetClassColor(holding.assetClass);
+    final accent = _assetClassColor(context, holding.assetClass);
     final gain = holding.unrealizedGainLoss;
     final radius = BorderRadius.circular(8);
 
@@ -705,7 +704,7 @@ class _AllocationRow extends StatelessWidget {
           child: LinearProgressIndicator(
             value: row.percent / 100,
             minHeight: 8,
-            color: _assetClassColor(row.assetClass),
+            color: _assetClassColor(context, row.assetClass),
             backgroundColor: Theme.of(context).colorScheme.outlineVariant,
           ),
         ),
@@ -892,14 +891,14 @@ IconData _assetClassIcon(String assetClass) {
   };
 }
 
-Color _assetClassColor(String assetClass) {
+Color _assetClassColor(BuildContext context, String assetClass) {
   return switch (assetClass) {
     'Stocks' => AikoColors.primaryBlue,
     'Bonds' => AikoColors.analyticsTeal,
     'Funds' => AikoColors.premiumPurple,
     'Crypto' => AikoColors.warningOrange,
     'Cash' => AikoColors.successGreen,
-    _ => AikoColors.mutedText,
+    _ => Theme.of(context).colorScheme.onSurfaceVariant,
   };
 }
 

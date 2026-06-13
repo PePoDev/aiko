@@ -346,7 +346,7 @@ May 31, 2026 idea boards are references for density, hierarchy, and feature cove
 | Transactions, categories, accounts | Transactions, categories, accounts | inline transaction search and filters, `/transactions/split`, `/transactions/receipt-review` |
 | Budget, goals, cash flow, reports | Budget, goals, reports | `/budget/pace`, `/budget/safe-to-spend`, `/budget/cash-flow`, `/budget/cash-flow-sankey`, `/goals/detail`, `/goals/saving-plan`, `/goals/chance-of-success`, `/reports/monthly` |
 | Credit, debt, portfolio, tax | Credit cards, debt, portfolio, assets, tax | `/credit-cards/detail`, `/debt-overview`, `/loans/detail`, `/net-worth`, `/portfolio/allocation`, `/portfolio/holding`, `/tax-analytics` |
-| Aiko AI, calculators, settings, extras | Aiko, calculators, bills, learning, travel, settings | `/aiko-insights`, `/loan-calculator`, `/calculator-result`, `/profile-security` |
+| Aiko AI, calculators, settings, extras | Aiko, calculators, bills, learning, travel, settings | `/aiko-insights`, `/calculator-result`, `/profile-security` |
 
 Route rules:
 

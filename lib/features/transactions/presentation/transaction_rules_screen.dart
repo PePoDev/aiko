@@ -332,9 +332,7 @@ class _RuleInfoRow extends StatelessWidget {
           width: 48,
           child: Text(
             label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),

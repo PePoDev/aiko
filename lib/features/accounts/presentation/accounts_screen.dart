@@ -769,11 +769,12 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                           type != AccountType.other,
                     )
                     .map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(_accountTypeLabel(type)),
-                  );
-                }).toList(),
+                      return DropdownMenuItem(
+                        value: type,
+                        child: Text(_accountTypeLabel(type)),
+                      );
+                    })
+                    .toList(),
                 onChanged: _isSubmitting
                     ? null
                     : (value) {
@@ -896,9 +897,9 @@ class _AccountDetailRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AikoColors.mutedText),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           const SizedBox(width: 16),

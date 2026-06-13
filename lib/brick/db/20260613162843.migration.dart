@@ -11,12 +11,36 @@ part of 'schema.g.dart';
 
 const List<MigrationCommand> _migration_20260613162843_up = [
   InsertColumn('is_recurring', Column.boolean, onTable: 'OfflineTransaction'),
-  InsertColumn('recurring_frequency', Column.varchar, onTable: 'OfflineTransaction'),
-  InsertColumn('recurring_end_date', Column.datetime, onTable: 'OfflineTransaction'),
-  InsertColumn('recurring_max_occurrences', Column.integer, onTable: 'OfflineTransaction'),
-  InsertColumn('recurring_day_of_week', Column.integer, onTable: 'OfflineTransaction'),
-  InsertColumn('recurring_day_of_month', Column.integer, onTable: 'OfflineTransaction'),
-  InsertColumn('recurring_month_of_year', Column.integer, onTable: 'OfflineTransaction')
+  InsertColumn(
+    'recurring_frequency',
+    Column.varchar,
+    onTable: 'OfflineTransaction',
+  ),
+  InsertColumn(
+    'recurring_end_date',
+    Column.datetime,
+    onTable: 'OfflineTransaction',
+  ),
+  InsertColumn(
+    'recurring_max_occurrences',
+    Column.integer,
+    onTable: 'OfflineTransaction',
+  ),
+  InsertColumn(
+    'recurring_day_of_week',
+    Column.integer,
+    onTable: 'OfflineTransaction',
+  ),
+  InsertColumn(
+    'recurring_day_of_month',
+    Column.integer,
+    onTable: 'OfflineTransaction',
+  ),
+  InsertColumn(
+    'recurring_month_of_year',
+    Column.integer,
+    onTable: 'OfflineTransaction',
+  ),
 ];
 
 const List<MigrationCommand> _migration_20260613162843_down = [
@@ -26,7 +50,7 @@ const List<MigrationCommand> _migration_20260613162843_down = [
   DropColumn('recurring_max_occurrences', onTable: 'OfflineTransaction'),
   DropColumn('recurring_day_of_week', onTable: 'OfflineTransaction'),
   DropColumn('recurring_day_of_month', onTable: 'OfflineTransaction'),
-  DropColumn('recurring_month_of_year', onTable: 'OfflineTransaction')
+  DropColumn('recurring_month_of_year', onTable: 'OfflineTransaction'),
 ];
 
 //

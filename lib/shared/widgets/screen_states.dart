@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/aiko_colors.dart';
-
 class AikoScreenState extends StatelessWidget {
   const AikoScreenState({
     required this.title,
@@ -97,9 +95,7 @@ class AikoScreenState extends StatelessWidget {
                       message,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.brightness == Brightness.dark
-                            ? AikoColors.border
-                            : AikoColors.mutedText,
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                     if (action != null) ...[

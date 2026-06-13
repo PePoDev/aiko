@@ -449,9 +449,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                             color: AikoColors.premiumPurple,
                           ),
                           const SizedBox(height: 8),
-                          const Text(
+                          Text(
                             'Tap the mic to start speaking',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ],
                         const SizedBox(height: 16),
@@ -564,11 +569,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'Edit transcription context if needed:',
                     style: TextStyle(
                       fontSize: 11,
-                      color: Colors.grey,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -752,9 +757,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'Choose a source to attach a real receipt or document:',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
@@ -1131,6 +1139,63 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     );
 
     Navigator.of(context).pop(saved);
+  }
+
+  /// Populates the per-cadence knobs with sensible defaults for the
+  /// currently selected frequency. Called when the user opts in to
+  /// recurring or switches the cadence.
+  void _applyFrequencyDefaults(RecurringFrequency frequency) {
+    final anchor = _selectedDate;
+    switch (frequency) {
+      case RecurringFrequency.once:
+        _recurringEndDate ??= anchor.add(const Duration(days: 1));
+        _recurringMaxOccurrences = null;
+        _recurringDayOfWeek = null;
+        _recurringDayOfMonth = null;
+        _recurringMonthOfYear = null;
+      case RecurringFrequency.daily:
+        _recurringEndDate ??= anchor.add(const Duration(days: 30));
+        _recurringMaxOccurrences ??= 30;
+        _recurringDayOfWeek = null;
+        _recurringDayOfMonth = null;
+        _recurringMonthOfYear = null;
+      case RecurringFrequency.weekly:
+        _recurringEndDate ??= anchor.add(const Duration(days: 84));
+        _recurringMaxOccurrences ??= 12;
+        _recurringDayOfWeek ??= anchor.weekday;
+        _recurringDayOfMonth = null;
+        _recurringMonthOfYear = null;
+      case RecurringFrequency.monthly:
+        _recurringEndDate ??= DateTime(
+          anchor.year + 1,
+          anchor.month,
+          anchor.day,
+        );
+        _recurringMaxOccurrences ??= 12;
+        _recurringDayOfMonth ??= anchor.day;
+        _recurringDayOfWeek = null;
+        _recurringMonthOfYear = null;
+      case RecurringFrequency.annually:
+        _recurringEndDate ??= DateTime(
+          anchor.year + 5,
+          anchor.month,
+          anchor.day,
+        );
+        _recurringMaxOccurrences ??= 5;
+        _recurringMonthOfYear ??= anchor.month;
+        _recurringDayOfMonth ??= anchor.day;
+        _recurringDayOfWeek = null;
+    }
+  }
+
+  RecurringSettings _buildRecurringSettings() {
+    return RecurringSettings(
+      endDate: _recurringEndDate,
+      maxOccurrences: _recurringMaxOccurrences,
+      dayOfWeek: _recurringDayOfWeek,
+      dayOfMonth: _recurringDayOfMonth,
+      monthOfYear: _recurringMonthOfYear,
+    );
   }
 
   @override
@@ -2427,9 +2492,7 @@ class _FrequencySettingsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hint = _RecurringSection
-        ._frequencies[frequency]!
-        .hint;
+    final hint = _RecurringSection._frequencies[frequency]!.hint;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -2451,41 +2514,41 @@ class _FrequencySettingsPanel extends StatelessWidget {
           const SizedBox(height: 12),
           switch (frequency) {
             RecurringFrequency.once => _OnceSettings(
-                endDate: endDate,
-                onEndDateChanged: onEndDateChanged,
-              ),
+              endDate: endDate,
+              onEndDateChanged: onEndDateChanged,
+            ),
             RecurringFrequency.daily => _DailySettings(
-                endDate: endDate,
-                maxOccurrences: maxOccurrences,
-                onEndDateChanged: onEndDateChanged,
-                onMaxOccurrencesChanged: onMaxOccurrencesChanged,
-              ),
+              endDate: endDate,
+              maxOccurrences: maxOccurrences,
+              onEndDateChanged: onEndDateChanged,
+              onMaxOccurrencesChanged: onMaxOccurrencesChanged,
+            ),
             RecurringFrequency.weekly => _WeeklySettings(
-                endDate: endDate,
-                maxOccurrences: maxOccurrences,
-                dayOfWeek: dayOfWeek,
-                onEndDateChanged: onEndDateChanged,
-                onMaxOccurrencesChanged: onMaxOccurrencesChanged,
-                onDayOfWeekChanged: onDayOfWeekChanged,
-              ),
+              endDate: endDate,
+              maxOccurrences: maxOccurrences,
+              dayOfWeek: dayOfWeek,
+              onEndDateChanged: onEndDateChanged,
+              onMaxOccurrencesChanged: onMaxOccurrencesChanged,
+              onDayOfWeekChanged: onDayOfWeekChanged,
+            ),
             RecurringFrequency.monthly => _MonthlySettings(
-                endDate: endDate,
-                maxOccurrences: maxOccurrences,
-                dayOfMonth: dayOfMonth,
-                onEndDateChanged: onEndDateChanged,
-                onMaxOccurrencesChanged: onMaxOccurrencesChanged,
-                onDayOfMonthChanged: onDayOfMonthChanged,
-              ),
+              endDate: endDate,
+              maxOccurrences: maxOccurrences,
+              dayOfMonth: dayOfMonth,
+              onEndDateChanged: onEndDateChanged,
+              onMaxOccurrencesChanged: onMaxOccurrencesChanged,
+              onDayOfMonthChanged: onDayOfMonthChanged,
+            ),
             RecurringFrequency.annually => _AnnualSettings(
-                endDate: endDate,
-                maxOccurrences: maxOccurrences,
-                monthOfYear: monthOfYear,
-                dayOfMonth: dayOfMonth,
-                onEndDateChanged: onEndDateChanged,
-                onMaxOccurrencesChanged: onMaxOccurrencesChanged,
-                onMonthOfYearChanged: onMonthOfYearChanged,
-                onDayOfMonthChanged: onDayOfMonthChanged,
-              ),
+              endDate: endDate,
+              maxOccurrences: maxOccurrences,
+              monthOfYear: monthOfYear,
+              dayOfMonth: dayOfMonth,
+              onEndDateChanged: onEndDateChanged,
+              onMaxOccurrencesChanged: onMaxOccurrencesChanged,
+              onMonthOfYearChanged: onMonthOfYearChanged,
+              onDayOfMonthChanged: onDayOfMonthChanged,
+            ),
           },
         ],
       ),
@@ -2527,9 +2590,9 @@ class _DateField extends StatelessWidget {
             lastDate: DateTime(now.year + 10),
             builder: (context, child) {
               return Theme(
-                data: Theme.of(context).copyWith(
-                  colorScheme: Theme.of(context).colorScheme,
-                ),
+                data: Theme.of(
+                  context,
+                ).copyWith(colorScheme: Theme.of(context).colorScheme),
                 child: child!,
               );
             },
@@ -3328,11 +3391,11 @@ class _CalculatorKey extends StatelessWidget {
         color: background,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-            side: BorderSide(
-              color: kind == _CalculatorKeyKind.normal
-                  ? theme.colorScheme.outlineVariant
-                  : Colors.transparent,
-            ),
+          side: BorderSide(
+            color: kind == _CalculatorKeyKind.normal
+                ? theme.colorScheme.outlineVariant
+                : Colors.transparent,
+          ),
         ),
         child: InkWell(
           key: Key(_calculatorKeyName(label)),

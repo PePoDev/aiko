@@ -82,7 +82,11 @@ class AikoAssistantService {
             'Start with the largest recurring transaction, then review budget categories that are above pace.',
         explanation:
             'Aiko prioritizes actions that are recurring, high-confidence, and easy to verify.',
-        sourceSummary: const ['aiko_insights', 'budgets', 'recurring_transactions'],
+        sourceSummary: const [
+          'aiko_insights',
+          'budgets',
+          'recurring_transactions',
+        ],
         recommendation:
             topInsight?.title ?? 'Review your highest-impact budget next.',
         disclaimer: 'Aiko provides estimates, not certified financial advice.',

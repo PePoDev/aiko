@@ -68,9 +68,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
     });
 
     return Scaffold(
-      backgroundColor: AikoColors.appBackgroundLight,
       appBar: AppBar(
-        backgroundColor: AikoColors.appBackgroundLight,
         elevation: 0,
         titleSpacing: 12,
         title: Row(
@@ -211,17 +209,15 @@ class _MessageBubble extends StatelessWidget {
                   bottomRight: Radius.circular(18),
                 ),
                 border: Border.all(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .outline
-                      .withValues(alpha: 0.5),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outline.withValues(alpha: 0.5),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .outline
-                        .withValues(alpha: 0.08),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.outline.withValues(alpha: 0.08),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
@@ -474,10 +470,7 @@ class _InputBar extends StatelessWidget {
         color: Theme.of(context).colorScheme.surface,
         border: Border(
           top: BorderSide(
-            color: Theme.of(context)
-                .colorScheme
-                .outline
-                .withValues(alpha: 0.5),
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
           ),
         ),
       ),
@@ -500,29 +493,26 @@ class _InputBar extends StatelessWidget {
                       ? 'Aiko is busy...'
                       : 'Ask about your money...',
                   hintStyle: TextStyle(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurfaceVariant
-                        .withValues(alpha: 0.7),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                   ),
                   filled: true,
                   fillColor: Theme.of(context).inputDecorationTheme.fillColor,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(20),
                     borderSide: BorderSide(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .outline
-                          .withValues(alpha: 0.5),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outline.withValues(alpha: 0.5),
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(20),
                     borderSide: BorderSide(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .outline
-                          .withValues(alpha: 0.5),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outline.withValues(alpha: 0.5),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(

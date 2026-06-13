@@ -122,8 +122,9 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Theme.of(context).colorScheme.outline
-                        .withValues(alpha: 0.08),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.outline.withValues(alpha: 0.08),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -350,7 +351,9 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                           'Remaining Budget',
                           style: TextStyle(
                             fontSize: 11,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -371,7 +374,9 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                           'Local Est. Equivalent',
                           style: TextStyle(
                             fontSize: 11,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -453,11 +458,14 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
             child: Column(
               children: [
                 if (trip.foreignFees.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Text(
                       'No transaction logs found for this trip.',
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
                     ),
                   )
                 else
@@ -465,9 +473,9 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: CircleAvatar(
-                        backgroundColor: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         child: const Icon(
                           Icons.restaurant,
                           color: AikoColors.deepBlue,

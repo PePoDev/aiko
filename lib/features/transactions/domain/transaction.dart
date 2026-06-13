@@ -23,13 +23,7 @@ enum TransactionStatus { draft, posted, voided, archived }
 /// The chosen frequency drives which settings panel is shown on the add-
 /// transaction screen; each cadence exposes its own knobs (see
 /// [RecurringSettings] for the per-frequency payload).
-enum RecurringFrequency {
-  once,
-  daily,
-  weekly,
-  monthly,
-  annually,
-}
+enum RecurringFrequency { once, daily, weekly, monthly, annually }
 
 /// Per-frequency configuration for a recurring transaction.
 ///
@@ -89,9 +83,9 @@ class FinanceTransaction {
     this.recurringFrequency,
     this.recurringSettings,
   }) : assert(
-          !isRecurring || recurringFrequency != null,
-          'A recurring transaction must declare a frequency.',
-        );
+         !isRecurring || recurringFrequency != null,
+         'A recurring transaction must declare a frequency.',
+       );
 
   final String id;
   final String userId;

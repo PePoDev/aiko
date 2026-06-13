@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/aiko_colors.dart';
-
 class FinanceCard extends StatelessWidget {
   const FinanceCard({
     required this.title,
@@ -171,7 +169,7 @@ class IconTile extends StatelessWidget {
         title: Text(label),
         trailing: onTap == null
             ? null
-            : const Icon(Icons.chevron_right, color: AikoColors.mutedText),
+            : Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
         onTap: onTap,
       ),
     );

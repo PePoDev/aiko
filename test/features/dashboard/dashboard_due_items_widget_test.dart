@@ -21,11 +21,11 @@ void main() {
           body: DashboardDueItemsWidget(
             items: [
               DashboardDueItem(
-                id: 'bill',
-                title: 'Internet',
+                id: 'card',
+                title: 'Visa payment',
                 amount: Money.parse('60', 'USD'),
                 dueDate: DateTime(2026, 5, 24),
-                kind: DashboardDueItemKind.bill,
+                kind: DashboardDueItemKind.creditCard,
               ),
             ],
           ),
@@ -34,7 +34,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    expect(find.text('Internet'), findsOneWidget);
+    expect(find.text('Visa payment'), findsOneWidget);
     expect(find.textContaining('60'), findsOneWidget);
   });
 

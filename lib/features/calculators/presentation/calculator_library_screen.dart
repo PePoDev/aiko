@@ -50,9 +50,7 @@ class _CalculatorLibraryScreenState extends State<CalculatorLibraryScreen> {
     final filteredCalculators = _filteredCalculators;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Calculators'),
-      ),
+      appBar: AppBar(title: const Text('Calculators')),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1180),

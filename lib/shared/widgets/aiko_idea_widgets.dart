@@ -119,30 +119,28 @@ class AikoPrimaryButton extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
       style: const TextStyle(fontWeight: FontWeight.w800),
     );
+    final style = _buttonStyle(context);
 
     return SizedBox(
       width: double.infinity,
       height: 52,
       child: icon == null
-          ? FilledButton(
-              onPressed: onPressed,
-              style: _buttonStyle(),
-              child: child,
-            )
+          ? FilledButton(onPressed: onPressed, style: style, child: child)
           : FilledButton.icon(
               onPressed: onPressed,
-              style: _buttonStyle(),
+              style: style,
               icon: Icon(icon, size: 20),
               label: child,
             ),
     );
   }
 
-  ButtonStyle _buttonStyle() {
+  ButtonStyle _buttonStyle(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return FilledButton.styleFrom(
       backgroundColor: AikoColors.deepBlue,
       foregroundColor: AikoColors.white,
-      disabledBackgroundColor: AikoColors.border,
+      disabledBackgroundColor: scheme.outlineVariant,
       disabledForegroundColor: AikoColors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
@@ -158,6 +156,7 @@ class AikoPageDots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(count, (index) {
@@ -169,7 +168,7 @@ class AikoPageDots extends StatelessWidget {
           height: selected ? 8 : 5,
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: selected ? AikoColors.deepBlue : AikoColors.border,
+            color: selected ? AikoColors.deepBlue : scheme.outline,
             shape: BoxShape.circle,
           ),
         );
@@ -209,7 +208,7 @@ class AikoFeatureRow extends StatelessWidget {
             label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w700,
-              color: AikoColors.neutralInk,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ),

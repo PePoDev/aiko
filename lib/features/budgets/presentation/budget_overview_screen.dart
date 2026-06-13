@@ -102,7 +102,9 @@ class BudgetOverviewScreen extends ConsumerWidget {
                         Text(
                           _includedCategoriesLabel(budget),
                           style: textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -303,9 +305,7 @@ class _BudgetDetailRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),

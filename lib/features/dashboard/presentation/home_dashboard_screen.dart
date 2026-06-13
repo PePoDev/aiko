@@ -343,7 +343,8 @@ class _DebtBreakdownPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const AikoDataListCard(
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    return AikoDataListCard(
       title: 'Debt Breakdown',
       icon: Icons.pie_chart_outline,
       rows: [
@@ -362,11 +363,7 @@ class _DebtBreakdownPanel extends StatelessWidget {
           value: '\$7,500.00',
           color: AikoColors.premiumPurple,
         ),
-        AikoDataRow(
-          label: 'Other Debt',
-          value: '\$5,000.00',
-          color: AikoColors.mutedText,
-        ),
+        AikoDataRow(label: 'Other Debt', value: '\$5,000.00', color: muted),
       ],
     );
   }
@@ -698,9 +695,9 @@ class _MetricTile extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           label,
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: AikoColors.mutedText),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
@@ -1097,7 +1094,7 @@ class _OverviewMiniCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AikoColors.mutedText,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
         ],
@@ -1567,7 +1564,13 @@ class _BandColumn extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: 2),
         Text(
           amount,
@@ -2164,12 +2167,12 @@ class _CategoryBudgetCard extends StatelessWidget {
 
     final chartRows = rows.isEmpty
         ? [
-            const _CategoryUsage(
+            _CategoryUsage(
               categoryId: 'none',
               label: 'No spending',
               used: 1,
               budget: 0,
-              color: AikoColors.borderSubtle,
+              color: Theme.of(context).colorScheme.outlineVariant,
             ),
           ]
         : rows;
@@ -2272,7 +2275,7 @@ class _SpendingCalendarCard extends StatelessWidget {
                     child: Text(
                       label,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AikoColors.mutedText,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),

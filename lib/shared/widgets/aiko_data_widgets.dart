@@ -85,7 +85,7 @@ class AikoInlineNotice extends StatelessWidget {
                   Text(
                     message,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AikoColors.mutedText,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                   if (action != null) ...[const SizedBox(height: 12), action!],
@@ -139,7 +139,7 @@ class AikoMetricCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AikoColors.mutedText,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -359,7 +359,7 @@ class AikoDataRow extends StatelessWidget {
                   Text(
                     subtitle!,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AikoColors.mutedText,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],

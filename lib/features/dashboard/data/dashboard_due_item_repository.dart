@@ -31,10 +31,7 @@ class DashboardDueItemRepository {
     return _service.upcomingItems(
       creditCards: cardsResponse
           .map(
-            (row) => _creditCardFromRow(
-              Map<String, dynamic>.from(row),
-              asOf,
-            ),
+            (row) => _creditCardFromRow(Map<String, dynamic>.from(row), asOf),
           )
           .toList(growable: false),
       asOf: asOf,

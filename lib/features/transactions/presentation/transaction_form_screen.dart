@@ -353,7 +353,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             }
 
             return AlertDialog(
-              backgroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -1187,13 +1187,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               }),
               foregroundColor: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.selected)) {
-                  return AikoColors.white;
+                  return Theme.of(context).colorScheme.onPrimary;
                 }
                 return null;
               }),
               iconColor: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.selected)) {
-                  return AikoColors.white;
+                  return Theme.of(context).colorScheme.onPrimary;
                 }
                 return null;
               }),
@@ -1799,7 +1799,7 @@ class _AccountPicker extends StatelessWidget {
                     Text(
                       label,
                       style: theme.textTheme.labelMedium?.copyWith(
-                        color: AikoColors.mutedText,
+                        color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1823,7 +1823,7 @@ class _AccountPicker extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: AikoColors.mutedText,
+                                color: theme.colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ),
@@ -1833,7 +1833,7 @@ class _AccountPicker extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: AikoColors.mutedText,
+                              color: theme.colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -2045,7 +2045,7 @@ class _CategoryPicker extends StatelessWidget {
                     Text(
                       'Category',
                       style: theme.textTheme.labelMedium?.copyWith(
-                        color: AikoColors.mutedText,
+                        color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -2065,7 +2065,7 @@ class _CategoryPicker extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AikoColors.mutedText,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -2308,7 +2308,7 @@ class _RecurringSection extends StatelessWidget {
                             ? 'Repeats on a schedule you can edit below.'
                             : 'Mark this transaction as repeating on a schedule.',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AikoColors.mutedText,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -2445,7 +2445,7 @@ class _FrequencySettingsPanel extends StatelessWidget {
           Text(
             hint,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: AikoColors.mutedText,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 12),
@@ -2528,11 +2528,7 @@ class _DateField extends StatelessWidget {
             builder: (context, child) {
               return Theme(
                 data: Theme.of(context).copyWith(
-                  colorScheme: const ColorScheme.light(
-                    primary: AikoColors.primaryBlue,
-                    onPrimary: Colors.white,
-                    onSurface: AikoColors.darkNavy,
-                  ),
+                  colorScheme: Theme.of(context).colorScheme,
                 ),
                 child: child!,
               );
@@ -2556,7 +2552,7 @@ class _DateField extends StatelessWidget {
                     Text(
                       label,
                       style: theme.textTheme.labelMedium?.copyWith(
-                        color: AikoColors.mutedText,
+                        color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -3128,7 +3124,7 @@ class _AmountCalculatorSheetState extends State<_AmountCalculatorSheet> {
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: _errorText == null
-                      ? AikoColors.mutedText
+                      ? theme.colorScheme.onSurfaceVariant
                       : AikoColors.dangerRed,
                   fontWeight: FontWeight.w600,
                 ),
@@ -3332,11 +3328,11 @@ class _CalculatorKey extends StatelessWidget {
         color: background,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(
-            color: kind == _CalculatorKeyKind.normal
-                ? AikoColors.borderSubtle
-                : Colors.transparent,
-          ),
+            side: BorderSide(
+              color: kind == _CalculatorKeyKind.normal
+                  ? theme.colorScheme.outlineVariant
+                  : Colors.transparent,
+            ),
         ),
         child: InkWell(
           key: Key(_calculatorKeyName(label)),

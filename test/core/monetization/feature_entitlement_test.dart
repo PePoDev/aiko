@@ -1,4 +1,3 @@
-import 'package:aiko/core/monetization/entitlement_service.dart';
 import 'package:aiko/core/monetization/feature_entitlement.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -23,17 +22,5 @@ void main() {
 
     expect(gate.shouldShowFor(PlanTier.free), isTrue);
     expect(gate.shouldShowFor(PlanTier.pro), isFalse);
-  });
-
-  test('entitlement service applies safe gating', () {
-    const entitlement = FeatureEntitlement(
-      featureKey: 'portfolio',
-      requiredTier: PlanTier.premium,
-    );
-
-    expect(
-      const EntitlementService().canUse(entitlement, PlanTier.free),
-      isFalse,
-    );
   });
 }

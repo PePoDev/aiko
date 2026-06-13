@@ -100,8 +100,9 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: AikoColors.white,
+      backgroundColor: colorScheme.surface,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -195,6 +196,7 @@ class _GoalStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(28, 0, 28, 24),
@@ -209,7 +211,7 @@ class _GoalStep extends StatelessWidget {
                   Text(
                     "What's your\nmain goal?",
                     style: textTheme.headlineSmall?.copyWith(
-                      color: AikoColors.darkNavy,
+                      color: colorScheme.onSurface,
                       fontWeight: FontWeight.w900,
                       height: 1.08,
                     ),
@@ -218,7 +220,7 @@ class _GoalStep extends StatelessWidget {
                   Text(
                     'Choose one to get personalized insights and recommendations.',
                     style: textTheme.bodySmall?.copyWith(
-                      color: AikoColors.mutedText,
+                      color: colorScheme.onSurfaceVariant,
                       height: 1.35,
                       fontWeight: FontWeight.w600,
                     ),
@@ -260,6 +262,7 @@ class _FirstAccountStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(28, 0, 28, 24),
@@ -274,7 +277,7 @@ class _FirstAccountStep extends StatelessWidget {
                   Text(
                     "Let's add your\nfirst account",
                     style: textTheme.headlineSmall?.copyWith(
-                      color: AikoColors.darkNavy,
+                      color: colorScheme.onSurface,
                       fontWeight: FontWeight.w900,
                       height: 1.08,
                     ),
@@ -283,7 +286,7 @@ class _FirstAccountStep extends StatelessWidget {
                   Text(
                     'Connect an account to see your financial picture in one place.',
                     style: textTheme.bodySmall?.copyWith(
-                      color: AikoColors.mutedText,
+                      color: colorScheme.onSurfaceVariant,
                       height: 1.35,
                       fontWeight: FontWeight.w600,
                     ),
@@ -314,7 +317,7 @@ class _FirstAccountStep extends StatelessWidget {
           decoration: BoxDecoration(
             color: AikoColors.paleBlue,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AikoColors.borderSubtle),
+            border: Border.all(color: colorScheme.outlineVariant),
           ),
           child: Row(
             children: [
@@ -324,7 +327,7 @@ class _FirstAccountStep extends StatelessWidget {
                 child: Text(
                   'Bank-level security. Your data is encrypted and secure.',
                   style: textTheme.bodySmall?.copyWith(
-                    color: AikoColors.neutralInk,
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.w700,
                     height: 1.35,
                   ),
@@ -357,11 +360,12 @@ class _IdeaOptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Semantics(
       button: true,
       selected: selected,
       child: Material(
-        color: AikoColors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -372,7 +376,9 @@ class _IdeaOptionTile extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: selected ? AikoColors.deepBlue : AikoColors.borderSubtle,
+                color: selected
+                    ? AikoColors.deepBlue
+                    : colorScheme.outlineVariant,
                 width: selected ? 2 : 1,
               ),
             ),
@@ -395,7 +401,7 @@ class _IdeaOptionTile extends StatelessWidget {
                       Text(
                         title,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: AikoColors.darkNavy,
+                          color: colorScheme.onSurface,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -403,7 +409,7 @@ class _IdeaOptionTile extends StatelessWidget {
                       Text(
                         subtitle,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AikoColors.mutedText,
+                          color: colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -414,7 +420,7 @@ class _IdeaOptionTile extends StatelessWidget {
                   selected
                       ? Icons.check_circle
                       : Icons.radio_button_unchecked_outlined,
-                  color: selected ? AikoColors.deepBlue : AikoColors.border,
+                  color: selected ? AikoColors.deepBlue : colorScheme.outline,
                 ),
               ],
             ),

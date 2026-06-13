@@ -69,9 +69,9 @@ class BudgetOverviewScreen extends ConsumerWidget {
                       ? Icons.today_outlined
                       : Icons.restaurant_outlined,
                   accentColor: AikoColors.warningOrange,
-                  trailing: const Icon(
+                  trailing: Icon(
                     Icons.chevron_right,
-                    color: AikoColors.mutedText,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -102,7 +102,7 @@ class BudgetOverviewScreen extends ConsumerWidget {
                         Text(
                           _includedCategoriesLabel(budget),
                           style: textTheme.bodySmall?.copyWith(
-                            color: AikoColors.mutedText,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -305,7 +305,9 @@ class _BudgetDetailRow extends StatelessWidget {
               label,
               style: Theme.of(
                 context,
-              ).textTheme.bodySmall?.copyWith(color: AikoColors.mutedText),
+              ).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           const SizedBox(width: 16),

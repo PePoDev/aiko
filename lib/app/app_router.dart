@@ -9,7 +9,6 @@ import '../features/categories/presentation/category_management_screen.dart';
 import '../features/calculators/presentation/calculator_library_screen.dart';
 import '../features/export/presentation/export_screen.dart';
 import '../features/dashboard/presentation/home_dashboard_screen.dart';
-import '../features/debt_loans/presentation/debt_payoff_plan_screen.dart';
 import '../features/goals/presentation/goals_overview_screen.dart';
 import '../features/import_export/presentation/import_export_screen.dart';
 import '../features/learning_hub/presentation/learning_hub_screen.dart';
@@ -17,11 +16,9 @@ import '../features/navigation/presentation/planning_screen.dart';
 import '../features/onboarding/presentation/onboarding_screens.dart';
 import '../features/overview/presentation/finance_detail_screens.dart';
 import '../features/investments/presentation/investments_screen.dart';
-import '../features/reports/presentation/reports_screen.dart';
 import '../features/settings/presentation/profile_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/settings/presentation/notification_settings_screen.dart';
-import '../features/tax_center/presentation/tax_center_screen.dart';
 import '../features/transactions/presentation/transaction_list_screen.dart';
 import '../features/transactions/presentation/transaction_rules_screen.dart';
 import '../features/travel_mode/presentation/travel_mode_screen.dart';
@@ -102,10 +99,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             builder: (context, state) => const GoalsOverviewScreen(),
           ),
           GoRoute(
-            path: '/goals/detail',
-            builder: (context, state) => const GoalDetailScreen(),
-          ),
-          GoRoute(
             path: '/goals/saving-plan',
             builder: (context, state) => const SavingPlanScreen(),
           ),
@@ -119,10 +112,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
                 _fadePage(context, state, const PlanningScreen()),
           ),
           GoRoute(
-            path: '/reports',
-            builder: (context, state) => const ReportsScreen(),
-          ),
-          GoRoute(
             path: '/reports/monthly',
             builder: (context, state) => const MonthlyReportScreen(),
           ),
@@ -134,10 +123,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             path: '/aiko',
             pageBuilder: (context, state) =>
                 _fadePage(context, state, const AikoAssistantScreen()),
-          ),
-          GoRoute(
-            path: '/aiko-insights',
-            builder: (context, state) => const AikoInsightsScreen(),
           ),
           GoRoute(
             path: '/accounts',
@@ -168,10 +153,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             builder: (context, state) => const NotificationSettingsScreen(),
           ),
           GoRoute(
-            path: '/debt-loans',
-            builder: (context, state) => const DebtPayoffPlanScreen(),
-          ),
-          GoRoute(
             path: '/portfolio',
             builder: (context, state) => const InvestmentsScreen(),
           ),
@@ -182,10 +163,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
           GoRoute(
             path: '/portfolio/holding',
             builder: (context, state) => const HoldingDetailScreen(),
-          ),
-          GoRoute(
-            path: '/tax-center',
-            builder: (context, state) => const TaxCenterScreen(),
           ),
           GoRoute(
             path: '/loan-calculator',

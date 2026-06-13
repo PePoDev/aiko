@@ -133,7 +133,9 @@ class _CategoryManagementScreenState
                   controller: _tabController,
                   indicatorColor: _selectedTabColor,
                   labelColor: _selectedTabColor,
-                  unselectedLabelColor: AikoColors.mutedText,
+                  unselectedLabelColor: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant,
                   tabs: const [
                     Tab(
                       icon: Icon(Icons.arrow_upward_outlined),
@@ -307,7 +309,7 @@ class _NewGroupButton extends StatelessWidget {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 14),
-        side: const BorderSide(color: AikoColors.border),
+        side: BorderSide(color: Theme.of(context).colorScheme.outline),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         foregroundColor: AikoColors.primaryBlue,
       ),
@@ -345,7 +347,7 @@ class _CategoryGroupSection extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: AikoColors.borderSubtle),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -422,7 +424,7 @@ class _UngroupedSection extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: AikoColors.borderSubtle),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -509,7 +511,7 @@ class _GroupHeader extends StatelessWidget {
                   Text(
                     subtitle,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AikoColors.mutedText,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -522,14 +524,17 @@ class _GroupHeader extends StatelessWidget {
                 tooltip: 'Edit group',
                 icon: const Icon(Icons.tune, size: 20),
                 onPressed: onEdit,
-                color: AikoColors.mutedText,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 visualDensity: VisualDensity.compact,
               ),
             ],
             AnimatedRotation(
               turns: isExpanded ? 0.5 : 0,
               duration: const Duration(milliseconds: 180),
-              child: const Icon(Icons.expand_more, color: AikoColors.mutedText),
+              child: Icon(
+                Icons.expand_more,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(width: 4),
           ],
@@ -620,10 +625,10 @@ class _CategoryListCard extends StatelessWidget {
                   ),
                 ),
                 if (category.isDefault) ...[
-                  const Icon(
+                  Icon(
                     Icons.lock_outline,
                     size: 14,
-                    color: AikoColors.mutedText,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: 4),
                 ],

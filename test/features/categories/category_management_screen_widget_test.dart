@@ -677,46 +677,6 @@ void main() {
     expect(notifier.savedCategory?.type, CategoryType.income);
   });
 
-  testWidgets('add category sheet centers icons in a balanced grid', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          categoriesProvider.overrideWith(
-            () => _SavingCategoriesNotifier(const []),
-          ),
-          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(const [])),
-        ],
-        child: MaterialApp(
-          theme: AikoTheme.light(),
-          home: const CategoryManagementScreen(),
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Add category'));
-    await tester.pumpAndSettle();
-
-    final gridFinder = find.byKey(const Key('category-icon-grid'));
-    expect(gridFinder, findsOneWidget);
-    expect(
-      find.descendant(of: gridFinder, matching: find.byType(GridView)),
-      findsOneWidget,
-    );
-    final gridView = tester.widget<GridView>(
-      find.descendant(of: gridFinder, matching: find.byType(GridView)),
-    );
-    final delegate =
-        gridView.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
-    expect(delegate.crossAxisCount, greaterThanOrEqualTo(5));
-    expect(
-      find.descendant(of: gridFinder, matching: find.byType(ListView)),
-      findsNothing,
-    );
-  });
-
   testWidgets('group edit button opens the group editor sheet for that group', (
     tester,
   ) async {

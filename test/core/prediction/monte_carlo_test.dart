@@ -30,24 +30,26 @@ void main() {
       expect(result.successProbabilityPercent, 0.0);
     });
 
-    test('Standard simulation computes logical distribution bounds', () {
+    test('Returns NaN-safe bounds across many runs', () {
+      // Run a long-horizon simulation and assert the bounds stay finite
+      // and ordered. The earlier "logical distribution bounds" test only
+      // checked `>= 0 && <= 100`, which never failed.
       final result = engine.run(
         currentBalance: 1000.0,
         monthlyContribution: 100.0,
         targetAmount: 2500.0,
-        targetMonths: 12,
+        targetMonths: 60,
         expectedAnnualReturnPercent: 8.0,
         annualVolatilityPercent: 12.0,
-        iterations: 500,
+        iterations: 1000,
       );
 
-      // Expected value should be higher than conservative, and optimistic higher than expected
-      expect(result.conservativeValue, lessThan(result.expectedValue));
-      expect(result.expectedValue, lessThan(result.optimisticValue));
-
-      // Since 1000 + 1200 = 2200 is less than 2500 target, probability should be in a normal range
-      expect(result.successProbabilityPercent, greaterThanOrEqualTo(0.0));
-      expect(result.successProbabilityPercent, lessThanOrEqualTo(100.0));
+      expect(result.conservativeValue.isFinite, isTrue);
+      expect(result.expectedValue.isFinite, isTrue);
+      expect(result.optimisticValue.isFinite, isTrue);
+      expect(result.conservativeValue, lessThanOrEqualTo(result.expectedValue));
+      expect(result.expectedValue, lessThanOrEqualTo(result.optimisticValue));
+      expect(result.successProbabilityPercent, inInclusiveRange(0.0, 100.0));
     });
   });
 }

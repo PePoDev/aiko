@@ -198,7 +198,6 @@ lib/
 │   ├── onboarding/              # 10-step onboarding flow
 │   ├── overview/                # Idea-backed supplemental detail routes
 │   ├── investments/               # Investment holdings, allocation, portfolio tracking
-│   ├── reports/                 # Report builder (13+ report types)
 │   ├── settings/                # Settings screens
 │   ├── tax_center/              # Tax management & analytics
 │   ├── transactions/            # Transaction CRUD, rules, search

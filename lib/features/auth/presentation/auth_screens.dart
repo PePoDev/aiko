@@ -17,12 +17,13 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final compact = MediaQuery.sizeOf(context).height < 720;
     final imageSize = compact ? 140.0 : 190.0;
     final sectionGap = compact ? 16.0 : 24.0;
 
     return Scaffold(
-      backgroundColor: AikoColors.white,
+      backgroundColor: colorScheme.surface,
       body: SafeArea(
         child: AikoSparkleBackdrop(
           child: Center(
@@ -42,7 +43,7 @@ class WelcomeScreen extends StatelessWidget {
                             'Your personal\nfinance companion',
                             textAlign: TextAlign.center,
                             style: textTheme.titleMedium?.copyWith(
-                              color: AikoColors.neutralInk,
+                              color: colorScheme.onSurface,
                               fontWeight: FontWeight.w700,
                               height: 1.15,
                             ),
@@ -60,7 +61,7 @@ class WelcomeScreen extends StatelessWidget {
                             "Hi, I'm Aiko! I'm your AI finance assistant — here to help you understand your money, build better habits, and reach your goals.",
                             textAlign: TextAlign.center,
                             style: textTheme.bodyMedium?.copyWith(
-                              color: AikoColors.neutralInk,
+                              color: colorScheme.onSurface,
                               height: 1.45,
                               fontWeight: FontWeight.w600,
                             ),
@@ -69,14 +70,14 @@ class WelcomeScreen extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(18),
                             decoration: BoxDecoration(
-                              color: AikoColors.white,
+                              color: colorScheme.surface,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: AikoColors.borderSubtle,
+                                color: colorScheme.outlineVariant,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AikoColors.border.withValues(
+                                  color: colorScheme.outline.withValues(
                                     alpha: 0.18,
                                   ),
                                   blurRadius: 18,
@@ -314,9 +315,10 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: AikoColors.white,
+      backgroundColor: colorScheme.surface,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -346,7 +348,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Text(
                             'Welcome back!',
                             style: textTheme.headlineSmall?.copyWith(
-                              color: AikoColors.darkNavy,
+                              color: colorScheme.onSurface,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
@@ -354,7 +356,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Text(
                             'Log in to continue.',
                             style: textTheme.bodyMedium?.copyWith(
-                              color: AikoColors.mutedText,
+                              color: colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -407,7 +409,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Text(
                             'or continue with',
                             style: textTheme.labelMedium?.copyWith(
-                              color: AikoColors.mutedText,
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ),
@@ -432,7 +434,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(
                       "Don't have an account?",
                       style: textTheme.bodySmall?.copyWith(
-                        color: AikoColors.mutedText,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                     TextButton(
@@ -463,6 +465,7 @@ class _SocialButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
       height: 48,
       child: OutlinedButton.icon(
@@ -474,8 +477,8 @@ class _SocialButton extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         style: OutlinedButton.styleFrom(
-          foregroundColor: AikoColors.neutralInk,
-          side: const BorderSide(color: AikoColors.borderSubtle),
+          foregroundColor: colorScheme.onSurface,
+          side: BorderSide(color: colorScheme.outlineVariant),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),

@@ -656,11 +656,11 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                           textTheme,
                         ),
                         const Divider(height: 32),
-                        const Text(
+                        Text(
                           'Aiko Advice: Splits your income into Needs (Housing/Food), Wants (Fun/Dining), and Savings/Debt payoff automatically.',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -761,9 +761,12 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text(
+                        Text(
                           'Input cash limits for your core discretionary envelopes. Aiko will track these envelopes in real-time.',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         for (final cat in cats) ...[
@@ -869,7 +872,9 @@ class _DailySpendingCategorySelector extends ConsumerWidget {
             Container(
               height: 180,
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: ListView.builder(

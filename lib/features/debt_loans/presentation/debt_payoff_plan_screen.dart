@@ -99,11 +99,11 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AikoColors.white,
-        title: const Text(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
           'Add Debt or Loan',
           style: TextStyle(
-            color: AikoColors.darkNavy,
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -144,9 +144,11 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: AikoColors.mutedText),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           ElevatedButton(
@@ -242,7 +244,6 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AikoColors.appBackgroundLight,
       appBar: AppBar(
         title: const Text('Debt Snowball & Avalanche'),
         actions: [
@@ -260,7 +261,7 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AikoColors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: aikoBubbleBorder.withValues(alpha: 0.5),
@@ -268,7 +269,8 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AikoColors.border.withValues(alpha: 0.1),
+                  color: Theme.of(context).colorScheme.outline
+                      .withValues(alpha: 0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -290,10 +292,10 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                 Expanded(
                   child: Text(
                     aikoSpeech,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: AikoColors.darkNavy,
+                      color: Theme.of(context).colorScheme.onSurface,
                       height: 1.3,
                     ),
                   ),
@@ -324,19 +326,19 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                     ),
                     Text(
                       'Mins: \$${totalMins.toStringAsFixed(0)}/mo',
-                      style: const TextStyle(
-                        color: AikoColors.mutedText,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'This includes student loans, auto loans, personal loans, and credit card balances. Leverage strategy-based payoffs to wipe this out faster.',
                   style: TextStyle(
                     fontSize: 11,
-                    color: AikoColors.mutedText,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     height: 1.3,
                   ),
                 ),
@@ -353,12 +355,12 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Select Strategy:',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
-                    color: AikoColors.darkNavy,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -397,12 +399,12 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Accelerated Monthly Payment',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
-                        color: AikoColors.darkNavy,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     Text(
@@ -421,7 +423,7 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                   max: 2000.0,
                   divisions: 40,
                   activeColor: AikoColors.primaryBlue,
-                  inactiveColor: AikoColors.borderSubtle,
+                  inactiveColor: Theme.of(context).colorScheme.outlineVariant,
                   onChanged: (val) {
                     setState(() {
                       _extraMonthlyPayment = val;
@@ -445,11 +447,11 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                   children: [
                     Column(
                       children: [
-                        const Text(
+                        Text(
                           'Accelerated Payoff',
                           style: TextStyle(
                             fontSize: 11,
-                            color: AikoColors.mutedText,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -468,15 +470,15 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                     Container(
                       width: 1,
                       height: 40,
-                      color: AikoColors.borderSubtle,
+                      color: Theme.of(context).colorScheme.outlineVariant,
                     ),
                     Column(
                       children: [
-                        const Text(
+                        Text(
                           'Total Interest Saved',
                           style: TextStyle(
                             fontSize: 11,
-                            color: AikoColors.mutedText,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -505,9 +507,9 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                       const SizedBox(width: 4),
                       Text(
                         'You will be debt-free $savedMonths months earlier!',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AikoColors.neutralInk,
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 12,
                         ),
                       ),
@@ -525,22 +527,22 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Debt Prioritization List',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AikoColors.darkNavy,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 Text(
                   strategy == DebtPayoffStrategy.snowball
                       ? 'By Balance'
                       : 'By Interest Rate',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: AikoColors.mutedText,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -554,13 +556,15 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              color: AikoColors.surfacePanel,
-              child: const Padding(
-                padding: EdgeInsets.all(24.0),
+              color: Theme.of(context).colorScheme.surface,
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
                 child: Center(
                   child: Text(
                     'No debts found! Tap the top-right button to add one.',
-                    style: TextStyle(color: AikoColors.mutedText),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),
@@ -576,7 +580,7 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
-                color: AikoColors.white,
+                color: Theme.of(context).colorScheme.surface,
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Row(
@@ -584,13 +588,13 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                       CircleAvatar(
                         backgroundColor: idx == 0
                             ? AikoColors.warningOrange
-                            : AikoColors.surfacePanel,
+                            : Theme.of(context).colorScheme.surface,
                         child: Text(
                           '#${idx + 1}',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: idx == 0
-                                ? AikoColors.white
+                                ? Theme.of(context).colorScheme.onPrimary
                                 : AikoColors.primaryBlue,
                           ),
                         ),
@@ -602,18 +606,18 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                           children: [
                             Text(
                               d.name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: AikoColors.darkNavy,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               '${d.interestRatePercent}% APR | min \$${d.monthlyPayment.amount.toStringAsFixed(0)}/mo',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: AikoColors.mutedText,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -632,9 +636,9 @@ class _DebtPayoffPlanScreenState extends ConsumerState<DebtPayoffPlanScreen> {
                           ),
                           const SizedBox(height: 4),
                           IconButton(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.delete_outline,
-                              color: AikoColors.mutedText,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                               size: 18,
                             ),
                             onPressed: () {

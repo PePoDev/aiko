@@ -82,12 +82,12 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
+                  Text(
                     'Aiko',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: AikoColors.darkNavy,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   Text(
@@ -204,18 +204,24 @@ class _MessageBubble extends StatelessWidget {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: AikoColors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(18),
                   topRight: Radius.circular(18),
                   bottomRight: Radius.circular(18),
                 ),
                 border: Border.all(
-                  color: AikoColors.border.withValues(alpha: 0.5),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .outline
+                      .withValues(alpha: 0.5),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AikoColors.border.withValues(alpha: 0.08),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .outline
+                        .withValues(alpha: 0.08),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
@@ -249,8 +255,8 @@ class _ContentBlock extends StatelessWidget {
     if (streaming && content.isNotEmpty) {
       return RichText(
         text: TextSpan(
-          style: const TextStyle(
-            color: AikoColors.darkNavy,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 15,
             height: 1.4,
           ),
@@ -266,8 +272,8 @@ class _ContentBlock extends StatelessWidget {
     }
     return Text(
       content,
-      style: const TextStyle(
-        color: AikoColors.darkNavy,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface,
         fontSize: 15,
         height: 1.4,
       ),
@@ -465,9 +471,14 @@ class _InputBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
-        color: AikoColors.white,
+        color: Theme.of(context).colorScheme.surface,
         border: Border(
-          top: BorderSide(color: AikoColors.border.withValues(alpha: 0.5)),
+          top: BorderSide(
+            color: Theme.of(context)
+                .colorScheme
+                .outline
+                .withValues(alpha: 0.5),
+          ),
         ),
       ),
       child: SafeArea(
@@ -489,20 +500,29 @@ class _InputBar extends StatelessWidget {
                       ? 'Aiko is busy...'
                       : 'Ask about your money...',
                   hintStyle: TextStyle(
-                    color: AikoColors.mutedText.withValues(alpha: 0.7),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withValues(alpha: 0.7),
                   ),
                   filled: true,
-                  fillColor: AikoColors.appBackgroundLight,
+                  fillColor: Theme.of(context).inputDecorationTheme.fillColor,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(20),
                     borderSide: BorderSide(
-                      color: AikoColors.border.withValues(alpha: 0.5),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withValues(alpha: 0.5),
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(20),
                     borderSide: BorderSide(
-                      color: AikoColors.border.withValues(alpha: 0.5),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withValues(alpha: 0.5),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(

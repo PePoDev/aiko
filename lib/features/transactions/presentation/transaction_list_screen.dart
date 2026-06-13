@@ -440,7 +440,7 @@ class _TransactionInlineFilters extends StatelessWidget {
                         Icons.date_range_outlined,
                         size: 18,
                         color: dateFilter == _TransactionDateFilter.all
-                            ? AikoColors.mutedText
+                            ? theme.colorScheme.onSurfaceVariant
                             : theme.colorScheme.primary,
                       ),
                       label: Text(_dateFilterLabel(dateFilter)),
@@ -735,7 +735,7 @@ class _TransactionDateHeader extends StatelessWidget {
       child: Text(
         _dateHeaderLabel(date),
         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: AikoColors.mutedText,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -893,7 +893,7 @@ class _CompactTransactionCard extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.end,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AikoColors.mutedText,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -955,7 +955,9 @@ class _TransactionTimeAndTags extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: Theme.of(
                 context,
-              ).textTheme.bodySmall?.copyWith(color: AikoColors.mutedText),
+              ).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             for (final tag in tags) _TransactionTagChip(label: '#$tag'),
           ],
@@ -985,7 +987,7 @@ class _TransactionTagChip extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: AikoColors.mutedText,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w700,
           ),
         ),

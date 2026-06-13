@@ -77,7 +77,7 @@ class AuthenticatedShell extends StatelessWidget {
     if (location.startsWith('/transactions')) {
       return 1;
     }
-    if (location.startsWith('/aiko') || location.startsWith('/aiko-insights')) {
+    if (location.startsWith('/aiko')) {
       return 2;
     }
     if (location.startsWith('/planning') ||
@@ -87,7 +87,6 @@ class AuthenticatedShell extends StatelessWidget {
         location.startsWith('/accounts') ||
         location.startsWith('/categories') ||
         location.startsWith('/credit-cards') ||
-        location.startsWith('/debt-loans') ||
         location.startsWith('/loans') ||
         location.startsWith('/portfolio') ||
         location.startsWith('/loan-calculator') ||
@@ -103,7 +102,7 @@ class AuthenticatedShell extends StatelessWidget {
 
   bool _isSecondaryRoute(String location) {
     return location.startsWith('/transaction-rules') ||
-        location.startsWith('/reports') ||
+        location.startsWith('/reports/monthly') ||
         location.startsWith('/export') ||
         location.startsWith('/calculators') ||
         location.startsWith('/import-export-backup') ||

@@ -247,7 +247,7 @@ class _RuleCard extends StatelessWidget {
                       Text(
                         source.label,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AikoColors.mutedText,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -322,7 +322,11 @@ class _RuleInfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: AikoColors.mutedText),
+        Icon(
+          icon,
+          size: 18,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 8),
         SizedBox(
           width: 48,
@@ -330,7 +334,9 @@ class _RuleInfoRow extends StatelessWidget {
             label,
             style: Theme.of(
               context,
-            ).textTheme.labelMedium?.copyWith(color: AikoColors.mutedText),
+            ).textTheme.labelMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
         Expanded(

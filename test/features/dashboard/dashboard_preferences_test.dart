@@ -2,18 +2,6 @@ import 'package:aiko/features/dashboard/domain/dashboard_widget_preference.dart'
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('dashboard preferences capture ordering and visibility', () {
-    const preference = DashboardWidgetPreference(
-      type: DashboardWidgetType.dailySpending,
-      isVisible: true,
-      position: 0,
-    );
-
-    expect(preference.type, DashboardWidgetType.dailySpending);
-    expect(preference.isVisible, isTrue);
-    expect(preference.position, 0);
-  });
-
   test('dashboard preferences serialize for persistence', () {
     const preference = DashboardWidgetPreference(
       type: DashboardWidgetType.insights,

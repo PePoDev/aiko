@@ -229,9 +229,9 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
     final groups = groupsAsync.value ?? const <CategoryGroup>[];
 
     return Container(
-      decoration: const BoxDecoration(
-        color: AikoColors.appBackgroundLight,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
@@ -251,7 +251,7 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                   width: 48,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AikoColors.border,
+                    color: Theme.of(context).colorScheme.outline,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -379,12 +379,12 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                 accentColor: _parseHex(_selectedColorHex),
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Select Theme Color',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: AikoColors.mutedText,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 8),
@@ -410,7 +410,7 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: isSelected
-                                ? Colors.black
+                                ? Theme.of(context).colorScheme.onSurface
                                 : Colors.transparent,
                             width: 2.5,
                           ),
@@ -428,12 +428,12 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Select Icon',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: AikoColors.mutedText,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 8),
@@ -492,7 +492,9 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                                     border: Border.all(
                                       color: isSelected
                                           ? activeColor
-                                          : AikoColors.borderSubtle,
+                                          : Theme.of(context)
+                                              .colorScheme
+                                              .outlineVariant,
                                       width: 2,
                                     ),
                                   ),
@@ -500,7 +502,9 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                                     iconData,
                                     color: isSelected
                                         ? activeColor
-                                        : AikoColors.mutedText,
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
                                     size: 23,
                                   ),
                                 ),
@@ -588,12 +592,12 @@ class _GroupPicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
+        Text(
           'Group',
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: AikoColors.mutedText,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),

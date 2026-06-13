@@ -304,69 +304,6 @@ class CashFlowSankeyScreen extends StatelessWidget {
   }
 }
 
-class GoalDetailScreen extends StatelessWidget {
-  const GoalDetailScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return AikoDetailScaffold(
-      title: 'Goal Detail',
-      actions: [
-        IconButton(
-          tooltip: 'Edit goal',
-          onPressed: () => _showSnack(context, 'Goal editor opened.'),
-          icon: const Icon(Icons.edit_outlined),
-        ),
-      ],
-      children: const [
-        AikoMetricCard(
-          label: 'Vacation 2025',
-          value: '\$1,250.00',
-          change: '50% of \$2,500.00',
-          icon: Icons.beach_access_outlined,
-          accentColor: AikoColors.successGreen,
-          progress: 0.5,
-        ),
-        AikoDataListCard(
-          title: 'Progress',
-          icon: Icons.flag_outlined,
-          rows: [
-            AikoDataRow(
-              label: 'Saved to Date',
-              value: '\$1,250.00',
-              color: AikoColors.successGreen,
-            ),
-            AikoDataRow(label: 'Monthly Target', value: '\$250.00'),
-            AikoDataRow(label: 'Remaining', value: '\$1,250.00'),
-            AikoDataRow(label: 'Target Date', value: 'Aug 31, 2026'),
-          ],
-        ),
-        AikoDataListCard(
-          title: 'Recent Contributions',
-          icon: Icons.savings_outlined,
-          rows: [
-            AikoDataRow(
-              label: 'May 24, 2026',
-              value: '+\$250.00',
-              color: AikoColors.successGreen,
-            ),
-            AikoDataRow(
-              label: 'May 10, 2026',
-              value: '+\$250.00',
-              color: AikoColors.successGreen,
-            ),
-            AikoDataRow(
-              label: 'Apr 25, 2026',
-              value: '+\$250.00',
-              color: AikoColors.successGreen,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
 class SavingPlanScreen extends StatefulWidget {
   const SavingPlanScreen({super.key});
 
@@ -456,7 +393,8 @@ class MonthlyReportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const AikoDetailScaffold(
+    final mutedColor = Theme.of(context).colorScheme.onSurfaceVariant;
+    return AikoDetailScaffold(
       title: 'Monthly Report',
       children: [
         AikoInlineNotice(
@@ -499,7 +437,7 @@ class MonthlyReportScreen extends StatelessWidget {
         ),
         Card(
           child: Padding(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             child: AikoDonutChart(
               values: [35, 18, 8, 19, 20],
               colors: [
@@ -507,7 +445,7 @@ class MonthlyReportScreen extends StatelessWidget {
                 AikoColors.analyticsTeal,
                 AikoColors.warningOrange,
                 AikoColors.premiumPurple,
-                AikoColors.mutedText,
+                mutedColor,
               ],
               centerLabel: '\$4,090\nTotal Expenses',
             ),
@@ -519,43 +457,6 @@ class MonthlyReportScreen extends StatelessWidget {
               'Lifestyle spending increased by 12% compared to last month.',
           icon: Icons.lightbulb_outline,
           accentColor: AikoColors.warningOrange,
-        ),
-      ],
-    );
-  }
-}
-
-class AikoInsightsScreen extends StatelessWidget {
-  const AikoInsightsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const AikoDetailScaffold(
-      title: 'Aiko Insights',
-      children: [
-        _SegmentedHeader(labels: ['All', 'Spending', 'Saving', 'Investing']),
-        AikoInlineNotice(
-          title: 'Spending trend',
-          message: 'You spent 12% less on dining out compared to last month.',
-          icon: Icons.restaurant_outlined,
-        ),
-        AikoInlineNotice(
-          title: 'Saving streak',
-          message: 'You have saved for 4 months in a row.',
-          icon: Icons.stars_outlined,
-          accentColor: AikoColors.successGreen,
-        ),
-        AikoInlineNotice(
-          title: 'Budget alert',
-          message: 'Transport spending is 18% above budget.',
-          icon: Icons.directions_car_outlined,
-          accentColor: AikoColors.warningOrange,
-        ),
-        AikoInlineNotice(
-          title: 'Opportunity',
-          message: 'You could save up to \$80 by optimizing subscriptions.',
-          icon: Icons.auto_awesome_outlined,
-          accentColor: AikoColors.premiumPurple,
         ),
       ],
     );

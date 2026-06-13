@@ -22,20 +22,6 @@ class PlanningScreen extends StatelessWidget {
       color: AikoColors.successGreen,
     ),
     _PlanningItem(
-      title: 'Debt and Loans',
-      description: 'Compare snowball and avalanche payoff plans.',
-      path: '/debt-loans',
-      icon: Icons.payments_outlined,
-      color: AikoColors.warningOrange,
-    ),
-    _PlanningItem(
-      title: 'Tax Center',
-      description: 'Review tax summaries, deductions, and estimates.',
-      path: '/tax-center',
-      icon: Icons.request_quote_outlined,
-      color: AikoColors.warningOrange,
-    ),
-    _PlanningItem(
       title: 'Investments',
       description: 'Track holdings, gains, allocation, and rebalance alerts.',
       path: '/portfolio',

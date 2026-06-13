@@ -9,26 +9,17 @@ void main() {
     await repository.save(
       const NotificationPreference(
         userId: 'user',
-        type: NotificationType.billDue,
-        sourceModule: NotificationSourceModule.bills,
+        type: NotificationType.recurringDue,
+        sourceModule: NotificationSourceModule.recurring,
         isEnabled: true,
       ),
     );
     expect(
-      await repository.listForModule('user', NotificationSourceModule.bills),
+      await repository.listForModule(
+        'user',
+        NotificationSourceModule.recurring,
+      ),
       isEmpty,
-    );
-  });
-
-  test('notification preference model keeps source module metadata', () {
-    expect(
-      const NotificationPreference(
-        userId: 'user',
-        type: NotificationType.billDue,
-        sourceModule: NotificationSourceModule.bills,
-        isEnabled: true,
-      ).sourceModule,
-      NotificationSourceModule.bills,
     );
   });
 }

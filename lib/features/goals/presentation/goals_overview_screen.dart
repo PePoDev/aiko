@@ -36,12 +36,7 @@ class GoalsOverviewScreen extends ConsumerWidget {
                 value: '/goals/chance-of-success',
                 child: Text('Chance of Success'),
               ),
-              PopupMenuItem(value: '/goals/detail', child: Text('Goal Detail')),
             ],
-          ),
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () => _showAikoTip(context),
           ),
         ],
       ),
@@ -121,7 +116,9 @@ class GoalsOverviewScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(8),
                         child: LinearProgressIndicator(
                           value: goal.progress.clamp(0.0, 1.0),
-                          backgroundColor: AikoColors.borderSubtle,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.outlineVariant,
                           color: isCompleted
                               ? AikoColors.successGreen
                               : AikoColors.primaryBlue,
@@ -138,7 +135,11 @@ class GoalsOverviewScreen extends ConsumerWidget {
                           ),
                           Text(
                             'Target: ${goal.targetAmount.format()}',
-                            style: const TextStyle(color: AikoColors.mutedText),
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ],
                       ),
@@ -146,31 +147,38 @@ class GoalsOverviewScreen extends ConsumerWidget {
                         const SizedBox(height: 6),
                         Text(
                           'Remaining: ${goal.remaining.format()}',
-                          style: const TextStyle(
-                            color: AikoColors.mutedText,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 13,
                           ),
                         ),
                       ],
                       const SizedBox(height: 12),
-                      const Divider(height: 1, color: AikoColors.borderSubtle),
+                      Divider(
+                        height: 1,
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
                       const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.calendar_today,
                                 size: 14,
-                                color: AikoColors.mutedText,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 'Target Date: ${DateFormat.yMMMd().format(goal.targetDate)}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: AikoColors.mutedText,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -178,17 +186,21 @@ class GoalsOverviewScreen extends ConsumerWidget {
                           if (linkedAccount != null)
                             Row(
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.account_balance_wallet_outlined,
                                   size: 14,
-                                  color: AikoColors.mutedText,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   linkedAccount.name,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: AikoColors.mutedText,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -267,39 +279,6 @@ class GoalsOverviewScreen extends ConsumerWidget {
       }
     }
   }
-
-  void _showAikoTip(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AikoColors.primaryBlue,
-              ),
-              child: const Icon(Icons.face, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 8),
-            const Text('Aiko\'s Advice'),
-          ],
-        ),
-        content: const Text(
-          'SMART goals are Specific, Measurable, Achievable, Relevant, and Time-bound. '
-          'Linking an account allows me to track your savings automatically!',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Got it!'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _PriorityBadge extends StatelessWidget {
@@ -322,7 +301,7 @@ class _PriorityBadge extends StatelessWidget {
         break;
       default:
         label = 'Low';
-        color = AikoColors.mutedText;
+        color = Theme.of(context).colorScheme.onSurfaceVariant;
     }
 
     return Container(
@@ -383,13 +362,7 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
       lastDate: DateTime.now().add(const Duration(days: 365 * 30)),
       builder: (context, child) {
         return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AikoColors.primaryBlue,
-              onPrimary: Colors.white,
-              onSurface: AikoColors.neutralInk,
-            ),
-          ),
+          data: Theme.of(context),
           child: child!,
         );
       },
@@ -495,9 +468,9 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
     final baseCurrency = profileAsync.value?.baseCurrency ?? 'THB';
 
     return Container(
-      decoration: const BoxDecoration(
-        color: AikoColors.appBackgroundLight,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
@@ -518,7 +491,7 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
                   width: 48,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AikoColors.border,
+                    color: Theme.of(context).colorScheme.outline,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -717,12 +690,12 @@ class _AddGoalBottomSheetState extends ConsumerState<_AddGoalBottomSheet> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Goal Priority',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: AikoColors.mutedText,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 8),

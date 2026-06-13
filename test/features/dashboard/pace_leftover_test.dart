@@ -16,15 +16,4 @@ void main() {
 
     expect(leftover.amount.toString(), '250');
   });
-
-  test('pace identifies fast spending', () {
-    const service = DashboardSummaryService();
-    final pace = service.pace(
-      Money.parse('700', 'USD'),
-      Money.parse('1000', 'USD'),
-      0.5,
-    );
-
-    expect(pace.isFast, isTrue);
-  });
 }

@@ -340,7 +340,7 @@ class _SummaryLine extends StatelessWidget {
           child: Text(
             label,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: AikoColors.mutedText,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ),
@@ -423,7 +423,7 @@ class _SectionHeader extends StatelessWidget {
           Text(
             trailing!,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: AikoColors.mutedText,
+              color: theme.colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -563,7 +563,7 @@ class _HoldingCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AikoColors.mutedText,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -603,7 +603,7 @@ class _HoldingCard extends StatelessWidget {
               tooltip: 'Remove ${holding.symbol}',
               onPressed: onDelete,
               icon: const Icon(Icons.delete_outline, size: 20),
-              color: AikoColors.mutedText,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ],
         ),
@@ -651,9 +651,11 @@ class _AllocationCard extends StatelessWidget {
       icon: Icons.donut_large_outlined,
       accentColor: AikoColors.analyticsTeal,
       child: rows.isEmpty
-          ? const Text(
+          ? Text(
               'Add holdings to see your asset mix.',
-              style: TextStyle(color: AikoColors.mutedText),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             )
           : Column(
               children: [
@@ -691,7 +693,7 @@ class _AllocationRow extends StatelessWidget {
             Text(
               '${row.percent.toStringAsFixed(0)}%',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AikoColors.mutedText,
+                color: theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -746,7 +748,7 @@ class _RebalanceNotice extends StatelessWidget {
               child: Text(
                 extraCount > 0 ? '$message, plus $extraCount more.' : message,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AikoColors.neutralInk,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
                 ),
               ),

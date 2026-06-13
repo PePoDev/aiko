@@ -30,14 +30,6 @@ const aikoNavigationGroups = [
     title: 'Insights and AI',
     items: [
       AikoNavigationItem(
-        label: 'Aiko Insights',
-        path: '/aiko-insights',
-        icon: Icons.auto_awesome_outlined,
-        description:
-            'Review personalized spending, saving, and investing tips.',
-        accentColor: AikoColors.premiumPurple,
-      ),
-      AikoNavigationItem(
         label: 'Learning Hub',
         path: '/learning-hub',
         icon: Icons.school_outlined,
@@ -54,12 +46,6 @@ const aikoNavigationGroups = [
         icon: Icons.calculate_outlined,
         description:
             'Run finance, loan, retirement, stock, and everyday calculators.',
-      ),
-      AikoNavigationItem(
-        label: 'Reports',
-        path: '/reports',
-        icon: Icons.assessment_outlined,
-        description: 'Build reports and chart summaries.',
       ),
       AikoNavigationItem(
         label: 'Monthly Report',

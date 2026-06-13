@@ -29,7 +29,6 @@ void main() {
       'Debt and Loans',
       'Credit Cards',
       'Assets',
-      'Tax Center',
       'Portfolio',
       'Travel Mode',
     ]) {

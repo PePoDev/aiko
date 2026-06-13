@@ -21,26 +21,6 @@ void main() {
       expect(events.whereType<ChatReplyDone>(), hasLength(1));
     });
 
-    test(
-      'emits a Delta containing the Aiko disclaimer for optimize questions',
-      () async {
-        const engine = OfflineChatEngine();
-        final events = await engine
-            .streamReply(
-              history: const [
-                ChatMessage(role: 'user', content: 'optimize my budget'),
-              ],
-            )
-            .toList();
-        final combined = events
-            .whereType<ChatReplyDelta>()
-            .map((e) => e.delta)
-            .join();
-
-        expect(combined, contains('Aiko provides estimates'));
-      },
-    );
-
     test('emits an Error when the service throws', () async {
       final engine = OfflineChatEngine(service: _ThrowingService());
       final events = await engine

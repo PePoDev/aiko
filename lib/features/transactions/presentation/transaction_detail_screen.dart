@@ -328,7 +328,7 @@ class _DetailRow extends StatelessWidget {
             child: Text(
               label,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AikoColors.mutedText,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ),

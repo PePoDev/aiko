@@ -23,7 +23,9 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Email is displayed as a non-editable subtitle text in the profile header.
+    // Email is displayed as a non-editable subtitle text in the profile
+    // header. There is exactly one place (the dedicated "Email address"
+    // row) now that the redundant header copy was removed.
     expect(find.text('person@example.com'), findsOneWidget);
   });
 
@@ -48,38 +50,13 @@ void main() {
       ),
       'Updated Name',
     );
-    final saveButton = find.text('Save changes');
-    await tester.scrollUntilVisible(
-      saveButton,
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.pumpAndSettle();
+    final saveButton = find.text('Save');
     await tester.tap(saveButton);
     await tester.pumpAndSettle();
 
     expect(repository.savedProfile?.displayName, 'Updated Name');
     expect(repository.savedProfile?.email, 'person@example.com');
-  });
-
-  testWidgets('profile screen does not show appearance settings', (
-    tester,
-  ) async {
-    final repository = _FakeProfileRepository(_profile);
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [profileRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp(
-          theme: AikoTheme.light(),
-          home: const ProfileScreen(),
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    expect(find.text('Appearance'), findsNothing);
-    expect(find.text('System default'), findsNothing);
   });
 }
 

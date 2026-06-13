@@ -21,8 +21,7 @@ import 'offline_store.dart';
 /// Each reclaimed row is re-upserted, which updates its local `user_id` in place
 /// (matched by its unique `id`) and queues it to sync up to Supabase.
 class OfflineDataMigrator {
-  OfflineDataMigrator({OfflineStore? store})
-    : _store = store ?? OfflineStore();
+  OfflineDataMigrator({OfflineStore? store}) : _store = store ?? OfflineStore();
 
   final OfflineStore _store;
 

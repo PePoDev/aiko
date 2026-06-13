@@ -1005,65 +1005,6 @@ class CreditCardDetailScreen extends StatelessWidget {
   }
 }
 
-class DebtOverviewScreen extends StatelessWidget {
-  const DebtOverviewScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const AikoDetailScaffold(
-      title: 'Debt Overview',
-      children: [
-        AikoInlineNotice(
-          title: 'You have a plan',
-          message: 'Keep paying more than the minimum to reduce interest.',
-          icon: Icons.route_outlined,
-          accentColor: AikoColors.primaryBlue,
-        ),
-        AikoMetricCard(
-          label: 'Total Debt',
-          value: '\$47,250.00',
-          change: '-\$1,250 vs last month',
-          icon: Icons.account_balance_wallet_outlined,
-          accentColor: AikoColors.dangerRed,
-          progress: 0.32,
-        ),
-        AikoDataListCard(
-          title: 'Debt Breakdown',
-          icon: Icons.pie_chart_outline,
-          rows: [
-            AikoDataRow(
-              label: 'Credit Cards',
-              value: '\$6,250.00',
-              color: AikoColors.warningOrange,
-            ),
-            AikoDataRow(
-              label: 'Student Loans',
-              value: '\$28,500.00',
-              color: AikoColors.primaryBlue,
-            ),
-            AikoDataRow(
-              label: 'Personal Loans',
-              value: '\$7,500.00',
-              color: AikoColors.premiumPurple,
-            ),
-            AikoDataRow(
-              label: 'Other Debt',
-              value: '\$5,000.00',
-              color: AikoColors.mutedText,
-            ),
-          ],
-        ),
-        AikoInlineNotice(
-          title: 'Tip from Aiko',
-          message:
-              'Paying extra on high-interest debt can save about \$2,340 in interest.',
-          icon: Icons.auto_awesome_outlined,
-        ),
-      ],
-    );
-  }
-}
-
 class LoanDetailScreen extends StatelessWidget {
   const LoanDetailScreen({super.key});
 

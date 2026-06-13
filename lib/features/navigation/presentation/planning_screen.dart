@@ -36,27 +36,6 @@ class PlanningScreen extends StatelessWidget {
       color: AikoColors.warningOrange,
     ),
     _PlanningItem(
-      title: 'Debt Overview',
-      description: 'Review balances, utilization, and payoff focus.',
-      path: '/debt-overview',
-      icon: Icons.account_balance_wallet_outlined,
-      color: AikoColors.dangerRed,
-    ),
-    _PlanningItem(
-      title: 'Credit Cards',
-      description: 'Review limits, APR, rewards, and utilization.',
-      path: '/credit-cards',
-      icon: Icons.credit_card_outlined,
-      color: AikoColors.primaryBlue,
-    ),
-    _PlanningItem(
-      title: 'Assets',
-      description: 'Log assets and net worth records.',
-      path: '/assets',
-      icon: Icons.home_work_outlined,
-      color: AikoColors.analyticsTeal,
-    ),
-    _PlanningItem(
       title: 'Tax Center',
       description: 'Review tax summaries, deductions, and estimates.',
       path: '/tax-center',
@@ -64,7 +43,7 @@ class PlanningScreen extends StatelessWidget {
       color: AikoColors.warningOrange,
     ),
     _PlanningItem(
-      title: 'Portfolio',
+      title: 'Investments',
       description: 'Track holdings, gains, allocation, and rebalance alerts.',
       path: '/portfolio',
       icon: Icons.show_chart_outlined,

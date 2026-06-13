@@ -1,10 +1,14 @@
 import 'dart:async';
 
+import 'package:aiko/app/providers.dart';
 import 'package:aiko/core/storage/secure_storage_service.dart';
 import 'package:aiko/features/auth/data/auth_repository.dart';
 import 'package:aiko/features/auth/presentation/auth_screens.dart';
+import 'package:aiko/features/settings/data/profile_repository.dart';
+import 'package:aiko/features/settings/domain/profile.dart';
 import 'package:aiko/theme/aiko_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -31,23 +35,34 @@ void main() {
   testWidgets('google sign in completion routes to home', (tester) async {
     final repository = _FakeGoogleAuthRepository();
     addTearDown(repository.dispose);
+    final profileRepository = _FakeCompletedProfileRepository();
 
     await tester.pumpWidget(
-      MaterialApp.router(
-        theme: AikoTheme.light(),
-        routerConfig: GoRouter(
-          initialLocation: '/auth',
-          routes: [
-            GoRoute(
-              path: '/auth',
-              builder: (context, state) =>
-                  LoginScreen(authRepository: repository),
-            ),
-            GoRoute(
-              path: '/home',
-              builder: (context, state) => const Scaffold(body: Text('Home')),
-            ),
-          ],
+      ProviderScope(
+        overrides: [
+          profileRepositoryProvider.overrideWithValue(profileRepository),
+        ],
+        child: MaterialApp.router(
+          theme: AikoTheme.light(),
+          routerConfig: GoRouter(
+            initialLocation: '/auth',
+            routes: [
+              GoRoute(
+                path: '/auth',
+                builder: (context, state) =>
+                    LoginScreen(authRepository: repository),
+              ),
+              GoRoute(
+                path: '/home',
+                builder: (context, state) => const Scaffold(body: Text('Home')),
+              ),
+              GoRoute(
+                path: '/onboarding',
+                builder: (context, state) =>
+                    const Scaffold(body: Text('Onboarding')),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -99,5 +114,21 @@ class _FakeGoogleAuthRepository extends AuthRepository {
 
   Future<void> dispose() {
     return _controller.close();
+  }
+}
+
+class _FakeCompletedProfileRepository extends ProfileRepository {
+  @override
+  Future<Profile> load() async {
+    return const Profile(
+      id: 'user-id',
+      displayName: 'Aiko User',
+      email: 'user@example.com',
+      baseCurrency: 'THB',
+      country: 'TH',
+      aiConsentEnabled: false,
+      onboardingStatus: OnboardingStatus.completed,
+      securityStatus: SecurityStatus.notConfigured,
+    );
   }
 }

@@ -1,7 +1,6 @@
 import 'package:aiko/app/providers.dart';
 import 'package:aiko/features/accounts/data/account_repository.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
-import 'package:aiko/features/auth/presentation/auth_screens.dart';
 import 'package:aiko/features/onboarding/presentation/onboarding_screens.dart';
 import 'package:aiko/features/settings/data/profile_repository.dart';
 import 'package:aiko/features/settings/domain/profile.dart';
@@ -14,20 +13,51 @@ import 'package:go_router/go_router.dart';
 import '../../helpers/test_app.dart';
 
 void main() {
-  testWidgets('idea onboarding flows from splash to login', (tester) async {
+  testWidgets('welcome screen introduces Aiko and leads to login', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildTestApp());
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Your Personal'), findsOneWidget);
-    expect(find.textContaining('Smarter insights'), findsOneWidget);
+    expect(find.textContaining("Hi, I'm Aiko!"), findsOneWidget);
+    expect(find.text('Get Started'), findsOneWidget);
 
     await tester.tap(find.text('Get Started'));
     await tester.pumpAndSettle();
 
-    expect(find.text("Hi, I'm Aiko!", skipOffstage: false), findsOneWidget);
-    expect(find.text('Next'), findsOneWidget);
+    expect(find.text('Welcome back!', skipOffstage: false), findsOneWidget);
+    expect(find.text('Log In', skipOffstage: false), findsOneWidget);
+  });
 
-    await tester.tap(find.text('Next'));
+  testWidgets('onboarding flow goes from goal to first account and finishes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accountRepositoryProvider.overrideWithValue(_FakeAccountRepository()),
+          profileRepositoryProvider.overrideWithValue(_FakeProfileRepository()),
+        ],
+        child: MaterialApp.router(
+          theme: AikoTheme.light(),
+          routerConfig: GoRouter(
+            initialLocation: '/onboarding',
+            routes: [
+              GoRoute(
+                path: '/onboarding',
+                builder: (context, state) => const OnboardingFlowScreen(),
+              ),
+              GoRoute(
+                path: '/home',
+                builder: (context, state) =>
+                    const Scaffold(body: Text('Aiko Home')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
     await tester.pumpAndSettle();
 
     expect(
@@ -45,11 +75,10 @@ void main() {
     );
     expect(find.text('Bank Account', skipOffstage: false), findsOneWidget);
 
-    await tester.tap(find.text('Search for your bank'));
+    await tester.tap(find.text('Finish'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Welcome back!', skipOffstage: false), findsOneWidget);
-    expect(find.text('Log In', skipOffstage: false), findsOneWidget);
+    expect(find.text('Aiko Home', skipOffstage: false), findsOneWidget);
   });
 
   testWidgets('finishing onboarding twice does not duplicate first account', (
@@ -98,8 +127,9 @@ Future<void> _completeOnboarding(
               builder: (context, state) => const OnboardingFlowScreen(),
             ),
             GoRoute(
-              path: '/auth',
-              builder: (context, state) => const LoginScreen(),
+              path: '/home',
+              builder: (context, state) =>
+                  const Scaffold(body: Text('Aiko Home')),
             ),
           ],
         ),
@@ -110,9 +140,7 @@ Future<void> _completeOnboarding(
   await tester.pumpAndSettle();
   await tester.tap(find.text('Next'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Next'));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('Search for your bank'));
+  await tester.tap(find.text('Finish'));
   await tester.pumpAndSettle();
 }
 

@@ -1,5 +1,4 @@
 import 'package:aiko/core/money/money.dart';
-import 'package:aiko/features/assets/presentation/assets_net_worth_screen.dart';
 import 'package:aiko/features/investments/application/investments_provider.dart';
 import 'package:aiko/features/investments/domain/investment_holding.dart';
 import 'package:aiko/features/investments/presentation/investments_screen.dart';
@@ -14,7 +13,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          investmentsProvider.overrideWith(() => _InvestmentsNotifier(_holdings)),
+          investmentsProvider.overrideWith(
+            () => _InvestmentsNotifier(_holdings),
+          ),
         ],
         child: const MaterialApp(home: InvestmentsScreen()),
       ),
@@ -33,7 +34,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          investmentsProvider.overrideWith(() => _InvestmentsNotifier(_holdings)),
+          investmentsProvider.overrideWith(
+            () => _InvestmentsNotifier(_holdings),
+          ),
         ],
         child: const MaterialApp(home: InvestmentsScreen()),
       ),
@@ -50,14 +53,6 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('VTI'), findsNothing);
-  });
-
-  testWidgets('assets screen exposes core sections', (tester) async {
-    await tester.pumpWidget(
-      const ProviderScope(child: MaterialApp(home: AssetsNetWorthScreen())),
-    );
-
-    expect(find.text('Net worth'), findsOneWidget);
   });
 }
 

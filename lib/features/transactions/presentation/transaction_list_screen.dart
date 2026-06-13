@@ -180,6 +180,9 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
           );
         },
       ),
+      bottomNavigationBar: SizedBox(
+        height: MediaQuery.paddingOf(context).bottom.clamp(16.0, double.infinity) + 80.0,
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.of(context, rootNavigator: true).push(
           MaterialPageRoute<void>(

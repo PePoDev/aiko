@@ -143,21 +143,27 @@ class AuthRepository {
         if (catId == null || !catId.startsWith('default-')) continue;
         final newId = CategoryDefaults.legacySlugToUuid[catId];
         if (newId == null) continue;
-        await store.upsert(OfflineTransaction(
-          id: tx.id,
-          userId: tx.userId,
-          accountId: tx.accountId,
-          type: tx.type,
-          amount: tx.amount,
-          currency: tx.currency,
-          date: tx.date,
-          categoryId: newId,
-          merchant: tx.merchant,
-          note: tx.note,
-          tags: tx.tags,
-          status: tx.status,
-        ));
-        if (kDebugMode) debugPrint('[aiko-sync] remapped tx ${tx.id} category $catId → $newId');
+        await store.upsert(
+          OfflineTransaction(
+            id: tx.id,
+            userId: tx.userId,
+            accountId: tx.accountId,
+            type: tx.type,
+            amount: tx.amount,
+            currency: tx.currency,
+            date: tx.date,
+            categoryId: newId,
+            merchant: tx.merchant,
+            note: tx.note,
+            tags: tx.tags,
+            status: tx.status,
+          ),
+        );
+        if (kDebugMode) {
+          debugPrint(
+            '[aiko-sync] remapped tx ${tx.id} category $catId → $newId',
+          );
+        }
       }
 
       // 2 — Delete stale default-* OfflineCategory rows (invalid UUIDs, never
@@ -170,16 +176,22 @@ class AuthRepository {
       for (final cat in legacyCategories) {
         if (!cat.id.startsWith('default-')) continue;
         await store.delete(cat);
-        if (kDebugMode) debugPrint('[aiko-sync] deleted stale local category ${cat.id}');
+        if (kDebugMode) {
+          debugPrint('[aiko-sync] deleted stale local category ${cat.id}');
+        }
       }
 
       // 3 — Flush queue entries whose body still contains the old slugs. These
       //     can never succeed (Postgres rejects the non-UUID id) so clearing
       //     them is safe. The re-upserted transactions from step 1 are already
       //     queued with valid UUIDs.
-      final flushed = await AikoBrickRepository.flushQueueEntriesContaining('%"default-%');
+      final flushed = await AikoBrickRepository.flushQueueEntriesContaining(
+        '%"default-%',
+      );
       if (kDebugMode && flushed > 0) {
-        debugPrint('[aiko-sync] flushed $flushed stale queue entries with legacy category ids');
+        debugPrint(
+          '[aiko-sync] flushed $flushed stale queue entries with legacy category ids',
+        );
       }
 
       // 4 — Claim data created while signed out under a local: anonymous id.

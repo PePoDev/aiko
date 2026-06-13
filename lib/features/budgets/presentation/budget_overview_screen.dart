@@ -131,6 +131,9 @@ class BudgetOverviewScreen extends ConsumerWidget {
           );
         },
       ),
+      bottomNavigationBar: SizedBox(
+        height: MediaQuery.paddingOf(context).bottom.clamp(16.0, double.infinity) + 80.0,
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const BudgetFormScreen()),

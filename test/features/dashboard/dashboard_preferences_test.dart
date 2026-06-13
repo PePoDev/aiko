@@ -55,5 +55,7 @@ void main() {
     expect(DashboardWidgetType.thisMonthOverview.label, 'This Month Overview');
     expect(DashboardWidgetType.cashFlowMapping.label, 'Cash flow mapping');
     expect(DashboardWidgetType.aikoGoalSimulator.label, 'Aiko Goal Simulator');
+    expect(DashboardWidgetType.totalDebt.label, 'Total debt');
+    expect(DashboardWidgetType.debtBreakdown.label, 'Debt breakdown');
   });
 }

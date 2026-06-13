@@ -3,11 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'app_test_bootstrap.dart';
 
 void main() {
-  testWidgets('first launch can reach onboarding', (tester) async {
+  testWidgets('first launch shows the welcome screen', (tester) async {
     await bootstrapIntegrationTest(tester);
-    await tester.tap(find.text('Get Started'));
-    await tester.pumpAndSettle();
 
-    expect(find.text("Hi, I'm Aiko!", skipOffstage: false), findsOneWidget);
+    expect(find.textContaining("Hi, I'm Aiko!"), findsOneWidget);
+    expect(find.text('Get Started'), findsOneWidget);
   });
 }

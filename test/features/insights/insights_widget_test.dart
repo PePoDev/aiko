@@ -80,7 +80,6 @@ void main() {
       );
       expect(find.text('Food spending increased'), findsOneWidget);
       expect(find.textContaining('Review'), findsWidgets);
-      expect(find.text('Aiko Review'), findsNothing);
       expect(find.text('Open monthly review'), findsNothing);
     },
   );

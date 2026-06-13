@@ -762,7 +762,13 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                   labelText: 'Account Type',
                   prefixIcon: Icon(Icons.account_balance_wallet_outlined),
                 ),
-                items: AccountType.values.map((type) {
+                items: AccountType.values
+                    .where(
+                      (type) =>
+                          type != AccountType.eWallet &&
+                          type != AccountType.other,
+                    )
+                    .map((type) {
                   return DropdownMenuItem(
                     value: type,
                     child: Text(_accountTypeLabel(type)),

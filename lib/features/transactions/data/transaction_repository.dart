@@ -23,8 +23,10 @@ class TransactionRepository {
     );
 
     if (kDebugMode) {
-      debugPrint('[aiko-sync] store returned ${transactions.length} '
-          'transactions for userId=$userId');
+      debugPrint(
+        '[aiko-sync] store returned ${transactions.length} '
+        'transactions for userId=$userId',
+      );
     }
 
     return transactions
@@ -44,7 +46,9 @@ class TransactionRepository {
     );
     final client = AikoSupabase.tryClient();
     if (client == null) {
-      debugPrint('[aiko-sync] Supabase client is null (offline/not configured)');
+      debugPrint(
+        '[aiko-sync] Supabase client is null (offline/not configured)',
+      );
       return;
     }
     debugPrint('[aiko-sync] authUser=${client.auth.currentUser?.id}');

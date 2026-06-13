@@ -24,7 +24,7 @@ class IntegrationTestAccount {
 }
 
 /// Ensures the integration test binding is ready and clears any persisted
-/// secure-storage state so every test starts from a clean splash screen.
+/// secure-storage state so every test starts from a clean welcome screen.
 ///
 /// Usage in each test file:
 /// ```dart

@@ -4,27 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'app_test_bootstrap.dart';
 
 void main() {
-  testWidgets('insights tab shows review entry', (tester) async {
+  // Placeholder: the previous "insights tab shows review entry" test was
+  // removed when the standalone Aiko Review screen was retired.
+  testWidgets('integration bootstrap smoke test', (tester) async {
     await bootstrapIntegrationTest(tester);
-    await tester.tap(find.text('Get started'));
-    await tester.pumpAndSettle();
-    for (var index = 0; index < 5; index++) {
-      await tester.tap(
-        find.text(index == 4 ? 'Continue to sign in' : 'Continue'),
-      );
-      await tester.pumpAndSettle();
-    }
-    await tester.enterText(find.byType(TextField).at(0), integrationTestEmail);
-    await tester.enterText(
-      find.byType(TextField).at(1),
-      integrationTestPassword,
-    );
-    await tester.tap(find.text('Continue securely'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Insights'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Aiko Review'), findsOneWidget);
+    expect(find.byType(MaterialApp), findsOneWidget);
   }, skip: !hasSupabaseIntegrationConfig);
 }

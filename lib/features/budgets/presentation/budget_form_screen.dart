@@ -74,9 +74,18 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
     final List<Category> active = categories.where((c) => c.isActive).toList();
 
     // Map by groups
-    final hasNeeds = active.any((c) => c.group == CategoryGroup.needs && !c.isDefault);
-    final hasWants = active.any((c) => c.group == CategoryGroup.wants && !c.isDefault);
-    final hasSavings = active.any((c) => c.group == CategoryGroup.savings && !c.isDefault && c.type == CategoryType.expense);
+    final hasNeeds = active.any(
+      (c) => c.group == CategoryGroup.needs && !c.isDefault,
+    );
+    final hasWants = active.any(
+      (c) => c.group == CategoryGroup.wants && !c.isDefault,
+    );
+    final hasSavings = active.any(
+      (c) =>
+          c.group == CategoryGroup.savings &&
+          !c.isDefault &&
+          c.type == CategoryType.expense,
+    );
 
     final List<Category> updatedList = List.from(active);
 
@@ -290,9 +299,8 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
         // Needs category budget (50%)
         final needsCat = categories.firstWhere(
           (c) => c.group == CategoryGroup.needs && !c.isDefault,
-          orElse: () => categories.firstWhere(
-            (c) => c.group == CategoryGroup.needs,
-          ),
+          orElse: () =>
+              categories.firstWhere((c) => c.group == CategoryGroup.needs),
         );
         final needsBudget = Budget(
           id: const Uuid().v4(),
@@ -311,9 +319,8 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
         // Wants category budget (30%)
         final wantsCat = categories.firstWhere(
           (c) => c.group == CategoryGroup.wants && !c.isDefault,
-          orElse: () => categories.firstWhere(
-            (c) => c.group == CategoryGroup.wants,
-          ),
+          orElse: () =>
+              categories.firstWhere((c) => c.group == CategoryGroup.wants),
         );
         final wantsBudget = Budget(
           id: const Uuid().v4(),
@@ -331,10 +338,12 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
 
         // Savings category budget (20%)
         final savingsCat = categories.firstWhere(
-          (c) => c.group == CategoryGroup.savings && !c.isDefault && c.type == CategoryType.expense,
-          orElse: () => categories.firstWhere(
-            (c) => c.group == CategoryGroup.savings,
-          ),
+          (c) =>
+              c.group == CategoryGroup.savings &&
+              !c.isDefault &&
+              c.type == CategoryType.expense,
+          orElse: () =>
+              categories.firstWhere((c) => c.group == CategoryGroup.savings),
         );
         final savingsBudget = Budget(
           id: const Uuid().v4(),

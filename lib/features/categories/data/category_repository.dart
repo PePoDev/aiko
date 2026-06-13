@@ -12,9 +12,7 @@ class CategoryRepository {
   Future<List<Category>> list() async {
     final userId = await OfflineUserContext().resolveUserId();
     final categories = await OfflineStore().get<OfflineCategory>(
-      query: Query(
-        where: [Where.exact('userId', userId)],
-      ),
+      query: Query(where: [Where.exact('userId', userId)]),
     );
 
     return categories
@@ -43,8 +41,7 @@ class CategoryRepository {
     }
 
     final userId = await OfflineUserContext().resolveUserId();
-    final categoryToSave =
-        category.createdAt == null && !category.isDefault
+    final categoryToSave = category.createdAt == null && !category.isDefault
         ? category.copyWith(createdAt: DateTime.now())
         : category;
     final saved = await OfflineStore().upsert(

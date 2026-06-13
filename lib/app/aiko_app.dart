@@ -29,10 +29,28 @@ class _AikoAppState extends State<AikoApp> {
   void initState() {
     super.initState();
     _authRepository = AuthRepository();
-    _router = createAikoRouter(
-      initialLocation: _authRepository.hasActiveSession() ? '/home' : '/',
-    );
+    _router = createAikoRouter(initialLocation: '/');
     _authRepository.restoreSessionInBackground();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _routeReturningUser();
+    });
+  }
+
+  Future<void> _routeReturningUser() async {
+    if (_authRepository.hasActiveSession()) {
+      _router.go('/home');
+      return;
+    }
+    await _authRepository.restoreSession();
+    if (!mounted) return;
+    if (_authRepository.hasActiveSession()) {
+      _router.go('/home');
+      return;
+    }
+    if (await _authRepository.hasKnownAccount()) {
+      if (!mounted) return;
+      _router.go('/auth');
+    }
   }
 
   @override

@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../app/providers.dart';
-import '../../../core/money/money.dart';
 import '../../../theme/aiko_colors.dart';
-import '../application/aiko_assistant_service.dart';
-import '../domain/aiko_response.dart';
-import '../../accounts/domain/account.dart';
+import '../../aiko_character/presentation/aiko_avatar.dart';
+import '../application/aiko_chat_controller.dart';
+import '../application/chat_engine.dart';
 
 class AikoAssistantScreen extends ConsumerStatefulWidget {
   const AikoAssistantScreen({super.key});
@@ -17,485 +15,455 @@ class AikoAssistantScreen extends ConsumerStatefulWidget {
       _AikoAssistantScreenState();
 }
 
-class _ChatMessage {
-  const _ChatMessage({
-    required this.text,
-    required this.isMe,
-    required this.time,
-    this.explanation,
-    this.disclaimer,
-    this.recommendation,
-    this.expression = 'assets/images/aiko/aiko_happy.png',
-  });
-
-  final String text;
-  final bool isMe;
-  final DateTime time;
-  final String? explanation;
-  final String? disclaimer;
-  final String? recommendation;
-  final String expression;
-}
-
 class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
-  static const _service = AikoAssistantService();
-  final _controller = TextEditingController();
+  final _textController = TextEditingController();
   final _scrollController = ScrollController();
-  final List<_ChatMessage> _messages = [];
-  String _currentExpression = 'assets/images/aiko/aiko_welcome.png';
-  bool _isTyping = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _messages.add(
-      _ChatMessage(
-        text:
-            "Hi there! I'm Aiko, your blue-haired personal finance assistant. 💙 Let me know how I can guide you today!",
-        isMe: false,
-        time: DateTime.now(),
-        expression: 'assets/images/aiko/aiko_welcome.png',
-      ),
-    );
-  }
+  static const _suggestions = <String>[
+    'How much can I safely spend?',
+    'Am I on track for my goals?',
+    'Where can I cut back?',
+    'Give me a quick money check-up.',
+  ];
 
   @override
   void dispose() {
-    _controller.dispose();
+    _textController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool animated = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
+      if (!_scrollController.hasClients) return;
+      final target = _scrollController.position.maxScrollExtent;
+      if (animated) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
+          target,
+          duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
         );
+      } else {
+        _scrollController.jumpTo(target);
       }
     });
   }
 
-  Future<void> _sendMessage(String text) async {
-    if (text.isEmpty) return;
-
-    setState(() {
-      _messages.add(_ChatMessage(text: text, isMe: true, time: DateTime.now()));
-      _isTyping = true;
-      _currentExpression = 'assets/images/aiko/aiko_thinking.png';
-    });
-    _scrollToBottom();
-    _controller.clear();
-
-    // Mock network/processing delay for interactive feel
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-
-    if (!mounted) return;
-
-    // Load active states from Riverpod
-    final profile = await ref.read(profileProvider.future);
-    final transactions = await ref.read(transactionsProvider.future);
-    final accounts = await ref.read(accountsProvider.future);
-    final budgets = await ref.read(budgetsProvider.future);
-    final goals = await ref.read(goalsProvider.future);
-    final insights = await ref.read(aikoInsightsProvider.future);
-
-    final aiConsent = profile.aiConsentEnabled;
-
-    // We can fetch safeToSpend estimation cushion if available from dashboard or simple math
-    final double safeToSpendValue =
-        accounts.fold<double>(0, (sum, acc) {
-          if (acc.type == AccountType.cash || acc.type == AccountType.bank) {
-            return sum + acc.currentBalance.amount.toDouble();
-          }
-          return sum;
-        }) *
-        0.15; // 15% cash safe-to-spend mock cushion if none available
-    final safeToSpendAmount = Money.parse(
-      safeToSpendValue.toStringAsFixed(2),
-      'USD',
-    );
-
-    final response = _service.answerQuestion(
-      question: text,
-      aiConsentEnabled: aiConsent,
-      safeToSpendAmount: safeToSpendAmount,
-      insights: insights,
-      accounts: accounts,
-      budgets: budgets,
-      goals: goals,
-      transactions: transactions,
-    );
-
-    // Map response type to character expression
-    String responseExpression = 'assets/images/aiko/aiko_happy.png';
-    final normalized = text.toLowerCase();
-
-    if (response.type == AikoResponseType.missingData) {
-      responseExpression = 'assets/images/aiko/aiko_warning.png';
-    } else if (normalized.contains('net worth') ||
-        normalized.contains('goal') ||
-        normalized.contains('celebrate')) {
-      responseExpression = 'assets/images/aiko/aiko_celebrating.png';
-    } else if (normalized.contains('safe') ||
-        normalized.contains('spend') ||
-        normalized.contains('optimize')) {
-      responseExpression = 'assets/images/aiko/aiko_encouraging.png';
-    } else if (normalized.contains('help') ||
-        response.type == AikoResponseType.disclaimer) {
-      responseExpression = 'assets/images/aiko/aiko_thinking.png';
-    }
-
-    setState(() {
-      _isTyping = false;
-      _currentExpression = responseExpression;
-      _messages.add(
-        _ChatMessage(
-          text: response.answer,
-          isMe: false,
-          time: DateTime.now(),
-          explanation: response.explanation,
-          disclaimer: response.disclaimer,
-          recommendation: response.recommendation,
-          expression: responseExpression,
-        ),
-      );
-    });
-    _scrollToBottom();
+  void _submit(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    ref.read(aikoChatControllerProvider.notifier).send(trimmed);
+    _textController.clear();
+    _scrollToBottom(animated: false);
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(aikoChatControllerProvider);
+    ref.listen(aikoChatControllerProvider, (prev, next) {
+      if (prev?.messages.length != next.messages.length ||
+          (next.isStreaming && next.messages.isNotEmpty)) {
+        _scrollToBottom();
+      }
+    });
+
     return Scaffold(
       backgroundColor: AikoColors.appBackgroundLight,
       appBar: AppBar(
-        title: const Row(
+        backgroundColor: AikoColors.appBackgroundLight,
+        elevation: 0,
+        titleSpacing: 12,
+        title: Row(
           children: [
-            CircleAvatar(
-              backgroundColor: AikoColors.softBlue,
-              child: Icon(Icons.face_3, color: AikoColors.primaryBlue),
-            ),
-            SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Aiko Assistant',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  'Online companion',
-                  style: TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-              ],
+            const AikoAvatar(size: 36),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Aiko',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: AikoColors.darkNavy,
+                    ),
+                  ),
+                  Text(
+                    state.consentOff ? 'Offline mode' : 'Online',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: state.consentOff
+                          ? AikoColors.warningOrange
+                          : AikoColors.successGreen,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Aiko Review',
-            onPressed: () => context.push('/aiko-review'),
-            icon: const Icon(Icons.rate_review_outlined),
-          ),
-        ],
       ),
       body: Column(
         children: [
-          // Aiko Face Display Panel
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: AikoColors.white,
-              border: Border(
-                bottom: BorderSide(
-                  color: AikoColors.border.withValues(alpha: 0.5),
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Image.asset(
-                  _currentExpression,
-                  width: 60,
-                  height: 60,
-                  errorBuilder: (_, _, _) => const Icon(
-                    Icons.face_3,
-                    size: 60,
-                    color: AikoColors.primaryBlue,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Aiko Guidance',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: AikoColors.darkNavy,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Aiko analyzes your budgets, savings goals, and cash flow in real-time.',
-                        style: TextStyle(fontSize: 11, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Scrollable messages list
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length + (_isTyping ? 1 : 0),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              itemCount: state.messages.length,
               itemBuilder: (context, index) {
-                if (index == _messages.length) {
-                  return _buildTypingIndicator();
-                }
-                return _buildMessageBubble(_messages[index]);
+                final message = state.messages[index];
+                final isLast = index == state.messages.length - 1;
+                return _MessageBubble(
+                  message: message,
+                  streaming: isLast && state.isStreaming,
+                  error: isLast && !state.isStreaming ? state.lastError : null,
+                  onRetry: () =>
+                      ref.read(aikoChatControllerProvider.notifier).retry(),
+                );
               },
             ),
           ),
-
-          // Quick reply chips
-          _buildQuickReplyChips(),
-
-          // Input text bar
-          _buildInputBar(),
+          if (state.showSuggestions)
+            _SuggestionStrip(suggestions: _suggestions, onSelected: _submit),
+          _InputBar(
+            controller: _textController,
+            disabled: state.consentOff || state.isStreaming,
+            onSubmit: _submit,
+            onChanged: (_) => setState(() {}),
+          ),
+          if (state.consentOff) const _ConsentOffNotice(),
         ],
       ),
     );
   }
+}
 
-  Widget _buildTypingIndicator() {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12, right: 60),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: AikoColors.white,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
-            bottomRight: Radius.circular(16),
-          ),
-          border: Border.all(color: AikoColors.border.withValues(alpha: 0.5)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/images/aiko/aiko_thinking.png',
-              width: 24,
-              height: 24,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              'Aiko is thinking...',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+class _MessageBubble extends StatelessWidget {
+  const _MessageBubble({
+    required this.message,
+    required this.streaming,
+    required this.error,
+    required this.onRetry,
+  });
 
-  Widget _buildMessageBubble(_ChatMessage msg) {
-    if (msg.isMe) {
+  final ChatMessage message;
+  final bool streaming;
+  final ChatError? error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (message.isUser) {
       return Align(
         alignment: Alignment.centerRight,
         child: Container(
-          margin: const EdgeInsets.only(bottom: 12, left: 60),
-          padding: const EdgeInsets.all(12),
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.78,
+          ),
+          margin: const EdgeInsets.only(bottom: 10, left: 56),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: const BoxDecoration(
             color: AikoColors.primaryBlue,
             borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(16),
-              topRight: Radius.circular(16),
-              bottomLeft: Radius.circular(16),
+              topLeft: Radius.circular(18),
+              topRight: Radius.circular(18),
+              bottomLeft: Radius.circular(18),
             ),
           ),
           child: Text(
-            msg.text,
-            style: const TextStyle(color: AikoColors.white, fontSize: 14),
+            message.content,
+            style: const TextStyle(
+              color: AikoColors.white,
+              fontSize: 15,
+              height: 1.35,
+            ),
           ),
         ),
       );
     }
 
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12, right: 60),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: AikoAvatar(
+              size: 32,
+              pulse: streaming && message.content.isEmpty,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.74,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AikoColors.white,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(18),
+                  topRight: Radius.circular(18),
+                  bottomRight: Radius.circular(18),
+                ),
+                border: Border.all(
+                  color: AikoColors.border.withValues(alpha: 0.5),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AikoColors.border.withValues(alpha: 0.08),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: error != null
+                  ? _ErrorBlock(message: error!.message, onRetry: onRetry)
+                  : _ContentBlock(
+                      content: message.content,
+                      streaming: streaming,
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContentBlock extends StatelessWidget {
+  const _ContentBlock({required this.content, required this.streaming});
+
+  final String content;
+  final bool streaming;
+
+  @override
+  Widget build(BuildContext context) {
+    if (content.isEmpty && streaming) {
+      return const _ThinkingDots();
+    }
+    if (streaming && content.isNotEmpty) {
+      return RichText(
+        text: TextSpan(
+          style: const TextStyle(
+            color: AikoColors.darkNavy,
+            fontSize: 15,
+            height: 1.4,
+          ),
           children: [
-            Image.asset(
-              msg.expression,
-              width: 36,
-              height: 36,
-              errorBuilder: (_, _, _) => const CircleAvatar(
-                radius: 18,
-                backgroundColor: AikoColors.softBlue,
-                child: Icon(
-                  Icons.face_3,
-                  size: 20,
-                  color: AikoColors.primaryBlue,
+            TextSpan(text: content),
+            const WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: _BlinkingCaret(),
+            ),
+          ],
+        ),
+      );
+    }
+    return Text(
+      content,
+      style: const TextStyle(
+        color: AikoColors.darkNavy,
+        fontSize: 15,
+        height: 1.4,
+      ),
+    );
+  }
+}
+
+class _ThinkingDots extends StatefulWidget {
+  const _ThinkingDots();
+
+  @override
+  State<_ThinkingDots> createState() => _ThinkingDotsState();
+}
+
+class _ThinkingDotsState extends State<_ThinkingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) {
+            final t = (_controller.value + i * 0.2) % 1.0;
+            final opacity = 0.3 + (1 - (t - 0.5).abs() * 2).clamp(0, 1) * 0.7;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Opacity(
+                opacity: opacity,
+                child: const Text(
+                  '●',
+                  style: TextStyle(color: AikoColors.primaryBlue, fontSize: 10),
                 ),
               ),
+            );
+          }),
+        );
+      },
+    );
+  }
+}
+
+class _BlinkingCaret extends StatefulWidget {
+  const _BlinkingCaret();
+
+  @override
+  State<_BlinkingCaret> createState() => _BlinkingCaretState();
+}
+
+class _BlinkingCaretState extends State<_BlinkingCaret>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 800),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _controller,
+      child: const Padding(
+        padding: EdgeInsets.only(left: 2),
+        child: Text(
+          '│',
+          style: TextStyle(
+            color: AikoColors.primaryBlue,
+            fontSize: 14,
+            fontWeight: FontWeight.w300,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorBlock extends StatelessWidget {
+  const _ErrorBlock({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.error_outline,
+              size: 16,
+              color: AikoColors.dangerRed,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AikoColors.white,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
-                  border: Border.all(
-                    color: AikoColors.border.withValues(alpha: 0.5),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AikoColors.border.withValues(alpha: 0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      msg.text,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: AikoColors.darkNavy,
-                        height: 1.3,
-                      ),
-                    ),
-                    if (msg.explanation != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        msg.explanation!,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                    if (msg.recommendation != null) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AikoColors.softBlue.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.lightbulb_outline,
-                              size: 16,
-                              color: AikoColors.primaryBlue,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                msg.recommendation!,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AikoColors.deepBlue,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    if (msg.disclaimer != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        msg.disclaimer!,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                  ],
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AikoColors.dangerRed,
                 ),
               ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: onRetry,
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          icon: const Icon(Icons.refresh, size: 16),
+          label: const Text('Retry'),
+        ),
+      ],
     );
   }
+}
 
-  Widget _buildQuickReplyChips() {
-    final suggestions = [
-      'Estimate Safe-to-Spend',
-      'What\'s my Net Worth?',
-      'Check Savings Goals',
-      'Summarize Budgets',
-      'How to Optimize?',
-    ];
+class _SuggestionStrip extends StatelessWidget {
+  const _SuggestionStrip({required this.suggestions, required this.onSelected});
 
+  final List<String> suggestions;
+  final void Function(String) onSelected;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      color: Colors.transparent,
-      child: ListView.builder(
+      height: 56,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: suggestions.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final title = suggestions[index];
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ActionChip(
-              backgroundColor: AikoColors.white,
-              side: BorderSide(color: AikoColors.border.withValues(alpha: 0.5)),
-              label: Text(
-                title,
-                style: const TextStyle(
-                  color: AikoColors.primaryBlue,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              onPressed: () => _sendMessage(title),
+          return ActionChip(
+            backgroundColor: AikoColors.softBlue.withValues(alpha: 0.35),
+            side: BorderSide(
+              color: AikoColors.primaryBlue.withValues(alpha: 0.2),
             ),
+            label: Text(
+              title,
+              style: const TextStyle(
+                color: AikoColors.deepBlue,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            onPressed: () => onSelected(title),
           );
         },
       ),
     );
   }
+}
 
-  Widget _buildInputBar() {
+class _InputBar extends StatelessWidget {
+  const _InputBar({
+    required this.controller,
+    required this.disabled,
+    required this.onSubmit,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final bool disabled;
+  final void Function(String) onSubmit;
+  final void Function(String) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasText = controller.text.trim().isNotEmpty;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
         color: AikoColors.white,
         border: Border(
@@ -505,25 +473,106 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
       child: SafeArea(
         top: false,
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
               child: TextField(
-                controller: _controller,
-                decoration: const InputDecoration(
-                  hintText: 'Ask about your money...',
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
-                ),
+                controller: controller,
+                enabled: !disabled,
+                onChanged: onChanged,
+                minLines: 1,
+                maxLines: 4,
                 textInputAction: TextInputAction.send,
-                onSubmitted: _sendMessage,
+                onSubmitted: onSubmit,
+                decoration: InputDecoration(
+                  hintText: disabled
+                      ? 'Aiko is busy...'
+                      : 'Ask about your money...',
+                  hintStyle: TextStyle(
+                    color: AikoColors.mutedText.withValues(alpha: 0.7),
+                  ),
+                  filled: true,
+                  fillColor: AikoColors.appBackgroundLight,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide(
+                      color: AikoColors.border.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide(
+                      color: AikoColors.border.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: const BorderSide(color: AikoColors.primaryBlue),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                ),
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.send, color: AikoColors.primaryBlue),
-              onPressed: () => _sendMessage(_controller.text.trim()),
+            const SizedBox(width: 8),
+            Material(
+              color: (disabled || !hasText)
+                  ? AikoColors.softBlue
+                  : AikoColors.primaryBlue,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: (disabled || !hasText)
+                    ? null
+                    : () => onSubmit(controller.text),
+                child: const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Icon(
+                    Icons.send_rounded,
+                    color: AikoColors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ConsentOffNotice extends StatelessWidget {
+  const _ConsentOffNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      color: AikoColors.paleBlue,
+      child: Row(
+        children: [
+          const Icon(
+            Icons.shield_outlined,
+            size: 16,
+            color: AikoColors.deepBlue,
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'AI features are off — using offline mode. Enable in Settings → Privacy.',
+              style: TextStyle(fontSize: 12, color: AikoColors.deepBlue),
+            ),
+          ),
+          TextButton(
+            onPressed: () => context.push('/profile'),
+            child: const Text('Open'),
+          ),
+        ],
       ),
     );
   }

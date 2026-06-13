@@ -52,6 +52,7 @@ class AuthenticatedShell extends StatelessWidget {
     final selectedIndex = _indexFor(location);
 
     return Scaffold(
+      extendBody: true,
       body: SafeArea(bottom: false, child: child),
       bottomNavigationBar: _AikoBottomNavigation(
         selectedIndex: selectedIndex,
@@ -88,12 +89,9 @@ class AuthenticatedShell extends StatelessWidget {
         location.startsWith('/accounts') ||
         location.startsWith('/categories') ||
         location.startsWith('/credit-cards') ||
-        location.startsWith('/debt-overview') ||
         location.startsWith('/debt-loans') ||
         location.startsWith('/loans') ||
-        location.startsWith('/net-worth') ||
         location.startsWith('/portfolio') ||
-        location.startsWith('/assets') ||
         location.startsWith('/loan-calculator') ||
         location.startsWith('/calculator-result') ||
         location.startsWith('/tax-center') ||

@@ -1,56 +1,25 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../app/providers.dart';
 import '../../../shared/widgets/aiko_idea_widgets.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../settings/domain/profile.dart';
 import '../data/auth_repository.dart';
 
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
-
-  @override
-  State<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen> {
-  final _authRepository = AuthRepository();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _routeReturningUser();
-    });
-  }
-
-  Future<void> _routeReturningUser() async {
-    if (_authRepository.hasActiveSession()) {
-      _authRepository.restoreSessionInBackground();
-      if (!mounted) return;
-      context.go('/home');
-      return;
-    }
-
-    await _authRepository.restoreSession();
-    if (!mounted) return;
-
-    if (_authRepository.hasActiveSession()) {
-      context.go('/home');
-      return;
-    }
-
-    if (await _authRepository.hasKnownAccount()) {
-      if (!mounted) return;
-      context.go('/auth');
-    }
-  }
+class WelcomeScreen extends StatelessWidget {
+  const WelcomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final compact = MediaQuery.sizeOf(context).height < 720;
+    final imageSize = compact ? 140.0 : 190.0;
+    final sectionGap = compact ? 16.0 : 24.0;
 
     return Scaffold(
       backgroundColor: AikoColors.white,
@@ -59,48 +28,93 @@ class _SplashScreenState extends State<SplashScreen> {
           child: Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: clampIdeaWidth(context)),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(28, 20, 28, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Spacer(flex: 2),
-                    const Center(child: AikoWordmark(size: 60)),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Your Personal\nFinance Companion',
-                      textAlign: TextAlign.center,
-                      style: textTheme.titleMedium?.copyWith(
-                        color: AikoColors.neutralInk,
-                        fontWeight: FontWeight.w700,
-                        height: 1.15,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Center(child: AikoWordmark(size: 56)),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Your personal\nfinance companion',
+                            textAlign: TextAlign.center,
+                            style: textTheme.titleMedium?.copyWith(
+                              color: AikoColors.neutralInk,
+                              fontWeight: FontWeight.w700,
+                              height: 1.15,
+                            ),
+                          ),
+                          SizedBox(height: sectionGap),
+                          Center(
+                            child: AikoCharacterImage(
+                              size: imageSize,
+                              borderRadius: compact ? 32 : 40,
+                              semanticLabel: 'Aiko waving hello',
+                            ),
+                          ),
+                          SizedBox(height: sectionGap),
+                          Text(
+                            "Hi, I'm Aiko! I'm your AI finance assistant — here to help you understand your money, build better habits, and reach your goals.",
+                            textAlign: TextAlign.center,
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: AikoColors.neutralInk,
+                              height: 1.45,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: AikoColors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AikoColors.borderSubtle,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AikoColors.border.withValues(
+                                    alpha: 0.18,
+                                  ),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: const Column(
+                              children: [
+                                AikoFeatureRow(
+                                  icon: Icons.psychology_alt_outlined,
+                                  label: 'Personalized insights',
+                                ),
+                                SizedBox(height: 14),
+                                AikoFeatureRow(
+                                  icon: Icons.savings_outlined,
+                                  label: 'Smart budgeting',
+                                ),
+                                SizedBox(height: 14),
+                                AikoFeatureRow(
+                                  icon: Icons.flag_outlined,
+                                  label: 'Goal tracking',
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const Spacer(),
-                    const Center(
-                      child: AikoCharacterImage(
-                        size: 214,
-                        borderRadius: 44,
-                        semanticLabel: 'Aiko holding a gold coin',
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      'Smarter insights. Better habits.\nBrighter future.',
-                      textAlign: TextAlign.center,
-                      style: textTheme.bodyLarge?.copyWith(
-                        color: AikoColors.deepBlue,
-                        fontWeight: FontWeight.w700,
-                        height: 1.35,
-                      ),
-                    ),
-                    const Spacer(),
-                    AikoPrimaryButton(
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(28, 12, 28, 24),
+                    child: AikoPrimaryButton(
                       label: 'Get Started',
-                      onPressed: () => context.push('/onboarding'),
+                      onPressed: () => context.go('/auth'),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -153,6 +167,19 @@ class _LoginScreenState extends State<LoginScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<void> _routeAfterAuth() async {
+    final container = ProviderScope.containerOf(context);
+    final profileRepo = container.read(profileRepositoryProvider);
+    final profile = await profileRepo.load();
+    container.invalidate(profileProvider);
+    if (!mounted) return;
+    if (profile.onboardingStatus == OnboardingStatus.completed) {
+      context.go('/home');
+    } else {
+      context.go('/onboarding');
+    }
+  }
+
   Future<void> _handleSignIn() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -166,7 +193,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await _authRepository.signIn(email: email, password: password);
       if (!mounted) return;
-      context.go('/home');
+      await _routeAfterAuth();
     } on AuthException catch (error) {
       _showMessage(error.message);
     } on StateError catch (error) {
@@ -239,7 +266,7 @@ class _LoginScreenState extends State<LoginScreen> {
       await _authRepository.restoreSession();
       if (!mounted) return;
       if (_authRepository.hasActiveSession()) {
-        context.go('/home');
+        await _routeAfterAuth();
       } else {
         _showMessage('Google sign-in completed, but no session was found.');
       }
@@ -269,7 +296,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (_authRepository.hasActiveSession()) {
-        context.go('/home');
+        await _routeAfterAuth();
       } else {
         _showMessage('Account created. Check your email, then sign in.');
       }

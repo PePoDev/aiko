@@ -22,9 +22,7 @@ void main() {
     '/loan-calculator': 'Loan Calculator',
     '/calculator-result': 'Calculator Result',
     '/credit-cards/detail': 'Credit Card Detail',
-    '/debt-overview': 'Debt Overview',
     '/loans/detail': 'Loans Detail',
-    '/net-worth': 'Net Worth Overview',
     '/portfolio/allocation': 'Asset Allocation',
     '/portfolio/holding': 'Holding Detail',
     '/tax-analytics': 'Tax Analytics',
@@ -63,6 +61,38 @@ void main() {
 
     expect(find.text('Route not found'), findsOneWidget);
     expect(find.text('Accounting'), findsNothing);
+  });
+
+  testWidgets('/debt-overview has been removed', (tester) async {
+    await tester.pumpWidget(_routerApp('/debt-overview'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Route not found'), findsOneWidget);
+    expect(find.text('Debt Overview'), findsNothing);
+  });
+
+  testWidgets('/credit-cards has been removed', (tester) async {
+    await tester.pumpWidget(_routerApp('/credit-cards'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Route not found'), findsOneWidget);
+    expect(find.text('Credit Cards'), findsNothing);
+  });
+
+  testWidgets('/assets-net-worth has been removed', (tester) async {
+    await tester.pumpWidget(_routerApp('/assets-net-worth'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Route not found'), findsOneWidget);
+    expect(find.text('Assets and Net Worth'), findsNothing);
+  });
+
+  testWidgets('/assets has been removed', (tester) async {
+    await tester.pumpWidget(_routerApp('/assets'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Route not found'), findsOneWidget);
+    expect(find.text('Assets and Net Worth'), findsNothing);
   });
 }
 

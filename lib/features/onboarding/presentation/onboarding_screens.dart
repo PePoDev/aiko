@@ -27,7 +27,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
   var _selectedAccount = _AccountChoice.bank;
   var _isFinishing = false;
 
-  static const _stepsCount = 3;
+  static const _stepsCount = 2;
   static const _selectedCurrency = 'USD';
   static const _selectedCountry = 'US';
 
@@ -48,7 +48,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
 
     setState(() => _isFinishing = true);
     unawaited(_saveFirstAccountAndProfile());
-    context.go('/auth');
+    context.go('/home');
   }
 
   Future<void> _saveFirstAccountAndProfile() async {
@@ -140,7 +140,6 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                     physics: const NeverScrollableScrollPhysics(),
                     onPageChanged: (value) => setState(() => _page = value),
                     children: [
-                      _WelcomeStep(),
                       _GoalStep(
                         focus: _focus,
                         onChanged: (value) => setState(() => _focus = value),
@@ -171,8 +170,8 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                 AikoPrimaryButton(
                   label: _page == _stepsCount - 1
                       ? (_isFinishing
-                            ? 'Connecting...'
-                            : 'Search for your bank')
+                            ? 'Finishing...'
+                            : 'Finish')
                       : 'Next',
                   onPressed: _isFinishing ? null : _handleNext,
                 ),
@@ -182,82 +181,6 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _WelcomeStep extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final compact = MediaQuery.sizeOf(context).height < 720;
-    final imageSize = compact ? 152.0 : 214.0;
-    final sectionGap = compact ? 16.0 : 26.0;
-
-    return AikoSparkleBackdrop(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(28, 6, 28, 24),
-        children: [
-          Text(
-            "Hi, I'm Aiko!",
-            style: textTheme.headlineSmall?.copyWith(
-              color: AikoColors.darkNavy,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "I'm your AI finance assistant. I'm here to help you manage your money, build better habits, and reach your goals.",
-            style: textTheme.bodyMedium?.copyWith(
-              color: AikoColors.neutralInk,
-              height: 1.45,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          SizedBox(height: sectionGap),
-          Center(
-            child: AikoCharacterImage(
-              size: imageSize,
-              borderRadius: compact ? 32 : 44,
-              semanticLabel: 'Aiko waving hello',
-            ),
-          ),
-          SizedBox(height: sectionGap),
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AikoColors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AikoColors.borderSubtle),
-              boxShadow: [
-                BoxShadow(
-                  color: AikoColors.border.withValues(alpha: 0.18),
-                  blurRadius: 18,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: const Column(
-              children: [
-                AikoFeatureRow(
-                  icon: Icons.psychology_alt_outlined,
-                  label: 'Personalized insights',
-                ),
-                SizedBox(height: 14),
-                AikoFeatureRow(
-                  icon: Icons.savings_outlined,
-                  label: 'Smart budgeting',
-                ),
-                SizedBox(height: 14),
-                AikoFeatureRow(
-                  icon: Icons.flag_outlined,
-                  label: 'Goal tracking',
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

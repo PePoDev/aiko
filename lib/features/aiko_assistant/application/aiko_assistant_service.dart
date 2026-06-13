@@ -46,7 +46,7 @@ class AikoAssistantService {
 
   AikoResponse answerQuestion({
     required String question,
-    required bool aiConsentEnabled,
+    bool aiConsentEnabled = true,
     Money? safeToSpendAmount,
     List<AikoInsight> insights = const [],
     List<Account> accounts = const [],

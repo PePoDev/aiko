@@ -9,7 +9,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import '../helpers/test_app.dart';
 
 void main() {
-  testWidgets('router starts on splash and can show onboarding entry', (
+  testWidgets('router starts on welcome and can show login entry', (
     tester,
   ) async {
     await tester.pumpWidget(buildTestApp());

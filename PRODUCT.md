@@ -100,7 +100,7 @@ Saved calculations store as `SavedCalculatorScenario` and can be converted into 
 | Entity | Fields |
 | :--- | :--- |
 | **User** | `id` (UUID), `name`, `email`, `base_currency`, `country`, `timezone`, `preferred_theme`, `aiko_personality_setting`, `created_at` |
-| **Account** | `id`, `user_id`, `name`, `type` (cash, bank, card, loan, etc), `currency`, `opening_balance`, `current_balance`, `is_active` |
+| **Account** | `id`, `user_id`, `name`, `type` (cash, bank, card, loan, etc), `currency`, `current_balance`, `is_active` |
 | **Transaction** | `id`, `user_id`, `account_id`, `type`, `amount`, `currency`, `exchange_rate`, `category_id`, `date`, `merchant`, `note`, `tags`, `is_recurring`, `tax_flag` |
 | **Category** | `id`, `user_id`, `name`, `parent_id`, `type`, `icon`, `color`, `budget_enabled` |
 | **TransactionRule**| `id`, `user_id`, `rule_name`, `condition_type`, `condition_value`, `target_category_id`, `target_account_id`, `tags_to_apply`, `priority`, `is_active` |

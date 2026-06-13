@@ -297,9 +297,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             );
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('User ID copied'),
-                              ),
+                              const SnackBar(content: Text('User ID copied')),
                             );
                           },
                         ),

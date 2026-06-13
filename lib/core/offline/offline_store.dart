@@ -39,11 +39,10 @@ class OfflineStore {
     // `alwaysHydrate` alone would return the empty local result immediately and
     // only hydrate in an unawaited background pass, which is why a reinstall
     // previously showed nothing but locally-seeded data.
-    final hasLocalData =
-        (await _repository.get<TModel>(
-          query: query,
-          policy: OfflineFirstGetPolicy.localOnly,
-        )).isNotEmpty;
+    final hasLocalData = (await _repository.get<TModel>(
+      query: query,
+      policy: OfflineFirstGetPolicy.localOnly,
+    )).isNotEmpty;
 
     // Once local data exists, return it immediately but keep refreshing from
     // Supabase in the background so later reads stay in sync across devices.

@@ -200,6 +200,9 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
     return Scaffold(
       backgroundColor: AikoColors.appBackgroundLight,
       appBar: AppBar(title: const Text('Bills & Subscriptions')),
+      bottomNavigationBar: SizedBox(
+        height: MediaQuery.paddingOf(context).bottom.clamp(16.0, double.infinity) + 80.0,
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddBillBottomSheet,
         backgroundColor: AikoColors.primaryBlue,

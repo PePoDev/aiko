@@ -110,6 +110,9 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                 ),
         ),
       ),
+      bottomNavigationBar: SizedBox(
+        height: MediaQuery.paddingOf(context).bottom.clamp(16.0, double.infinity) + 80.0,
+      ),
       floatingActionButton: const _QuickAddMenu(),
     );
   }
@@ -187,9 +190,10 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       DashboardWidgetType.cashFlow => const _CashFlowPanel(),
       DashboardWidgetType.netWorth => const _NetWorthPanel(),
       DashboardWidgetType.netWorthTrend => const _NetWorthTrendPanel(),
-      DashboardWidgetType.assetsLiabilities =>
-        const _AssetsLiabilitiesPanel(),
+      DashboardWidgetType.assetsLiabilities => const _AssetsLiabilitiesPanel(),
       DashboardWidgetType.topAssets => const _TopAssetsPanel(),
+      DashboardWidgetType.totalDebt => const _TotalDebtPanel(),
+      DashboardWidgetType.debtBreakdown => const _DebtBreakdownPanel(),
     };
   }
 }
@@ -312,6 +316,56 @@ class _ThisMonthOverviewSection extends StatelessWidget {
           label: 'Savings',
           value: netCashFlow.format(),
           color: AikoColors.analyticsTeal,
+        ),
+      ],
+    );
+  }
+}
+
+class _TotalDebtPanel extends StatelessWidget {
+  const _TotalDebtPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return const AikoMetricCard(
+      label: 'Total Debt',
+      value: '\$47,250.00',
+      change: '-\$1,250 vs last month',
+      icon: Icons.account_balance_wallet_outlined,
+      accentColor: AikoColors.dangerRed,
+      progress: 0.32,
+    );
+  }
+}
+
+class _DebtBreakdownPanel extends StatelessWidget {
+  const _DebtBreakdownPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return const AikoDataListCard(
+      title: 'Debt Breakdown',
+      icon: Icons.pie_chart_outline,
+      rows: [
+        AikoDataRow(
+          label: 'Credit Cards',
+          value: '\$6,250.00',
+          color: AikoColors.warningOrange,
+        ),
+        AikoDataRow(
+          label: 'Student Loans',
+          value: '\$28,500.00',
+          color: AikoColors.primaryBlue,
+        ),
+        AikoDataRow(
+          label: 'Personal Loans',
+          value: '\$7,500.00',
+          color: AikoColors.premiumPurple,
+        ),
+        AikoDataRow(
+          label: 'Other Debt',
+          value: '\$5,000.00',
+          color: AikoColors.mutedText,
         ),
       ],
     );
@@ -586,16 +640,16 @@ class _MetricTile extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: AikoColors.mutedText,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AikoColors.mutedText),
         ),
         const SizedBox(height: 4),
         Text(
           value,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
       ],
     );
@@ -665,23 +719,17 @@ class _AssetRow extends StatelessWidget {
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
         ),
         Text(
           value,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
       ],
     );

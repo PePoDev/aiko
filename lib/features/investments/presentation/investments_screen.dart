@@ -102,7 +102,9 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
             ),
             FilledButton(
               onPressed: () {
-                ref.read(investmentsProvider.notifier).deleteHolding(holding.id);
+                ref
+                    .read(investmentsProvider.notifier)
+                    .deleteHolding(holding.id);
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -996,7 +998,9 @@ class _AddHoldingBottomSheetState
     final theme = Theme.of(context);
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.9,
@@ -1029,7 +1033,7 @@ class _AddHoldingBottomSheetState
                   ],
                 ),
                 const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
+                DropdownButtonFormField<String>(
                   initialValue: _selectedAssetClass,
                   decoration: const InputDecoration(
                     labelText: 'Asset class',

@@ -89,7 +89,6 @@ class AuthenticatedShell extends StatelessWidget {
         location.startsWith('/credit-cards') ||
         location.startsWith('/loans') ||
         location.startsWith('/portfolio') ||
-        location.startsWith('/loan-calculator') ||
         location.startsWith('/tax-center') ||
         location.startsWith('/travel-mode')) {
       return 3;

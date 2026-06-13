@@ -165,10 +165,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             builder: (context, state) => const HoldingDetailScreen(),
           ),
           GoRoute(
-            path: '/loan-calculator',
-            builder: (context, state) => const LoanCalculatorScreen(),
-          ),
-          GoRoute(
             path: '/learning-hub',
             builder: (context, state) => const LearningHubScreen(),
           ),

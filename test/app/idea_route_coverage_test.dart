@@ -15,7 +15,6 @@ void main() {
     '/goals/saving-plan': 'Saving Plan',
     '/goals/chance-of-success': 'Chance of Success',
     '/reports/monthly': 'Monthly Report',
-    '/loan-calculator': 'Loan Calculator',
     '/portfolio/allocation': 'Asset Allocation',
     '/portfolio/holding': 'Holding Detail',
     '/profile-security': 'Profile & Security',

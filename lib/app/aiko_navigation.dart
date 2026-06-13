@@ -54,12 +54,6 @@ const aikoNavigationGroups = [
         description: 'Open the current monthly finance review.',
       ),
       AikoNavigationItem(
-        label: 'Loan Calculator',
-        path: '/loan-calculator',
-        icon: Icons.payments_outlined,
-        description: 'Estimate monthly payment, interest, and payoff impact.',
-      ),
-      AikoNavigationItem(
         label: 'Export',
         path: '/export',
         icon: Icons.file_download_outlined,

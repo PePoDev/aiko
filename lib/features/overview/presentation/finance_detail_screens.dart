@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/aiko_data_widgets.dart';
@@ -463,78 +461,6 @@ class MonthlyReportScreen extends StatelessWidget {
   }
 }
 
-class LoanCalculatorScreen extends StatefulWidget {
-  const LoanCalculatorScreen({super.key});
-
-  @override
-  State<LoanCalculatorScreen> createState() => _LoanCalculatorScreenState();
-}
-
-class _LoanCalculatorScreenState extends State<LoanCalculatorScreen> {
-  double _amount = 200000;
-  double _rate = 6.5;
-  double _years = 20;
-  bool _reduceTenure = true;
-
-  double get _emi {
-    final monthlyRate = _rate / 100 / 12;
-    final months = _years * 12;
-    final factor = math.pow(1 + monthlyRate, months);
-    return _amount * monthlyRate * factor / (factor - 1);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AikoDetailScaffold(
-      title: 'Loan Calculator',
-      children: [
-        const _SegmentedHeader(labels: ['EMI', 'Total Interest']),
-        _SliderCard(
-          label: 'Loan Amount',
-          valueLabel: '\$${_amount.toStringAsFixed(0)}',
-          min: 5000,
-          max: 500000,
-          value: _amount,
-          onChanged: (value) => setState(() => _amount = value),
-        ),
-        _SliderCard(
-          label: 'Interest Rate (p.a.)',
-          valueLabel: '${_rate.toStringAsFixed(2)}%',
-          min: 1,
-          max: 18,
-          value: _rate,
-          onChanged: (value) => setState(() => _rate = value),
-        ),
-        _SliderCard(
-          label: 'Loan Tenure',
-          valueLabel: '${_years.toStringAsFixed(0)} years',
-          min: 1,
-          max: 30,
-          value: _years,
-          onChanged: (value) => setState(() => _years = value),
-        ),
-        SwitchListTile(
-          value: _reduceTenure,
-          title: const Text('Reduce Tenure'),
-          subtitle: const Text('Apply prepayments to finish faster'),
-          onChanged: (value) => setState(() => _reduceTenure = value),
-        ),
-        AikoMetricCard(
-          label: 'Estimated Monthly EMI',
-          value: '\$${_emi.toStringAsFixed(2)}',
-          change: 'Based on current inputs',
-          icon: Icons.calculate_outlined,
-        ),
-        FilledButton.icon(
-          onPressed: () => _showSnack(context, 'Loan scenario calculated.'),
-          icon: const Icon(Icons.calculate_outlined),
-          label: const Text('Calculate'),
-        ),
-      ],
-    );
-  }
-}
-
 class AssetAllocationScreen extends StatelessWidget {
   const AssetAllocationScreen({super.key});
 
@@ -760,44 +686,6 @@ class _SegmentedHeader extends StatelessWidget {
       ],
       selected: const {0},
       onSelectionChanged: (_) {},
-    );
-  }
-}
-
-class _SliderCard extends StatelessWidget {
-  const _SliderCard({
-    required this.label,
-    required this.valueLabel,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String valueLabel;
-  final double value;
-  final double min;
-  final double max;
-  final ValueChanged<double> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(child: Text(label)),
-                Text(valueLabel, style: Theme.of(context).textTheme.titleSmall),
-              ],
-            ),
-            Slider(value: value, min: min, max: max, onChanged: onChanged),
-          ],
-        ),
-      ),
     );
   }
 }

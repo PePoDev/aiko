@@ -364,6 +364,137 @@ Feature modules under `lib/features/<name>/` follow the current layered layout:
 
 ---
 
+## Architecture Strategy and Data Design
+
+This section explains the *why* behind Aiko's stack and the data conventions that keep it cheap to run, fast offline, and portable. It complements the rules in [Architecture Conventions](#architecture-conventions) above. Several concrete designs below (summary tables, the attachment table, the remote-storage interface) are the intended approach for features as they land, not all shipped yet.
+
+### Goals
+
+The architecture optimizes for:
+
+- **Low backend cost** — most reads hit local SQLite, not Supabase.
+- **Good offline support** — the app stays fully usable without a network.
+- **Fast app UX** — the UI renders from the local store immediately.
+- **Reduced vendor lock-in** — the remote is standard Postgres behind repository interfaces.
+- **Easy future migration / self-hosting** — Supabase Cloud → self-hosted Supabase → custom Postgres without UI changes.
+
+### Why Brick
+
+[Brick](https://github.com/GetDutchie/brick) is the middle ground between hand-rolled sync and a managed sync service. It handles model mapping, the local SQLite cache, the Supabase provider, offline-first repositories, the sync queue, and local query subscriptions — so the app avoids writing a manual sync outbox, retry queue, Supabase↔SQLite mapper, repository cache logic, and offline write handling.
+
+Use Brick for structured app data: accounts, transactions, categories, budgets, goals, and summary/attachment metadata. Do **not** rely on Brick for receipt image bytes — remote file storage is not used (see [Receipt and Attachment Strategy](#receipt-and-attachment-strategy)).
+
+### Supabase Scope
+
+Use Supabase only for **Auth**, **Postgres**, **RLS**, and structured finance data. Postgres is the remote source of truth; SQLite is the local-first read/write layer.
+
+By default, do **not** use Supabase Storage, Supabase Realtime, Edge Functions (unless a feature truly needs server-side logic), or large file blobs in Postgres.
+
+### Local-First Data Flow
+
+- **Reading:** open app → read local SQLite immediately → render UI → Brick syncs with Supabase in the background → update SQLite → UI updates through Riverpod/Brick streams.
+- **Writing:** user acts → write locally first → UI updates immediately → Brick syncs the change to Supabase Postgres → remote source of truth updated.
+
+### Sync Field Conventions
+
+Every syncable table carries:
+
+```sql
+id uuid primary key,
+user_id uuid not null,
+created_at timestamptz not null default now(),
+updated_at timestamptz not null default now(),
+deleted_at timestamptz,           -- soft delete; makes offline delete sync safe
+version integer not null default 1
+```
+
+Use **soft delete** (`deleted_at`) rather than hard delete so offline deletes reconcile cleanly across devices.
+
+### Conflict Resolution
+
+- Transactions, budgets, categories: **latest `updated_at` wins**.
+- Important records: compare `version` before overwriting.
+- Summaries: **recalculated from transactions**, never merged.
+- Account balances: calculated or snapshot-based.
+- Attachments: local file wins on-device; only metadata syncs remotely.
+
+### Summary Tables for Dashboards
+
+Dashboard and report screens read pre-aggregated summary tables instead of repeatedly scanning raw transactions, which keeps reads cheap and fast. Planned summary tables: `daily_summary`, `monthly_summary`, `category_monthly_summary`, `budget_progress`, `account_balance_snapshot`, `net_worth_snapshot`.
+
+### Receipt and Attachment Strategy
+
+Aiko does not use Supabase Storage or any remote object store (e.g. Cloudflare R2) for the MVP. Receipt images stay on the device; only metadata syncs to Postgres.
+
+- The image file lives on the local filesystem (via `path_provider`), never in Postgres `bytea` — storing image bytes in Postgres inflates database size, backups, and bandwidth.
+- Postgres stores only metadata: file name, local path, optional remote path, checksum, size, mime type, and sync status.
+- Trade-off: receipt **images** do not sync across devices yet — only their metadata does. This is acceptable for an MVP that prioritizes low cost and no file-storage service.
+
+Planned metadata table:
+
+```sql
+create table transaction_attachments (
+  id uuid primary key,
+  user_id uuid not null,
+  transaction_id uuid not null,
+  local_path text,
+  remote_path text,                 -- null until remote storage is added
+  file_name text,
+  mime_type text,
+  file_size_bytes bigint,
+  checksum text,
+  sync_status text not null default 'local_only',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz
+);
+```
+
+Keep remote storage **replaceable through an interface** so it can be added later without touching the UI. Define a `RemoteAttachmentStorage` interface (upload / delete / getDownloadUrl) and ship a no-op implementation for the MVP:
+
+```dart
+abstract class RemoteAttachmentStorage {
+  Future<String> upload({
+    required String localPath,
+    required String remotePath,
+    required String contentType,
+  });
+  Future<void> delete(String remotePath);
+  Future<String> getDownloadUrl(String remotePath);
+}
+
+class NoopRemoteAttachmentStorage implements RemoteAttachmentStorage {
+  @override
+  Future<String> upload({/* ... */}) =>
+      throw UnsupportedError('Remote attachment storage is disabled.');
+  @override
+  Future<void> delete(String remotePath) async {}
+  @override
+  Future<String> getDownloadUrl(String remotePath) =>
+      throw UnsupportedError('Remote attachment storage is disabled.');
+}
+```
+
+### Cost Strategy
+
+Supabase cost stays low because most reads come from local SQLite, dashboards read local summary tables, writes are batched/synced, and there is no Storage, R2, or Realtime cost or repeated remote querying.
+
+Avoid these expensive patterns:
+
+- Loading all transactions from Supabase on every screen.
+- Enabling Realtime for every user/session by default.
+- Uploading receipt images into the database.
+- Using Edge Functions for simple CRUD.
+- Calling Supabase directly from UI screens — go through repositories (see [Architecture Conventions](#architecture-conventions)).
+
+### Vendor Lock-in and Migration Path
+
+Supabase is not hard lock-in because the core is standard Postgres. To keep soft lock-in low: keep the schema standard Postgres, go through repository interfaces, avoid Supabase Storage and Realtime, keep business logic in the Dart/domain layer, and make file storage replaceable via an interface.
+
+Migration path: **Supabase Cloud → self-hosted Supabase → custom Postgres backend** if ever needed.
+
+---
+
 ## Core Features
 
 ### 🏠 Customizable Dashboard
@@ -467,6 +598,8 @@ The Supabase backend uses 15 core tables, all protected by Row Level Security:
 | `devices` | Registered devices for sync |
 
 All tables enforce `user_id = auth.uid()` via RLS policies — users can only access their own data. Exception: `categories` uses split policies — SELECT allows `user_id IS NULL OR user_id = auth.uid()` so global system categories are readable by all authenticated users; INSERT/UPDATE/DELETE remain scoped to `auth.uid()`.
+
+Syncable tables follow shared sync-field and conflict conventions, dashboard reads are backed by pre-aggregated summary tables, and receipt metadata uses a local-first attachment table — see [Architecture Strategy and Data Design](#architecture-strategy-and-data-design).
 
 ### Entity Field Reference
 

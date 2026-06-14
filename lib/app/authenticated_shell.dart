@@ -130,41 +130,40 @@ class _AikoBottomNavigation extends StatelessWidget {
   final ValueChanged<int> onSelected;
   final List<_AikoNavItem> items;
 
+  static const double _barHeight = 60;
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final background = colorScheme.surfaceContainerHighest;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return SafeArea(
-      top: false,
-      minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: background.withValues(alpha: 0.96),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: colorScheme.outlineVariant),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.onSurface.withValues(alpha: 0.08),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
+    return Material(
+      color: colorScheme.surface,
+      elevation: 0,
+      child: SafeArea(
+        top: false,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(color: colorScheme.outlineVariant, width: 1),
             ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            children: [
-              for (var index = 0; index < items.length; index++)
-                Expanded(
-                  child: _AikoBottomNavigationItem(
-                    item: items[index],
-                    selected: index == selectedIndex,
-                    onTap: () => onSelected(index),
-                  ),
-                ),
-            ],
+          ),
+          child: SizedBox(
+            height: _barHeight,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                children: [
+                  for (var index = 0; index < items.length; index++)
+                    Expanded(
+                      child: _AikoBottomNavigationItem(
+                        item: items[index],
+                        selected: index == selectedIndex,
+                        onTap: () => onSelected(index),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -183,18 +182,30 @@ class _AikoBottomNavigationItem extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  static const double _indicatorWidth = 32;
+  static const double _indicatorHeight = 3;
+  static const double _iconSize = 24;
+  static const double _iconLabelGap = 2;
+  static const double _indicatorIconGap = 4;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isAiko = item.path == '/aiko';
 
-    Color foreground;
-    if (isAiko) {
-      foreground = selected ? Colors.white : AikoColors.premiumPurple;
+    final Color foreground;
+    if (selected) {
+      foreground = colorScheme.onSurface;
+    } else if (isAiko) {
+      foreground = AikoColors.premiumPurple.withValues(alpha: 0.6);
     } else {
-      foreground = selected ? colorScheme.primary : colorScheme.onSurface;
+      foreground = colorScheme.onSurfaceVariant;
     }
+
+    final Color indicator = isAiko
+        ? AikoColors.premiumPurple
+        : colorScheme.primary;
 
     return Semantics(
       button: true,
@@ -204,66 +215,39 @@ class _AikoBottomNavigationItem extends StatelessWidget {
         message: item.label,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(24),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Center(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  width: isAiko ? 50 : 44,
-                  height: isAiko ? 50 : 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: isAiko && selected
-                        ? const LinearGradient(
-                            colors: [
-                              AikoColors.premiumPurple,
-                              Color(0xFF9B67F2),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : null,
-                    color: isAiko
-                        ? (selected
-                              ? null
-                              : AikoColors.premiumPurple.withValues(
-                                  alpha: 0.12,
-                                ))
-                        : (selected ? colorScheme.primary : Colors.transparent),
-                    boxShadow: isAiko
-                        ? [
-                            BoxShadow(
-                              color: AikoColors.premiumPurple.withValues(
-                                alpha: selected ? 0.3 : 0.08,
-                              ),
-                              blurRadius: selected ? 12 : 6,
-                              offset: Offset(0, selected ? 4 : 2),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Icon(
-                    selected ? item.selectedIcon : item.icon,
-                    color: selected
-                        ? (isAiko ? Colors.white : colorScheme.onPrimary)
-                        : foreground,
-                    size: isAiko ? 26 : 24,
+                SizedBox(
+                  height: _indicatorHeight,
+                  child: AnimatedContainer(
+                    key: ValueKey('AikoNavIndicator_${item.path}'),
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    width: selected ? _indicatorWidth : 0,
+                    decoration: BoxDecoration(
+                      color: indicator,
+                      borderRadius: BorderRadius.circular(1.5),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: _indicatorIconGap),
+                Icon(
+                  selected ? item.selectedIcon : item.icon,
+                  color: foreground,
+                  size: _iconSize,
+                ),
+                const SizedBox(height: _iconLabelGap),
                 Text(
                   item.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: isAiko ? AikoColors.premiumPurple : foreground,
-                    fontWeight: selected || isAiko
-                        ? FontWeight.w700
-                        : FontWeight.w600,
+                    color: foreground,
+                    fontWeight:
+                        selected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
               ],

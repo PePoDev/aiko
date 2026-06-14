@@ -20,38 +20,11 @@ class CategoryManagementScreen extends ConsumerStatefulWidget {
 }
 
 class _CategoryManagementScreenState
-    extends ConsumerState<CategoryManagementScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-  int _selectedTabIndex = 0;
-
+    extends ConsumerState<CategoryManagementScreen> {
   /// Tracks the expansion state of each group section, keyed by group id
   /// (including the 13 global default groups). All start expanded so users
   /// see their categories by default.
   final Map<String, bool> _expanded = <String, bool>{};
-
-  Color get _selectedTabColor =>
-      _selectedTabIndex == 0 ? AikoColors.dangerRed : AikoColors.successGreen;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(_handleTabChanged);
-  }
-
-  void _handleTabChanged() {
-    if (_selectedTabIndex == _tabController.index) return;
-    setState(() => _selectedTabIndex = _tabController.index);
-  }
-
-  @override
-  void dispose() {
-    _tabController
-      ..removeListener(_handleTabChanged)
-      ..dispose();
-    super.dispose();
-  }
 
   void _toggleSection(String key) {
     setState(() {
@@ -68,19 +41,28 @@ class _CategoryManagementScreenState
       appBar: AppBar(
         title: const Text('Categories'),
         actions: [
-          IconButton(
-            tooltip: 'Add category',
-            icon: const Icon(Icons.add),
-            onPressed: () => _showAddCategorySheet(),
-          ),
           PopupMenuButton<String>(
-            tooltip: 'Category tools',
+            tooltip: 'Add',
+            icon: const Icon(Icons.add),
             onSelected: (value) {
-              if (value == 'new_group') {
-                _showAddGroupSheet();
+              switch (value) {
+                case 'new_category':
+                  _showAddCategorySheet(initialType: CategoryType.expense);
+                case 'new_group':
+                  _showAddGroupSheet();
               }
             },
             itemBuilder: (context) => const [
+              PopupMenuItem<String>(
+                value: 'new_category',
+                child: Row(
+                  children: [
+                    Icon(Icons.category_outlined, size: 18),
+                    SizedBox(width: 8),
+                    Text('New category'),
+                  ],
+                ),
+              ),
               PopupMenuItem<String>(
                 value: 'new_group',
                 child: Row(
@@ -99,7 +81,7 @@ class _CategoryManagementScreenState
         loading: () => const AikoScreenState.loading(),
         error: (error, stack) => AikoScreenState.error(
           title: 'Categories are unavailable',
-          message: 'Aiko could not load your categories right now.',
+          message: 'Aiko could not load your categories right now.\n$error',
         ),
         data: (categories) {
           if (categories.isEmpty) {
@@ -134,51 +116,34 @@ class _CategoryManagementScreenState
               .where((category) => category.type == CategoryType.expense)
               .toList(growable: false);
 
-          return Column(
-            children: [
-              Material(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                child: TabBar(
-                  controller: _tabController,
-                  indicatorColor: _selectedTabColor,
-                  labelColor: _selectedTabColor,
-                  unselectedLabelColor: Theme.of(
-                    context,
-                  ).colorScheme.onSurfaceVariant,
-                  tabs: const [
-                    Tab(
-                      icon: Icon(Icons.arrow_upward_outlined),
-                      text: 'Expense',
-                    ),
-                    Tab(
-                      icon: Icon(Icons.arrow_downward_outlined),
-                      text: 'Income',
-                    ),
-                  ],
-                ),
+          return CustomScrollView(
+            slivers: [
+              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+              _CategorySectionSliver(
+                key: const ValueKey('section-income'),
+                title: 'Income',
+                accent: AikoColors.successGreen,
+                icon: Icons.arrow_downward_outlined,
+                type: CategoryType.income,
+                categories: incomeCategories,
+                groups: groups,
+                expanded: _expanded,
+                onToggle: _toggleSection,
               ),
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _CategoryTypeView(
-                      type: CategoryType.expense,
-                      categories: expenseCategories,
-                      groups: groups,
-                      expanded: _expanded,
-                      onToggle: _toggleSection,
-                      onAddCategory: _showAddCategorySheet,
-                    ),
-                    _CategoryTypeView(
-                      type: CategoryType.income,
-                      categories: incomeCategories,
-                      groups: groups,
-                      expanded: _expanded,
-                      onToggle: _toggleSection,
-                      onAddCategory: _showAddCategorySheet,
-                    ),
-                  ],
-                ),
+              _CategorySectionSliver(
+                key: const ValueKey('section-expense'),
+                title: 'Expense',
+                accent: AikoColors.dangerRed,
+                icon: Icons.arrow_upward_outlined,
+                type: CategoryType.expense,
+                categories: expenseCategories,
+                groups: groups,
+                expanded: _expanded,
+                onToggle: _toggleSection,
+              ),
+              const SliverPadding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 32),
+                sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
               ),
             ],
           );
@@ -187,12 +152,13 @@ class _CategoryManagementScreenState
     );
   }
 
-  void _showAddCategorySheet({String? groupIdHint}) {
+  void _showAddCategorySheet({
+    CategoryType initialType = CategoryType.expense,
+    String? groupIdHint,
+  }) {
     showCategoryEditorSheet(
       context,
-      initialType: _selectedTabIndex == 0
-          ? CategoryType.expense
-          : CategoryType.income,
+      initialType: initialType,
       groupIdHint: groupIdHint,
     );
   }
@@ -202,22 +168,27 @@ class _CategoryManagementScreenState
   }
 }
 
-class _CategoryTypeView extends StatelessWidget {
-  const _CategoryTypeView({
+class _CategorySectionSliver extends StatelessWidget {
+  const _CategorySectionSliver({
+    super.key,
+    required this.title,
+    required this.accent,
+    required this.icon,
     required this.type,
     required this.categories,
     required this.groups,
     required this.expanded,
     required this.onToggle,
-    required this.onAddCategory,
   });
 
+  final String title;
+  final Color accent;
+  final IconData icon;
   final CategoryType type;
   final List<Category> categories;
   final List<CategoryGroup> groups;
   final Map<String, bool> expanded;
   final ValueChanged<String> onToggle;
-  final void Function({String? groupIdHint}) onAddCategory;
 
   String get _emptyTitle => type == CategoryType.expense
       ? 'No expense categories'
@@ -229,39 +200,53 @@ class _CategoryTypeView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (categories.isEmpty) {
-      return AikoScreenState.empty(
-        title: _emptyTitle,
-        message: _emptyMessage,
-        action: null,
+      return SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        sliver: SliverToBoxAdapter(
+          child: AikoScreenState.empty(
+            title: _emptyTitle,
+            message: _emptyMessage,
+            action: null,
+          ),
+        ),
       );
     }
 
     final sections = _buildSections();
     if (sections.isEmpty) {
-      return AikoScreenState.empty(
-        title: _emptyTitle,
-        message: _emptyMessage,
-        action: null,
+      return SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        sliver: SliverToBoxAdapter(
+          child: AikoScreenState.empty(
+            title: _emptyTitle,
+            message: _emptyMessage,
+            action: null,
+          ),
+        ),
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-      itemCount: sections.length + 1,
-      itemBuilder: (context, index) {
-        if (index == sections.length) {
-          return Padding(
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      sliver: SliverMainAxisGroup(
+        slivers: [
+          SliverToBoxAdapter(
+            child: _SectionHeader(title: title, accent: accent, icon: icon),
+          ),
+          SliverPadding(
             padding: const EdgeInsets.only(top: 8),
-            child: _NewGroupButton(
-              onPressed: () => showCategoryGroupEditorSheet(context),
+            sliver: SliverList.builder(
+              itemCount: sections.length,
+              itemBuilder: (context, index) => Padding(
+                padding: EdgeInsets.only(
+                  bottom: index == sections.length - 1 ? 0 : 12,
+                ),
+                child: sections[index],
+              ),
             ),
-          );
-        }
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: sections[index],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 
@@ -280,12 +265,11 @@ class _CategoryTypeView extends StatelessWidget {
       if (groupCategories.isEmpty) continue;
       widgets.add(
         _CategoryGroupSection(
-          key: ValueKey('group-${group.id}'),
+          key: ValueKey('${type.name}-group-${group.id}'),
           group: group,
           categories: groupCategories,
           isExpanded: expanded[group.id] ?? true,
           onToggle: () => onToggle(group.id),
-          onAddCategory: () => onAddCategory(groupIdHint: group.id),
         ),
       );
     }
@@ -307,26 +291,41 @@ class _CategoryTypeView extends StatelessWidget {
   }
 }
 
-class _NewGroupButton extends StatelessWidget {
-  const _NewGroupButton({required this.onPressed});
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.accent,
+    required this.icon,
+  });
 
-  final VoidCallback onPressed;
+  final String title;
+  final Color accent;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      key: const Key('new-group-button'),
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        side: BorderSide(color: Theme.of(context).colorScheme.outline),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        foregroundColor: AikoColors.primaryBlue,
-      ),
-      icon: const Icon(Icons.folder_outlined),
-      label: const Text(
-        'New group',
-        style: TextStyle(fontWeight: FontWeight.w600),
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: accent, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -339,19 +338,12 @@ class _CategoryGroupSection extends StatelessWidget {
     required this.categories,
     required this.isExpanded,
     required this.onToggle,
-    required this.onAddCategory,
   });
 
   final CategoryGroup group;
   final List<Category> categories;
   final bool isExpanded;
   final VoidCallback onToggle;
-
-  /// When null, the in-group "Add category" action is hidden. Currently always
-  /// non-null — even default groups are offerable as assignment targets for
-  /// custom categories (Decision D4), so users can file a custom category
-  /// into any group without renaming or deleting the group itself.
-  final VoidCallback? onAddCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -391,30 +383,7 @@ class _CategoryGroupSection extends StatelessWidget {
             child: isExpanded
                 ? Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _CategoryCardGrid(categories: categories),
-                        if (onAddCategory != null) ...[
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton.icon(
-                              key: Key('add-category-in-group-${group.id}'),
-                              onPressed: onAddCategory,
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('Add category'),
-                              style: TextButton.styleFrom(
-                                foregroundColor: color,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                    child: _CategoryCardGrid(categories: categories),
                   )
                 : const SizedBox.shrink(),
           ),

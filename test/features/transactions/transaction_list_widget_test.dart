@@ -269,7 +269,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Categories'), findsOneWidget);
-    expect(find.text('Dining Out'), findsOneWidget);
+    // Dining Out is in the Expense section, which sits below Income in the
+    // unified scroll — confirm it is present (offstage is fine, the prior
+    // tab layout didn't make it onscreen at the default viewport either).
+    expect(find.text('Dining Out', skipOffstage: false), findsOneWidget);
   });
 
   testWidgets('transaction list opens categories without bottom navigation', (

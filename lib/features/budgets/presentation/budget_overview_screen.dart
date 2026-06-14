@@ -49,7 +49,7 @@ class BudgetOverviewScreen extends ConsumerWidget {
         loading: () => const AikoScreenState.loading(),
         error: (error, stack) => AikoScreenState.error(
           title: 'Budgets are unavailable',
-          message: 'Aiko could not load your budgets right now.',
+          message: 'Aiko could not load your budgets right now.\n$error',
         ),
         data: (budgets) {
           if (budgets.isEmpty) {

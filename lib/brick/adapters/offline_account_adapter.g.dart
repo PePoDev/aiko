@@ -18,7 +18,12 @@ Future<OfflineAccount> _$OfflineAccountFromSupabase(
         : data['institution'] as String?,
     includeInNetWorth: data['include_in_net_worth'] as bool,
     isActive: data['is_active'] as bool,
-    detailsJson: data['details_json'] as String,
+    // HAND-PATCH: nullable cast + default. The migration that added
+    // `details_json` (20260614145507) did not mark the column NOT NULL, so
+    // existing SQLite rows carry NULL here and the generated `as String`
+    // would throw `type 'Null' is not a subtype of type 'String'`. If you
+    // re-run `dart run build_runner build`, reapply this fix.
+    detailsJson: (data['details_json'] as String?) ?? '{}',
   );
 }
 
@@ -58,7 +63,10 @@ Future<OfflineAccount> _$OfflineAccountFromSqlite(
         : data['institution'] as String?,
     includeInNetWorth: data['include_in_net_worth'] == 1,
     isActive: data['is_active'] == 1,
-    detailsJson: data['details_json'] as String,
+    // HAND-PATCH: see matching note in _$OfflineAccountFromSupabase. Existing
+    // SQLite rows added before the `details_json` column was backfilled are
+    // NULL here, so the generated `as String` cast would throw.
+    detailsJson: (data['details_json'] as String?) ?? '{}',
   )..primaryKey = data['_brick_id'] as int;
 }
 

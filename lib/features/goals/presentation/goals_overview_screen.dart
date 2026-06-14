@@ -44,7 +44,7 @@ class GoalsOverviewScreen extends ConsumerWidget {
         loading: () => const AikoScreenState.loading(),
         error: (error, stack) => AikoScreenState.error(
           title: 'Goals are unavailable',
-          message: 'Aiko could not load your goals right now.',
+          message: 'Aiko could not load your goals right now.\n$error',
         ),
         data: (goals) {
           if (goals.isEmpty) {

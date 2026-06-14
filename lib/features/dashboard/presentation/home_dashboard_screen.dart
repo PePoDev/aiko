@@ -68,7 +68,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           children: [
             AikoScreenState.error(
               title: l10n.dashboardUnavailable,
-              message: l10n.dashboardUnavailableMessage,
+              message: '${l10n.dashboardUnavailableMessage}\n$error',
             ),
           ],
         ),

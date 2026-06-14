@@ -2,7 +2,6 @@ import 'package:aiko/app/providers.dart';
 import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/categories/domain/category_defaults.dart';
 import 'package:aiko/features/categories/presentation/category_management_screen.dart';
-import 'package:aiko/theme/aiko_colors.dart';
 import 'package:aiko/theme/aiko_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +11,7 @@ void main() {
   _defaultsInvariantsTests();
 
   testWidgets(
-    'expense tab shows the Other group by default and switches to income',
+    'shows Income and Expense sections together with Income first',
     (tester) async {
       await tester.pumpWidget(
         ProviderScope(
@@ -74,32 +73,33 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Income'), findsOneWidget);
-      expect(find.text('Expense'), findsOneWidget);
-      expect(find.byType(TabBar), findsOneWidget);
-      expect(find.byType(TabBarView), findsOneWidget);
-      expect(
-        tester.widget<TabBar>(find.byType(TabBar)).labelColor,
-        AikoColors.dangerRed,
+      // No more tabs; both section headers are visible.
+      expect(find.byType(TabBar), findsNothing);
+      expect(find.byType(TabBarView), findsNothing);
+
+      // Income appears before Expense on the same scroll.
+      final incomeHeader = find.descendant(
+        of: find.byKey(const ValueKey('section-income')),
+        matching: find.text('Income'),
       );
-      expect(find.text('Other'), findsOneWidget);
-      expect(find.text('Salary'), findsNothing);
-      expect(find.text('Side Hustle'), findsNothing);
+      final expenseHeader = find.descendant(
+        of: find.byKey(const ValueKey('section-expense')),
+        matching: find.text('Expense'),
+      );
+      expect(incomeHeader, findsOneWidget);
+      expect(expenseHeader, findsOneWidget);
+      expect(
+        tester.getTopLeft(incomeHeader).dy,
+        lessThan(tester.getTopLeft(expenseHeader).dy),
+      );
+
+      // All seeded categories are visible (no tab isolation).
+      expect(find.text('Salary'), findsOneWidget);
+      expect(find.text('Side Hustle'), findsOneWidget);
       expect(find.text('Groceries'), findsOneWidget);
       expect(find.text('Coffee'), findsOneWidget);
 
-      await tester.drag(find.byType(TabBarView), const Offset(-500, 0));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Salary'), findsOneWidget);
-      expect(find.text('Side Hustle'), findsOneWidget);
-      expect(find.text('Groceries'), findsNothing);
-      expect(find.text('Coffee'), findsNothing);
-      expect(
-        tester.widget<TabBar>(find.byType(TabBar)).labelColor,
-        AikoColors.successGreen,
-      );
-      expect(find.byTooltip('Add category'), findsOneWidget);
+      expect(find.byTooltip('Add'), findsOneWidget);
       expect(find.byTooltip('About categories'), findsNothing);
       expect(find.byIcon(Icons.info_outline), findsNothing);
     },
@@ -188,18 +188,21 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Expense tab: Household (rent + utilities) and Other (pet care, an
-    // unfiled custom category that the Other group absorbs).
+    // Single scroll: Income section first (Side Income → Freelance), then
+    // Expense section (Household → rent + utilities, then Other → pet care).
+    expect(find.text('Side Income'), findsOneWidget);
+    expect(find.text('Freelance'), findsOneWidget);
     expect(find.text('Household'), findsOneWidget);
-    expect(find.text('Side Income'), findsNothing);
-    expect(find.text('Other'), findsOneWidget);
     expect(find.text('Rent'), findsOneWidget);
     expect(find.text('Utilities'), findsOneWidget);
+    // The 13 default groups are appended after the user's; "Other" sits below
+    // the test viewport in the unified scroll, so confirm it's in the tree
+    // and scroll to it.
+    expect(find.text('Other', skipOffstage: false), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Other'), 180);
     expect(find.text('Pet Care'), findsOneWidget);
-    expect(find.text('Freelance'), findsNothing);
 
-    // The Household group should be the first expense group, and the Other
-    // group follows it.
+    // Within the Expense section, Household precedes Other.
     final householdFinder = find.text('Household');
     final otherFinder = find.text('Other');
     expect(
@@ -207,13 +210,14 @@ void main() {
       lessThan(tester.getTopLeft(otherFinder).dy),
     );
 
-    // Switch to Income tab: Side Income (freelance); the Other group is empty
-    // here because the income default/unfiled categories aren't seeded.
-    await tester.drag(find.byType(TabBarView), const Offset(-500, 0));
-    await tester.pumpAndSettle();
-    expect(find.text('Side Income'), findsOneWidget);
-    expect(find.text('Freelance'), findsOneWidget);
-    expect(find.text('Household'), findsNothing);
+    // Income section sits above the Expense section: Side Income (income
+    // group) is rendered above Household (expense group).
+    final sideIncomeFinder = find.text('Side Income');
+    final householdFinder2 = find.text('Household');
+    expect(
+      tester.getTopLeft(sideIncomeFinder).dy,
+      lessThan(tester.getTopLeft(householdFinder2).dy),
+    );
   });
 
   testWidgets('group section header can be collapsed and expanded', (
@@ -298,8 +302,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Income'));
-    await tester.pumpAndSettle();
+    // No tabs anymore — Salary is visible directly in the Income section.
     await tester.tap(find.text('Salary'));
     await tester.pumpAndSettle();
 
@@ -486,8 +489,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Income'));
-    await tester.pumpAndSettle();
+    // No tabs anymore — both income cards are visible in the Income section.
 
     final defaultCardFinder = find.byKey(
       ValueKey('category-card-${CategoryDefaults.salaryId}'),
@@ -633,7 +635,7 @@ void main() {
     expect(notifier.savedCategory?.type, CategoryType.income);
   });
 
-  testWidgets('add category sheet defaults type from selected category tab', (
+  testWidgets('app-bar Add category defaults the new category to expense', (
     tester,
   ) async {
     final notifier = _SavingCategoriesNotifier([
@@ -660,10 +662,8 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(of: find.byType(TabBar), matching: find.text('Income')),
-    );
-    await tester.pumpAndSettle();
+    // The app-bar "+" is the only Add entry point now (in-group buttons are
+    // removed) and the sheet defaults to expense.
     await tester.tap(find.byTooltip('Add category'));
     await tester.pumpAndSettle();
 
@@ -680,7 +680,7 @@ void main() {
     await tester.tap(saveButton);
     await tester.pumpAndSettle();
 
-    expect(notifier.savedCategory?.type, CategoryType.income);
+    expect(notifier.savedCategory?.type, CategoryType.expense);
   });
 
   testWidgets('group edit button opens the group editor sheet for that group', (

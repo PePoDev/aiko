@@ -122,6 +122,7 @@ class CreditCardDetails extends AccountDetails {
     Money? minimumPayment,
     bool? sharesLimit,
     String? sharedLimitAccountId,
+    bool clearSharedLimitAccountId = false,
   }) =>
       CreditCardDetails(
         creditLimit: creditLimit ?? this.creditLimit,
@@ -132,7 +133,9 @@ class CreditCardDetails extends AccountDetails {
         annualFee: annualFee ?? this.annualFee,
         minimumPayment: minimumPayment ?? this.minimumPayment,
         sharesLimit: sharesLimit ?? this.sharesLimit,
-        sharedLimitAccountId: sharedLimitAccountId ?? this.sharedLimitAccountId,
+        sharedLimitAccountId: clearSharedLimitAccountId
+            ? null
+            : (sharedLimitAccountId ?? this.sharedLimitAccountId),
       );
 
   @override

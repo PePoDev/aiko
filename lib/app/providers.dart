@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/transactions/data/transaction_repository.dart';
+import '../features/accounts/application/shared_limit_resolver.dart';
 import '../features/accounts/data/account_repository.dart';
 import '../features/categories/application/category_service.dart';
 import '../features/budgets/data/budget_repository.dart';
@@ -280,6 +281,14 @@ class AccountsNotifier extends AsyncNotifier<List<Account>> {
   }
 
   Future<void> deleteAccount(String id) async {
+    final previousAccounts = state.value ?? const <Account>[];
+    final children = SharedLimitResolver.resolve(
+      accounts: previousAccounts,
+      deletedId: id,
+    );
+    for (final c in children) {
+      await saveAccount(c);
+    }
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(accountRepositoryProvider);
@@ -410,10 +419,10 @@ class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
   Future<List<CategoryGroup>> build() async {
     final repo = ref.watch(categoryGroupRepositoryProvider);
     final userGroups = await repo.list();
-    // The global System group is injected in-memory (mirroring how
-    // CategoryDefaults are injected into the categories list) and always sorts
-    // last, after the user's own groups.
-    return [...userGroups, CategoryGroupDefaults.system];
+    // The 13 global default groups are injected in-memory (mirroring how
+    // CategoryDefaults are injected into the categories list) and always sort
+    // after the user's own groups, in deliberate internal order.
+    return [...userGroups, ...CategoryGroupDefaults.all];
   }
 
   Future<void> saveGroup(CategoryGroup group) async {

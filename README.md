@@ -140,17 +140,18 @@ Each feature module uses a layered layout — `application/` (services, orchestr
 
 GoRouter routing around a bottom-navigation shell with 5 primary tabs:
 
-1. **Overview (`/home`)** — Customizable dashboard with independently managed panels (Aiko greeting, Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, Aiko Goal Simulator), primary-color action icons, and a scrollable Edit layout action at the bottom of the page content.
-2. **Transactions (`/transactions`)** — Unified search, filters, recurring entries, auto-categorization rules.
-3. **Aiko (`/aiko`)** — Chat (`/aiko-assistant`), optimization (`/aiko-optimize`), and the course hub.
-4. **Planning (`/planning`)** — Budget, goals, recurring transactions, credit/debt, net worth, assets, tax, portfolio, travel. Intentionally does **not** show Accounts or Categories — those stay direct feature routes.
-5. **Settings (`/settings`)** — Profile, security, privacy, sync, notifications, language, secondary workspace entry points.
+1. **Accounts (`/accounts`)** — Bank/Cash/Wallet accounts, including credit cards.
+2. **Categories (`/categories`)** — Hierarchical category management with the 13 default groups and custom categories.
+3. **Overview (`/home`)** — Customizable dashboard with independently managed panels (Aiko greeting, Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, Aiko Goal Simulator), primary-color action icons, a scrollable Edit layout action at the bottom of the page content, and a Menu action in the app bar.
+4. **Transactions (`/transactions`)** — Unified search, filters, recurring entries, auto-categorization rules.
+5. **Aiko (`/aiko`)** — Chat (`/aiko-assistant`), optimization (`/aiko-optimize`), and the course hub.
+
+**Menu (`/settings`)** is opened from the app-bar action on Overview. It groups the secondary workspaces: **Planning** (Budget, Goals, Investments, Asset Allocation, Holding Detail, Assets and Net Worth, Travel Mode), **Insights and AI** (Learning Hub), **Tools and Data** (Calculators, Monthly Report, Export), and **Settings and Security** (Notifications, Notifications Center, Profile & Security). It also exposes the Profile, Appearance, and Language toggles.
 
 ### Secondary Routes
 
 | Route | Purpose |
 | --- | --- |
-| `/accounts` | Bank/Cash/Wallet accounts |
 | `/credit-cards` | Credit card limit & payment tracking |
 | `/bills` | Recurring bills & subscription cancellations |
 | `/goals` | SMART savings & debt payoff progress |
@@ -159,7 +160,7 @@ GoRouter routing around a bottom-navigation shell with 5 primary tabs:
 | `/tax-center` | Tax deduction logs & reports |
 | `/calculators` | Built-in financial calculator hub |
 | `/learning-hub` | Financial education courses & quizzes |
-| `/settings` | Profile, Security (PIN/Biometric), Sync settings |
+| `/settings` | Menu — Planning, AI, tools, and security entry points |
 
 ---
 
@@ -188,13 +189,13 @@ Core finance data reads and writes locally first, using [Brick](https://github.c
 - Local writes are optimistic: profiles, accounts, categories, transactions, budgets, and goals persist to SQLite immediately and the UI updates at once.
 - When Supabase is configured and the user is authenticated, Brick queues writes and syncs in the background. When Supabase is unavailable, repositories return local data or safe empty/default states — never backend errors in normal flows. Prefer `tryClient()` + offline fallback over `AikoSupabase.requireSession()` in user-facing repositories.
 - After editing `lib/brick/models/`, run `dart run build_runner build` and commit generated adapters, schema, and migrations.
-- System (default) categories are global Supabase rows (`user_id = NULL`) injected in-memory via `CategoryDefaults` (`lib/features/categories/domain/category_defaults.dart`) — never stored per-user in Brick, not user-writable, and their fixed UUIDs are stable constants (never change them). They belong to the global, read-only **System** category group (`CategoryGroupDefaults.system`, same file) — also a `user_id = NULL` `category_groups` row injected in-memory with a fixed UUID — which sections them on the Categories screen and absorbs any unfiled custom categories. The System group is never user-editable, deletable, or selectable as an assignment target.
+- System (default) categories are global Supabase rows (`user_id = NULL`) injected in-memory via `CategoryDefaults` (`lib/features/categories/domain/category_defaults.dart`) — never stored per-user in Brick, not user-writable, and their fixed UUIDs are stable constants (never change them). They belong to one of 13 global, read-only default category groups (`CategoryGroupDefaults.all`, same file — Income & Earnings, Investments & Savings, Food & Drink, Transport, Housing & Utilities, Health & Fitness, Shopping & Personal, Entertainment & Leisure, Education, Travel, Family & Giving, Bills & Financial, and the renamed "Other" catch-all) — each a `user_id = NULL` `category_groups` row injected in-memory with a fixed UUID. The groups section the Categories screen, the **"Other"** group additionally absorbs any unfiled custom category. Default groups are never user-editable or deletable, but are offerable as assignment targets for custom categories.
 - Use Supabase for Auth, Postgres, RLS, structured finance data, and attachment object storage. By default avoid Realtime and Edge Functions (unless a feature needs server logic) and large blobs in Postgres.
 
 ### Code Conventions
 
 - **State:** Riverpod for all state; avoid `setState` outside trivial local UI (focus, animation, ephemeral text fields). Top-level providers in `lib/app/providers.dart`; feature providers inside the module; shared state in `lib/shared/state/`.
-- **Routing:** all routes in `lib/app/app_router.dart`. Kebab-case paths (`/credit-cards`, `/debt-loans`, `/tax-center`). Idea-inspired screens belong to the existing feature owner — add subroutes/menus/inline tools, never duplicate a main screen. Don't add Accounts or Categories as Planning cards.
+- **Routing:** all routes in `lib/app/app_router.dart`. Kebab-case paths (`/credit-cards`, `/debt-loans`, `/tax-center`). Idea-inspired screens belong to the existing feature owner — add subroutes/menus/inline tools, never duplicate a main screen. Accounts and Categories are primary nav tabs — don't add them as Planning or Menu cards.
 - **Money:** never use `double`. Use `Money` (`lib/core/money/money.dart`, wraps `Decimal`); format via `lib/core/formatting/currency_formatter.dart` (locale-aware `intl`). Base currency lives in the profile; multi-currency supports travel and portfolio.
 - **Naming:** files `snake_case.dart`, classes `PascalCase`, vars/functions `camelCase`, routes `/kebab-case`, DB tables/columns `snake_case`, feature dirs `snake_case`.
 
@@ -330,7 +331,7 @@ Success is `text/event-stream` (SSE), one event per provider token: `data: {"del
 | `profiles` | User profile, preferences, base currency |
 | `accounts` | Financial accounts (cash, bank, e-wallet, credit card, loan, investment, asset) |
 | `transactions` | All financial transactions (13 types) |
-| `categories` | Hierarchical categories — 30 global system rows (`user_id = NULL`, `is_default = true`) plus user-created rows |
+| `categories` | Hierarchical categories — 81 global system rows (`user_id = NULL`, `is_default = true`) plus user-created rows |
 | `transaction_rules` | Auto-categorization rules |
 | `budgets` | Budget definitions and alert thresholds |
 | `goals` | Financial goals and progress |
@@ -459,7 +460,7 @@ Shape: cards/rows/inputs/chips/segmented controls 8px radius; bottom sheets 20px
 - **Inputs/pickers:** visible labels, 54px min height, 8px radius, pale-blue fill, thin blue-gray border, leading search icon, primary focus border, danger error border, muted-neutral placeholder. Helper/validation copy goes below the field, not inside. Custom pickers show the selected value plus context (category group, account balance); bottom-sheet pickers use compact rows with selected checkmarks.
 - **Lists:** compact `ListTile` rows, 48px tap target, single-line titles, aligned trailing amounts/statuses, dividers/card borders instead of nested containers.
 - **Chips/badges:** short labels; status color matches semantic meaning and includes text.
-- **Navigation:** shell tabs Overview/Transactions/Aiko/Planning/Settings; bottom nav always visible; active = primary with white icon; secondary routes live in Planning or Settings.
+- **Navigation:** shell tabs Accounts/Categories/Overview/Transactions/Aiko; bottom nav always visible; active = primary with white icon; Menu (reached from the Overview app-bar action) holds Planning, Insights and AI, Tools and Data, and Settings and Security.
 - **Overview layout editing:** a scrollable in-page `Edit layout`/`Done` action at the bottom of Overview content — never in the app bar or a fixed bottom bar (keep the app bar for utilities like notifications).
 - **Sheets/dialogs:** bottom sheets for mobile create/edit (drag handle, safe area, scrollable, 20px top radius); dialogs for destructive confirmation (name the object and effect).
 - **Charts/progress:** every chart needs a text summary; every progress bar shows current, target, and period with semantic color + label (8px compact, 10–12px on dashboards).
@@ -547,11 +548,13 @@ Apply the design system in batches: (1) shared foundation — `FinanceCard`, `Ai
 
 Route rules: don't duplicate an existing feature screen to match a board; use sticky bottom actions for filter/save/confirm/calculator-result screens; use a scrollable in-page action for Overview layout editing; keep sample data realistic and scoped to preview/offline states; real repositories remain the source of persisted data; Aiko guidance appears after the primary number/decision (except onboarding and chat); every supplemental route must render without a Supabase session.
 
-Entry points: **Home** — app-bar notifications, in-page This Month Overview + Edit layout; **Transactions** — app-bar search with inline type/amount/date filters, split and receipt-review tools; **Budget** — tools menu (pace, safe-to-spend, cash flow, Sankey); **Goals** — tools menu (saving plan, chance of success, detail); **Reports** — monthly report from the list; **Calculators** — hub links to focused calculators and result states; **Planning** — budget, goals, recurring, credit, debt, net worth, assets, tax, portfolio, travel (not Accounts/Categories/Accounting); **Settings** — profile, security, privacy, sync, notifications.
+Entry points: **Home** — app-bar Menu + notifications, in-page This Month Overview + Edit layout; **Transactions** — app-bar search with inline type/amount/date filters, split and receipt-review tools; **Budget** — tools menu (pace, safe-to-spend, cash flow, Sankey); **Goals** — tools menu (saving plan, chance of success, detail); **Reports** — monthly report from the list; **Calculators** — hub links to focused calculators and result states; **Menu (from Overview)** — Planning (budget, goals, investments, allocation, holding, net worth, travel), Insights and AI (learning hub), Tools and Data (calculators, monthly report, export), Settings and Security (notifications, profile & security).
 
 ### QA Checklist
 
 Before a screen is design-complete: main task visible in the first viewport; primary action obvious and reachable while scrolling; financial numbers appear before AI guidance and include context; lists compact and tappable; form fields labeled with recovery-oriented validation; empty/loading/error/offline states exist or are intentionally inherited; no nested cards, decorative shadows, or oversized radii; raw colors limited to theme files or explicit data-viz; no text overlap/clipping at small widths; sufficient dark-theme contrast; Aiko only where useful; no duplication of an existing main route; widget tests cover critical rendering and interactions.
+
+Account-type-specific inputs (add each from a fresh state — subform appears, validates, saves; edit each type — values pre-populate, save round-trips identically; toggle shared limit on/off — limit field appears/disappears, referenced card picker excludes self; delete parent card — child detail screen shows migration notice; offline add — account persists locally, syncs on reconnect, no double-write).
 
 ---
 

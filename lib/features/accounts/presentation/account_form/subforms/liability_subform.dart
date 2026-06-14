@@ -1,6 +1,7 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 
-import '../../domain/account_details.dart';
+import '../../../domain/account_details.dart';
 import 'account_subform.dart';
 
 class LiabilitySubform extends AccountSubform {
@@ -13,7 +14,7 @@ class LiabilitySubform extends AccountSubform {
   final ValueChanged<LiabilityDetails> onChanged;
 
   @override
-  State<LiabilitySubform> createState() => _LiabilitySubformState();
+  ConsumerState<LiabilitySubform> createState() => _LiabilitySubformState();
 }
 
 class _LiabilitySubformState extends AccountSubformState<LiabilitySubform> {

@@ -1,9 +1,10 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/money/money.dart';
-import '../../../../assets/domain/asset.dart';
-import '../../domain/account_details.dart';
-import '../../domain/account_validation_messages.dart';
+import '../../../../../core/money/money.dart';
+import '../../../../../features/assets/domain/asset.dart';
+import '../../../domain/account_details.dart';
+import '../../../domain/account_validation_messages.dart';
 import 'account_subform.dart';
 
 class AssetSubform extends AccountSubform {
@@ -18,7 +19,7 @@ class AssetSubform extends AccountSubform {
   final ValueChanged<AssetDetails> onChanged;
 
   @override
-  State<AssetSubform> createState() => _AssetSubformState();
+  ConsumerState<AssetSubform> createState() => _AssetSubformState();
 }
 
 class _AssetSubformState extends AccountSubformState<AssetSubform> {

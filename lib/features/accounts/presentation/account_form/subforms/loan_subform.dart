@@ -1,8 +1,9 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/money/money.dart';
-import '../../domain/account_details.dart';
-import '../../domain/account_validation_messages.dart';
+import '../../../../../core/money/money.dart';
+import '../../../domain/account_details.dart';
+import '../../../domain/account_validation_messages.dart';
 import 'account_subform.dart';
 
 class LoanSubform extends AccountSubform {
@@ -17,7 +18,7 @@ class LoanSubform extends AccountSubform {
   final ValueChanged<LoanDetails> onChanged;
 
   @override
-  State<LoanSubform> createState() => _LoanSubformState();
+  ConsumerState<LoanSubform> createState() => _LoanSubformState();
 }
 
 class _LoanSubformState extends AccountSubformState<LoanSubform> {

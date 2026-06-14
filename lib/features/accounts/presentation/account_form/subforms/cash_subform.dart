@@ -1,15 +1,16 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../../shared/widgets/aiko_data_widgets.dart';
 import '../../../../../theme/aiko_colors.dart';
-import '../../domain/account_details.dart';
+import '../../../domain/account_details.dart';
 import 'account_subform.dart';
 
 class CashSubform extends AccountSubform {
   const CashSubform({super.key});
 
   @override
-  State<CashSubform> createState() => _CashSubformState();
+  ConsumerState<CashSubform> createState() => _CashSubformState();
 }
 
 class _CashSubformState extends AccountSubformState<CashSubform>

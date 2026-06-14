@@ -1,6 +1,7 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 
-import '../../domain/account_details.dart';
+import '../../../domain/account_details.dart';
 import 'account_subform.dart';
 
 class EWalletSubform extends AccountSubform {
@@ -13,7 +14,7 @@ class EWalletSubform extends AccountSubform {
   final ValueChanged<EWalletDetails> onChanged;
 
   @override
-  State<EWalletSubform> createState() => _EWalletSubformState();
+  ConsumerState<EWalletSubform> createState() => _EWalletSubformState();
 }
 
 class _EWalletSubformState extends AccountSubformState<EWalletSubform> {

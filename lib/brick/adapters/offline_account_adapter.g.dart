@@ -18,6 +18,7 @@ Future<OfflineAccount> _$OfflineAccountFromSupabase(
         : data['institution'] as String?,
     includeInNetWorth: data['include_in_net_worth'] as bool,
     isActive: data['is_active'] as bool,
+    detailsJson: data['details_json'] as String,
   );
 }
 
@@ -36,6 +37,7 @@ Future<Map<String, dynamic>> _$OfflineAccountToSupabase(
     'institution': instance.institution,
     'include_in_net_worth': instance.includeInNetWorth,
     'is_active': instance.isActive,
+    'details_json': instance.detailsJson,
   };
 }
 
@@ -56,6 +58,7 @@ Future<OfflineAccount> _$OfflineAccountFromSqlite(
         : data['institution'] as String?,
     includeInNetWorth: data['include_in_net_worth'] == 1,
     isActive: data['is_active'] == 1,
+    detailsJson: data['details_json'] as String,
   )..primaryKey = data['_brick_id'] as int;
 }
 
@@ -74,6 +77,7 @@ Future<Map<String, dynamic>> _$OfflineAccountToSqlite(
     'institution': instance.institution,
     'include_in_net_worth': instance.includeInNetWorth ? 1 : 0,
     'is_active': instance.isActive ? 1 : 0,
+    'details_json': instance.detailsJson,
   };
 }
 
@@ -123,6 +127,10 @@ class OfflineAccountAdapter
     'isActive': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'is_active',
+    ),
+    'detailsJson': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'details_json',
     ),
   };
   @override
@@ -190,6 +198,12 @@ class OfflineAccountAdapter
       columnName: 'is_active',
       iterable: false,
       type: bool,
+    ),
+    'detailsJson': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'details_json',
+      iterable: false,
+      type: String,
     ),
   };
   @override

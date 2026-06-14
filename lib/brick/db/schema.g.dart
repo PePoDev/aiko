@@ -1,7 +1,7 @@
 // GENERATED CODE DO NOT EDIT
 // This file should be version controlled
 import 'package:brick_sqlite/db.dart';
-part '20260614125205.migration.dart';
+part '20260614145507.migration.dart';
 part '20260523055312.migration.dart';
 part '20260523183433.migration.dart';
 part '20260603133701.migration.dart';
@@ -9,10 +9,11 @@ part '20260607174822.migration.dart';
 part '20260613095807.migration.dart';
 part '20260613154239.migration.dart';
 part '20260613162843.migration.dart';
+part '20260614125205.migration.dart';
 
 /// All intelligently-generated migrations from all `@Migratable` classes on disk
 final migrations = <Migration>{
-  const Migration20260614125205(),
+  const Migration20260614145507(),
   const Migration20260523055312(),
   const Migration20260523183433(),
   const Migration20260603133701(),
@@ -20,11 +21,12 @@ final migrations = <Migration>{
   const Migration20260613095807(),
   const Migration20260613154239(),
   const Migration20260613162843(),
+  const Migration20260614125205(),
 };
 
 /// A consumable database structure including the latest generated migration.
 final schema = Schema(
-  20260613162843,
+  20260614125205,
   generatorVersion: 1,
   tables: <SchemaTable>{
     SchemaTable(
@@ -46,6 +48,7 @@ final schema = Schema(
         SchemaColumn('institution', Column.varchar),
         SchemaColumn('include_in_net_worth', Column.boolean),
         SchemaColumn('is_active', Column.boolean),
+        SchemaColumn('details_json', Column.varchar),
       },
       indices: <SchemaIndex>{
         SchemaIndex(columns: ['user_id'], unique: false),

@@ -16,6 +16,7 @@ class OfflineAccount extends OfflineFirstWithSupabaseModel {
     this.institution,
     this.includeInNetWorth = true,
     this.isActive = true,
+    this.detailsJson = '{}',
   });
 
   @Sqlite(unique: true)
@@ -35,4 +36,5 @@ class OfflineAccount extends OfflineFirstWithSupabaseModel {
   final String? institution;
   final bool includeInNetWorth;
   final bool isActive;
+  final String detailsJson;
 }

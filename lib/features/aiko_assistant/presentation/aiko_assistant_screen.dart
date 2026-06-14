@@ -481,17 +481,9 @@ class _SuggestionStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scaffold = Theme.of(context).scaffoldBackgroundColor;
     return Container(
-      // Fade the chat out behind the chips so messages underneath don't
-      // collide with them — keeps the floating look readable when scrolled.
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [scaffold.withValues(alpha: 0), scaffold, scaffold],
-          stops: const [0, 0.55, 1],
-        ),
-      ),
-      padding: const EdgeInsets.only(top: 24, bottom: 8),
+      // Solid background so messages don't show through behind the chips.
+      color: scaffold,
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),

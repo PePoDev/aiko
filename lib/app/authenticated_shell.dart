@@ -13,10 +13,22 @@ class AuthenticatedShell extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     return [
       _AikoNavItem(
+        label: l10n.homeTab,
+        path: '/home',
+        icon: Icons.home_outlined,
+        selectedIcon: Icons.home_rounded,
+      ),
+      _AikoNavItem(
         label: l10n.accountsTab,
         path: '/accounts',
         icon: Icons.account_balance_wallet_outlined,
         selectedIcon: Icons.account_balance_wallet_rounded,
+      ),
+      _AikoNavItem(
+        label: l10n.aikoTab,
+        path: '/aiko',
+        icon: Icons.face_retouching_natural_outlined,
+        selectedIcon: Icons.face_retouching_natural,
       ),
       _AikoNavItem(
         label: l10n.categoriesTab,
@@ -25,22 +37,10 @@ class AuthenticatedShell extends StatelessWidget {
         selectedIcon: Icons.category_rounded,
       ),
       _AikoNavItem(
-        label: l10n.homeTab,
-        path: '/home',
-        icon: Icons.home_outlined,
-        selectedIcon: Icons.home_rounded,
-      ),
-      _AikoNavItem(
         label: l10n.transactionsTab,
         path: '/transactions',
         icon: Icons.receipt_long_outlined,
         selectedIcon: Icons.receipt_long,
-      ),
-      _AikoNavItem(
-        label: l10n.aikoTab,
-        path: '/aiko',
-        icon: Icons.face_retouching_natural_outlined,
-        selectedIcon: Icons.face_retouching_natural,
       ),
     ];
   }
@@ -71,26 +71,26 @@ class AuthenticatedShell extends StatelessWidget {
   }
 
   int _indexFor(String location) {
-    if (location.startsWith('/accounts') ||
-        location.startsWith('/credit-cards')) {
-      return 0;
-    }
-    if (location.startsWith('/categories')) {
-      return 1;
-    }
     if (location.startsWith('/home') ||
         location.startsWith('/dashboard') ||
         location.startsWith('/settings') ||
         _isSecondaryRoute(location)) {
-      return 2;
+      return 0;
     }
-    if (location.startsWith('/transactions')) {
-      return 3;
+    if (location.startsWith('/accounts') ||
+        location.startsWith('/credit-cards')) {
+      return 1;
     }
     if (location.startsWith('/aiko')) {
+      return 2;
+    }
+    if (location.startsWith('/categories')) {
+      return 3;
+    }
+    if (location.startsWith('/transactions')) {
       return 4;
     }
-    return 2;
+    return 0;
   }
 
   bool _isSecondaryRoute(String location) {

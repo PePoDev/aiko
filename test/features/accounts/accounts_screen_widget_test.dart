@@ -51,25 +51,27 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Cash'), findsOneWidget);
-    expect(find.text('Bank'), findsOneWidget);
-    expect(find.text('Credit Card'), findsOneWidget);
-    expect(find.text('Loan'), findsOneWidget);
+    // Account type headers include a count suffix (e.g. "Cash (1)"), so match
+    // the full label rather than the bare type name.
+    expect(find.text('Cash (1)'), findsOneWidget);
+    expect(find.text('Bank (2)'), findsOneWidget);
+    expect(find.text('Credit Card (1)'), findsOneWidget);
+    expect(find.text('Loan (1)'), findsOneWidget);
 
     expect(
-      tester.getTopLeft(find.text('Cash')).dy,
+      tester.getTopLeft(find.text('Cash (1)')).dy,
       lessThan(tester.getTopLeft(find.text('Pocket Cash')).dy),
     );
     expect(
-      tester.getTopLeft(find.text('Bank')).dy,
+      tester.getTopLeft(find.text('Bank (2)')).dy,
       lessThan(tester.getTopLeft(find.text('Everyday Checking')).dy),
     );
     expect(
-      tester.getTopLeft(find.text('Bank')).dy,
+      tester.getTopLeft(find.text('Bank (2)')).dy,
       lessThan(tester.getTopLeft(find.text('High Yield Savings')).dy),
     );
     expect(
-      tester.getTopLeft(find.text('Credit Card')).dy,
+      tester.getTopLeft(find.text('Credit Card (1)')).dy,
       lessThan(tester.getTopLeft(find.text('Visa Rewards')).dy),
     );
   });
@@ -191,6 +193,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Bank').last);
     await tester.pumpAndSettle();
+
+    if (find.text('Switch account type?').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Switch').last);
+      await tester.pumpAndSettle();
+    }
 
     expect(
       find.widgetWithText(TextFormField, 'Institution Name'),

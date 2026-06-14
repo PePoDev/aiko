@@ -11,6 +11,7 @@ import '../../../theme/aiko_colors.dart';
 import '../../transactions/domain/transaction.dart';
 import '../../transactions/presentation/transaction_detail_screen.dart';
 import '../domain/account.dart';
+import 'account_form/account_form_sheet.dart';
 
 class AccountsScreen extends ConsumerWidget {
   const AccountsScreen({super.key});
@@ -138,18 +139,11 @@ class _AccountTypeHeader extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            _accountTypeLabel(type),
+            '${_accountTypeLabel(type)} ($accountCount)',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w800,
               color: Theme.of(context).colorScheme.onSurface,
             ),
-          ),
-        ),
-        Text(
-          '$accountCount',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w700,
           ),
         ),
       ],
@@ -164,7 +158,7 @@ void _showAccountForm(BuildContext context, {Account? account}) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (context) => _AccountFormSheet(account: account),
+    builder: (context) => AccountFormSheet(account: account),
   );
 }
 
@@ -258,7 +252,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => _AccountFormSheet(account: _account),
+      builder: (context) => AccountFormSheet(account: _account),
     );
 
     if (updated == null || !mounted) {
@@ -519,367 +513,6 @@ String _transactionTypeLabel(TransactionType type) {
     TransactionType.fee => 'Fee',
     TransactionType.adjustment => 'Adjustment',
   };
-}
-
-const _currencyOptions = [
-  _CurrencyOption('THB', 'Thai Baht'),
-  _CurrencyOption('USD', 'US Dollar'),
-  _CurrencyOption('EUR', 'Euro'),
-  _CurrencyOption('GBP', 'British Pound'),
-  _CurrencyOption('JPY', 'Japanese Yen'),
-  _CurrencyOption('CNY', 'Chinese Yuan'),
-  _CurrencyOption('SGD', 'Singapore Dollar'),
-  _CurrencyOption('AUD', 'Australian Dollar'),
-  _CurrencyOption('CAD', 'Canadian Dollar'),
-  _CurrencyOption('CHF', 'Swiss Franc'),
-  _CurrencyOption('HKD', 'Hong Kong Dollar'),
-  _CurrencyOption('KRW', 'South Korean Won'),
-  _CurrencyOption('MYR', 'Malaysian Ringgit'),
-  _CurrencyOption('IDR', 'Indonesian Rupiah'),
-  _CurrencyOption('PHP', 'Philippine Peso'),
-  _CurrencyOption('VND', 'Vietnamese Dong'),
-  _CurrencyOption('INR', 'Indian Rupee'),
-  _CurrencyOption('NZD', 'New Zealand Dollar'),
-];
-
-class _CurrencyOption {
-  const _CurrencyOption(this.code, this.name);
-
-  final String code;
-  final String name;
-}
-
-class _CurrencyPrefixIcon extends StatelessWidget {
-  const _CurrencyPrefixIcon({required this.currency});
-
-  final String currency;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      widthFactor: 1,
-      child: Text(
-        _currencySymbol(currency),
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-String _currencySymbol(String currency) {
-  return switch (currency.toUpperCase()) {
-    'THB' => '฿',
-    'USD' => r'$',
-    'EUR' => '€',
-    'GBP' => '£',
-    'JPY' || 'CNY' => '¥',
-    'KRW' => '₩',
-    'INR' => '₹',
-    'PHP' => '₱',
-    'VND' => '₫',
-    _ => currency.toUpperCase(),
-  };
-}
-
-class _AccountFormSheet extends ConsumerStatefulWidget {
-  const _AccountFormSheet({this.account});
-
-  final Account? account;
-
-  @override
-  ConsumerState<_AccountFormSheet> createState() => _AccountFormSheetState();
-}
-
-class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _nameController;
-  late final TextEditingController _currentBalanceController;
-  late final TextEditingController _currencyController;
-  late final TextEditingController _institutionController;
-  late AccountType _selectedType;
-  late String _selectedCurrency;
-  late bool _includeInNetWorth;
-  late bool _isActive;
-  var _isSubmitting = false;
-
-  bool get _isEditing => widget.account != null;
-
-  @override
-  void initState() {
-    super.initState();
-    final account = widget.account;
-    _nameController = TextEditingController(text: account?.name ?? '');
-    _currentBalanceController = TextEditingController(
-      text: account?.currentBalance.amount.toString() ?? '',
-    );
-    _selectedCurrency = account?.currentBalance.currency ?? 'THB';
-    _currencyController = TextEditingController(text: _selectedCurrency);
-    _institutionController = TextEditingController(
-      text: account?.institution ?? '',
-    );
-    _selectedType = account?.type ?? AccountType.cash;
-    _includeInNetWorth = account?.includeInNetWorth ?? true;
-    _isActive = account?.isActive ?? true;
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _currentBalanceController.dispose();
-    _currencyController.dispose();
-    _institutionController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-
-    try {
-      final existing = widget.account;
-      final currency = _selectedCurrency;
-      final currentBalanceText = _currentBalanceController.text.trim();
-      final currentBalance = Money(
-        amount: Decimal.parse(currentBalanceText),
-        currency: currency,
-      );
-      final institution = _selectedType == AccountType.cash
-          ? ''
-          : _institutionController.text.trim();
-      final account = Account(
-        id: existing?.id ?? const Uuid().v4(),
-        userId: existing?.userId ?? '',
-        name: _nameController.text.trim(),
-        type: _selectedType,
-        currentBalance: currentBalance,
-        institution: institution.isEmpty ? null : institution,
-        includeInNetWorth: _includeInNetWorth,
-        isActive: _isActive,
-      );
-
-      await ref.read(accountsProvider.notifier).saveAccount(account);
-      if (!_isEditing) {
-        await _createInitialBalanceTransaction(account);
-      }
-
-      if (!mounted) {
-        return;
-      }
-      Navigator.of(context).pop(account);
-      _showAccountSnackBar(
-        context,
-        _isEditing
-            ? 'Account "${account.name}" updated.'
-            : 'Account "${account.name}" created.',
-      );
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-      _showAccountSnackBar(context, 'Unable to save account: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
-  }
-
-  Future<void> _createInitialBalanceTransaction(Account account) async {
-    final amount = account.currentBalance.amount;
-    if (amount == Decimal.zero) {
-      return;
-    }
-
-    final isNegative = amount < Decimal.zero;
-    final transactionAmount = Money(
-      amount: isNegative ? Decimal.zero - amount : amount,
-      currency: account.currentBalance.currency,
-    );
-
-    await ref
-        .read(transactionsProvider.notifier)
-        .addTransaction(
-          FinanceTransaction(
-            id: const Uuid().v4(),
-            userId: account.userId,
-            accountId: account.id,
-            type: isNegative ? TransactionType.expense : TransactionType.income,
-            amount: transactionAmount,
-            date: DateTime.now(),
-            merchant: 'Initial balance',
-            note: 'Created from account starting balance',
-          ),
-          updateAccountBalance: false,
-        );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        20,
-        20,
-        MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                _isEditing ? 'Edit account' : 'Add account',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Account Name',
-                  hintText: 'e.g. Daily Expenses, Savings Wallet',
-                  prefixIcon: Icon(Icons.badge_outlined),
-                ),
-                validator: (value) => value == null || value.trim().isEmpty
-                    ? 'Please enter a name for the account.'
-                    : null,
-                enabled: !_isSubmitting,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<AccountType>(
-                initialValue: _selectedType,
-                decoration: const InputDecoration(
-                  labelText: 'Account Type',
-                  prefixIcon: Icon(Icons.account_balance_wallet_outlined),
-                ),
-                items: AccountType.values
-                    .where(
-                      (type) =>
-                          type != AccountType.eWallet &&
-                          type != AccountType.other,
-                    )
-                    .map((type) {
-                      return DropdownMenuItem(
-                        value: type,
-                        child: Text(_accountTypeLabel(type)),
-                      );
-                    })
-                    .toList(),
-                onChanged: _isSubmitting
-                    ? null
-                    : (value) {
-                        if (value != null) {
-                          setState(() => _selectedType = value);
-                        }
-                      },
-              ),
-              const SizedBox(height: 12),
-              if (_selectedType != AccountType.cash) ...[
-                TextFormField(
-                  controller: _institutionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Institution Name',
-                    hintText: 'e.g. Chase, PayPal, Coinbase',
-                    prefixIcon: Icon(Icons.corporate_fare_outlined),
-                  ),
-                  enabled: !_isSubmitting,
-                ),
-                const SizedBox(height: 12),
-              ],
-              DropdownMenu<String>(
-                controller: _currencyController,
-                initialSelection: _selectedCurrency,
-                enabled: !_isSubmitting,
-                enableFilter: true,
-                enableSearch: true,
-                requestFocusOnTap: true,
-                expandedInsets: EdgeInsets.zero,
-                leadingIcon: const Icon(Icons.payments_outlined),
-                label: const Text('Currency'),
-                dropdownMenuEntries: _currencyOptions
-                    .map(
-                      (currency) => DropdownMenuEntry<String>(
-                        value: currency.code,
-                        label: '${currency.code} - ${currency.name}',
-                      ),
-                    )
-                    .toList(growable: false),
-                onSelected: (value) {
-                  if (value == null) {
-                    return;
-                  }
-                  setState(() => _selectedCurrency = value);
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _currentBalanceController,
-                decoration: InputDecoration(
-                  labelText: 'Current Balance',
-                  hintText: '0.00',
-                  prefixIcon: _CurrencyPrefixIcon(currency: _selectedCurrency),
-                ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                validator: (value) {
-                  final text = value?.trim() ?? '';
-                  if (text.isEmpty) {
-                    return 'Please enter a balance.';
-                  }
-                  if (Decimal.tryParse(text) == null) {
-                    return 'Please enter a valid decimal number.';
-                  }
-                  return null;
-                },
-                enabled: !_isSubmitting,
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Include in net worth'),
-                value: _includeInNetWorth,
-                onChanged: _isSubmitting
-                    ? null
-                    : (value) => setState(() => _includeInNetWorth = value),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Active account'),
-                value: _isActive,
-                onChanged: _isSubmitting
-                    ? null
-                    : (value) => setState(() => _isActive = value),
-              ),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: _isSubmitting ? null : _submit,
-                icon: _isSubmitting
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.check),
-                label: Text(_isEditing ? 'Save Changes' : 'Create Account'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _AccountDetailRow extends StatelessWidget {

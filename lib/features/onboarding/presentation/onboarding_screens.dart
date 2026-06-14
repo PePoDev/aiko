@@ -90,7 +90,6 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
           baseCurrency: _selectedCurrency,
           country: _selectedCountry,
           onboardingStatus: OnboardingStatus.completed,
-          aiConsentEnabled: true,
         ),
       );
     } catch (error) {
@@ -324,6 +323,31 @@ class _FirstAccountStep extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Bank-level security. Your data is encrypted and secure.',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AikoColors.paleBlue,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colorScheme.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.auto_awesome, color: AikoColors.premiumPurple),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Aiko analyzes your financial data to give you personalized insights.',
                   style: textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurface,
                     fontWeight: FontWeight.w700,

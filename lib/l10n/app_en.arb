@@ -90,8 +90,6 @@
   "themeSystem": "System",
   "themeLight": "Light",
   "themeDark": "Dark",
-  "aiConsent": "AI consent",
-  "aiConsentDescription": "Allow Aiko to analyze sensitive financial data for insights",
   "security": "Security",
   "securityAndPinLock": "Security & PIN Lock",
   "pinLockDescription": "Protect your private financial data by configuring a secure 4-digit PIN lock.",

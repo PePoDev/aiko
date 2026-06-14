@@ -16,7 +16,6 @@ class OfflineProfile extends OfflineFirstWithSupabaseModel {
     this.preferredTheme = 'system',
     this.aikoCharacterVisibility = 'full',
     this.aikoPersonalitySetting = 'supportive',
-    this.aiConsentEnabled = false,
     this.onboardingStatus = 'notStarted',
     this.securityStatus = 'notConfigured',
   });
@@ -33,7 +32,6 @@ class OfflineProfile extends OfflineFirstWithSupabaseModel {
   final String preferredTheme;
   final String aikoCharacterVisibility;
   final String aikoPersonalitySetting;
-  final bool aiConsentEnabled;
   final String onboardingStatus;
   final String securityStatus;
 }

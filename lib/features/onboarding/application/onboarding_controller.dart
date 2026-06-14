@@ -6,7 +6,6 @@ enum OnboardingStepKey {
   focus,
   currency,
   account,
-  aiConsent,
   security,
   completed,
 }
@@ -17,7 +16,6 @@ class OnboardingState {
     this.focus = 'Track spending',
     this.baseCurrency = 'USD',
     this.country = 'US',
-    this.aiConsentEnabled = false,
     this.firstAccount,
   });
 
@@ -25,7 +23,6 @@ class OnboardingState {
   final String focus;
   final String baseCurrency;
   final String country;
-  final bool aiConsentEnabled;
   final Account? firstAccount;
 
   bool get canComplete {
@@ -40,7 +37,6 @@ class OnboardingState {
     String? focus,
     String? baseCurrency,
     String? country,
-    bool? aiConsentEnabled,
     Account? firstAccount,
   }) {
     return OnboardingState(
@@ -48,7 +44,6 @@ class OnboardingState {
       focus: focus ?? this.focus,
       baseCurrency: baseCurrency ?? this.baseCurrency,
       country: country ?? this.country,
-      aiConsentEnabled: aiConsentEnabled ?? this.aiConsentEnabled,
       firstAccount: firstAccount ?? this.firstAccount,
     );
   }
@@ -60,7 +55,6 @@ class OnboardingState {
       email: email,
       baseCurrency: baseCurrency,
       country: country,
-      aiConsentEnabled: aiConsentEnabled,
       onboardingStatus: OnboardingStatus.completed,
       securityStatus: SecurityStatus.pinEnabled,
     );
@@ -87,13 +81,6 @@ class OnboardingController {
   void addFirstAccount(Account account) {
     _state = _state.copyWith(
       firstAccount: account,
-      step: OnboardingStepKey.aiConsent,
-    );
-  }
-
-  void setAiConsent(bool enabled) {
-    _state = _state.copyWith(
-      aiConsentEnabled: enabled,
       step: OnboardingStepKey.security,
     );
   }

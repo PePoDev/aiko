@@ -27,7 +27,6 @@ class ProfileRepository {
         email: email,
         baseCurrency: 'THB',
         country: 'TH',
-        aiConsentEnabled: false,
         onboardingStatus: OnboardingStatus.notStarted,
         securityStatus: SecurityStatus.notConfigured,
       );
@@ -45,7 +44,6 @@ class ProfileRepository {
       email: profile.email,
       baseCurrency: profile.baseCurrency,
       country: profile.country,
-      aiConsentEnabled: profile.aiConsentEnabled,
       onboardingStatus: profile.onboardingStatus,
       securityStatus: profile.securityStatus,
       preferredTheme: profile.preferredTheme,

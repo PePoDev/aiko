@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/providers.dart';
 import 'chat_engine.dart';
+import 'financial_context.dart';
 
 const _greeting = ChatMessage(
   role: 'assistant',
@@ -22,39 +22,40 @@ class ChatState {
     this.messages = const [_greeting],
     this.isStreaming = false,
     this.lastError,
-    this.consentOff = false,
+    this.offline = false,
   });
 
   final List<ChatMessage> messages;
   final bool isStreaming;
   final ChatError? lastError;
 
-  final bool consentOff;
+  /// True when Supabase isn't configured, so Aiko answers on-device using the
+  /// rule-based engine instead of the cloud function.
+  final bool offline;
 
   bool get isEmpty => messages.length <= 1 && !messages.any((m) => m.isUser);
 
-  bool get showSuggestions => isEmpty && !consentOff;
+  bool get showSuggestions => isEmpty;
 
   ChatState copyWith({
     List<ChatMessage>? messages,
     bool? isStreaming,
     ChatError? lastError,
     bool clearError = false,
-    bool? consentOff,
+    bool? offline,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
       isStreaming: isStreaming ?? this.isStreaming,
       lastError: clearError ? null : (lastError ?? this.lastError),
-      consentOff: consentOff ?? this.consentOff,
+      offline: offline ?? this.offline,
     );
   }
 }
 
 final aikoChatEngineProvider = Provider<ChatEngine>((ref) {
   final config = ref.watch(supabaseConfigProvider);
-  final consent = ref.watch(aikoAiConsentProvider);
-  if (!consent || !config.isConfigured) {
+  if (!config.isConfigured) {
     return const OfflineChatEngine();
   }
   return HttpChatEngine(functionUrl: '${config.url}/functions/v1/aiko-chat');
@@ -69,12 +70,12 @@ class AikoChatController extends Notifier<ChatState> {
 
   @override
   ChatState build() {
-    final consent = ref.watch(aikoAiConsentProvider);
+    final offline = !ref.watch(supabaseConfigProvider).isConfigured;
     ref.onDispose(() {
       _subscription?.cancel();
     });
     return ChatState(
-      consentOff: !consent,
+      offline: offline,
       messages: const [_greeting],
       isStreaming: false,
       lastError: null,
@@ -112,10 +113,19 @@ class AikoChatController extends Notifier<ChatState> {
     final history = messages
         .where((m) => m.content.isNotEmpty || m.isUser)
         .toList(growable: false);
+    unawaited(_dispatch(history));
+  }
+
+  /// Builds the on-device financial snapshot (Layer 1), then opens the stream.
+  /// The optimistic UI update already happened in [_streamReply], so the brief
+  /// snapshot build doesn't block the typing indicator.
+  Future<void> _dispatch(List<ChatMessage> history) async {
+    final context = state.offline ? null : await buildAikoFinancialContext(ref);
+    if (!ref.mounted) return;
     _subscription?.cancel();
     _subscription = ref
         .read(aikoChatEngineProvider)
-        .streamReply(history: history)
+        .streamReply(history: history, context: context)
         .listen(
           _handleEvent,
           onError: (Object e) => _handleEvent(ChatReplyError(e)),
@@ -153,11 +163,6 @@ class AikoChatController extends Notifier<ChatState> {
     return 'Something went wrong. Tap retry to try again.';
   }
 }
-
-final aikoAiConsentProvider = Provider<bool>((ref) {
-  final profile = ref.watch(profileProvider);
-  return profile.maybeWhen(data: (p) => p.aiConsentEnabled, orElse: () => true);
-});
 
 class _SupabaseConfig {
   const _SupabaseConfig({required this.url, required this.isConfigured});

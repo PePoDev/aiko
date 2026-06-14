@@ -188,7 +188,7 @@ Core finance data reads and writes locally first, using [Brick](https://github.c
 - Local writes are optimistic: profiles, accounts, categories, transactions, budgets, and goals persist to SQLite immediately and the UI updates at once.
 - When Supabase is configured and the user is authenticated, Brick queues writes and syncs in the background. When Supabase is unavailable, repositories return local data or safe empty/default states — never backend errors in normal flows. Prefer `tryClient()` + offline fallback over `AikoSupabase.requireSession()` in user-facing repositories.
 - After editing `lib/brick/models/`, run `dart run build_runner build` and commit generated adapters, schema, and migrations.
-- System (default) categories are global Supabase rows (`user_id = NULL`) injected in-memory via `CategoryDefaults` (`lib/features/categories/domain/category_defaults.dart`) — never stored per-user in Brick, not user-writable, and their fixed UUIDs are stable constants (never change them).
+- System (default) categories are global Supabase rows (`user_id = NULL`) injected in-memory via `CategoryDefaults` (`lib/features/categories/domain/category_defaults.dart`) — never stored per-user in Brick, not user-writable, and their fixed UUIDs are stable constants (never change them). They belong to the global, read-only **System** category group (`CategoryGroupDefaults.system`, same file) — also a `user_id = NULL` `category_groups` row injected in-memory with a fixed UUID — which sections them on the Categories screen and absorbs any unfiled custom categories. The System group is never user-editable, deletable, or selectable as an assignment target.
 - Use Supabase for Auth, Postgres, RLS, structured finance data, and attachment object storage. By default avoid Realtime and Edge Functions (unless a feature needs server logic) and large blobs in Postgres.
 
 ### Code Conventions
@@ -255,6 +255,69 @@ Saved calculations store as `SavedCalculatorScenario`, compare side-by-side, and
 - Monte Carlo simulations drive advanced goal/retirement probability under three scenarios (optimistic, expected/normal, conservative). Logic lives in `lib/core/prediction/`.
 - AI suggestions store as `AikoInsight` records in Supabase. Insights span four dimensions: **Descriptive** ("You spent $450 on dining out this month."), **Diagnostic** ("Dining out increased 20% from weekend restaurants."), **Predictive** ("At this pace you'll exceed your dining budget in 5 days."), **Prescriptive** ("Limit weekend spending to $15/day to stay on track.").
 - **Disclaimer required:** *AI insights are estimates, not certified financial, investment, or tax advice.*
+
+---
+
+## Ask Aiko Chat Backend (`aiko-chat` Edge Function)
+
+The Ask Aiko chat assistant is the one feature that needs server logic, so it runs as a Supabase Edge Function (`supabase/functions/aiko-chat/`) — a Server-Sent Events proxy that streams Chat Completions from any **OpenAI-compatible provider** back to the app. Keeping the provider key server-side means it never ships in the client.
+
+**Request flow:**
+
+1. Validates the caller's Supabase JWT (`Authorization: Bearer <jwt>`).
+2. Enforces a per-user in-memory rate limit (default `20`/min) — otherwise `429 RATE_LIMITED`.
+3. Builds the message list (last 20 messages) behind a fixed system prompt that defines Aiko's persona, forces the standard disclaimer line on any numeric/recommendation answer, and injects the user's reported `baseCurrency`.
+4. Streams the answer to the provider's Chat Completions endpoint with `stream: true`, re-emitting each token as `data: {"delta":"..."}\n\n` and closing with `data: {"done":true}\n\n`.
+
+The mobile client (`HttpChatEngine` in `lib/features/aiko_assistant/application/chat_engine.dart`) calls `${SUPABASE_URL}/functions/v1/aiko-chat`.
+
+### How Aiko reads your data
+
+Two layers, both designed so the model only ever sees RLS-scoped data and the provider key never leaves the server:
+
+- **Layer 1 — on-device snapshot (always on).** The client assembles a compact `AikoFinancialContext` (net worth, accounts, this-month income/spending, budget pace, goals, recent transactions) from the local Brick store and sends it in the request body. The function folds it into the system prompt, so most "how am I doing" questions are answered in a single round-trip — no server-side data fetch. Aggregates only, capped, never the full ledger.
+- **Layer 2 — server-side tools (off by default, `AI_TOOLS_ENABLED`).** When enabled, the model may first call a fixed allow-list of **read-only** Postgres RPCs (`supabase/migrations/*_aiko_assistant_read_functions.sql`) for deeper, ad-hoc queries. Each RPC is `SECURITY INVOKER` and runs under the caller's JWT, so Postgres RLS scopes every result to that user. The function never executes model-supplied SQL and never uses the service-role key; results are fed back to the model, then the final answer is streamed.
+
+### Configuration
+
+Provider config is set as Supabase secrets — never in the app or `.env`. Any OpenAI-compatible provider works; point `AI_BASE_URL` at its `/v1` endpoint.
+
+```sh
+supabase secrets set AI_API_KEY=sk-...
+# Optional overrides:
+supabase secrets set AI_MODEL=gpt-4o-mini                    # default: gpt-4o-mini
+supabase secrets set AI_BASE_URL=https://api.openai.com/v1   # default: OpenAI
+supabase secrets set AIKO_RATE_PER_MIN=20                    # default: 20
+supabase secrets set AI_TOOLS_ENABLED=false                  # default: false (Layer 2 tools)
+```
+
+`SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected automatically by the runtime.
+
+### Deploy & local dev
+
+```sh
+supabase functions deploy aiko-chat                                            # JWT verification left enabled
+supabase functions serve aiko-chat --env-file ./supabase/functions/.env.local  # local; .env.local is git-ignored
+```
+
+The function validates the JWT itself — calling Supabase Auth with the caller's bearer token — so gateway-level verification stays on. Do **not** pass `--no-verify-jwt`.
+
+### Response & errors
+
+Success is `text/event-stream` (SSE), one event per provider token: `data: {"delta":"..."}` lines ending with `data: {"done":true}`. Errors *before* the stream starts are JSON with a `code` the client switches on; errors *after* it starts arrive as `data: {"error":"..."}` and the connection closes.
+
+| Status | `code` | Meaning |
+| --- | --- | --- |
+| 400 | `BAD_REQUEST` | `messages` array missing/malformed |
+| 400 | `BAD_JSON` | Body was not valid JSON |
+| 401 | `NO_TOKEN` | Missing `Authorization` header |
+| 401 | `BAD_TOKEN` | JWT rejected by Supabase Auth |
+| 405 | `METHOD_NOT_ALLOWED` | Non-POST request |
+| 429 | `RATE_LIMITED` | Per-user rate limit exceeded |
+| 500 | `MISCONFIGURED` | Function missing Supabase env |
+| 500 | `MISSING_PROVIDER_KEY` | `AI_API_KEY` not set |
+| 502 | `PROVIDER_DOWN` | Provider unreachable |
+| 502 | `PROVIDER_ERROR` | Provider returned non-OK |
 
 ---
 
@@ -520,7 +583,7 @@ flutter test integration_test
 | **Premium** | Unlimited accounts, advanced reports, AI recommendations, forecasting, receipt OCR, credit-card optimization, portfolio analytics, tax reports, PDF/Excel export, multi-device sync |
 | **Pro** | Advanced accounting (double-entry, balance sheets, reconciliation), business reports, invoices, multi-user, advanced tax tools, estate planning, full Monte Carlo, API access |
 
-**Security:** PIN + biometrics (Face ID/Touch ID) for local access, secure token storage, remote device logout, cloud sync conflict resolution, and granular privacy options (opt-in AI parsing, local-only mode).
+**Security:** PIN + biometrics (Face ID/Touch ID) for local access, secure token storage, remote device logout, cloud sync conflict resolution, and granular privacy options (AI use acknowledged at onboarding, local-only mode).
 
 ---
 
@@ -556,7 +619,7 @@ flutter test integration_test
 1. **Clarity first** — financial data must be easy to understand.
 2. **Data first, Aiko enhanced** — AI augments but never obscures data.
 3. **Decimal-safe money** — never use `double` for amounts.
-4. **Privacy by design** — RLS everywhere, encrypted storage, user consent for AI.
+4. **Privacy by design** — RLS everywhere, encrypted storage, AI use acknowledged at onboarding.
 5. **Offline first** — core money workflows read/write locally first, sync later.
 6. **Actionable insights** — every insight leads to a useful next step.
 7. **Warm, non-judgmental tone** — Aiko encourages, never shames.

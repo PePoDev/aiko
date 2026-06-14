@@ -61,7 +61,7 @@ void main() {
       expect(error.retryable, isFalse);
     });
 
-    test('surfaces 403 consent off as a non-retryable error', () async {
+    test('surfaces 403 as a non-retryable error', () async {
       final client = MockClient((_) async => http.Response('off', 403));
       final engine = HttpChatEngine(
         functionUrl: 'https://example.test/functions/v1/aiko-chat',
@@ -76,7 +76,7 @@ void main() {
 
       final error = events.whereType<ChatReplyError>().single;
       expect(error.retryable, isFalse);
-      expect(error.error, contains('AI features are off'));
+      expect(error.error, contains("Aiko can't access this"));
     });
 
     test('surfaces 429 as a retryable error', () async {

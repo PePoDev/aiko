@@ -17,7 +17,6 @@ void main() {
           currentBalance: Money.zero('USD'),
         ),
       )
-      ..setAiConsent(true)
       ..completeSecurity();
 
     expect(controller.state.canComplete, isTrue);

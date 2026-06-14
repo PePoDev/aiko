@@ -286,7 +286,6 @@ class AuthRepository {
       'preferred_theme': 'system',
       'aiko_character_visibility': 'full',
       'aiko_personality_setting': 'supportive',
-      'ai_consent_enabled': false,
       'onboarding_status': 'inProgress',
       'security_status': 'notConfigured',
     });

@@ -4,11 +4,7 @@ import '../domain/aiko_insight.dart';
 class AikoInsightRepository {
   const AikoInsightRepository();
 
-  Future<List<AikoInsight>> list({required bool aiConsentEnabled}) async {
-    if (!aiConsentEnabled) {
-      return const [];
-    }
-
+  Future<List<AikoInsight>> list() async {
     final client = AikoSupabase.tryClient();
     final user = client?.auth.currentUser;
     if (client == null || user == null) {

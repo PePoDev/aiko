@@ -248,13 +248,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeDark => 'Dark';
 
   @override
-  String get aiConsent => 'AI consent';
-
-  @override
-  String get aiConsentDescription =>
-      'Allow Aiko to analyze sensitive financial data for insights';
-
-  @override
   String get security => 'Security';
 
   @override

@@ -364,9 +364,36 @@ abstract final class CategoryDefaults {
       name: name,
       type: type,
       group: group,
+      groupId: CategoryGroupDefaults.systemId,
       icon: icon,
       color: color,
       budgetEnabled: type == CategoryType.expense,
     );
   }
+}
+
+/// The single global "System" group that owns the built-in [CategoryDefaults].
+///
+/// Mirrors [CategoryDefaults]: a fixed UUID embedded in the SQL migration that
+/// inserts the global `category_groups` row with user_id = NULL, injected
+/// in-memory at the provider layer and never stored per-user in Brick. The id
+/// is a stable constant — never change it.
+abstract final class CategoryGroupDefaults {
+  /// Fixed UUID of the global System group (c300… block, distinct from the
+  /// c100/c200 category blocks so it is recognisable in query logs).
+  static const String systemId = '00000000-0000-0000-c300-000000000001';
+
+  /// Sort key that keeps the System group after every user-created group.
+  static const int systemSortOrder = 1 << 20;
+
+  /// The System group as a domain object. userId is empty because it is global
+  /// — it belongs to no user.
+  static CategoryGroup get system => const CategoryGroup(
+    id: systemId,
+    userId: '',
+    name: 'System',
+    icon: 'category',
+    color: '#64748B',
+    sortOrder: systemSortOrder,
+  );
 }

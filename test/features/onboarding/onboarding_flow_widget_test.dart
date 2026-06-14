@@ -166,7 +166,6 @@ class _FakeProfileRepository extends ProfileRepository {
     email: '',
     baseCurrency: 'THB',
     country: 'TH',
-    aiConsentEnabled: false,
     onboardingStatus: OnboardingStatus.notStarted,
     securityStatus: SecurityStatus.notConfigured,
   );

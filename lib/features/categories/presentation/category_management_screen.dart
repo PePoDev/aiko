@@ -6,11 +6,10 @@ import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/category.dart';
+import '../domain/category_defaults.dart';
 import 'category_editor_sheet.dart';
 import 'category_group_editor_sheet.dart';
 import 'category_visual.dart';
-
-const _ungroupedKey = '__ungrouped__';
 
 class CategoryManagementScreen extends ConsumerStatefulWidget {
   const CategoryManagementScreen({super.key});
@@ -26,10 +25,10 @@ class _CategoryManagementScreenState
   late final TabController _tabController;
   int _selectedTabIndex = 0;
 
-  /// Tracks the expansion state of each group section. Keyed by group id;
-  /// the special [_ungroupedKey] sentinel holds the ungrouped bucket. All
-  /// start expanded so users see their categories by default.
-  final Map<String, bool> _expanded = <String, bool>{_ungroupedKey: true};
+  /// Tracks the expansion state of each group section, keyed by group id
+  /// (including the global System group). All start expanded so users see
+  /// their categories by default.
+  final Map<String, bool> _expanded = <String, bool>{};
 
   Color get _selectedTabColor =>
       _selectedTabIndex == 0 ? AikoColors.dangerRed : AikoColors.successGreen;
@@ -116,7 +115,15 @@ class _CategoryManagementScreenState
             );
           }
 
-          final groups = groupsAsync.value ?? const <CategoryGroup>[];
+          // Always section the system-managed (and unfiled) categories under
+          // the read-only System group, even if the user-group load failed —
+          // the System group is canonical and rendered exactly once.
+          final groups = <CategoryGroup>[
+            ...(groupsAsync.value ?? const <CategoryGroup>[]).where(
+              (group) => !group.isSystem,
+            ),
+            CategoryGroupDefaults.system,
+          ];
 
           final incomeCategories = categories
               .where((category) => category.type == CategoryType.income)
@@ -259,10 +266,12 @@ class _CategoryTypeView extends StatelessWidget {
   List<Widget> _buildSections() {
     final widgets = <Widget>[];
 
-    // Group sections in repository order (sortOrder, then createdAt, then name).
+    // Group sections in repository order (sortOrder, then createdAt, then
+    // name); the global System group is injected last. The System group is
+    // read-only and also absorbs any unfiled custom categories.
     for (final group in groups) {
       final groupCategories = categories
-          .where((c) => c.groupId == group.id)
+          .where((c) => _belongsToGroup(c, group))
           .toList(growable: false);
       if (groupCategories.isEmpty) continue;
       widgets.add(
@@ -272,28 +281,26 @@ class _CategoryTypeView extends StatelessWidget {
           categories: groupCategories,
           isExpanded: expanded[group.id] ?? true,
           onToggle: () => onToggle(group.id),
-          onAddCategory: () => onAddCategory(groupIdHint: group.id),
-        ),
-      );
-    }
-
-    // Ungrouped section — system defaults and any unassigned custom categories.
-    final ungrouped = categories
-        .where((c) => c.groupId == null || c.groupId!.isEmpty)
-        .toList(growable: false);
-    if (ungrouped.isNotEmpty) {
-      widgets.add(
-        _UngroupedSection(
-          key: const ValueKey('section-ungrouped'),
-          categories: ungrouped,
-          isExpanded: expanded[_ungroupedKey] ?? true,
-          onToggle: () => onToggle(_ungroupedKey),
-          onAddCategory: () => onAddCategory(),
+          onAddCategory: group.isSystem
+              ? null
+              : () => onAddCategory(groupIdHint: group.id),
         ),
       );
     }
 
     return widgets;
+  }
+
+  /// A category belongs to [group] when its `groupId` matches. The System
+  /// group additionally claims every unfiled custom category (`groupId` null
+  /// or empty), so it plays the role the old "Ungrouped" bucket used to.
+  bool _belongsToGroup(Category category, CategoryGroup group) {
+    if (group.isSystem) {
+      return category.groupId == group.id ||
+          category.groupId == null ||
+          category.groupId!.isEmpty;
+    }
+    return category.groupId == group.id;
   }
 }
 
@@ -336,14 +343,19 @@ class _CategoryGroupSection extends StatelessWidget {
   final List<Category> categories;
   final bool isExpanded;
   final VoidCallback onToggle;
-  final VoidCallback onAddCategory;
+
+  /// When null (e.g. the read-only System group) the in-group "Add category"
+  /// action is hidden.
+  final VoidCallback? onAddCategory;
 
   @override
   Widget build(BuildContext context) {
     final color = aikoHexColor(group.color);
 
     return Card(
-      key: const Key('category-group-section'),
+      key: Key(
+        group.isSystem ? 'system-group-section' : 'category-group-section',
+      ),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
@@ -361,7 +373,9 @@ class _CategoryGroupSection extends StatelessWidget {
             icon: aikoCategoryIcon(group.icon),
             isExpanded: isExpanded,
             onToggle: onToggle,
-            onEdit: () => showCategoryGroupEditorSheet(context, initial: group),
+            onEdit: group.isSystem
+                ? null
+                : () => showCategoryGroupEditorSheet(context, initial: group),
           ),
           AnimatedSize(
             duration: const Duration(milliseconds: 180),
@@ -374,80 +388,26 @@ class _CategoryGroupSection extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _CategoryCardGrid(categories: categories),
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            key: Key('add-category-in-group-${group.id}'),
-                            onPressed: onAddCategory,
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Add category'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: color,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
+                        if (onAddCategory != null) ...[
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              key: Key('add-category-in-group-${group.id}'),
+                              onPressed: onAddCategory,
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Add category'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: color,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _UngroupedSection extends StatelessWidget {
-  const _UngroupedSection({
-    super.key,
-    required this.categories,
-    required this.isExpanded,
-    required this.onToggle,
-    required this.onAddCategory,
-  });
-
-  final List<Category> categories;
-  final bool isExpanded;
-  final VoidCallback onToggle;
-  final VoidCallback onAddCategory;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasCustom = categories.any((c) => !c.isDefault);
-    final scheme = Theme.of(context).colorScheme;
-
-    return Card(
-      key: const Key('ungrouped-section'),
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: scheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _GroupHeader(
-            title: 'Ungrouped',
-            subtitle:
-                '${categories.length} categor${categories.length == 1 ? "y" : "ies"}'
-                '${hasCustom ? "" : " · built-in"}',
-            color: scheme.onSurfaceVariant,
-            icon: Icons.inbox_outlined,
-            isExpanded: isExpanded,
-            onToggle: onToggle,
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeInOut,
-            alignment: Alignment.topCenter,
-            child: isExpanded
-                ? Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    child: _CategoryCardGrid(categories: categories),
                   )
                 : const SizedBox.shrink(),
           ),

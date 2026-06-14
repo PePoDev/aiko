@@ -548,18 +548,6 @@ abstract class AppLocalizations {
   /// **'Dark'**
   String get themeDark;
 
-  /// No description provided for @aiConsent.
-  ///
-  /// In en, this message translates to:
-  /// **'AI consent'**
-  String get aiConsent;
-
-  /// No description provided for @aiConsentDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Allow Aiko to analyze sensitive financial data for insights'**
-  String get aiConsentDescription;
-
   /// No description provided for @security.
   ///
   /// In en, this message translates to:

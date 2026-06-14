@@ -40,7 +40,6 @@ class _ThrowingService extends AikoAssistantService {
   @override
   AikoResponse answerQuestion({
     required String question,
-    bool aiConsentEnabled = true,
     dynamic safeToSpendAmount,
     dynamic insights = const [],
     dynamic accounts = const [],

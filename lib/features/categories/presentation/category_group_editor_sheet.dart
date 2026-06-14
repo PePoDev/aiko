@@ -102,7 +102,7 @@ class _CategoryGroupEditorSheetState
               name: _nameController.text.trim(),
               color: _selectedColorHex,
               icon: _selectedIconKey,
-              sortOrder: groups.length,
+              sortOrder: groups.where((g) => !g.isSystem).length,
             )
           : widget.initial!.copyWith(
               name: _nameController.text.trim(),

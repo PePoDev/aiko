@@ -129,7 +129,6 @@ const _profile = Profile(
   email: 'person@example.com',
   baseCurrency: 'THB',
   country: 'TH',
-  aiConsentEnabled: false,
   onboardingStatus: OnboardingStatus.completed,
   securityStatus: SecurityStatus.notConfigured,
 );

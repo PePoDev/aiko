@@ -21,6 +21,7 @@ import '../features/transactions/domain/transaction.dart';
 import '../features/accounts/domain/account.dart';
 import '../features/budgets/domain/budget.dart';
 import '../features/categories/domain/category.dart';
+import '../features/categories/domain/category_defaults.dart';
 import '../features/investments/data/investment_holding_repository.dart';
 import '../core/money/money.dart';
 
@@ -408,7 +409,11 @@ class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
   @override
   Future<List<CategoryGroup>> build() async {
     final repo = ref.watch(categoryGroupRepositoryProvider);
-    return repo.list();
+    final userGroups = await repo.list();
+    // The global System group is injected in-memory (mirroring how
+    // CategoryDefaults are injected into the categories list) and always sorts
+    // last, after the user's own groups.
+    return [...userGroups, CategoryGroupDefaults.system];
   }
 
   Future<void> saveGroup(CategoryGroup group) async {
@@ -538,9 +543,8 @@ final profileProvider = FutureProvider.autoDispose<Profile>((ref) {
 final aikoInsightsProvider = FutureProvider.autoDispose<List<AikoInsight>>((
   ref,
 ) async {
-  final profile = await ref.watch(profileProvider.future);
   final repo = ref.watch(aikoInsightRepositoryProvider);
-  return repo.list(aiConsentEnabled: profile.aiConsentEnabled);
+  return repo.list();
 });
 
 final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummary>((

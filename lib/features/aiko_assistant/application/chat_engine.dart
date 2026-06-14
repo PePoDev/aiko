@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../domain/aiko_response.dart';
 import 'aiko_assistant_service.dart';
+import 'financial_context.dart';
 
 class ChatMessage {
   const ChatMessage({required this.role, required this.content});
@@ -37,7 +38,10 @@ class ChatReplyError extends ChatReplyEvent {
 }
 
 abstract class ChatEngine {
-  Stream<ChatReplyEvent> streamReply({required List<ChatMessage> history});
+  Stream<ChatReplyEvent> streamReply({
+    required List<ChatMessage> history,
+    AikoFinancialContext? context,
+  });
 }
 
 class OfflineChatEngine implements ChatEngine {
@@ -46,7 +50,12 @@ class OfflineChatEngine implements ChatEngine {
   final AikoAssistantService service;
 
   @override
-  Stream<ChatReplyEvent> streamReply({required List<ChatMessage> history}) {
+  Stream<ChatReplyEvent> streamReply({
+    required List<ChatMessage> history,
+    AikoFinancialContext? context,
+  }) {
+    // The on-device engine answers from its own rule-based service; the
+    // snapshot is only used by the cloud engine.
     final controller = StreamController<ChatReplyEvent>();
     scheduleMicrotask(() {
       final lastUser = history.lastWhere(
@@ -82,7 +91,10 @@ class HttpChatEngine implements ChatEngine {
   final http.Client? _client;
 
   @override
-  Stream<ChatReplyEvent> streamReply({required List<ChatMessage> history}) {
+  Stream<ChatReplyEvent> streamReply({
+    required List<ChatMessage> history,
+    AikoFinancialContext? context,
+  }) {
     final controller = StreamController<ChatReplyEvent>();
     final client = _client ?? http.Client();
     final messages = history
@@ -101,7 +113,10 @@ class HttpChatEngine implements ChatEngine {
           request.headers['Authorization'] = 'Bearer $token';
         }
 
-        request.body = jsonEncode({'messages': messages});
+        request.body = jsonEncode({
+          'messages': messages,
+          if (context != null) 'financialContext': context.toJson(),
+        });
 
         final response = await client.send(request);
         if (response.statusCode == 401) {
@@ -114,7 +129,7 @@ class HttpChatEngine implements ChatEngine {
         if (response.statusCode == 403) {
           controller.add(
             const ChatReplyError(
-              'AI features are off in Settings.',
+              "Aiko can't access this right now.",
               retryable: false,
             ),
           );

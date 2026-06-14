@@ -1,28 +1,30 @@
 // GENERATED CODE DO NOT EDIT
 // This file should be version controlled
 import 'package:brick_sqlite/db.dart';
-part '20260613162843.migration.dart';
+part '20260614125205.migration.dart';
 part '20260523055312.migration.dart';
 part '20260523183433.migration.dart';
 part '20260603133701.migration.dart';
 part '20260607174822.migration.dart';
 part '20260613095807.migration.dart';
 part '20260613154239.migration.dart';
+part '20260613162843.migration.dart';
 
 /// All intelligently-generated migrations from all `@Migratable` classes on disk
 final migrations = <Migration>{
-  const Migration20260613162843(),
+  const Migration20260614125205(),
   const Migration20260523055312(),
   const Migration20260523183433(),
   const Migration20260603133701(),
   const Migration20260607174822(),
   const Migration20260613095807(),
   const Migration20260613154239(),
+  const Migration20260613162843(),
 };
 
 /// A consumable database structure including the latest generated migration.
 final schema = Schema(
-  20260613154239,
+  20260613162843,
   generatorVersion: 1,
   tables: <SchemaTable>{
     SchemaTable(
@@ -199,7 +201,6 @@ final schema = Schema(
         SchemaColumn('preferred_theme', Column.varchar),
         SchemaColumn('aiko_character_visibility', Column.varchar),
         SchemaColumn('aiko_personality_setting', Column.varchar),
-        SchemaColumn('ai_consent_enabled', Column.boolean),
         SchemaColumn('onboarding_status', Column.varchar),
         SchemaColumn('security_status', Column.varchar),
       },

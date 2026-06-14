@@ -12,7 +12,6 @@ class ProfileDto {
       email: json['email'] as String? ?? '',
       baseCurrency: json['base_currency'] as String? ?? 'THB',
       country: json['country'] as String? ?? 'TH',
-      aiConsentEnabled: json['ai_consent_enabled'] as bool? ?? false,
       onboardingStatus: OnboardingStatus.values.byName(
         json['onboarding_status'] as String? ?? 'notStarted',
       ),
@@ -28,7 +27,6 @@ class ProfileDto {
     'email': profile.email,
     'base_currency': profile.baseCurrency,
     'country': profile.country,
-    'ai_consent_enabled': profile.aiConsentEnabled,
     'onboarding_status': profile.onboardingStatus.name,
     'security_status': profile.securityStatus.name,
   };

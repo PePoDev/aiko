@@ -16,7 +16,6 @@ Future<OfflineProfile> _$OfflineProfileFromSupabase(
     preferredTheme: data['preferred_theme'] as String,
     aikoCharacterVisibility: data['aiko_character_visibility'] as String,
     aikoPersonalitySetting: data['aiko_personality_setting'] as String,
-    aiConsentEnabled: data['ai_consent_enabled'] as bool,
     onboardingStatus: data['onboarding_status'] as String,
     securityStatus: data['security_status'] as String,
   );
@@ -37,7 +36,6 @@ Future<Map<String, dynamic>> _$OfflineProfileToSupabase(
     'preferred_theme': instance.preferredTheme,
     'aiko_character_visibility': instance.aikoCharacterVisibility,
     'aiko_personality_setting': instance.aikoPersonalitySetting,
-    'ai_consent_enabled': instance.aiConsentEnabled,
     'onboarding_status': instance.onboardingStatus,
     'security_status': instance.securityStatus,
   };
@@ -58,7 +56,6 @@ Future<OfflineProfile> _$OfflineProfileFromSqlite(
     preferredTheme: data['preferred_theme'] as String,
     aikoCharacterVisibility: data['aiko_character_visibility'] as String,
     aikoPersonalitySetting: data['aiko_personality_setting'] as String,
-    aiConsentEnabled: data['ai_consent_enabled'] == 1,
     onboardingStatus: data['onboarding_status'] as String,
     securityStatus: data['security_status'] as String,
   )..primaryKey = data['_brick_id'] as int;
@@ -79,7 +76,6 @@ Future<Map<String, dynamic>> _$OfflineProfileToSqlite(
     'preferred_theme': instance.preferredTheme,
     'aiko_character_visibility': instance.aikoCharacterVisibility,
     'aiko_personality_setting': instance.aikoPersonalitySetting,
-    'ai_consent_enabled': instance.aiConsentEnabled ? 1 : 0,
     'onboarding_status': instance.onboardingStatus,
     'security_status': instance.securityStatus,
   };
@@ -131,10 +127,6 @@ class OfflineProfileAdapter
     'aikoPersonalitySetting': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'aiko_personality_setting',
-    ),
-    'aiConsentEnabled': const RuntimeSupabaseColumnDefinition(
-      association: false,
-      columnName: 'ai_consent_enabled',
     ),
     'onboardingStatus': const RuntimeSupabaseColumnDefinition(
       association: false,
@@ -210,12 +202,6 @@ class OfflineProfileAdapter
       columnName: 'aiko_personality_setting',
       iterable: false,
       type: String,
-    ),
-    'aiConsentEnabled': const RuntimeSqliteColumnDefinition(
-      association: false,
-      columnName: 'ai_consent_enabled',
-      iterable: false,
-      type: bool,
     ),
     'onboardingStatus': const RuntimeSqliteColumnDefinition(
       association: false,

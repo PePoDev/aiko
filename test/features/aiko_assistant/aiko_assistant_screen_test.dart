@@ -1,10 +1,9 @@
 import 'dart:async';
 
-import 'package:aiko/app/providers.dart';
 import 'package:aiko/features/aiko_assistant/application/aiko_chat_controller.dart';
 import 'package:aiko/features/aiko_assistant/application/chat_engine.dart';
+import 'package:aiko/features/aiko_assistant/application/financial_context.dart';
 import 'package:aiko/features/aiko_assistant/presentation/aiko_assistant_screen.dart';
-import 'package:aiko/features/settings/domain/profile.dart';
 import 'package:aiko/theme/aiko_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,9 +16,6 @@ void main() {
     _useWideSurface(tester);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          profileProvider.overrideWith(_profileWith(aiConsent: true)),
-        ],
         child: MaterialApp(
           theme: AikoTheme.light(),
           home: const AikoAssistantScreen(),
@@ -39,14 +35,11 @@ void main() {
   });
 
   testWidgets(
-    'hides suggestion chips and shows consent notice when AI is off',
+    'without Supabase configured, shows on-device mode and keeps input usable',
     (tester) async {
       _useWideSurface(tester);
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            profileProvider.overrideWith(_profileWith(aiConsent: false)),
-          ],
           child: MaterialApp(
             theme: AikoTheme.light(),
             home: const AikoAssistantScreen(),
@@ -55,11 +48,10 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Offline mode'), findsOneWidget);
-      expect(find.text('How much can I safely spend?'), findsNothing);
-      expect(find.textContaining('AI features are off'), findsOneWidget);
+      // SUPABASE_URL is unset in tests, so the screen is in on-device mode.
+      expect(find.textContaining('On-device mode'), findsWidgets);
       final textField = tester.widget<TextField>(find.byType(TextField));
-      expect(textField.enabled, isFalse);
+      expect(textField.enabled, isTrue);
     },
   );
 
@@ -70,10 +62,7 @@ void main() {
     final fakeEngine = _RecordingEngine();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          profileProvider.overrideWith(_profileWith(aiConsent: true)),
-          aikoChatEngineProvider.overrideWithValue(fakeEngine),
-        ],
+        overrides: [aikoChatEngineProvider.overrideWithValue(fakeEngine)],
         child: MaterialApp(
           theme: AikoTheme.light(),
           home: const AikoAssistantScreen(),
@@ -98,24 +87,14 @@ void _useWideSurface(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Future<Profile> Function(Ref) _profileWith({required bool aiConsent}) {
-  return (ref) async => Profile(
-    id: 'test-user',
-    displayName: 'Tester',
-    email: 'tester@example.com',
-    baseCurrency: 'USD',
-    country: 'US',
-    aiConsentEnabled: aiConsent,
-    onboardingStatus: OnboardingStatus.completed,
-    securityStatus: SecurityStatus.notConfigured,
-  );
-}
-
 class _RecordingEngine implements ChatEngine {
   final List<List<ChatMessage>> calls = [];
 
   @override
-  Stream<ChatReplyEvent> streamReply({required List<ChatMessage> history}) {
+  Stream<ChatReplyEvent> streamReply({
+    required List<ChatMessage> history,
+    AikoFinancialContext? context,
+  }) {
     calls.add(history);
     final controller = StreamController<ChatReplyEvent>();
     scheduleMicrotask(() {

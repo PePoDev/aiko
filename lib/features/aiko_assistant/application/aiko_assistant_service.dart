@@ -9,17 +9,7 @@ import '../../transactions/domain/transaction.dart';
 class AikoAssistantService {
   const AikoAssistantService();
 
-  AikoResponse safeToSpend({
-    required bool aiConsentEnabled,
-    required Money? safeToSpendAmount,
-  }) {
-    if (!aiConsentEnabled) {
-      return const AikoResponse(
-        type: AikoResponseType.missingData,
-        answer: 'I need AI consent before I can analyze your financial data.',
-        missingData: ['ai_consent'],
-      );
-    }
+  AikoResponse safeToSpend({required Money? safeToSpendAmount}) {
     if (safeToSpendAmount == null) {
       return const AikoResponse(
         type: AikoResponseType.missingData,
@@ -46,7 +36,6 @@ class AikoAssistantService {
 
   AikoResponse answerQuestion({
     required String question,
-    bool aiConsentEnabled = true,
     Money? safeToSpendAmount,
     List<AikoInsight> insights = const [],
     List<Account> accounts = const [],
@@ -57,18 +46,7 @@ class AikoAssistantService {
     final normalized = question.toLowerCase();
 
     if (normalized.contains('safe') || normalized.contains('spend')) {
-      return safeToSpend(
-        aiConsentEnabled: aiConsentEnabled,
-        safeToSpendAmount: safeToSpendAmount,
-      );
-    }
-
-    if (!aiConsentEnabled) {
-      return const AikoResponse(
-        type: AikoResponseType.missingData,
-        answer: 'Turn on AI consent before I analyze personal finance data.',
-        missingData: ['ai_consent'],
-      );
+      return safeToSpend(safeToSpendAmount: safeToSpendAmount);
     }
 
     if (normalized.contains('optimize') ||

@@ -1,10 +1,17 @@
 // Aiko Chat — Supabase Edge Function
-// Streams OpenAI Chat Completions responses as Server-Sent Events to the
-// Aiko mobile assistant. Validates the caller's Supabase JWT, enforces the
-// user's AI consent preference, applies a per-user rate limit, and emits
+// Streams chat completions from any OpenAI-compatible provider as Server-Sent
+// Events to the Aiko mobile assistant. Validates the caller's Supabase JWT,
+// applies a per-user rate limit, folds the client's on-device financial
+// snapshot (Layer 1) into the system prompt, and — when AI_TOOLS_ENABLED — lets
+// the model pull deeper data through read-only Postgres RPCs (Layer 2). Emits
 // `data: {"delta":"..."}\n\n` chunks (and a final `{"done":true}`).
+//
+// Security model: the provider key lives only here (never on the client). All
+// data access runs through the *caller's* JWT, so Postgres RLS scopes every read
+// to that user. The function never uses the service-role key, never executes
+// model-supplied SQL, and only calls a fixed allow-list of read-only RPCs.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 const SYSTEM_PROMPT = [
@@ -14,12 +21,21 @@ const SYSTEM_PROMPT = [
   "Never shame or judge the user. If you don't have enough data, say so plainly and suggest the screen in Aiko that would help (Accounts, Budgets, Goals, Transactions).",
   "Prefer short, skimmable answers. Use the user's reported base currency. Round to two decimals. Avoid jargon.",
   "Do not promise features that don't exist in Aiko. Do not request sensitive data (SSN, full card numbers, passwords).",
+  "Base every number on the provided snapshot or tool results — never invent figures.",
   "If the user asks something unrelated to personal finance, gently steer back: 'I'm best with money questions — want to ask me about your spending, budgets, or goals?'",
 ].join(" ");
 
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
-const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") ?? "gpt-4o-mini";
+// Any OpenAI-compatible Chat Completions provider (OpenAI, OpenRouter, Together,
+// Groq, a local server, etc.). Point AI_BASE_URL at the provider's v1 endpoint.
+const AI_API_KEY = Deno.env.get("AI_API_KEY") ?? "";
+const AI_MODEL = Deno.env.get("AI_MODEL") ?? "gpt-4o-mini";
+const AI_BASE_URL = (Deno.env.get("AI_BASE_URL") ?? "https://api.openai.com/v1").replace(/\/+$/, "");
 const RATE_LIMIT_PER_MIN = Number(Deno.env.get("AIKO_RATE_PER_MIN") ?? "20");
+
+// Layer 2 (server-side tool calling) is OFF until reviewed. When false the
+// function behaves exactly like Layer 1: one streamed completion, no tools.
+const AI_TOOLS_ENABLED = (Deno.env.get("AI_TOOLS_ENABLED") ?? "false").toLowerCase() === "true";
+const MAX_TOOL_ROUNDS = 4;
 
 const rateBuckets = new Map<string, { tokens: number; updatedAt: number }>();
 
@@ -56,9 +72,13 @@ interface IncomingMessage {
   content: string;
 }
 
+// deno-lint-ignore no-explicit-any
+type ChatMessage = Record<string, any>;
+
 interface RequestBody {
   messages: IncomingMessage[];
   systemContext?: { baseCurrency?: string; locale?: string };
+  financialContext?: Record<string, unknown>;
 }
 
 function isRequestBody(value: unknown): value is RequestBody {
@@ -70,6 +90,189 @@ function isRequestBody(value: unknown): value is RequestBody {
     typeof (m as Record<string, unknown>).role === "string" &&
     typeof (m as Record<string, unknown>).content === "string"
   );
+}
+
+// ---- Layer 1: on-device snapshot folded into the system prompt ----
+
+function financialContextBlock(ctx: unknown): string {
+  if (!ctx || typeof ctx !== "object") return "";
+  let json = JSON.stringify(ctx);
+  if (json.length > 6000) json = `${json.slice(0, 6000)}…(truncated)`;
+  return [
+    "\n\nUser's current financial snapshot (assembled on their device; amounts are in their base currency). Use it to answer. If a needed figure isn't present, say what's missing and which Aiko screen would have it — do not guess:",
+    json,
+  ].join("\n");
+}
+
+// ---- Layer 2: read-only tool catalog (mirrors the SQL RPCs) ----
+// Disabled by default. Each tool maps 1:1 to a SECURITY INVOKER Postgres
+// function, so RLS keeps results scoped to the calling user.
+
+const DATE = { type: "string", description: "ISO date, YYYY-MM-DD" } as const;
+
+const TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "aiko_account_summary",
+      description: "Net worth and the balance/type of each active account.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "aiko_budget_status",
+      description: "Per-budget limit and amount spent for a date range.",
+      parameters: {
+        type: "object",
+        properties: { start_date: DATE, end_date: DATE },
+        required: ["start_date", "end_date"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "aiko_spending_by_category",
+      description: "Total expense per category between two dates (highest first).",
+      parameters: {
+        type: "object",
+        properties: { start_date: DATE, end_date: DATE },
+        required: ["start_date", "end_date"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "aiko_cashflow_summary",
+      description: "Total income vs. total expense between two dates.",
+      parameters: {
+        type: "object",
+        properties: { start_date: DATE, end_date: DATE },
+        required: ["start_date", "end_date"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "aiko_recent_transactions",
+      description: "The most recent transactions (date, type, amount, merchant, category).",
+      parameters: {
+        type: "object",
+        properties: {
+          max_rows: { type: "integer", description: "1-50, default 20" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "aiko_goal_progress",
+      description: "Active savings goals with current/target amount and percent complete.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
+];
+
+const TOOL_NAMES = new Set(TOOLS.map((t) => t.function.name));
+
+// Execute one model-requested tool. Names are allow-listed; arguments are
+// sanitized; results are RLS-scoped and size-capped. Errors are returned to the
+// model as JSON rather than thrown, so a bad call never breaks the chat.
+async function runTool(
+  supabase: SupabaseClient,
+  name: string,
+  argumentsJson: string | undefined,
+): Promise<string> {
+  if (!TOOL_NAMES.has(name)) return JSON.stringify({ error: "unknown tool" });
+
+  let args: Record<string, unknown> = {};
+  try {
+    args = argumentsJson ? JSON.parse(argumentsJson) : {};
+  } catch {
+    args = {};
+  }
+
+  if (name === "aiko_recent_transactions") {
+    const n = Number((args as { max_rows?: unknown }).max_rows ?? 20);
+    args = { max_rows: Math.min(Math.max(Number.isFinite(n) ? Math.trunc(n) : 20, 1), 50) };
+  }
+
+  try {
+    const { data, error } = await supabase.rpc(name, args);
+    if (error) return JSON.stringify({ error: error.message });
+    let out = JSON.stringify(data ?? []);
+    if (out.length > 4000) out = `${out.slice(0, 4000)}…(truncated)`;
+    return out;
+  } catch (e) {
+    return JSON.stringify({ error: (e as Error).message });
+  }
+}
+
+interface ProviderPayload {
+  model: string;
+  messages: ChatMessage[];
+  stream: boolean;
+  temperature: number;
+  // deno-lint-ignore no-explicit-any
+  tools?: any[];
+}
+
+function providerFetch(payload: ProviderPayload): Promise<Response> {
+  return fetch(`${AI_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${AI_API_KEY}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+// Layer 2 resolution loop: non-streamed completions that may request tools,
+// executed and fed back until the model is ready to answer (or we hit the
+// round cap). Mutates and returns the message list. Best-effort: any provider
+// hiccup just stops tool resolution and lets the final streamed answer proceed.
+async function resolveTools(supabase: SupabaseClient, messages: ChatMessage[]): Promise<void> {
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    let resp: Response;
+    try {
+      resp = await providerFetch({
+        model: AI_MODEL,
+        messages,
+        stream: false,
+        temperature: 0.4,
+        tools: TOOLS,
+      });
+    } catch {
+      return;
+    }
+    if (!resp.ok) return;
+
+    const json = await resp.json().catch(() => null);
+    const message = json?.choices?.[0]?.message;
+    const toolCalls = message?.tool_calls;
+    if (!message || !Array.isArray(toolCalls) || toolCalls.length === 0) return;
+
+    messages.push({
+      role: "assistant",
+      content: message.content ?? "",
+      tool_calls: toolCalls,
+    });
+
+    for (const call of toolCalls) {
+      const result = await runTool(supabase, call?.function?.name, call?.function?.arguments);
+      messages.push({ role: "tool", tool_call_id: call.id, content: result });
+    }
+  }
 }
 
 serve(async (req) => {
@@ -99,6 +302,8 @@ serve(async (req) => {
     return jsonResponse(500, { error: "Server is not configured", code: "MISCONFIGURED" });
   }
 
+  // Anon client carrying the caller's JWT → every query/RPC is RLS-scoped to
+  // this user. The service-role key is never used here.
   const supabase = createClient(supabaseUrl, supabaseAnon, {
     auth: { persistSession: false },
     global: { headers: { Authorization: `Bearer ${jwt}` } },
@@ -114,19 +319,6 @@ serve(async (req) => {
     return jsonResponse(429, { error: "Too many requests. Try again in a moment.", code: "RATE_LIMITED" });
   }
 
-  const { data: profile, error: profileErr } = await supabase
-    .from("profiles")
-    .select("ai_consent_enabled")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (profileErr) {
-    return jsonResponse(500, { error: "Could not load profile", code: "PROFILE_LOAD_FAILED" });
-  }
-  if (!profile?.ai_consent_enabled) {
-    return jsonResponse(403, { error: "AI features are off in Settings.", code: "AI_CONSENT_OFF" });
-  }
-
   let body: unknown;
   try {
     body = await req.json();
@@ -137,32 +329,37 @@ serve(async (req) => {
     return jsonResponse(400, { error: "messages array is required", code: "BAD_REQUEST" });
   }
 
-  if (!OPENAI_API_KEY) {
-    return jsonResponse(500, { error: "Server is missing OPENAI_API_KEY", code: "MISSING_PROVIDER_KEY" });
+  if (!AI_API_KEY) {
+    return jsonResponse(500, { error: "Server is missing AI_API_KEY", code: "MISSING_PROVIDER_KEY" });
   }
 
-  const baseCurrency = body.systemContext?.baseCurrency ?? "USD";
-  const systemWithContext = `${SYSTEM_PROMPT}\n\nUser's base currency: ${baseCurrency}. Always render currency with that code.`;
+  const baseCurrency = body.systemContext?.baseCurrency ??
+    (typeof body.financialContext?.baseCurrency === "string"
+      ? (body.financialContext.baseCurrency as string)
+      : "USD");
+  const systemWithContext =
+    `${SYSTEM_PROMPT}\n\nUser's base currency: ${baseCurrency}. Always render currency with that code.` +
+    financialContextBlock(body.financialContext);
 
-  const openaiMessages = [
-    { role: "system" as const, content: systemWithContext },
+  const messages: ChatMessage[] = [
+    { role: "system", content: systemWithContext },
     ...body.messages.slice(-20).map((m) => ({ role: m.role, content: m.content })),
   ];
 
+  // Layer 2: let the model pull deeper data first (off by default).
+  if (AI_TOOLS_ENABLED) {
+    await resolveTools(supabase, messages);
+  }
+
+  // Final answer: always streamed, no tools — forces a prose reply over the
+  // (possibly tool-enriched) message list.
   let upstream: Response;
   try {
-    upstream = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        stream: true,
-        temperature: 0.4,
-        messages: openaiMessages,
-      }),
+    upstream = await providerFetch({
+      model: AI_MODEL,
+      messages,
+      stream: true,
+      temperature: 0.4,
     });
   } catch (e) {
     return jsonResponse(502, { error: `Provider unreachable: ${(e as Error).message}`, code: "PROVIDER_DOWN" });

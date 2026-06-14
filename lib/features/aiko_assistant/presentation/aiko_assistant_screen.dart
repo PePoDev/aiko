@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../theme/aiko_colors.dart';
 import '../../aiko_character/presentation/aiko_avatar.dart';
@@ -89,10 +88,10 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
                     ),
                   ),
                   Text(
-                    state.consentOff ? 'Offline mode' : 'Online',
+                    state.offline ? 'On-device mode' : 'Online',
                     style: TextStyle(
                       fontSize: 11,
-                      color: state.consentOff
+                      color: state.offline
                           ? AikoColors.warningOrange
                           : AikoColors.successGreen,
                     ),
@@ -127,11 +126,11 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
             _SuggestionStrip(suggestions: _suggestions, onSelected: _submit),
           _InputBar(
             controller: _textController,
-            disabled: state.consentOff || state.isStreaming,
+            disabled: state.isStreaming,
             onSubmit: _submit,
             onChanged: (_) => setState(() {}),
           ),
-          if (state.consentOff) const _ConsentOffNotice(),
+          if (state.offline) const _OfflineNotice(),
         ],
       ),
     );
@@ -555,8 +554,8 @@ class _InputBar extends StatelessWidget {
   }
 }
 
-class _ConsentOffNotice extends StatelessWidget {
-  const _ConsentOffNotice();
+class _OfflineNotice extends StatelessWidget {
+  const _OfflineNotice();
 
   @override
   Widget build(BuildContext context) {
@@ -564,23 +563,20 @@ class _ConsentOffNotice extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       color: AikoColors.paleBlue,
-      child: Row(
+      child: const Row(
         children: [
-          const Icon(
-            Icons.shield_outlined,
+          Icon(
+            Icons.offline_bolt_outlined,
             size: 16,
             color: AikoColors.deepBlue,
           ),
-          const SizedBox(width: 8),
-          const Expanded(
+          SizedBox(width: 8),
+          Expanded(
             child: Text(
-              'AI features are off — using offline mode. Enable in Settings → Privacy.',
+              'On-device mode — Aiko answers from data on this device. '
+              'Connect to Aiko cloud for richer, up-to-date insights.',
               style: TextStyle(fontSize: 12, color: AikoColors.deepBlue),
             ),
-          ),
-          TextButton(
-            onPressed: () => context.push('/profile'),
-            child: const Text('Open'),
           ),
         ],
       ),

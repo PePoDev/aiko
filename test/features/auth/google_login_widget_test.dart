@@ -108,7 +108,6 @@ class _FakeCompletedProfileRepository extends ProfileRepository {
       email: 'user@example.com',
       baseCurrency: 'THB',
       country: 'TH',
-      aiConsentEnabled: false,
       onboardingStatus: OnboardingStatus.completed,
       securityStatus: SecurityStatus.notConfigured,
     );

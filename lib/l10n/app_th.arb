@@ -75,8 +75,6 @@
   "themeSystem": "ระบบ",
   "themeLight": "สว่าง",
   "themeDark": "มืด",
-  "aiConsent": "ยินยอม AI",
-  "aiConsentDescription": "อนุญาตให้ Aiko วิเคราะห์ข้อมูลการเงินที่ละเอียดอ่อนเพื่อข้อมูลเชิงลึก",
   "security": "ความปลอดภัย",
   "securityAndPinLock": "ความปลอดภัยและล็อค PIN",
   "pinLockDescription": "ปกป้องข้อมูลการเงินส่วนตัวของคุณด้วยการตั้งรหัส PIN 4 หลักที่ปลอดภัย",

@@ -1,0 +1,217 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../app/providers.dart';
+import '../../accounts/domain/account.dart';
+import '../../budgets/application/budget_progress_service.dart';
+import '../../budgets/domain/budget.dart';
+import '../../goals/domain/goal.dart';
+import '../../transactions/domain/transaction.dart';
+
+/// Layer 1 of Aiko's data access: a compact, read-only snapshot of the user's
+/// finances, assembled on-device from the local Brick store and sent with each
+/// chat request. The edge function folds it into the system prompt so the model
+/// can answer "how am I doing" questions in a single round-trip — no server-side
+/// data fetch, no extra Supabase reads, works offline-first.
+///
+/// Everything here is an aggregate or a short recent slice. We deliberately do
+/// **not** ship the full ledger: it keeps tokens (and how much raw financial
+/// data leaves the device for the LLM provider) bounded. Deeper, ad-hoc queries
+/// are the job of Layer 2 (server-side tools), not this snapshot.
+class AikoFinancialContext {
+  const AikoFinancialContext({
+    required this.baseCurrency,
+    required this.asOf,
+    required this.netWorth,
+    required this.accounts,
+    required this.monthIncome,
+    required this.monthSpending,
+    required this.budgets,
+    required this.goals,
+    required this.recentTransactions,
+  });
+
+  final String baseCurrency;
+  final String asOf;
+  final double netWorth;
+  final List<({String name, String type, double balance})> accounts;
+  final double monthIncome;
+  final double monthSpending;
+  final List<({String name, double limit, double spent, String pace})> budgets;
+  final List<({String name, double pct, double current, double target})> goals;
+  final List<({String date, String type, double amount, String? merchant})>
+  recentTransactions;
+
+  static const _maxAccounts = 12;
+  static const _maxBudgets = 12;
+  static const _maxGoals = 8;
+  static const _maxTransactions = 15;
+
+  /// Pure builder over already-loaded domain data (no I/O) so it can be unit
+  /// tested without Riverpod. Amounts are summed as doubles in the reported
+  /// base currency; multi-currency holdings are treated as approximate, which
+  /// is acceptable for advisory context.
+  factory AikoFinancialContext.from({
+    required String baseCurrency,
+    required List<Account> accounts,
+    required List<Budget> budgets,
+    required List<Goal> goals,
+    required List<FinanceTransaction> transactions,
+    required DateTime now,
+  }) {
+    final monthStart = DateTime(now.year, now.month, 1);
+    final monthEnd = DateTime(now.year, now.month + 1, 1);
+    bool inThisMonth(FinanceTransaction t) =>
+        !t.date.isBefore(monthStart) && t.date.isBefore(monthEnd);
+    bool isPosted(FinanceTransaction t) =>
+        t.status == TransactionStatus.posted ||
+        t.status == TransactionStatus.draft;
+
+    final activeAccounts = accounts.where((a) => a.isActive).toList();
+
+    double netWorth = 0;
+    for (final a in activeAccounts) {
+      if (!a.includeInNetWorth) continue;
+      final sign =
+          a.type == AccountType.loan ||
+              a.type == AccountType.liability ||
+              a.type == AccountType.creditCard
+          ? -1.0
+          : 1.0;
+      netWorth += a.currentBalance.amount.toDouble() * sign;
+    }
+
+    double monthIncome = 0;
+    double monthSpending = 0;
+    for (final t in transactions) {
+      if (!isPosted(t) || !inThisMonth(t)) continue;
+      if (t.type == TransactionType.income) {
+        monthIncome += t.amount.amount.toDouble();
+      } else if (t.type == TransactionType.expense) {
+        monthSpending += t.amount.amount.toDouble();
+      }
+    }
+
+    const progressService = BudgetProgressService();
+    final budgetRows = budgets
+        .where((b) => b.status == BudgetStatus.active)
+        .map((b) {
+          final progress = progressService.progressFor(b, transactions);
+          final pct = progress.percentUsed;
+          final pace = pct >= 100
+              ? 'over'
+              : pct >= 80
+              ? 'high'
+              : 'ok';
+          return (
+            name: b.name,
+            limit: _round2(b.amount.amount.toDouble()),
+            spent: _round2(progress.used.amount.toDouble()),
+            pace: pace,
+          );
+        })
+        .toList();
+
+    final goalRows = goals.where((g) => g.status == GoalStatus.active).map((g) {
+      return (
+        name: g.name,
+        pct: _round2(g.progress.clamp(0, 1).toDouble()),
+        current: _round2(g.currentAmount.amount.toDouble()),
+        target: _round2(g.targetAmount.amount.toDouble()),
+      );
+    }).toList();
+
+    final sortedTx = [...transactions.where(isPosted)]
+      ..sort((a, b) => b.date.compareTo(a.date));
+    final recent = sortedTx.take(_maxTransactions).map((t) {
+      return (
+        date: t.date.toIso8601String().substring(0, 10),
+        type: t.type.name,
+        amount: _round2(t.amount.amount.toDouble()),
+        merchant: t.merchant,
+      );
+    }).toList();
+
+    return AikoFinancialContext(
+      baseCurrency: baseCurrency,
+      asOf: now.toIso8601String().substring(0, 10),
+      netWorth: _round2(netWorth),
+      accounts: activeAccounts
+          .take(_maxAccounts)
+          .map(
+            (a) => (
+              name: a.name,
+              type: a.type.name,
+              balance: _round2(a.currentBalance.amount.toDouble()),
+            ),
+          )
+          .toList(),
+      monthIncome: _round2(monthIncome),
+      monthSpending: _round2(monthSpending),
+      budgets: budgetRows.take(_maxBudgets).toList(),
+      goals: goalRows.take(_maxGoals).toList(),
+      recentTransactions: recent,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'baseCurrency': baseCurrency,
+    'asOf': asOf,
+    'netWorth': netWorth,
+    'accounts': [
+      for (final a in accounts)
+        {'name': a.name, 'type': a.type, 'balance': a.balance},
+    ],
+    'thisMonth': {
+      'income': monthIncome,
+      'spending': monthSpending,
+      'net': _round2(monthIncome - monthSpending),
+    },
+    'budgets': [
+      for (final b in budgets)
+        {'name': b.name, 'limit': b.limit, 'spent': b.spent, 'pace': b.pace},
+    ],
+    'goals': [
+      for (final g in goals)
+        {
+          'name': g.name,
+          'pct': g.pct,
+          'current': g.current,
+          'target': g.target,
+        },
+    ],
+    'recentTransactions': [
+      for (final t in recentTransactions)
+        {
+          'date': t.date,
+          'type': t.type,
+          'amount': t.amount,
+          if (t.merchant != null) 'merchant': t.merchant,
+        },
+    ],
+  };
+
+  static double _round2(num value) => (value * 100).round() / 100;
+}
+
+/// Reads the local repositories (offline-first, no remote round-trip) and
+/// reduces them into a snapshot. Returns null if anything fails — the chat
+/// still works, just without pre-loaded context.
+Future<AikoFinancialContext?> buildAikoFinancialContext(Ref ref) async {
+  try {
+    final profile = await ref.read(profileRepositoryProvider).load();
+    final accounts = await ref.read(accountRepositoryProvider).list();
+    final budgets = await ref.read(budgetRepositoryProvider).list();
+    final goals = await ref.read(goalRepositoryProvider).list();
+    final transactions = await ref.read(transactionRepositoryProvider).list();
+    return AikoFinancialContext.from(
+      baseCurrency: profile.baseCurrency,
+      accounts: accounts,
+      budgets: budgets,
+      goals: goals,
+      transactions: transactions,
+      now: DateTime.now(),
+    );
+  } catch (_) {
+    return null;
+  }
+}

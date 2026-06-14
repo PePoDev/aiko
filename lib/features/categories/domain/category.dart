@@ -49,9 +49,9 @@ class Category {
   final CategoryType type;
   final CategoryBudgetGroup group;
 
-  /// Id of the user-defined [CategoryGroup] this category belongs to, or null
-  /// when the category is ungrouped (default/system categories are always
-  /// ungrouped).
+  /// Id of the [CategoryGroup] this category belongs to, or null when the
+  /// category is an unfiled custom category. Built-in/system categories belong
+  /// to the global System group ([CategoryGroupDefaults.systemId]).
   final String? groupId;
   final String? parentId;
   final String icon;
@@ -91,10 +91,11 @@ class Category {
   }
 }
 
-/// A user-defined group that bundles related categories together (e.g.
-/// "Household", "Car", "Kids"). Groups are owned by a single user and are
-/// purely organisational — they section the Categories screen and do not
-/// affect budgeting math.
+/// A group that bundles related categories together (e.g. "Household", "Car",
+/// "Kids"). Groups are purely organisational — they section the Categories
+/// screen and do not affect budgeting math. Most groups are user-defined and
+/// owned by a single user; the one exception is the global, read-only System
+/// group ([CategoryGroupDefaults.system]) that owns the built-in defaults.
 class CategoryGroup {
   const CategoryGroup({
     required this.id,
@@ -113,6 +114,11 @@ class CategoryGroup {
   final String color;
   final int sortOrder;
   final DateTime? createdAt;
+
+  /// Whether this is the global, read-only System group that owns the built-in
+  /// default categories. System groups cannot be edited, deleted, or chosen as
+  /// a target when assigning a category to a group.
+  bool get isSystem => id == CategoryGroupDefaults.systemId;
 
   CategoryGroup copyWith({
     String? name,

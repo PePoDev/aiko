@@ -4,6 +4,14 @@ import 'package:google_fonts/google_fonts.dart';
 class AikoTypography {
   const AikoTypography._();
 
+  /// Thai-capable fallback for Latin display/body fonts (Hanken Grotesk and
+  /// Manrope have no Thai glyphs, so Thai text would render as tofu boxes).
+  /// Referencing [GoogleFonts.notoSansThai] registers the family so the name
+  /// in [TextStyle.fontFamilyFallback] resolves at render time.
+  static final List<String> _thaiFallback = <String>[
+    GoogleFonts.notoSansThai().fontFamily!,
+  ];
+
   /// Headline text style using Hanken Grotesk (geometric, friendly).
   static TextStyle _headline({
     required Color color,
@@ -17,7 +25,7 @@ class AikoTypography {
       fontWeight: weight,
       height: height,
       letterSpacing: 0,
-    );
+    ).copyWith(fontFamilyFallback: _thaiFallback);
   }
 
   /// Body / label text style using Manrope (softer, readable).
@@ -33,7 +41,7 @@ class AikoTypography {
       fontWeight: weight,
       height: height,
       letterSpacing: 0,
-    );
+    ).copyWith(fontFamilyFallback: _thaiFallback);
   }
 
   static TextTheme textTheme(Color foreground) {
@@ -120,6 +128,6 @@ class AikoTypography {
       fontWeight: FontWeight.w700,
       height: 1.2,
       letterSpacing: 0,
-    );
+    ).copyWith(fontFamilyFallback: _thaiFallback);
   }
 }

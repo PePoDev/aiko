@@ -68,7 +68,6 @@ class AccountsScreen extends ConsumerWidget {
                   type: section.type,
                   accountCount: section.accounts.length,
                 ),
-                const SizedBox(height: 8),
                 for (
                   var accountIndex = 0;
                   accountIndex < section.accounts.length;

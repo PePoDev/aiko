@@ -154,9 +154,10 @@ class CategoryManagementScreen extends ConsumerWidget {
 }
 
 /// A typed (Income / Expense) card whose groups expand and collapse. Groups
-/// start expanded so categories stay visible on load; folding is opt-in for
-/// trimming long lists. Expansion state lives here (keyed by group id) so it
-/// survives provider refreshes — the section keeps a stable [ValueKey].
+/// start collapsed so the screen loads as a compact overview of the 13
+/// default groups; expanding is opt-in. Expansion state lives here (keyed by
+/// group id) so it survives provider refreshes — the section keeps a stable
+/// [ValueKey].
 class _CategorySection extends StatefulWidget {
   const _CategorySection({
     super.key,
@@ -184,8 +185,8 @@ class _CategorySection extends StatefulWidget {
 }
 
 class _CategorySectionState extends State<_CategorySection> {
-  /// Group ids the user has collapsed. Absent == expanded (the default).
-  final Set<String> _collapsed = <String>{};
+  /// Group ids the user has expanded. Absent == collapsed (the default).
+  final Set<String> _expanded = <String>{};
 
   String get _emptyTitle => widget.title == 'Expense'
       ? 'No expense categories'
@@ -278,7 +279,7 @@ class _CategorySectionState extends State<_CategorySection> {
             _GroupAccordion(
               entry: groupEntries[i],
               totals: widget.totals,
-              expanded: !_collapsed.contains(groupEntries[i].group.id),
+              expanded: _expanded.contains(groupEntries[i].group.id),
               onToggle: () => _toggle(groupEntries[i].group.id),
               onCategoryTap: widget.onCategoryTap,
               onGroupEdit: widget.onGroupEdit,
@@ -291,8 +292,8 @@ class _CategorySectionState extends State<_CategorySection> {
 
   void _toggle(String groupId) {
     setState(() {
-      if (!_collapsed.remove(groupId)) {
-        _collapsed.add(groupId);
+      if (!_expanded.add(groupId)) {
+        _expanded.remove(groupId);
       }
     });
   }

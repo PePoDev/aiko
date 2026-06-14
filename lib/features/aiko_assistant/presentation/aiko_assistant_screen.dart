@@ -5,6 +5,7 @@ import '../../../theme/aiko_colors.dart';
 import '../../aiko_character/presentation/aiko_avatar.dart';
 import '../application/aiko_chat_controller.dart';
 import '../application/chat_engine.dart';
+import '../domain/aiko_prompt_suggestions.dart';
 
 class AikoAssistantScreen extends ConsumerStatefulWidget {
   const AikoAssistantScreen({super.key});
@@ -17,13 +18,14 @@ class AikoAssistantScreen extends ConsumerStatefulWidget {
 class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
   final _textController = TextEditingController();
   final _scrollController = ScrollController();
+  final _suggestionsKey = GlobalKey();
 
-  static const _suggestions = <String>[
-    'How much can I safely spend?',
-    'Am I on track for my goals?',
-    'Where can I cut back?',
-    'Give me a quick money check-up.',
-  ];
+  /// Measured height of the floating suggestion strip, reserved as bottom
+  /// padding on the chat list so the last message clears above the chips.
+  double _suggestionsHeight = 0;
+
+  /// Suggestions shown on the empty state — randomized once per screen open.
+  late final List<String> _initialSuggestions = AikoPromptSuggestions.sample();
 
   @override
   void dispose() {
@@ -56,6 +58,45 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
     _scrollToBottom(animated: false);
   }
 
+  /// Which suggestion chips to show, or null when none apply.
+  ///
+  /// On the empty state we show the randomized [_initialSuggestions]. Once Aiko
+  /// has answered (idle, no error, last message is a finished reply), we show
+  /// fresh "next" recommendations seeded on the turn so they stay stable while
+  /// that reply is on screen and refresh after the next answer.
+  List<String>? _suggestionsFor(ChatState state) {
+    if (state.showSuggestions) return _initialSuggestions;
+    if (state.isStreaming || state.lastError != null) return null;
+
+    final last = state.messages.last;
+    final hasUserTurn = state.messages.any((m) => m.isUser);
+    if (last.isUser || last.content.isEmpty || !hasUserTurn) return null;
+
+    final asked = state.messages.where((m) => m.isUser).map((m) => m.content);
+    return AikoPromptSuggestions.sample(
+      seed: state.messages.length,
+      exclude: asked,
+    );
+  }
+
+  /// Measures the floating suggestion strip after layout and reserves its
+  /// height as chat-list bottom padding, so the last message never hides behind
+  /// the chips. Guarded so it only calls setState when the value changes.
+  void _scheduleSuggestionsMeasure({required bool shown}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = shown
+          ? (_suggestionsKey.currentContext?.findRenderObject() as RenderBox?)
+                    ?.size
+                    .height ??
+                _suggestionsHeight
+          : 0.0;
+      if (target != _suggestionsHeight) {
+        setState(() => _suggestionsHeight = target);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(aikoChatControllerProvider);
@@ -65,6 +106,9 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
         _scrollToBottom();
       }
     });
+
+    final suggestions = _suggestionsFor(state);
+    _scheduleSuggestionsMeasure(shown: suggestions != null);
 
     return Scaffold(
       appBar: AppBar(
@@ -105,25 +149,40 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              itemCount: state.messages.length,
-              itemBuilder: (context, index) {
-                final message = state.messages[index];
-                final isLast = index == state.messages.length - 1;
-                return _MessageBubble(
-                  message: message,
-                  streaming: isLast && state.isStreaming,
-                  error: isLast && !state.isStreaming ? state.lastError : null,
-                  onRetry: () =>
-                      ref.read(aikoChatControllerProvider.notifier).retry(),
-                );
-              },
+            child: Stack(
+              children: [
+                ListView.builder(
+                  controller: _scrollController,
+                  padding: EdgeInsets.fromLTRB(16, 8, 16, 12 + _suggestionsHeight),
+                  itemCount: state.messages.length,
+                  itemBuilder: (context, index) {
+                    final message = state.messages[index];
+                    final isLast = index == state.messages.length - 1;
+                    return _MessageBubble(
+                      message: message,
+                      streaming: isLast && state.isStreaming,
+                      error: isLast && !state.isStreaming
+                          ? state.lastError
+                          : null,
+                      onRetry: () =>
+                          ref.read(aikoChatControllerProvider.notifier).retry(),
+                    );
+                  },
+                ),
+                if (suggestions != null)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: _SuggestionStrip(
+                      key: _suggestionsKey,
+                      suggestions: suggestions,
+                      onSelected: _submit,
+                    ),
+                  ),
+              ],
             ),
           ),
-          if (state.showSuggestions)
-            _SuggestionStrip(suggestions: _suggestions, onSelected: _submit),
           _InputBar(
             controller: _textController,
             disabled: state.isStreaming,
@@ -409,39 +468,74 @@ class _ErrorBlock extends StatelessWidget {
 }
 
 class _SuggestionStrip extends StatelessWidget {
-  const _SuggestionStrip({required this.suggestions, required this.onSelected});
+  const _SuggestionStrip({
+    super.key,
+    required this.suggestions,
+    required this.onSelected,
+  });
 
   final List<String> suggestions;
   final void Function(String) onSelected;
 
   @override
   Widget build(BuildContext context) {
+    final scaffold = Theme.of(context).scaffoldBackgroundColor;
     return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: ListView.separated(
+      // Fade the chat out behind the chips so messages underneath don't
+      // collide with them — keeps the floating look readable when scrolled.
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [scaffold.withValues(alpha: 0), scaffold, scaffold],
+          stops: const [0, 0.55, 1],
+        ),
+      ),
+      padding: const EdgeInsets.only(top: 24, bottom: 8),
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: suggestions.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final title = suggestions[index];
-          return ActionChip(
-            backgroundColor: AikoColors.softBlue.withValues(alpha: 0.35),
-            side: BorderSide(
-              color: AikoColors.primaryBlue.withValues(alpha: 0.2),
+        child: Row(
+          children: [
+            for (var i = 0; i < suggestions.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              _SuggestionChip(title: suggestions[i], onSelected: onSelected),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SuggestionChip extends StatelessWidget {
+  const _SuggestionChip({required this.title, required this.onSelected});
+
+  final String title;
+  final void Function(String) onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AikoColors.softBlue.withValues(alpha: 0.35),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: AikoColors.primaryBlue.withValues(alpha: 0.2)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => onSelected(title),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: AikoColors.deepBlue,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
-            label: Text(
-              title,
-              style: const TextStyle(
-                color: AikoColors.deepBlue,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            onPressed: () => onSelected(title),
-          );
-        },
+          ),
+        ),
       ),
     );
   }

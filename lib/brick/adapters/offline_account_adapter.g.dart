@@ -18,13 +18,15 @@ Future<OfflineAccount> _$OfflineAccountFromSupabase(
         : data['institution'] as String?,
     includeInNetWorth: data['include_in_net_worth'] as bool,
     isActive: data['is_active'] as bool,
-    // HAND-PATCH: nullable cast + default. The migration that added
-    // `details_json` (20260614145507) did not mark the column NOT NULL, so
-    // existing SQLite rows carry NULL here and the generated `as String`
-    // would throw `type 'Null' is not a subtype of type 'String'`. If you
-    // re-run `dart run build_runner build`, reapply this fix.
-    detailsJson: (data['details_json'] as String?) ?? '{}',
+    detailsJson: _readDetailsJson(data['details']),
   );
+}
+
+String _readDetailsJson(Object? raw) {
+  if (raw == null) return '{}';
+  if (raw is String) return raw.isEmpty ? '{}' : raw;
+  if (raw is Map) return jsonEncode(raw);
+  return '{}';
 }
 
 Future<Map<String, dynamic>> _$OfflineAccountToSupabase(
@@ -42,8 +44,17 @@ Future<Map<String, dynamic>> _$OfflineAccountToSupabase(
     'institution': instance.institution,
     'include_in_net_worth': instance.includeInNetWorth,
     'is_active': instance.isActive,
-    'details_json': instance.detailsJson,
+    'details': _writeDetailsJson(instance.detailsJson),
   };
+}
+
+Object _writeDetailsJson(String detailsJson) {
+  if (detailsJson.isEmpty) return <String, dynamic>{};
+  try {
+    final decoded = jsonDecode(detailsJson);
+    if (decoded is Map<String, dynamic>) return decoded;
+  } catch (_) {}
+  return <String, dynamic>{};
 }
 
 Future<OfflineAccount> _$OfflineAccountFromSqlite(
@@ -138,7 +149,7 @@ class OfflineAccountAdapter
     ),
     'detailsJson': const RuntimeSupabaseColumnDefinition(
       association: false,
-      columnName: 'details_json',
+      columnName: 'details',
     ),
   };
   @override

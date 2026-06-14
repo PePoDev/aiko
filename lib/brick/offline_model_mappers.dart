@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import '../core/money/money.dart';
+import '../features/accounts/data/account_details_dto.dart';
 import '../features/accounts/domain/account.dart';
+import '../features/accounts/domain/account_details.dart';
 import '../features/budgets/domain/budget.dart';
 import '../features/categories/domain/category.dart';
 import '../features/goals/domain/goal.dart';
@@ -26,6 +30,7 @@ extension OfflineAccountMapper on OfflineAccount {
       institution: institution,
       includeInNetWorth: includeInNetWorth,
       isActive: isActive,
+      details: _parseDetails(detailsJson),
     );
   }
 }
@@ -42,6 +47,7 @@ extension AccountOfflineMapper on Account {
       institution: institution,
       includeInNetWorth: includeInNetWorth,
       isActive: isActive,
+      detailsJson: _detailsToJson(resolvedDetails),
     );
   }
 }
@@ -356,4 +362,19 @@ T? _optionalEnumByName<T extends Enum>(Iterable<T> values, String? name) {
     }
   }
   return null;
+}
+
+AccountDetails? _parseDetails(String raw) {
+  if (raw.isEmpty) return null;
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is Map<String, dynamic>) {
+      return AccountDetailsDto.fromJson(decoded);
+    }
+  } catch (_) {}
+  return null;
+}
+
+String _detailsToJson(AccountDetails d) {
+  return jsonEncode(AccountDetailsDto.toJson(d));
 }

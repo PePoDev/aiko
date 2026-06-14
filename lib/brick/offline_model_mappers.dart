@@ -137,7 +137,7 @@ extension OfflineCategoryGroupMapper on OfflineCategoryGroup {
   CategoryGroup toDomain() {
     return CategoryGroup(
       id: id,
-      userId: userId,
+      userId: userId ?? '',
       name: name,
       icon: icon,
       color: color,

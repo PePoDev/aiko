@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
@@ -35,7 +35,10 @@ class CategoryManagementScreen extends ConsumerWidget {
             onSelected: (value) {
               switch (value) {
                 case 'new_category':
-                  _showAddCategorySheet(context, initialType: CategoryType.expense);
+                  _showAddCategorySheet(
+                    context,
+                    initialType: CategoryType.expense,
+                  );
                 case 'new_group':
                   showCategoryGroupEditorSheet(context);
               }
@@ -100,14 +103,15 @@ class CategoryManagementScreen extends ConsumerWidget {
               .toList(growable: false);
 
           final totals = _CategoryTotals.compute(
-            transactions: transactionsAsync.value ?? const <FinanceTransaction>[],
+            transactions:
+                transactionsAsync.value ?? const <FinanceTransaction>[],
             baseCurrency: baseCurrency,
           );
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             children: [
-              _CompactSection(
+              _CategorySection(
                 key: const ValueKey('section-income'),
                 title: 'Income',
                 accent: AikoColors.successGreen,
@@ -121,7 +125,7 @@ class CategoryManagementScreen extends ConsumerWidget {
                     showCategoryGroupEditorSheet(context, initial: group),
               ),
               const SizedBox(height: 16),
-              _CompactSection(
+              _CategorySection(
                 key: const ValueKey('section-expense'),
                 title: 'Expense',
                 accent: AikoColors.dangerRed,
@@ -149,8 +153,12 @@ class CategoryManagementScreen extends ConsumerWidget {
   }
 }
 
-class _CompactSection extends StatelessWidget {
-  const _CompactSection({
+/// A typed (Income / Expense) card whose groups expand and collapse. Groups
+/// start expanded so categories stay visible on load; folding is opt-in for
+/// trimming long lists. Expansion state lives here (keyed by group id) so it
+/// survives provider refreshes — the section keeps a stable [ValueKey].
+class _CategorySection extends StatefulWidget {
+  const _CategorySection({
     super.key,
     required this.title,
     required this.accent,
@@ -171,16 +179,24 @@ class _CompactSection extends StatelessWidget {
   final ValueChanged<Category> onCategoryTap;
   final ValueChanged<CategoryGroup> onGroupEdit;
 
-  String get _emptyTitle => title == 'Expense'
+  @override
+  State<_CategorySection> createState() => _CategorySectionState();
+}
+
+class _CategorySectionState extends State<_CategorySection> {
+  /// Group ids the user has collapsed. Absent == expanded (the default).
+  final Set<String> _collapsed = <String>{};
+
+  String get _emptyTitle => widget.title == 'Expense'
       ? 'No expense categories'
       : 'No income categories';
-  String get _emptyMessage => title == 'Expense'
+  String get _emptyMessage => widget.title == 'Expense'
       ? 'Add expense categories for bills, shopping, and daily spending.'
       : 'Add income categories for salary, side work, and other money coming in.';
 
   @override
   Widget build(BuildContext context) {
-    if (categories.isEmpty) {
+    if (widget.categories.isEmpty) {
       return AikoScreenState.empty(
         title: _emptyTitle,
         message: _emptyMessage,
@@ -190,26 +206,28 @@ class _CompactSection extends StatelessWidget {
 
     final theme = Theme.of(context);
     final groupEntries = <_GroupEntry>[];
-    for (final group in groups) {
-      final groupCategories = categories
+    for (final group in widget.groups) {
+      final groupCategories = widget.categories
           .where((c) => _belongsToGroup(c, group))
           .toList(growable: false);
       if (groupCategories.isEmpty) continue;
       Money? groupTotal;
       int groupCount = 0;
       for (final category in groupCategories) {
-        final amount = totals.amountForCategory(category.id);
+        final amount = widget.totals.amountForCategory(category.id);
         if (amount != null) {
           groupTotal = groupTotal == null ? amount : groupTotal + amount;
         }
-        groupCount += totals.countForCategory(category.id);
+        groupCount += widget.totals.countForCategory(category.id);
       }
-      groupEntries.add(_GroupEntry(
-        group: group,
-        categories: groupCategories,
-        total: groupTotal,
-        count: groupCount,
-      ));
+      groupEntries.add(
+        _GroupEntry(
+          group: group,
+          categories: groupCategories,
+          total: groupTotal,
+          count: groupCount,
+        ),
+      );
     }
 
     if (groupEntries.isEmpty) {
@@ -224,14 +242,15 @@ class _CompactSection extends StatelessWidget {
     int sectionCount = 0;
     for (final entry in groupEntries) {
       if (entry.total != null) {
-        sectionTotal =
-            sectionTotal == null ? entry.total! : sectionTotal + entry.total!;
+        sectionTotal = sectionTotal == null
+            ? entry.total!
+            : sectionTotal + entry.total!;
       }
       sectionCount += entry.count;
     }
 
     return Card(
-      key: ValueKey('${title.toLowerCase()}-card'),
+      key: ValueKey('${widget.title.toLowerCase()}-card'),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
@@ -241,9 +260,9 @@ class _CompactSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _SectionHeader(
-            title: title,
-            accent: accent,
-            icon: icon,
+            title: widget.title,
+            accent: widget.accent,
+            icon: widget.icon,
             total: sectionTotal,
             count: sectionCount,
           ),
@@ -256,11 +275,13 @@ class _CompactSection extends StatelessWidget {
                 endIndent: 12,
                 color: theme.colorScheme.outlineVariant,
               ),
-            _GroupBlock(
+            _GroupAccordion(
               entry: groupEntries[i],
-              totals: totals,
-              onCategoryTap: onCategoryTap,
-              onGroupEdit: onGroupEdit,
+              totals: widget.totals,
+              expanded: !_collapsed.contains(groupEntries[i].group.id),
+              onToggle: () => _toggle(groupEntries[i].group.id),
+              onCategoryTap: widget.onCategoryTap,
+              onGroupEdit: widget.onGroupEdit,
             ),
           ],
         ],
@@ -268,14 +289,22 @@ class _CompactSection extends StatelessWidget {
     );
   }
 
-  bool _belongsToGroup(Category category, CategoryGroup group) {
-    if (group.id == CategoryGroupDefaults.unfiledGroupId) {
-      return category.groupId == group.id ||
-          category.groupId == null ||
-          category.groupId!.isEmpty;
-    }
-    return category.groupId == group.id;
+  void _toggle(String groupId) {
+    setState(() {
+      if (!_collapsed.remove(groupId)) {
+        _collapsed.add(groupId);
+      }
+    });
   }
+}
+
+bool _belongsToGroup(Category category, CategoryGroup group) {
+  if (group.id == CategoryGroupDefaults.unfiledGroupId) {
+    return category.groupId == group.id ||
+        category.groupId == null ||
+        category.groupId!.isEmpty;
+  }
+  return category.groupId == group.id;
 }
 
 class _GroupEntry {
@@ -312,14 +341,14 @@ class _SectionHeader extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       color: accent.withValues(alpha: 0.06),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Row(
         children: [
-          Icon(icon, color: accent, size: 18),
+          Icon(icon, color: accent, size: 20),
           const SizedBox(width: 8),
           Text(
             title,
-            style: theme.textTheme.titleSmall?.copyWith(
+            style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700,
               color: accent,
             ),
@@ -337,7 +366,7 @@ class _SectionHeader extends StatelessWidget {
           Text(
             total == null ? '—' : AikoFormatters.money(total!),
             key: const ValueKey('section-total-amount'),
-            style: theme.textTheme.titleSmall?.copyWith(
+            style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700,
               color: accent,
               fontFeatures: const [FontFeature.tabularFigures()],
@@ -349,16 +378,22 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _GroupBlock extends StatelessWidget {
-  const _GroupBlock({
+/// One collapsible group: a tappable header that folds its category rows.
+/// Tapping the header toggles expansion; the `tune` action edits the group.
+class _GroupAccordion extends StatelessWidget {
+  const _GroupAccordion({
     required this.entry,
     required this.totals,
+    required this.expanded,
+    required this.onToggle,
     required this.onCategoryTap,
     required this.onGroupEdit,
   });
 
   final _GroupEntry entry;
   final _CategoryTotals totals;
+  final bool expanded;
+  final VoidCallback onToggle;
   final ValueChanged<Category> onCategoryTap;
   final ValueChanged<CategoryGroup> onGroupEdit;
 
@@ -372,20 +407,47 @@ class _GroupBlock extends StatelessWidget {
           title: entry.group.name,
           total: entry.total,
           count: entry.count,
+          categoryCount: entry.categories.length,
           color: color,
           icon: aikoCategoryIcon(entry.group.icon),
-          isSystem: entry.group.isSystem,
-          onEdit: entry.group.isSystem
-              ? null
-              : () => onGroupEdit(entry.group),
+          expanded: expanded,
+          onToggle: onToggle,
+          onEdit: entry.group.isSystem ? null : () => onGroupEdit(entry.group),
         ),
-        for (final category in entry.categories)
-          _CategoryRow(
-            category: category,
-            amount: totals.amountForCategory(category.id),
-            count: totals.countForCategory(category.id),
-            onTap: category.isDefault ? null : () => onCategoryTap(category),
-          ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: expanded
+              ? Padding(
+                  padding: const EdgeInsets.only(left: 16, bottom: 4),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        left: BorderSide(
+                          color: color.withValues(alpha: 0.35),
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final category in entry.categories)
+                          _CategoryRow(
+                            category: category,
+                            amount: totals.amountForCategory(category.id),
+                            count: totals.countForCategory(category.id),
+                            onTap: category.isDefault
+                                ? null
+                                : () => onCategoryTap(category),
+                          ),
+                      ],
+                    ),
+                  ),
+                )
+              : const SizedBox(width: double.infinity),
+        ),
       ],
     );
   }
@@ -396,68 +458,100 @@ class _GroupHeader extends StatelessWidget {
     required this.title,
     required this.total,
     required this.count,
+    required this.categoryCount,
     required this.color,
     required this.icon,
-    required this.isSystem,
+    required this.expanded,
+    required this.onToggle,
     this.onEdit,
   });
 
   final String title;
   final Money? total;
   final int count;
+  final int categoryCount;
   final Color color;
   final IconData icon;
-  final bool isSystem;
+  final bool expanded;
+  final VoidCallback onToggle;
   final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final subtitle = count > 0
+        ? '$count this month'
+        : '$categoryCount ${categoryCount == 1 ? 'category' : 'categories'}';
     return InkWell(
-      onTap: onEdit,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                title,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+      onTap: onToggle,
+      child: ColoredBox(
+        color: color.withValues(alpha: 0.08),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                child: Icon(icon, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      subtitle,
+                      key: ValueKey('group-${title.toLowerCase()}-count'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            Text(
-              '$count',
-              key: ValueKey('group-${title.toLowerCase()}-count'),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
+              const SizedBox(width: 8),
+              Text(
+                total == null ? '—' : AikoFormatters.money(total!),
+                key: const ValueKey('group-total-amount'),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              total == null ? '—' : AikoFormatters.money(total!),
-              key: const ValueKey('group-total-amount'),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: color,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-            if (onEdit != null) ...[
-              const SizedBox(width: 4),
-              Icon(
-                Icons.tune,
-                size: 16,
-                color: theme.colorScheme.onSurfaceVariant,
+              if (onEdit != null)
+                IconButton(
+                  icon: const Icon(Icons.tune, size: 18),
+                  tooltip: 'Edit group',
+                  visualDensity: VisualDensity.compact,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  onPressed: onEdit,
+                )
+              else
+                const SizedBox(width: 8),
+              AnimatedRotation(
+                turns: expanded ? 0.5 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  Icons.expand_more,
+                  size: 22,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -482,61 +576,79 @@ class _CategoryRow extends StatelessWidget {
     final theme = Theme.of(context);
     final color = aikoHexColor(category.color);
     final icon = aikoCategoryIcon(category.icon);
+    final hasActivity = count > 0;
 
     return InkWell(
       key: ValueKey('category-row-${category.id}'),
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 4, 12, 4),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 14),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                category.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 52),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+          child: Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            category.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (category.isDefault) ...[
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.lock_outline,
+                            size: 13,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (hasActivity)
+                      Text(
+                        count == 1 ? '1 this month' : '$count this month',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ),
-            if (category.isDefault)
-              Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: Icon(
-                  Icons.lock_outline,
-                  size: 12,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            SizedBox(
-              width: 32,
-              child: Text(
-                '$count',
-                textAlign: TextAlign.right,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            SizedBox(
-              width: 84,
-              child: Text(
+              const SizedBox(width: 12),
+              Text(
                 amount == null ? '—' : AikoFormatters.money(amount!),
                 textAlign: TextAlign.right,
                 key: ValueKey('category-${category.id}-total'),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurface,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -6,8 +6,6 @@ import '../../../app/providers.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
-import '../../accounts/presentation/accounts_screen.dart';
-import '../../categories/presentation/category_management_screen.dart';
 import '../domain/transaction.dart';
 import 'transaction_detail_screen.dart';
 import 'transaction_form_screen.dart';
@@ -128,25 +126,6 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
               onPressed: _startSearch,
               icon: Icon(Icons.search, color: actionColor),
             ),
-          IconButton(
-            tooltip: 'Accounts',
-            onPressed: () => Navigator.of(context, rootNavigator: true).push(
-              MaterialPageRoute<void>(builder: (_) => const AccountsScreen()),
-            ),
-            icon: Icon(
-              Icons.account_balance_wallet_outlined,
-              color: actionColor,
-            ),
-          ),
-          IconButton(
-            tooltip: 'Categories',
-            onPressed: () => Navigator.of(context, rootNavigator: true).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const CategoryManagementScreen(),
-              ),
-            ),
-            icon: Icon(Icons.category_outlined, color: actionColor),
-          ),
           IconButton(
             tooltip: 'Rules',
             onPressed: () => Navigator.of(context, rootNavigator: true).push(

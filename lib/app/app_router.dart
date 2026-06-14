@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/accounts/presentation/accounts_screen.dart';
+import '../features/accounts/presentation/account_form/account_form_screen.dart';
+import '../features/accounts/domain/account.dart';
 import '../features/aiko_assistant/presentation/aiko_assistant_screen.dart';
 import '../features/auth/presentation/auth_screens.dart';
 import '../features/budgets/presentation/budget_overview_screen.dart';
@@ -127,6 +129,16 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
           GoRoute(
             path: '/accounts',
             builder: (context, state) => const AccountsScreen(),
+          ),
+          GoRoute(
+            path: '/account-form',
+            builder: (context, state) {
+              final extra = state.extra;
+              if (extra is Account) {
+                return AccountFormScreen(account: extra);
+              }
+              return const AccountFormScreen();
+            },
           ),
           GoRoute(
             path: '/calculators',

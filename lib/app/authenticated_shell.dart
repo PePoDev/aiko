@@ -194,18 +194,20 @@ class _AikoBottomNavigationItem extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final isAiko = item.path == '/aiko';
 
+    final Color activeColor = isAiko
+        ? AikoColors.premiumPurple
+        : colorScheme.primary;
+
     final Color foreground;
     if (selected) {
-      foreground = colorScheme.onSurface;
+      foreground = activeColor;
     } else if (isAiko) {
       foreground = AikoColors.premiumPurple.withValues(alpha: 0.6);
     } else {
       foreground = colorScheme.onSurfaceVariant;
     }
 
-    final Color indicator = isAiko
-        ? AikoColors.premiumPurple
-        : colorScheme.primary;
+    final Color indicator = activeColor;
 
     return Semantics(
       button: true,

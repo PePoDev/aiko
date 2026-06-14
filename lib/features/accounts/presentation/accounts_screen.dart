@@ -10,7 +10,7 @@ import '../../transactions/domain/transaction.dart';
 import '../../transactions/presentation/transaction_detail_screen.dart';
 import '../domain/account.dart';
 import '../domain/account_details.dart';
-import 'account_form/account_form_sheet.dart';
+import 'account_form/account_form_screen.dart';
 
 class AccountsScreen extends ConsumerWidget {
   const AccountsScreen({super.key});
@@ -130,34 +130,47 @@ class _AccountTypeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final accent = _colorForAccount(type);
 
-    return Row(
-      children: [
-        Icon(_iconForAccount(type), size: 18, color: accent),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            '${_accountTypeLabel(type)} ($accountCount)',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: Theme.of(context).colorScheme.onSurface,
+    // A tinted "band" with a solid filled circle marks this as a group header,
+    // distinct from the account cards below (white cards, translucent icon
+    // tiles). Shape (solid vs translucent), the band background, and the bold
+    // label keep the cue working without relying on color alone.
+    return Container(
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+            child: Icon(_iconForAccount(type), color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '${_accountTypeLabel(type)} ($accountCount)',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
 void _showAccountForm(BuildContext context, {Account? account}) {
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (context) => AccountFormSheet(account: account),
+  Navigator.of(context).push<Account>(
+    MaterialPageRoute(builder: (_) => AccountFormScreen(account: account)),
   );
 }
 
@@ -191,14 +204,20 @@ class _AccountListItem extends StatelessWidget {
     return Card(
       child: ListTile(
         onTap: onTap,
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        minLeadingWidth: 0,
+        horizontalTitleGap: 12,
         leading: Container(
-          width: 40,
-          height: 40,
+          width: 34,
+          height: 34,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             color: accent.withValues(alpha: 0.12),
             shape: BoxShape.circle,
           ),
-          child: Icon(_iconForAccount(account.type), color: accent, size: 22),
+          child: Icon(_iconForAccount(account.type), color: accent, size: 19),
         ),
         title: Text(
           account.name,
@@ -206,7 +225,12 @@ class _AccountListItem extends StatelessWidget {
             context,
           ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
         ),
-        subtitle: Text(_accountSubtitle(account)),
+        subtitle: Text(
+          _accountSubtitle(account),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -216,7 +240,7 @@ class _AccountListItem extends StatelessWidget {
                 context,
               ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 4),
             const Icon(Icons.chevron_right, size: 18),
           ],
         ),
@@ -245,13 +269,8 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
   }
 
   Future<void> _editAccount() async {
-    final updated = await showModalBottomSheet<Account>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => AccountFormSheet(account: _account),
+    final updated = await Navigator.of(context).push<Account>(
+      MaterialPageRoute(builder: (_) => AccountFormScreen(account: _account)),
     );
 
     if (updated == null || !mounted) {

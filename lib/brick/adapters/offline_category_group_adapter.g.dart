@@ -8,7 +8,10 @@ Future<OfflineCategoryGroup> _$OfflineCategoryGroupFromSupabase(
 }) async {
   return OfflineCategoryGroup(
     id: data['id'] as String,
-    userId: data['user_id'] as String,
+    // HAND-PATCH: user_id is nullable for system (default) groups
+    // (user_id = NULL in Supabase per AGENTS.md). Re-patch after
+    // `dart run build_runner build`.
+    userId: data['user_id'] as String?,
     name: data['name'] as String,
     icon: data['icon'] as String,
     color: data['color'] as String,
@@ -44,7 +47,8 @@ Future<OfflineCategoryGroup> _$OfflineCategoryGroupFromSqlite(
 }) async {
   return OfflineCategoryGroup(
     id: data['id'] as String,
-    userId: data['user_id'] as String,
+    // HAND-PATCH: user_id is nullable for system (default) groups.
+    userId: data['user_id'] as String?,
     name: data['name'] as String,
     icon: data['icon'] as String,
     color: data['color'] as String,

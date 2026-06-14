@@ -8,7 +8,6 @@ import '../../../../core/money/money.dart';
 import '../../../transactions/domain/transaction.dart';
 import '../../domain/account.dart';
 import '../../domain/account_details.dart';
-import '../../domain/account_type.dart';
 import '../../domain/account_validation_exception.dart';
 import '../../domain/account_validator.dart';
 import 'account_common_fields.dart';
@@ -23,15 +22,16 @@ import 'subforms/liability_subform.dart';
 import 'subforms/loan_subform.dart';
 import 'subforms/other_subform.dart';
 
-class AccountFormSheet extends ConsumerStatefulWidget {
-  const AccountFormSheet({super.key, this.account});
+class AccountFormScreen extends ConsumerStatefulWidget {
+  const AccountFormScreen({super.key, this.account});
+
   final Account? account;
 
   @override
-  ConsumerState<AccountFormSheet> createState() => _AccountFormSheetState();
+  ConsumerState<AccountFormScreen> createState() => _AccountFormScreenState();
 }
 
-class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
+class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _balanceController = TextEditingController();
@@ -75,28 +75,8 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
     super.dispose();
   }
 
-  Future<void> _changeType(AccountType next) async {
+  void _changeType(AccountType next) {
     if (next == _type) return;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Switch account type?'),
-        content: const Text(
-          'Switching type resets the details you entered for this account.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Switch'),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true || !mounted) return;
     setState(() {
       _type = next;
       _details = AccountDetails.defaultFor(next);
@@ -113,65 +93,56 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
     return AnimatedSize(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
-      child: switch (_type) {
-        AccountType.cash => const CashSubform(),
-        AccountType.bank => BankSubform(
-          key: const ValueKey('bank'),
-          initial: _details as BankDetails,
-          onChanged: (d) => setState(() => _details = d),
-        ),
-        AccountType.eWallet => EWalletSubform(
-          key: const ValueKey('ew'),
-          initial: _details as EWalletDetails,
-          onChanged: (d) => setState(() => _details = d),
-        ),
-        AccountType.creditCard => CreditCardSubform(
-          key: _subformKey,
-          initial: _details as CreditCardDetails,
-          availableCards: allCards
-              .where((a) => a.id != widget.account?.id)
-              .toList(),
-          onChanged: (d) => setState(() => _details = d),
-        ),
-        AccountType.loan => LoanSubform(
-          key: _subformKey,
-          initial: _details as LoanDetails,
-          currency: _currency,
-          onChanged: (d) => setState(() => _details = d),
-        ),
-        AccountType.investment => InvestmentSubform(
-          key: const ValueKey('inv'),
-          initial: _details as InvestmentDetails,
-          onChanged: (d) => setState(() => _details = d),
-        ),
-        AccountType.asset => AssetSubform(
-          key: _subformKey,
-          initial: _details as AssetDetails,
-          currency: _currency,
-          onChanged: (d) => setState(() => _details = d),
-        ),
-        AccountType.liability => LiabilitySubform(
-          key: const ValueKey('liab'),
-          initial: _details as LiabilityDetails,
-          onChanged: (d) => setState(() => _details = d),
-        ),
-        AccountType.other => OtherSubform(
-          key: const ValueKey('other'),
-          initial: _details as OtherDetails,
-          onChanged: (d) => setState(() => _details = d),
-        ),
-      },
-    );
-  }
-
-  void _showSnack(BuildContext context, String message) {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+      child: KeyedSubtree(
+        key: ValueKey(_type),
+        child: switch (_type) {
+          AccountType.cash => const CashSubform(),
+          AccountType.bank => BankSubform(
+            key: const ValueKey('bank'),
+            initial: _details as BankDetails,
+            onChanged: (d) => setState(() => _details = d),
+          ),
+          AccountType.eWallet => EWalletSubform(
+            key: const ValueKey('ew'),
+            initial: _details as EWalletDetails,
+            onChanged: (d) => setState(() => _details = d),
+          ),
+          AccountType.creditCard => CreditCardSubform(
+            key: _subformKey,
+            initial: _details as CreditCardDetails,
+            availableCards: allCards
+                .where((a) => a.id != widget.account?.id)
+                .toList(),
+            onChanged: (d) => setState(() => _details = d),
+          ),
+          AccountType.loan => LoanSubform(
+            key: _subformKey,
+            initial: _details as LoanDetails,
+            currency: _currency,
+            onChanged: (d) => setState(() => _details = d),
+          ),
+          AccountType.investment => InvestmentSubform(
+            key: const ValueKey('inv'),
+            initial: _details as InvestmentDetails,
+            onChanged: (d) => setState(() => _details = d),
+          ),
+          AccountType.asset => AssetSubform(
+            key: _subformKey,
+            initial: _details as AssetDetails,
+            currency: _currency,
+            onChanged: (d) => setState(() => _details = d),
+          ),
+          AccountType.liability => LiabilitySubform(
+            key: const ValueKey('liab'),
+            initial: _details as LiabilityDetails,
+            onChanged: (d) => setState(() => _details = d),
+          ),
+          AccountType.other => OtherSubform(
+            key: const ValueKey('other'),
+            initial: _details as OtherDetails,
+            onChanged: (d) => setState(() => _details = d),
+          ),
+        },
       ),
     );
   }
@@ -242,12 +213,18 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
         await _createInitialBalanceTransaction(account);
       }
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      final message = widget.account == null
+          ? 'Account "${account.name}" created.'
+          : 'Account "${account.name}" updated.';
       Navigator.of(context).pop(account);
-      _showSnack(
-        context,
-        widget.account == null
-            ? 'Account "${account.name}" created.'
-            : 'Account "${account.name}" updated.',
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+        ),
       );
     } on AccountValidationException catch (e) {
       if (!mounted) return;
@@ -267,28 +244,18 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
   @override
   Widget build(BuildContext context) {
     final accountsAsync = ref.watch(accountsProvider);
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        20,
-        20,
-        MediaQuery.of(context).viewInsets.bottom + 24,
+    final isEditing = widget.account != null;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isEditing ? 'Edit account' : 'Add account'),
       ),
-      child: SingleChildScrollView(
+      body: SafeArea(
         child: Form(
           key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
             children: [
-              Text(
-                widget.account == null ? 'Add account' : 'Edit account',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
               AccountCommonFields(
                 initialType: _type,
                 initialCurrency: _currency,
@@ -322,23 +289,30 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
               ),
               const SizedBox(height: 16),
               _buildSubform(accountsAsync),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: _isSubmitting ? null : _submit,
-                icon: _isSubmitting
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.check),
-                label: Text(
-                  widget.account == null ? 'Create Account' : 'Save Changes',
-                ),
-              ),
             ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: FilledButton.icon(
+            onPressed: _isSubmitting ? null : _submit,
+            icon: _isSubmitting
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.check),
+            label: Text(
+              isEditing ? 'Save Changes' : 'Create Account',
+            ),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+            ),
           ),
         ),
       ),

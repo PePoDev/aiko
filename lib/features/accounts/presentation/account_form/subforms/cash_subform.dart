@@ -1,8 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../../shared/widgets/aiko_data_widgets.dart';
-import '../../../../../theme/aiko_colors.dart';
 import 'account_subform.dart';
 
 class CashSubform extends AccountSubform {
@@ -16,11 +14,6 @@ class _CashSubformState extends AccountSubformState<CashSubform>
     with NoOpSubformMixin {
   @override
   Widget build(BuildContext context) {
-    return const AikoInlineNotice(
-      title: 'No extra details',
-      message: 'Cash accounts do not require additional setup.',
-      icon: Icons.savings_outlined,
-      accentColor: AikoColors.successGreen,
-    );
+    return const SizedBox.shrink();
   }
 }

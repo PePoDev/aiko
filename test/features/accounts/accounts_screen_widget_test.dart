@@ -53,11 +53,13 @@ void main() {
     await tester.pumpAndSettle();
 
     // Account type headers include a count suffix (e.g. "Cash (1)"), so match
-    // the full label rather than the bare type name.
+    // the full label rather than the bare type name. The Loan section sits
+    // below the test viewport in this unified scroll, so confirm it is in the
+    // tree here and scroll to it after the on-screen ordering checks.
     expect(find.text('Cash (1)'), findsOneWidget);
     expect(find.text('Bank (2)'), findsOneWidget);
     expect(find.text('Credit Card (1)'), findsOneWidget);
-    expect(find.text('Loan (1)'), findsOneWidget);
+    expect(find.text('Loan (1)', skipOffstage: false), findsOneWidget);
 
     expect(
       tester.getTopLeft(find.text('Cash (1)')).dy,
@@ -75,6 +77,9 @@ void main() {
       tester.getTopLeft(find.text('Credit Card (1)')).dy,
       lessThan(tester.getTopLeft(find.text('Visa Rewards')).dy),
     );
+
+    await tester.scrollUntilVisible(find.text('Loan (1)'), 200);
+    expect(find.text('Loan (1)'), findsOneWidget);
   });
 
   testWidgets('app bar add action opens account creation popup', (

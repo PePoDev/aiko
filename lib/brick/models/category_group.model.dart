@@ -8,7 +8,7 @@ import 'package:brick_supabase/brick_supabase.dart';
 class OfflineCategoryGroup extends OfflineFirstWithSupabaseModel {
   OfflineCategoryGroup({
     required this.id,
-    required this.userId,
+    this.userId,
     required this.name,
     this.icon = 'category',
     this.color = '#3B82F6',
@@ -20,8 +20,11 @@ class OfflineCategoryGroup extends OfflineFirstWithSupabaseModel {
   @Supabase(unique: true)
   final String id;
 
+  // Nullable: system (default) groups live in Supabase with user_id = NULL
+  // and are injected in-memory via CategoryDefaults. Per-user groups always
+  // have a non-null userId. See AGENTS.md "System (default) categories".
   @Sqlite(index: true)
-  final String userId;
+  final String? userId;
 
   final String name;
   final String icon;

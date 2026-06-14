@@ -10,100 +10,97 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   _defaultsInvariantsTests();
 
-  testWidgets(
-    'shows Income and Expense sections together with Income first',
-    (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            categoriesProvider.overrideWith(
-              () => _CategoriesNotifier([
-                Category(
-                  id: CategoryDefaults.salaryId,
-                  userId: 'user',
-                  name: 'Salary',
-                  type: CategoryType.income,
-                  group: CategoryBudgetGroup.custom,
-                  icon: 'salary',
-                  color: '#22C55E',
-                  budgetEnabled: false,
-                ),
-                Category(
-                  id: CategoryDefaults.groceriesId,
-                  userId: 'user',
-                  name: 'Groceries',
-                  type: CategoryType.expense,
-                  group: CategoryBudgetGroup.needs,
-                  icon: 'food',
-                  color: '#F97316',
-                  budgetEnabled: true,
-                ),
-                const Category(
-                  id: 'side-hustle',
-                  userId: 'user',
-                  name: 'Side Hustle',
-                  type: CategoryType.income,
-                  group: CategoryBudgetGroup.business,
-                  icon: 'salary',
-                  color: '#14B8A6',
-                  budgetEnabled: false,
-                ),
-                const Category(
-                  id: 'custom-coffee',
-                  userId: 'user',
-                  name: 'Coffee',
-                  type: CategoryType.expense,
-                  group: CategoryBudgetGroup.wants,
-                  icon: 'coffee',
-                  color: '#8B5CF6',
-                  budgetEnabled: true,
-                ),
-              ]),
-            ),
-            categoryGroupsProvider.overrideWith(
-              () => _GroupsNotifier(const []),
-            ),
-          ],
-          child: MaterialApp(
-            theme: AikoTheme.light(),
-            home: const CategoryManagementScreen(),
+  testWidgets('shows Income and Expense sections together with Income first', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              Category(
+                id: CategoryDefaults.salaryId,
+                userId: 'user',
+                name: 'Salary',
+                type: CategoryType.income,
+                group: CategoryBudgetGroup.custom,
+                icon: 'salary',
+                color: '#22C55E',
+                budgetEnabled: false,
+              ),
+              Category(
+                id: CategoryDefaults.groceriesId,
+                userId: 'user',
+                name: 'Groceries',
+                type: CategoryType.expense,
+                group: CategoryBudgetGroup.needs,
+                icon: 'food',
+                color: '#F97316',
+                budgetEnabled: true,
+              ),
+              const Category(
+                id: 'side-hustle',
+                userId: 'user',
+                name: 'Side Hustle',
+                type: CategoryType.income,
+                group: CategoryBudgetGroup.business,
+                icon: 'salary',
+                color: '#14B8A6',
+                budgetEnabled: false,
+              ),
+              const Category(
+                id: 'custom-coffee',
+                userId: 'user',
+                name: 'Coffee',
+                type: CategoryType.expense,
+                group: CategoryBudgetGroup.wants,
+                icon: 'coffee',
+                color: '#8B5CF6',
+                budgetEnabled: true,
+              ),
+            ]),
           ),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(const [])),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const CategoryManagementScreen(),
         ),
-      );
+      ),
+    );
 
-      await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
 
-      // No more tabs; both section headers are visible.
-      expect(find.byType(TabBar), findsNothing);
-      expect(find.byType(TabBarView), findsNothing);
+    // No more tabs; both section headers are visible.
+    expect(find.byType(TabBar), findsNothing);
+    expect(find.byType(TabBarView), findsNothing);
 
-      // Income appears before Expense on the same scroll.
-      final incomeHeader = find.descendant(
-        of: find.byKey(const ValueKey('section-income')),
-        matching: find.text('Income'),
-      );
-      final expenseHeader = find.descendant(
-        of: find.byKey(const ValueKey('section-expense')),
-        matching: find.text('Expense'),
-      );
-      expect(incomeHeader, findsOneWidget);
-      expect(expenseHeader, findsOneWidget);
-      expect(
-        tester.getTopLeft(incomeHeader).dy,
-        lessThan(tester.getTopLeft(expenseHeader).dy),
-      );
+    // Income appears before Expense on the same scroll.
+    final incomeHeader = find.descendant(
+      of: find.byKey(const ValueKey('section-income')),
+      matching: find.text('Income'),
+    );
+    final expenseHeader = find.descendant(
+      of: find.byKey(const ValueKey('section-expense')),
+      matching: find.text('Expense'),
+    );
+    expect(incomeHeader, findsOneWidget);
+    expect(expenseHeader, findsOneWidget);
+    expect(
+      tester.getTopLeft(incomeHeader).dy,
+      lessThan(tester.getTopLeft(expenseHeader).dy),
+    );
 
-      // All seeded categories are visible (no tab isolation).
-      expect(find.text('Salary'), findsOneWidget);
-      expect(find.text('Side Hustle'), findsOneWidget);
-      expect(find.text('Groceries'), findsOneWidget);
-      expect(find.text('Coffee'), findsOneWidget);
+    // All seeded categories are visible (no tab isolation).
+    expect(find.text('Salary'), findsOneWidget);
+    expect(find.text('Side Hustle'), findsOneWidget);
+    expect(find.text('Groceries'), findsOneWidget);
+    expect(find.text('Coffee'), findsOneWidget);
 
-      expect(find.byTooltip('Add'), findsOneWidget);
-      expect(find.byTooltip('About categories'), findsNothing);
-      expect(find.byIcon(Icons.info_outline), findsNothing);
-    },
-  );
+    expect(find.byTooltip('Add'), findsOneWidget);
+    expect(find.byTooltip('About categories'), findsNothing);
+    expect(find.byIcon(Icons.info_outline), findsNothing);
+  });
 
   testWidgets('user-defined groups section categories by group on the screen', (
     tester,
@@ -220,7 +217,7 @@ void main() {
     );
   });
 
-  testWidgets('categories render as a single non-collapsing list per section', (
+  testWidgets('groups expand by default and collapse on header tap', (
     tester,
   ) async {
     final groups = [
@@ -262,9 +259,21 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    // Expanded by default: the category row is visible on load.
     expect(find.text('Rent'), findsOneWidget);
-    // Tapping the group header opens the editor sheet (no more collapse).
+
+    // Tapping the group header collapses it, hiding the category rows.
     await tester.tap(find.text('Household'));
+    await tester.pumpAndSettle();
+    expect(find.text('Rent'), findsNothing);
+
+    // Tapping again expands it back.
+    await tester.tap(find.text('Household'));
+    await tester.pumpAndSettle();
+    expect(find.text('Rent'), findsOneWidget);
+
+    // Editing the group now happens via the tune action, not the header tap.
+    await tester.tap(find.byIcon(Icons.tune));
     await tester.pumpAndSettle();
     expect(find.text('Edit Group'), findsOneWidget);
   });
@@ -724,7 +733,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Household'));
+    await tester.tap(find.byIcon(Icons.tune));
     await tester.pumpAndSettle();
 
     expect(find.text('Edit Group'), findsOneWidget);

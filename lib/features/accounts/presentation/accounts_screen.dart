@@ -11,6 +11,7 @@ import '../../../theme/aiko_colors.dart';
 import '../../transactions/domain/transaction.dart';
 import '../../transactions/presentation/transaction_detail_screen.dart';
 import '../domain/account.dart';
+import '../domain/account_details.dart';
 import 'account_form/account_form_sheet.dart';
 
 class AccountsScreen extends ConsumerWidget {
@@ -400,6 +401,8 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          _AccountTypeDetailsCard(details: _account.resolvedDetails),
+          const SizedBox(height: 12),
           _RelatedTransactionsCard(transactions: relatedTransactions),
         ],
       ),
@@ -470,10 +473,119 @@ class _RelatedTransactionTile extends StatelessWidget {
           fontWeight: FontWeight.w800,
         ),
       ),
-      onTap: () => Navigator.of(context).push(
+          onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => TransactionDetailScreen(transaction: transaction),
         ),
+      ),
+    );
+  }
+}
+
+class _AccountTypeDetailsCard extends StatelessWidget {
+  const _AccountTypeDetailsCard({required this.details});
+  final AccountDetails details;
+
+  List<(String, String)> _rowsFor(AccountDetails d) {
+    return switch (d) {
+      CashDetails() => const [],
+      BankDetails() => [
+          if (d.accountNumberLast4 != null)
+            ('Last 4', d.accountNumberLast4!),
+          if (d.accountHolderName != null) ('Holder', d.accountHolderName!),
+        ],
+      EWalletDetails() => [
+          if (d.linkedPhoneOrEmail != null)
+            ('Contact', d.linkedPhoneOrEmail!),
+        ],
+      CreditCardDetails() => [
+          ('Statement day', '${d.statementDay}'),
+          ('Due day', '${d.dueDay}'),
+          if (d.creditLimit != null)
+            ('Credit limit', d.creditLimit!.format()),
+          if (d.aprPercent != null)
+            ('APR', '${d.aprPercent!.toStringAsFixed(2)}%'),
+          if (d.rewardsType != null) ('Rewards', d.rewardsType!.name),
+          if (d.annualFee != null) ('Annual fee', d.annualFee!.format()),
+          if (d.minimumPayment != null)
+            ('Min payment', d.minimumPayment!.format()),
+          ('Shares limit', d.sharesLimit ? 'Yes' : 'No'),
+          if (d.sharedLimitAccountId != null)
+            ('Shared with', d.sharedLimitAccountId!),
+        ],
+      LoanDetails() => [
+          ('Type', d.loanType.name),
+          ('Principal', d.principal.format()),
+          ('Rate', '${d.interestRatePercent.toStringAsFixed(2)}%'),
+          ('Term', '${d.termMonths} mo'),
+          ('Monthly', d.monthlyPayment.format()),
+          ('Next due', d.nextDueDate.toIso8601String().substring(0, 10)),
+        ],
+      InvestmentDetails() => [
+          if (d.accountNumberLast4 != null) ('Last 4', d.accountNumberLast4!),
+        ],
+      AssetDetails() => [
+          ('Class', d.assetClass.name),
+          if (d.purchasePrice != null)
+            ('Purchase price', d.purchasePrice!.format()),
+          if (d.purchaseDate != null)
+            ('Purchased', d.purchaseDate!.toIso8601String().substring(0, 10)),
+          if (d.notes != null) ('Notes', d.notes!),
+        ],
+      LiabilityDetails() => [
+          if (d.liabilityType != null) ('Type', d.liabilityType!),
+          if (d.interestRatePercent != null)
+            ('Rate', '${d.interestRatePercent!.toStringAsFixed(2)}%'),
+          if (d.notes != null) ('Notes', d.notes!),
+        ],
+      OtherDetails() => [if (d.notes != null) ('Notes', d.notes!)],
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _rowsFor(details);
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return FinanceCard(
+      title: 'Type details',
+      icon: Icons.list_alt_outlined,
+      accentColor: AikoColors.deepBlue,
+      child: Column(
+        children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            _DetailRow(label: rows[i].$1, value: rows[i].$2),
+            if (i != rows.length - 1) const Divider(),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.label, required this.value});
+  final String label;
+  final String value;
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: Text(value, textAlign: TextAlign.end),
+          ),
+        ],
       ),
     );
   }

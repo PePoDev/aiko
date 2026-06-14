@@ -36,7 +36,6 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
   final _nameController = TextEditingController();
   final _balanceController = TextEditingController();
   final _institutionController = TextEditingController();
-  final _currencyController = TextEditingController();
 
   late AccountType _type;
   late String _currency;
@@ -66,7 +65,6 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
     _includeInNetWorth = a?.includeInNetWorth ?? true;
     _isActive = a?.isActive ?? true;
     _subformKey = GlobalKey<AccountSubformState>();
-    _currencyController.text = _currency;
   }
 
   @override
@@ -74,7 +72,6 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
     _nameController.dispose();
     _balanceController.dispose();
     _institutionController.dispose();
-    _currencyController.dispose();
     super.dispose();
   }
 
@@ -303,7 +300,6 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
                 nameController: _nameController,
                 balanceController: _balanceController,
                 institutionController: _institutionController,
-                currencyController: _currencyController,
                 onChanged:
                     ({
                       String? name,

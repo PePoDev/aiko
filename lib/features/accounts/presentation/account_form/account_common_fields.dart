@@ -25,7 +25,6 @@ class AccountCommonFields extends StatelessWidget {
     required this.nameController,
     required this.balanceController,
     required this.institutionController,
-    required this.currencyController,
     required this.onChanged,
   });
 
@@ -37,7 +36,6 @@ class AccountCommonFields extends StatelessWidget {
   final TextEditingController nameController;
   final TextEditingController balanceController;
   final TextEditingController institutionController;
-  final TextEditingController currencyController;
   final CommonFieldsCallbacks onChanged;
 
   @override
@@ -89,25 +87,22 @@ class AccountCommonFields extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
-        DropdownMenu<String>(
-          controller: currencyController,
-          initialSelection: initialCurrency,
-          enableFilter: true,
-          enableSearch: true,
-          requestFocusOnTap: true,
-          expandedInsets: EdgeInsets.zero,
-          leadingIcon: const Icon(Icons.payments_outlined),
-          label: const Text('Currency'),
-          dropdownMenuEntries: currencies
+        DropdownButtonFormField<String>(
+          initialValue: initialCurrency,
+          decoration: const InputDecoration(
+            labelText: 'Currency',
+            prefixIcon: Icon(Icons.payments_outlined),
+          ),
+          items: currencies
               .map(
-                (c) => DropdownMenuEntry<String>(
+                (c) => DropdownMenuItem(
                   value: c.code,
-                  label: '${c.code} - ${c.name}',
+                  child: Text('${c.code} - ${c.name}'),
                 ),
               )
-              .toList(growable: false),
-          onSelected: (value) {
-            if (value != null) onChanged(currency: value);
+              .toList(),
+          onChanged: (v) {
+            if (v != null) onChanged(currency: v);
           },
         ),
         const SizedBox(height: 12),

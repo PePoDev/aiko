@@ -865,6 +865,173 @@ void main() {
     },
   );
 
+  testWidgets(
+    'selecting an item name suggestion prefills amount, category, account, and tags',
+    (tester) async {
+      final repository = _FakeTransactionRepository([
+        _transaction(
+          id: 'tx-coffee',
+          merchant: 'Morning Latte',
+          amount: Money.parse('4.75', 'USD'),
+          categoryId: 'coffee',
+          accountId: 'cash',
+          tags: const ['caffeine', 'work'],
+          date: DateTime(2026, 1, 5),
+        ),
+      ]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            transactionRepositoryProvider.overrideWithValue(repository),
+            categoriesProvider.overrideWith(
+              () => _CategoriesNotifier([
+                _category('coffee', 'Coffee', CategoryType.expense),
+              ]),
+            ),
+            accountsProvider.overrideWith(
+              () => _AccountsNotifier([
+                Account(
+                  id: 'cash',
+                  userId: 'user',
+                  name: 'Cash',
+                  type: AccountType.cash,
+                  currentBalance: Money.zero('USD'),
+                ),
+              ]),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AikoTheme.light(),
+            home: const TransactionFormScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Open the item-name suggestions and select the historical entry.
+      await tester.tap(find.widgetWithText(TextField, 'Item name'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(
+          const Key('transaction-item-name-option-Morning Latte'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Item name, amount, currency, and tags match the source transaction.
+      final itemField = tester.widget<TextField>(
+        find.widgetWithText(TextField, 'Item name'),
+      );
+      expect(itemField.controller?.text, 'Morning Latte');
+
+      final amountField = tester.widget<TextField>(
+        find.byKey(const Key('transaction-amount-field')),
+      );
+      expect(amountField.controller?.text, '4.75');
+
+      // Category and account pickers now display the source values.
+      expect(find.text('Coffee'), findsOneWidget);
+      _expectSelectedAccountLabel(tester, field: 'account', label: 'Cash');
+
+      // Tags were replaced by the source tags.
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('transaction-tag-chip-caffeine')),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(
+        find.byKey(const Key('transaction-tag-chip-caffeine')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('transaction-tag-chip-work')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'item name prefill skips category that no longer matches the type',
+    (tester) async {
+      final repository = _FakeTransactionRepository([
+        _transaction(
+          id: 'tx-mismatch',
+          merchant: 'Lunch Out',
+          amount: Money.parse('12.00', 'USD'),
+          categoryId: 'salary',
+          type: TransactionType.expense,
+        ),
+      ]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            transactionRepositoryProvider.overrideWithValue(repository),
+            categoriesProvider.overrideWith(
+              () => _CategoriesNotifier([
+                _category('salary', 'Salary', CategoryType.income),
+                _category('groceries', 'Groceries', CategoryType.expense),
+              ]),
+            ),
+            accountsProvider.overrideWith(
+              () => _AccountsNotifier([
+                Account(
+                  id: 'cash',
+                  userId: 'user',
+                  name: 'Cash',
+                  type: AccountType.cash,
+                  currentBalance: Money.zero('USD'),
+                ),
+              ]),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AikoTheme.light(),
+            home: const TransactionFormScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await _selectCategory(tester, 'groceries');
+
+      await tester.tap(find.widgetWithText(TextField, 'Item name'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('transaction-item-name-option-Lunch Out')),
+      );
+      await tester.pumpAndSettle();
+
+      // Amount and account come from the suggestion.
+      final amountField = tester.widget<TextField>(
+        find.byKey(const Key('transaction-amount-field')),
+      );
+      expect(amountField.controller?.text, '12.00');
+      _expectSelectedAccountLabel(tester, field: 'account', label: 'Cash');
+
+      // The mismatched category id ('salary', income-type) is ignored; the
+      // existing expense selection remains in place.
+      expect(find.text('Groceries'), findsOneWidget);
+      expect(find.text('Salary'), findsNothing);
+    },
+  );
+
   testWidgets('tag input saves chips', (tester) async {
     final repository = _FakeTransactionRepository([
       _transaction(tags: const ['coffee', 'work']),
@@ -1382,15 +1549,19 @@ FinanceTransaction _transaction({
   List<String> tags = const [],
   TransactionType type = TransactionType.expense,
   DateTime? date,
+  Money? amount,
+  String? categoryId,
+  String accountId = 'cash',
 }) {
   return FinanceTransaction(
     id: id,
     userId: 'user',
-    accountId: 'cash',
+    accountId: accountId,
     type: type,
-    amount: Money.parse('1', 'USD'),
+    amount: amount ?? Money.parse('1', 'USD'),
     date: date ?? DateTime(2026, 1, 1),
     merchant: merchant,
     tags: tags,
+    categoryId: categoryId,
   );
 }

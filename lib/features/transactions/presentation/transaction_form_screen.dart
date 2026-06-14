@@ -145,6 +145,62 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     setState(() => _tags.remove(tag));
   }
 
+  void _applyItemSuggestion(FinanceTransaction suggestion) {
+    final amountText = suggestion.amount.amount.toStringAsFixed(2);
+    final currency = _normalizeCurrency(suggestion.amount.currency);
+
+    final validCategoryId = _validateSuggestionCategory(suggestion.categoryId);
+    final validAccountId = _validateSuggestionAccount(suggestion.accountId);
+
+    setState(() {
+      _amountController.text = amountText;
+      _selectedCurrency = currency;
+      _exchangeRateController.text = '1.00';
+      if (validCategoryId != null) {
+        _selectedCategoryId = validCategoryId;
+      }
+      if (validAccountId != null) {
+        _selectedAccountId = validAccountId;
+      }
+      _tags
+        ..clear()
+        ..addAll(suggestion.tags);
+    });
+  }
+
+  String? _validateSuggestionCategory(String? categoryId) {
+    if (categoryId == null || _type == 'transfer') {
+      return null;
+    }
+    final categories =
+        ref.read(categoriesProvider).whenOrNull(data: (value) => value) ??
+        const <Category>[];
+    final expectedType = _categoryTypeFor(_type);
+    for (final category in categories) {
+      if (category.id == categoryId &&
+          category.isActive &&
+          category.type == expectedType) {
+        return category.id;
+      }
+    }
+    return null;
+  }
+
+  String? _validateSuggestionAccount(String? accountId) {
+    if (accountId == null) {
+      return null;
+    }
+    final accounts =
+        ref.read(accountsProvider).whenOrNull(data: (value) => value) ??
+        const <Account>[];
+    for (final account in accounts) {
+      if (account.id == accountId && account.isActive) {
+        return account.id;
+      }
+    }
+    return null;
+  }
+
   void _onTransferFromAccountSelected(String selectedAccountId) {
     setState(() {
       if (_selectedToAccountId == selectedAccountId) {
@@ -1295,6 +1351,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               transactionsAsync,
               selectedType: _transactionTypeFromFormType(_type),
             ),
+            onSelected: _applyItemSuggestion,
           ),
           const SizedBox(height: 16),
           Row(
@@ -1654,10 +1711,15 @@ class _TagInput extends StatelessWidget {
 }
 
 class _ItemNameInput extends StatefulWidget {
-  const _ItemNameInput({required this.controller, required this.suggestions});
+  const _ItemNameInput({
+    required this.controller,
+    required this.suggestions,
+    required this.onSelected,
+  });
 
   final TextEditingController controller;
-  final List<String> suggestions;
+  final List<FinanceTransaction> suggestions;
+  final ValueChanged<FinanceTransaction> onSelected;
 
   @override
   State<_ItemNameInput> createState() => _ItemNameInputState();
@@ -1714,12 +1776,15 @@ class _ItemNameInputState extends State<_ItemNameInput> {
                 children: [
                   for (final option in options)
                     ListTile(
-                      key: Key('transaction-item-name-option-$option'),
+                      key: Key(
+                        'transaction-item-name-option-${option.merchant ?? ''}',
+                      ),
                       dense: true,
-                      title: Text(option),
+                      title: Text(option.merchant ?? ''),
                       onTap: () {
-                        widget.controller.text = option;
+                        widget.controller.text = option.merchant ?? '';
                         setState(() => _showSuggestions = false);
+                        widget.onSelected(option);
                       },
                     ),
                 ],
@@ -3603,7 +3668,7 @@ List<String> _tagSuggestionsFrom(
   return tags;
 }
 
-List<String> _itemNameSuggestionsFrom(
+List<FinanceTransaction> _itemNameSuggestionsFrom(
   AsyncValue<List<FinanceTransaction>> transactionsAsync, {
   required TransactionType selectedType,
 }) {
@@ -3617,18 +3682,17 @@ List<String> _itemNameSuggestionsFrom(
         ..sort((a, b) => b.date.compareTo(a.date));
 
   final seen = <String>{};
-  final names = <String>[];
+  final suggestions = <FinanceTransaction>[];
   for (final transaction in filteredTransactions) {
     final name = transaction.merchant?.trim() ?? '';
     if (name.isEmpty) {
       continue;
     }
-    final normalizedName = name.toLowerCase();
-    if (seen.add(normalizedName)) {
-      names.add(name);
+    if (seen.add(name.toLowerCase())) {
+      suggestions.add(transaction);
     }
   }
-  return names;
+  return suggestions;
 }
 
 TransactionType _transactionTypeFromFormType(String formType) {
@@ -3639,8 +3703,8 @@ TransactionType _transactionTypeFromFormType(String formType) {
   };
 }
 
-List<String> _filteredItemNameSuggestions(
-  List<String> suggestions,
+List<FinanceTransaction> _filteredItemNameSuggestions(
+  List<FinanceTransaction> suggestions,
   String input,
 ) {
   final query = input.trim().toLowerCase();
@@ -3648,9 +3712,12 @@ List<String> _filteredItemNameSuggestions(
     return suggestions.take(5).toList(growable: false);
   }
   return suggestions
-      .where((item) {
-        final normalizedItem = item.trim().toLowerCase();
-        return normalizedItem.contains(query) && normalizedItem != query;
+      .where((transaction) {
+        final name = (transaction.merchant ?? '').trim().toLowerCase();
+        if (name.isEmpty) {
+          return false;
+        }
+        return name.contains(query) && name != query;
       })
       .toList(growable: false);
 }

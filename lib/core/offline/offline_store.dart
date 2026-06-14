@@ -95,11 +95,16 @@ class OfflineStore {
     return model;
   }
 
+  /// Deletes [model]. When [localOnly] is true the row is removed from SQLite
+  /// without queuing a remote DELETE — used to purge rows that never existed in
+  /// Supabase (e.g. legacy `default-*` slug categories) so the queue is not
+  /// poisoned with a request the server will reject forever.
   Future<bool> delete<TModel extends OfflineFirstWithSupabaseModel>(
     TModel model, {
     Query? query,
+    bool localOnly = false,
   }) async {
-    if (_canSyncRemote) {
+    if (_canSyncRemote && !localOnly) {
       return _repository.delete<TModel>(
         model,
         query: query,

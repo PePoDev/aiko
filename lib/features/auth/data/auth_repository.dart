@@ -167,26 +167,30 @@ class AuthRepository {
       }
 
       // 2 — Delete stale default-* OfflineCategory rows (invalid UUIDs, never
-      //     synced). Uses OfflineStore.delete which queues a no-op Supabase
-      //     DELETE that returns 200 (not retried on success).
+      //     synced). Local-only: these rows never existed in Supabase, so
+      //     queuing a remote DELETE would only poison the queue with a request
+      //     the server rejects (the id is a non-UUID slug) and retries forever.
       final legacyCategories = await store.get<OfflineCategory>(
         query: Query(where: [Where.exact('userId', userId)]),
         policy: OfflineFirstGetPolicy.localOnly,
       );
       for (final cat in legacyCategories) {
         if (!cat.id.startsWith('default-')) continue;
-        await store.delete(cat);
+        await store.delete(cat, localOnly: true);
         if (kDebugMode) {
           debugPrint('[aiko-sync] deleted stale local category ${cat.id}');
         }
       }
 
-      // 3 — Flush queue entries whose body still contains the old slugs. These
-      //     can never succeed (Postgres rejects the non-UUID id) so clearing
-      //     them is safe. The re-upserted transactions from step 1 are already
-      //     queued with valid UUIDs.
+      // 3 — Flush queue entries that still reference the old slugs. These can
+      //     never succeed (Postgres rejects the non-UUID id) so clearing them
+      //     is safe. DELETEs carry an empty body and put the id in the URL
+      //     (`?id=eq.default-...`), so we match the url column too — a
+      //     body-only match misses every poisoned delete. The re-upserted
+      //     transactions from step 1 are already queued with valid UUIDs.
       final flushed = await AikoBrickRepository.flushQueueEntriesContaining(
         '%"default-%',
+        urlPattern: '%default-%',
       );
       if (kDebugMode && flushed > 0) {
         debugPrint(

@@ -1,41 +1,29 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/formatting/formatters.dart';
+import '../../../core/money/money.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../transactions/domain/transaction.dart';
 import '../domain/category.dart';
 import '../domain/category_defaults.dart';
 import 'category_editor_sheet.dart';
 import 'category_group_editor_sheet.dart';
 import 'category_visual.dart';
 
-class CategoryManagementScreen extends ConsumerStatefulWidget {
+class CategoryManagementScreen extends ConsumerWidget {
   const CategoryManagementScreen({super.key});
 
   @override
-  ConsumerState<CategoryManagementScreen> createState() =>
-      _CategoryManagementScreenState();
-}
-
-class _CategoryManagementScreenState
-    extends ConsumerState<CategoryManagementScreen> {
-  /// Tracks the expansion state of each group section, keyed by group id
-  /// (including the 13 global default groups). All start expanded so users
-  /// see their categories by default.
-  final Map<String, bool> _expanded = <String, bool>{};
-
-  void _toggleSection(String key) {
-    setState(() {
-      _expanded[key] = !(_expanded[key] ?? true);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final categoriesAsync = ref.watch(categoriesProvider);
     final groupsAsync = ref.watch(categoryGroupsProvider);
+    final transactionsAsync = ref.watch(transactionsProvider);
+    final profileAsync = ref.watch(profileProvider);
+    final baseCurrency = profileAsync.value?.baseCurrency ?? 'USD';
 
     return Scaffold(
       appBar: AppBar(
@@ -47,9 +35,9 @@ class _CategoryManagementScreenState
             onSelected: (value) {
               switch (value) {
                 case 'new_category':
-                  _showAddCategorySheet(initialType: CategoryType.expense);
+                  _showAddCategorySheet(context, initialType: CategoryType.expense);
                 case 'new_group':
-                  _showAddGroupSheet();
+                  showCategoryGroupEditorSheet(context);
               }
             },
             itemBuilder: (context) => const [
@@ -92,16 +80,11 @@ class _CategoryManagementScreenState
               action: PrimaryActionButton(
                 label: 'Add Category',
                 icon: Icons.add_circle_outline,
-                onPressed: () => _showAddCategorySheet(),
+                onPressed: () => _showAddCategorySheet(context),
               ),
             );
           }
 
-          // Always section the system-managed (and unfiled) categories under
-          // the read-only default groups, even if the user-group load failed —
-          // the 13 defaults are canonical and always appended in their
-          // declared display order (income → investments → expense groups →
-          // Other last).
           final groups = <CategoryGroup>[
             ...(groupsAsync.value ?? const <CategoryGroup>[]).where(
               (group) => !group.isSystem,
@@ -116,34 +99,40 @@ class _CategoryManagementScreenState
               .where((category) => category.type == CategoryType.expense)
               .toList(growable: false);
 
-          return CustomScrollView(
-            slivers: [
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
-              _CategorySectionSliver(
+          final totals = _CategoryTotals.compute(
+            transactions: transactionsAsync.value ?? const <FinanceTransaction>[],
+            baseCurrency: baseCurrency,
+          );
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+            children: [
+              _CompactSection(
                 key: const ValueKey('section-income'),
                 title: 'Income',
                 accent: AikoColors.successGreen,
                 icon: Icons.arrow_downward_outlined,
-                type: CategoryType.income,
                 categories: incomeCategories,
                 groups: groups,
-                expanded: _expanded,
-                onToggle: _toggleSection,
+                totals: totals,
+                onCategoryTap: (category) =>
+                    showCategoryEditorSheet(context, initialCategory: category),
+                onGroupEdit: (group) =>
+                    showCategoryGroupEditorSheet(context, initial: group),
               ),
-              _CategorySectionSliver(
+              const SizedBox(height: 16),
+              _CompactSection(
                 key: const ValueKey('section-expense'),
                 title: 'Expense',
                 accent: AikoColors.dangerRed,
                 icon: Icons.arrow_upward_outlined,
-                type: CategoryType.expense,
                 categories: expenseCategories,
                 groups: groups,
-                expanded: _expanded,
-                onToggle: _toggleSection,
-              ),
-              const SliverPadding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 32),
-                sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
+                totals: totals,
+                onCategoryTap: (category) =>
+                    showCategoryEditorSheet(context, initialCategory: category),
+                onGroupEdit: (group) =>
+                    showCategoryGroupEditorSheet(context, initial: group),
               ),
             ],
           );
@@ -152,135 +141,133 @@ class _CategoryManagementScreenState
     );
   }
 
-  void _showAddCategorySheet({
+  static void _showAddCategorySheet(
+    BuildContext context, {
     CategoryType initialType = CategoryType.expense,
-    String? groupIdHint,
   }) {
-    showCategoryEditorSheet(
-      context,
-      initialType: initialType,
-      groupIdHint: groupIdHint,
-    );
-  }
-
-  void _showAddGroupSheet() {
-    showCategoryGroupEditorSheet(context);
+    showCategoryEditorSheet(context, initialType: initialType);
   }
 }
 
-class _CategorySectionSliver extends StatelessWidget {
-  const _CategorySectionSliver({
+class _CompactSection extends StatelessWidget {
+  const _CompactSection({
     super.key,
     required this.title,
     required this.accent,
     required this.icon,
-    required this.type,
     required this.categories,
     required this.groups,
-    required this.expanded,
-    required this.onToggle,
+    required this.totals,
+    required this.onCategoryTap,
+    required this.onGroupEdit,
   });
 
   final String title;
   final Color accent;
   final IconData icon;
-  final CategoryType type;
   final List<Category> categories;
   final List<CategoryGroup> groups;
-  final Map<String, bool> expanded;
-  final ValueChanged<String> onToggle;
+  final _CategoryTotals totals;
+  final ValueChanged<Category> onCategoryTap;
+  final ValueChanged<CategoryGroup> onGroupEdit;
 
-  String get _emptyTitle => type == CategoryType.expense
+  String get _emptyTitle => title == 'Expense'
       ? 'No expense categories'
       : 'No income categories';
-  String get _emptyMessage => type == CategoryType.expense
+  String get _emptyMessage => title == 'Expense'
       ? 'Add expense categories for bills, shopping, and daily spending.'
       : 'Add income categories for salary, side work, and other money coming in.';
 
   @override
   Widget build(BuildContext context) {
     if (categories.isEmpty) {
-      return SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        sliver: SliverToBoxAdapter(
-          child: AikoScreenState.empty(
-            title: _emptyTitle,
-            message: _emptyMessage,
-            action: null,
-          ),
-        ),
+      return AikoScreenState.empty(
+        title: _emptyTitle,
+        message: _emptyMessage,
+        action: null,
       );
     }
 
-    final sections = _buildSections();
-    if (sections.isEmpty) {
-      return SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        sliver: SliverToBoxAdapter(
-          child: AikoScreenState.empty(
-            title: _emptyTitle,
-            message: _emptyMessage,
-            action: null,
-          ),
-        ),
-      );
-    }
-
-    return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      sliver: SliverMainAxisGroup(
-        slivers: [
-          SliverToBoxAdapter(
-            child: _SectionHeader(title: title, accent: accent, icon: icon),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.only(top: 8),
-            sliver: SliverList.builder(
-              itemCount: sections.length,
-              itemBuilder: (context, index) => Padding(
-                padding: EdgeInsets.only(
-                  bottom: index == sections.length - 1 ? 0 : 12,
-                ),
-                child: sections[index],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildSections() {
-    final widgets = <Widget>[];
-
-    // Group sections in repository order (sortOrder, then createdAt, then
-    // name); the 13 default groups are injected last in their declared order.
-    // Each group is read-only (can't be renamed/deleted) but accepts user-
-    // added custom categories filed into it. The "Other" group additionally
-    // absorbs any unfiled custom category — see [_belongsToGroup].
+    final theme = Theme.of(context);
+    final groupEntries = <_GroupEntry>[];
     for (final group in groups) {
       final groupCategories = categories
           .where((c) => _belongsToGroup(c, group))
           .toList(growable: false);
       if (groupCategories.isEmpty) continue;
-      widgets.add(
-        _CategoryGroupSection(
-          key: ValueKey('${type.name}-group-${group.id}'),
-          group: group,
-          categories: groupCategories,
-          isExpanded: expanded[group.id] ?? true,
-          onToggle: () => onToggle(group.id),
-        ),
+      Money? groupTotal;
+      int groupCount = 0;
+      for (final category in groupCategories) {
+        final amount = totals.amountForCategory(category.id);
+        if (amount != null) {
+          groupTotal = groupTotal == null ? amount : groupTotal + amount;
+        }
+        groupCount += totals.countForCategory(category.id);
+      }
+      groupEntries.add(_GroupEntry(
+        group: group,
+        categories: groupCategories,
+        total: groupTotal,
+        count: groupCount,
+      ));
+    }
+
+    if (groupEntries.isEmpty) {
+      return AikoScreenState.empty(
+        title: _emptyTitle,
+        message: _emptyMessage,
+        action: null,
       );
     }
 
-    return widgets;
+    Money? sectionTotal;
+    int sectionCount = 0;
+    for (final entry in groupEntries) {
+      if (entry.total != null) {
+        sectionTotal =
+            sectionTotal == null ? entry.total! : sectionTotal + entry.total!;
+      }
+      sectionCount += entry.count;
+    }
+
+    return Card(
+      key: ValueKey('${title.toLowerCase()}-card'),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SectionHeader(
+            title: title,
+            accent: accent,
+            icon: icon,
+            total: sectionTotal,
+            count: sectionCount,
+          ),
+          for (var i = 0; i < groupEntries.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                thickness: 1,
+                indent: 12,
+                endIndent: 12,
+                color: theme.colorScheme.outlineVariant,
+              ),
+            _GroupBlock(
+              entry: groupEntries[i],
+              totals: totals,
+              onCategoryTap: onCategoryTap,
+              onGroupEdit: onGroupEdit,
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
-  /// A category belongs to [group] when its `groupId` matches. The
-  /// [CategoryGroupDefaults.unfiledGroupId] group (currently "Other")
-  /// additionally claims every unfiled custom category (`groupId` null or
-  /// empty), so it plays the role the old "Ungrouped" bucket used to.
   bool _belongsToGroup(Category category, CategoryGroup group) {
     if (group.id == CategoryGroupDefaults.unfiledGroupId) {
       return category.groupId == group.id ||
@@ -291,38 +278,69 @@ class _CategorySectionSliver extends StatelessWidget {
   }
 }
 
+class _GroupEntry {
+  const _GroupEntry({
+    required this.group,
+    required this.categories,
+    required this.total,
+    required this.count,
+  });
+
+  final CategoryGroup group;
+  final List<Category> categories;
+  final Money? total;
+  final int count;
+}
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
     required this.title,
     required this.accent,
     required this.icon,
+    required this.total,
+    required this.count,
   });
 
   final String title;
   final Color accent;
   final IconData icon;
+  final Money? total;
+  final int count;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 4),
+    return Container(
+      color: accent.withValues(alpha: 0.06),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Row(
         children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: accent, size: 18),
-          ),
-          const SizedBox(width: 10),
+          Icon(icon, color: accent, size: 18),
+          const SizedBox(width: 8),
           Text(
             title,
-            style: theme.textTheme.titleMedium?.copyWith(
+            style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w700,
+              color: accent,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$count',
+            key: ValueKey('$title-section-count'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            total == null ? '—' : AikoFormatters.money(total!),
+            key: const ValueKey('section-total-amount'),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: accent,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -331,64 +349,44 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _CategoryGroupSection extends StatelessWidget {
-  const _CategoryGroupSection({
-    super.key,
-    required this.group,
-    required this.categories,
-    required this.isExpanded,
-    required this.onToggle,
+class _GroupBlock extends StatelessWidget {
+  const _GroupBlock({
+    required this.entry,
+    required this.totals,
+    required this.onCategoryTap,
+    required this.onGroupEdit,
   });
 
-  final CategoryGroup group;
-  final List<Category> categories;
-  final bool isExpanded;
-  final VoidCallback onToggle;
+  final _GroupEntry entry;
+  final _CategoryTotals totals;
+  final ValueChanged<Category> onCategoryTap;
+  final ValueChanged<CategoryGroup> onGroupEdit;
 
   @override
   Widget build(BuildContext context) {
-    final color = aikoHexColor(group.color);
-
-    return Card(
-      key: Key(
-        group.id == CategoryGroupDefaults.unfiledGroupId
-            ? 'system-group-section'
-            : 'category-group-section',
-      ),
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _GroupHeader(
-            title: group.name,
-            subtitle:
-                '${categories.length} categor'
-                '${categories.length == 1 ? "y" : "ies"}',
-            color: color,
-            icon: aikoCategoryIcon(group.icon),
-            isExpanded: isExpanded,
-            onToggle: onToggle,
-            onEdit: group.isSystem
-                ? null
-                : () => showCategoryGroupEditorSheet(context, initial: group),
+    final color = aikoHexColor(entry.group.color);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _GroupHeader(
+          title: entry.group.name,
+          total: entry.total,
+          count: entry.count,
+          color: color,
+          icon: aikoCategoryIcon(entry.group.icon),
+          isSystem: entry.group.isSystem,
+          onEdit: entry.group.isSystem
+              ? null
+              : () => onGroupEdit(entry.group),
+        ),
+        for (final category in entry.categories)
+          _CategoryRow(
+            category: category,
+            amount: totals.amountForCategory(category.id),
+            count: totals.countForCategory(category.id),
+            onTap: category.isDefault ? null : () => onCategoryTap(category),
           ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeInOut,
-            alignment: Alignment.topCenter,
-            child: isExpanded
-                ? Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    child: _CategoryCardGrid(categories: categories),
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -396,84 +394,69 @@ class _CategoryGroupSection extends StatelessWidget {
 class _GroupHeader extends StatelessWidget {
   const _GroupHeader({
     required this.title,
-    required this.subtitle,
+    required this.total,
+    required this.count,
     required this.color,
     required this.icon,
-    required this.isExpanded,
-    required this.onToggle,
+    required this.isSystem,
     this.onEdit,
   });
 
   final String title;
-  final String subtitle;
+  final Money? total;
+  final int count;
   final Color color;
   final IconData icon;
-  final bool isExpanded;
-  final VoidCallback onToggle;
+  final bool isSystem;
   final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return InkWell(
-      onTap: onToggle,
+      onTap: onEdit,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
         child: Row(
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 12),
+            Icon(icon, color: color, size: 16),
+            const SizedBox(width: 8),
             Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+              child: Text(
+                title,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              '$count',
+              key: ValueKey('group-${title.toLowerCase()}-count'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              total == null ? '—' : AikoFormatters.money(total!),
+              key: const ValueKey('group-total-amount'),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: color,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
             if (onEdit != null) ...[
-              IconButton(
-                tooltip: 'Edit group',
-                icon: const Icon(Icons.tune, size: 20),
-                onPressed: onEdit,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                visualDensity: VisualDensity.compact,
+              const SizedBox(width: 4),
+              Icon(
+                Icons.tune,
+                size: 16,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ],
-            AnimatedRotation(
-              turns: isExpanded ? 0.5 : 0,
-              duration: const Duration(milliseconds: 180),
-              child: Icon(
-                Icons.expand_more,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(width: 4),
           ],
         ),
       ),
@@ -481,46 +464,18 @@ class _GroupHeader extends StatelessWidget {
   }
 }
 
-class _CategoryCardGrid extends StatelessWidget {
-  const _CategoryCardGrid({required this.categories});
-
-  final List<Category> categories;
-
-  @override
-  Widget build(BuildContext context) {
-    const spacing = 8.0;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth >= 520
-            ? 3
-            : constraints.maxWidth >= 340
-            ? 2
-            : 1;
-        final cardWidth =
-            (constraints.maxWidth - spacing * (crossAxisCount - 1)) /
-            crossAxisCount;
-
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: categories
-              .map(
-                (category) => SizedBox(
-                  width: cardWidth,
-                  child: _CategoryListCard(category: category),
-                ),
-              )
-              .toList(growable: false),
-        );
-      },
-    );
-  }
-}
-
-class _CategoryListCard extends StatelessWidget {
-  const _CategoryListCard({required this.category});
+class _CategoryRow extends StatelessWidget {
+  const _CategoryRow({
+    required this.category,
+    required this.amount,
+    required this.count,
+    required this.onTap,
+  });
 
   final Category category;
+  final Money? amount;
+  final int count;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -528,52 +483,129 @@ class _CategoryListCard extends StatelessWidget {
     final color = aikoHexColor(category.color);
     final icon = aikoCategoryIcon(category.icon);
 
-    return Card(
-      key: ValueKey('category-card-${category.id}'),
-      color: theme.cardColor,
-      child: InkWell(
-        onTap: category.isDefault
-            ? null
-            : () => showCategoryEditorSheet(context, initialCategory: category),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 72),
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(icon, color: color, size: 18),
+    return InkWell(
+      key: ValueKey('category-row-${category.id}'),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(28, 4, 12, 4),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 14),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                category.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    category.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                if (category.isDefault) ...[
-                  Icon(
-                    Icons.lock_outline,
-                    size: 14,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 4),
-                ],
-              ],
+              ),
             ),
-          ),
+            if (category.isDefault)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(
+                  Icons.lock_outline,
+                  size: 12,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            SizedBox(
+              width: 32,
+              child: Text(
+                '$count',
+                textAlign: TextAlign.right,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 84,
+              child: Text(
+                amount == null ? '—' : AikoFormatters.money(amount!),
+                textAlign: TextAlign.right,
+                key: ValueKey('category-${category.id}-total'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+}
+
+class _CategoryTotals {
+  const _CategoryTotals(this._amounts, this._counts);
+
+  static const _CategoryTotals empty = _CategoryTotals(
+    <String, Money>{},
+    <String, int>{},
+  );
+
+  factory _CategoryTotals.compute({
+    required List<FinanceTransaction> transactions,
+    required String baseCurrency,
+  }) {
+    if (transactions.isEmpty) return empty;
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month);
+    final monthEnd = DateTime(now.year, now.month + 1);
+    final amounts = <String, Money>{};
+    final counts = <String, int>{};
+    for (final tx in transactions) {
+      if (tx.date.isBefore(monthStart) || !tx.date.isBefore(monthEnd)) continue;
+      if (tx.amount.currency.toUpperCase() != baseCurrency.toUpperCase()) {
+        continue;
+      }
+      final categoryId = tx.categoryId;
+      if (categoryId == null || categoryId.isEmpty) continue;
+      if (!_isCategoryTotalable(tx.type)) continue;
+      final existing = amounts[categoryId];
+      amounts[categoryId] = existing == null ? tx.amount : existing + tx.amount;
+      counts[categoryId] = (counts[categoryId] ?? 0) + 1;
+    }
+    return _CategoryTotals(amounts, counts);
+  }
+
+  static bool _isCategoryTotalable(TransactionType type) {
+    switch (type) {
+      case TransactionType.expense:
+      case TransactionType.refund:
+      case TransactionType.fee:
+      case TransactionType.income:
+      case TransactionType.dividend:
+      case TransactionType.interest:
+        return true;
+      case TransactionType.transfer:
+      case TransactionType.investmentBuy:
+      case TransactionType.investmentSell:
+      case TransactionType.loanPayment:
+      case TransactionType.creditCardPayment:
+      case TransactionType.taxPayment:
+      case TransactionType.adjustment:
+        return false;
+    }
+  }
+
+  final Map<String, Money> _amounts;
+  final Map<String, int> _counts;
+
+  Money? amountForCategory(String? categoryId) {
+    if (categoryId == null) return null;
+    return _amounts[categoryId];
+  }
+
+  int countForCategory(String? categoryId) {
+    if (categoryId == null) return 0;
+    return _counts[categoryId] ?? 0;
   }
 }

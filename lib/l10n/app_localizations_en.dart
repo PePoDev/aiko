@@ -42,7 +42,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get planningGroup => 'Planning';
 
   @override
-  String get menuTitle => 'Menu';
+  String get settingsTitle => 'Settings';
 
   @override
   String get moreTab => 'More';
@@ -222,9 +222,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addBudget => 'Budget';
-
-  @override
-  String get settingsTitle => 'Settings';
 
   @override
   String get profile => 'Profile';

@@ -220,7 +220,7 @@ void main() {
     );
   });
 
-  testWidgets('group section header can be collapsed and expanded', (
+  testWidgets('categories render as a single non-collapsing list per section', (
     tester,
   ) async {
     final groups = [
@@ -261,15 +261,12 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    expect(find.text('Rent'), findsOneWidget);
 
+    expect(find.text('Rent'), findsOneWidget);
+    // Tapping the group header opens the editor sheet (no more collapse).
     await tester.tap(find.text('Household'));
     await tester.pumpAndSettle();
-    expect(find.text('Rent'), findsNothing);
-
-    await tester.tap(find.text('Household'));
-    await tester.pumpAndSettle();
-    expect(find.text('Rent'), findsOneWidget);
+    expect(find.text('Edit Group'), findsOneWidget);
   });
 
   testWidgets('default category tap does not open a popup or route', (
@@ -437,7 +434,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    final itemFinder = find.byKey(const ValueKey('category-card-coffee'));
+    final itemFinder = find.byKey(const ValueKey('category-row-coffee'));
 
     expect(itemFinder, findsOneWidget);
     expect(
@@ -491,27 +488,24 @@ void main() {
     await tester.pumpAndSettle();
     // No tabs anymore — both income cards are visible in the Income section.
 
-    final defaultCardFinder = find.byKey(
-      ValueKey('category-card-${CategoryDefaults.salaryId}'),
+    final defaultRowFinder = find.byKey(
+      ValueKey('category-row-${CategoryDefaults.salaryId}'),
     );
-    final customCardFinder = find.byKey(
-      const ValueKey('category-card-side-hustle'),
+    final customRowFinder = find.byKey(
+      const ValueKey('category-row-side-hustle'),
     );
-    final defaultCard = tester.widget<Card>(defaultCardFinder);
-    final customCard = tester.widget<Card>(customCardFinder);
 
     expect(find.text('Other'), findsOneWidget);
-    expect(defaultCard.color, customCard.color);
     expect(
       find.descendant(
-        of: defaultCardFinder,
+        of: defaultRowFinder,
         matching: find.byIcon(Icons.lock_outline),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
-        of: customCardFinder,
+        of: customRowFinder,
         matching: find.byIcon(Icons.lock_outline),
       ),
       findsNothing,
@@ -548,7 +542,9 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Add category'));
+    await tester.tap(find.byTooltip('Add'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('New category'));
     await tester.pumpAndSettle();
 
     expect(find.text('Include in Budgets'), findsNothing);
@@ -595,7 +591,9 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Add category'));
+    await tester.tap(find.byTooltip('Add'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('New category'));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('category-type-selector')), findsOneWidget);
@@ -662,9 +660,11 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    // The app-bar "+" is the only Add entry point now (in-group buttons are
-    // removed) and the sheet defaults to expense.
-    await tester.tap(find.byTooltip('Add category'));
+    // The app-bar "+" opens a menu with "New category" and "New group".
+    // Picking "New category" defaults the sheet to expense.
+    await tester.tap(find.byTooltip('Add'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('New category'));
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -724,7 +724,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Edit group'));
+    await tester.tap(find.text('Household'));
     await tester.pumpAndSettle();
 
     expect(find.text('Edit Group'), findsOneWidget);
@@ -773,20 +773,20 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Expanded by default: both the built-in and the unfiled custom show.
+      // Always visible: no more expand/collapse; both built-in and unfiled
+      // custom render on the same flat list.
       expect(find.text('Other'), findsOneWidget);
-      expect(find.byKey(const Key('system-group-section')), findsOneWidget);
       expect(find.text('Groceries'), findsOneWidget);
       expect(find.text('Pet Care'), findsOneWidget);
 
-      // The group is locked (no edit/tune button).
-      expect(find.byTooltip('Edit group'), findsNothing);
+      // The group is locked (no edit/tune affordance for system groups).
+      expect(find.byIcon(Icons.tune), findsNothing);
 
       // The built-in keeps its lock; the unfiled custom does not.
       expect(
         find.descendant(
           of: find.byKey(
-            ValueKey('category-card-${CategoryDefaults.groceriesId}'),
+            ValueKey('category-row-${CategoryDefaults.groceriesId}'),
           ),
           matching: find.byIcon(Icons.lock_outline),
         ),
@@ -794,7 +794,7 @@ void main() {
       );
       expect(
         find.descendant(
-          of: find.byKey(const ValueKey('category-card-custom-pet')),
+          of: find.byKey(const ValueKey('category-row-custom-pet')),
           matching: find.byIcon(Icons.lock_outline),
         ),
         findsNothing,

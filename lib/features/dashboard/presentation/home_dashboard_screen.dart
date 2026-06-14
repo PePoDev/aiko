@@ -34,6 +34,17 @@ class HomeDashboardScreen extends ConsumerStatefulWidget {
 class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   var _isEditing = false;
 
+  Future<void> _refresh() async {
+    await Future.wait([
+      ref.refresh(dashboardSummaryProvider.future),
+      ref.refresh(dashboardDueItemsProvider.future),
+      ref.refresh(transactionsProvider.future),
+      ref.refresh(budgetsProvider.future),
+      ref.refresh(categoriesProvider.future),
+      ref.refresh(goalsProvider.future),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
@@ -47,7 +58,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         title: Text(l10n.overview),
         actions: [
           IconButton(
-            tooltip: l10n.menuTitle,
+            tooltip: l10n.settingsTitle,
             onPressed: () => context.push('/settings'),
             icon: Icon(Icons.menu_rounded, color: actionColor),
           ),
@@ -58,61 +69,75 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           ),
         ],
       ),
-      body: summaryAsync.when(
-        loading: () => ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-          children: [AikoScreenState.loading()],
-        ),
-        error: (error, stack) => ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-          children: [
-            AikoScreenState.error(
-              title: l10n.dashboardUnavailable,
-              message: '${l10n.dashboardUnavailableMessage}\n$error',
-            ),
-          ],
-        ),
-        data: (summary) => layoutAsync.when(
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: summaryAsync.when(
           loading: () => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
             children: [AikoScreenState.loading()],
           ),
-          error: (_, _) => ListView(
+          error: (error, stack) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
             children: [
-              ..._layoutChildren(
-                context,
-                DashboardWidgetPreference.defaultLayout,
-                summary,
-                dueItemsAsync,
-              ),
-              const SizedBox(height: 16),
-              _DashboardLayoutAction(
-                isEditing: _isEditing,
-                onPressed: () => setState(() => _isEditing = !_isEditing),
+              AikoScreenState.error(
+                title: l10n.dashboardUnavailable,
+                message: '${l10n.dashboardUnavailableMessage}\n$error',
               ),
             ],
           ),
-          data: (layout) => _isEditing
-              ? _EditableDashboardList(
-                  layout: layout,
-                  isEditing: _isEditing,
-                  onToggleEditing: () =>
-                      setState(() => _isEditing = !_isEditing),
-                  itemBuilder: (type) =>
-                      _buildWidget(context, type, summary, dueItemsAsync),
-                )
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-                  children: [
-                    ..._layoutChildren(context, layout, summary, dueItemsAsync),
-                    const SizedBox(height: 16),
-                    _DashboardLayoutAction(
-                      isEditing: _isEditing,
-                      onPressed: () => setState(() => _isEditing = !_isEditing),
-                    ),
-                  ],
+          data: (summary) => layoutAsync.when(
+            loading: () => ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+              children: [AikoScreenState.loading()],
+            ),
+            error: (_, _) => ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+              children: [
+                ..._layoutChildren(
+                  context,
+                  DashboardWidgetPreference.defaultLayout,
+                  summary,
+                  dueItemsAsync,
                 ),
+                const SizedBox(height: 16),
+                _DashboardLayoutAction(
+                  isEditing: _isEditing,
+                  onPressed: () => setState(() => _isEditing = !_isEditing),
+                ),
+              ],
+            ),
+            data: (layout) => _isEditing
+                ? _EditableDashboardList(
+                    layout: layout,
+                    isEditing: _isEditing,
+                    onToggleEditing: () =>
+                        setState(() => _isEditing = !_isEditing),
+                    itemBuilder: (type) =>
+                        _buildWidget(context, type, summary, dueItemsAsync),
+                  )
+                : ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+                    children: [
+                      ..._layoutChildren(
+                        context,
+                        layout,
+                        summary,
+                        dueItemsAsync,
+                      ),
+                      const SizedBox(height: 16),
+                      _DashboardLayoutAction(
+                        isEditing: _isEditing,
+                        onPressed: () =>
+                            setState(() => _isEditing = !_isEditing),
+                      ),
+                    ],
+                  ),
+          ),
         ),
       ),
       floatingActionButton: const _QuickAddMenu(),

@@ -42,7 +42,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get planningGroup => 'การวางแผน';
 
   @override
-  String get menuTitle => 'เมนู';
+  String get settingsTitle => 'การตั้งค่า';
 
   @override
   String get moreTab => 'เพิ่มเติม';
@@ -222,9 +222,6 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get addBudget => 'งบประมาณ';
-
-  @override
-  String get settingsTitle => 'การตั้งค่า';
 
   @override
   String get profile => 'โปรไฟล์';

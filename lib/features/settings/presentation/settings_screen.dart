@@ -178,7 +178,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final profile = profileAsync.asData?.value;
 
     return Scaffold(
-      appBar: AppBar(title: Text(AppLocalizations.of(context).menuTitle)),
+      appBar: AppBar(title: Text(AppLocalizations.of(context).settingsTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         children: [

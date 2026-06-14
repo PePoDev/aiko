@@ -1,43 +1,34 @@
 # Aiko — Personal Finance Management App
 
-<p align="center">
-  <strong>AI-powered personal finance, guided by Aiko.</strong><br/>
-  Track money · Budget · Save · Invest · Plan — with a friendly AI companion.
-</p>
+**AI-powered personal finance, guided by Aiko** — a calm, blue-haired AI companion. Track · Budget · Save · Invest · Plan.
 
-> Canonical source of truth for contributors and coding agents — product scope, design system, and implementation rules. If code conflicts with this file, fix the code (or surface the conflict).
+> Canonical source of truth for contributors and coding agents — product scope, design system, implementation rules. If code conflicts with this file, fix the code (or surface the conflict).
 >
-> **Agents: be brief.** Prefer concise, high-signal responses and minimal, focused diffs; skip preamble and restating the obvious.
+> **Agents: be brief.** Concise, high-signal responses; minimal, focused diffs; skip preamble.
 
 ---
 
 ## What Is Aiko?
 
-Aiko is a cross-platform (iOS + Android) personal finance app built with Flutter and Supabase Cloud. At its core is **Aiko** — a calm, anime-style AI assistant with blue hair who helps users understand their money through friendly, non-judgmental guidance.
-
-It's a data-first personal financial operating system: daily tracking with 13 transaction types, smart budgeting (envelope, zero-based, 50/30/20), SMART goals, cash flow and pace, credit/debt/loan payoff, portfolio and net worth, tax organization, 60+ calculators, AI insights, an Ask Aiko chat assistant, a monthly Aiko Review, a learning hub, and multi-currency Travel Mode. See [Core Features](#core-features) for detail.
+Cross-platform (iOS + Android) personal finance app built with Flutter + Supabase Cloud. At its core, **Aiko** (calm, anime-style, blue hair) gives friendly, non-judgmental money guidance. A data-first financial OS: 13 transaction types, smart budgeting (envelope / zero-based / 50-30-20), SMART goals, cash flow + pace, credit/debt/loan payoff, portfolio + net worth, tax organization, ~60 calculators, AI insights, Ask Aiko chat, monthly Aiko Review, learning hub, multi-currency Travel Mode. See [Core Features](#core-features).
 
 ---
 
 ## Brand Identity & Voice
 
-- **App Name:** Aiko (financial companion avatar: blue-haired, supportive, smart, calm, non-judgmental).
-- **Brand Voice:** Warm, clear, positive, solution-oriented — never shame-based.
-- **Primary Color:** Blue (`#3B82F6`), representing trust and stability.
-- **Color System:** Primary blue (`#3B82F6` | Deep `#1D4ED8` | Soft `#93C5FD` | Pale `#EFF6FF`). Semantic: Success Green (savings/income), Warning Orange (bills/limits), Danger Red (overspending), Purple (Premium/AI), Teal (analytics/portfolio).
-- **Character Principle:** *Data first, Aiko enhanced.* The character guides onboarding, dashboard greetings, reviews, and insights without obscuring data or charts.
+- **Name/avatar:** Aiko — blue-haired, supportive, smart, calm, non-judgmental.
+- **Voice:** warm, clear, positive, solution-oriented — never shame-based. Use "Groceries are pacing high. Lower flexible spending by $18 this week to stay on track." Avoid "You overspent again."
+- **Color:** Primary blue `#3B82F6` (Deep `#1D4ED8` | Soft `#93C5FD` | Pale `#EFF6FF`). Semantic: Success Green (savings/income), Warning Orange (bills/limits), Danger Red (overspending), Purple (Premium/AI), Teal (analytics/portfolio).
+- **Principle — *Data first, Aiko enhanced*:** the character guides onboarding, greetings, reviews, and insights without obscuring data or charts.
+- **Product register:** product UI, not a marketing site. Familiar patterns, dense-but-readable hierarchy, consistent components, explanatory motion, AI warmth only when it clarifies a decision. Avoid decorative gradients, glassmorphism, ornamental/nested cards, oversized heroes, meaningless accents, and Aiko artwork over numbers/charts/forms/actions. Budget forms own budget inclusion — category forms do not.
 
-**Product register.** Aiko is product UI, not a marketing site. Use familiar app patterns, dense-but-readable hierarchy, consistent components, explanatory motion, and AI warmth only when it clarifies a decision. Avoid decorative gradients, glassmorphism, ornamental/nested cards, oversized heroes, meaningless accents, and Aiko artwork over numbers/charts/forms/actions. Category forms do not control budget inclusion; budget forms own it.
-
-**Voice example.** Use: "Groceries are pacing high. Lower flexible spending by $18 this week to stay on track." Avoid: "You overspent again."
-
-**Design tenets:** (1) Data first, Aiko enhanced. (2) One primary action per screen region. (3) Every financial number needs context (period, account, category, target, or status). (4) Lists compact by default; detail screens breathe. (5) Cards represent real objects, metrics, or grouped tasks. (6) Forms disclose advanced controls only when the feature owns that choice. (7) Empty states teach the next action; errors explain recovery. (8) Dark mode is first-class. (9) Every tappable control has a 48px minimum touch target.
+**Design tenets:** (1) Data first, Aiko enhanced. (2) One primary action per screen region. (3) Every number needs context (period/account/category/target/status). (4) Lists compact by default; detail screens breathe. (5) Cards = real objects, metrics, or grouped tasks. (6) Forms disclose advanced controls only when the feature owns that choice. (7) Empty states teach the next action; errors explain recovery. (8) Dark mode is first-class. (9) 48px minimum touch target.
 
 ---
 
 ## Design Ideas
 
-The May 31, 2026 reference idea boards are implemented as in-app flows and supplemental detail states — coverage targets, not a separate theme. Existing feature screens remain the source of truth; idea-specific states integrate as subroutes, menu tools, or inline actions. See [Route and Idea Coverage](#route-and-idea-coverage) for the route map.
+The May 31, 2026 reference idea boards are implemented as in-app flows and supplemental detail states — coverage targets, not a separate theme. Existing feature screens are the source of truth; idea states integrate as subroutes, menu tools, or inline actions ([Route and Idea Coverage](#route-and-idea-coverage)). **Rule:** when an idea board overlaps an existing feature, improve that flow — never build a parallel screen.
 
 | Idea | Coverage |
 | --- | --- |
@@ -46,8 +37,6 @@ The May 31, 2026 reference idea boards are implemented as in-app flows and suppl
 | Idea 3 | Budget, pace, safe-to-spend, goals, saving plans, cash flow, Sankey, reports, monthly report |
 | Idea 4 | Credit cards, debt payoff, loans, net worth, assets, portfolio, allocation, tax center, tax analytics |
 | Idea 5 | Ask Aiko, Aiko insights/review/optimize, calculators, learning hub, travel mode, settings, profile security |
-
-Product rule: when an idea board overlaps an existing feature, improve the existing flow instead of creating a parallel screen.
 
 ![Idea 1 core app screens](screenshots/idea-1.png)
 ![Idea 2 transactions categories and accounts](screenshots/idea-2.png)
@@ -62,24 +51,24 @@ Product rule: when an idea board overlaps an existing feature, improve the exist
 | Component | Technology |
 | --- | --- |
 | Mobile App | Flutter & Dart (SDK ^3.11.5) |
-| State Management | Riverpod |
+| State | Riverpod |
 | Navigation | GoRouter |
 | Backend | Supabase Cloud (Auth, Postgres, Storage, RLS) |
 | Offline Store | Brick offline-first with SQLite (`sqflite`) |
 | Sync | Brick request queue to Supabase after local writes |
 | Attachments | Supabase Storage (per-user bucket) + client-side WebP compression (`flutter_image_compress`, JPEG fallback on iOS) |
-| Money Arithmetic | `decimal` (no floating-point errors) |
+| Money | `decimal` (no floating-point errors) |
 | Charts | `fl_chart` |
 | Security | `flutter_secure_storage`, `local_auth` (PIN + biometric) |
 | IDs | `uuid` |
-| Data Export | `csv`, `share_plus`, `path_provider` |
+| Export | `csv`, `share_plus`, `path_provider` |
 | Formatting | `intl` (locale-aware) |
 
 ---
 
 ## Getting Started
 
-**Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) (stable, SDK ^3.11.5), a [Supabase Cloud](https://supabase.com/) project (free tier is fine for dev), the [Supabase CLI](https://supabase.com/docs/guides/cli), and Android Studio / Xcode emulators.
+**Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) (stable, SDK ^3.11.5), a [Supabase Cloud](https://supabase.com/) project (free tier fine for dev), the [Supabase CLI](https://supabase.com/docs/guides/cli), and Android Studio / Xcode emulators.
 
 ```bash
 # 1. Install
@@ -87,17 +76,17 @@ git clone <repository-url> && cd aiko
 flutter pub get
 dart run build_runner build        # regenerate Brick adapters + SQLite migrations when offline models change
 
-# 2. Configure (never commit a service-role key — anon key only on the client)
+# 2. Configure (anon key only on the client — never a service-role key)
 cp .env.example .env                # set SUPABASE_URL and SUPABASE_ANON_KEY
 
-# 3. Push schema (creates all tables + RLS policies — see Database Schema)
+# 3. Push schema (all tables + RLS — see Database Schema)
 supabase login
 supabase link --project-ref <your-project-ref>
 supabase db push
 # Optional dev-only seed (never on production):
 # psql <your-supabase-db-url> -f supabase/seed.sql
 
-# 4. Run (omit the env vars to run in local-only offline mode)
+# 4. Run (omit env vars to run local-only/offline)
 flutter run -d <android|ios> \
   --dart-define=SUPABASE_URL=https://your-project-ref.supabase.co \
   --dart-define=SUPABASE_ANON_KEY=<your-cloud-anon-key>
@@ -114,16 +103,16 @@ lib/
 ├── brick/                       # Brick offline models, adapters, SQLite schema, mappers
 ├── main.dart                    # Entry point
 ├── app/                         # App wiring (router, bootstrap, providers)
-├── core/                        # Framework utilities, no UI:
-│                                #   config, errors, formatting, monetization (feature gating),
-│                                #   money (Decimal-safe), notifications, offline, prediction,
-│                                #   security (PIN/biometric), storage, supabase, sync
-├── features/                    # 28 feature modules, e.g.:
-│   ├── accounting/ accounts/ aiko_assistant/ aiko_character/ aiko_optimize/
-│   ├── assets/ auth/ budgets/ calculators/ categories/ credit_cards/
-│   ├── dashboard/ debt_loans/ devices/ export/ goals/ insights/ investments/
-│   ├── learning_hub/ monetization/ onboarding/ overview/ settings/
-│   └── tax_center/ transactions/ travel_mode/
+├── core/                        # Framework utilities, no UI: config, errors, formatting,
+│                                #   monetization (feature gating), money (Decimal-safe),
+│                                #   notifications, offline, prediction, security, storage,
+│                                #   supabase, sync
+├── features/                    # 28 feature modules, e.g. accounting, accounts, aiko_assistant,
+│                                #   aiko_character, aiko_optimize, assets, auth, budgets,
+│                                #   calculators, categories, credit_cards, dashboard, debt_loans,
+│                                #   devices, export, goals, insights, investments, learning_hub,
+│                                #   monetization, onboarding, overview, settings, tax_center,
+│                                #   transactions, travel_mode
 ├── shared/                      # Cross-feature widgets, state, test data
 └── theme/                       # Design system (colors, typography, spacing, themes)
 
@@ -132,21 +121,21 @@ assets/                          # icons/ (aiko_*.svg), images/aiko/ (6 expressi
 test/  integration_test/         # Unit and integration tests
 ```
 
-Each feature module uses a layered layout — `application/` (services, orchestration), `data/` (repositories, DTOs, sync adapters), `domain/` (immutable models, value objects), `presentation/` (screens, widgets, controllers).
+Each feature module is layered — `application/` (services, orchestration), `data/` (repositories, DTOs, sync adapters), `domain/` (immutable models, value objects), `presentation/` (screens, widgets, controllers).
 
 ---
 
 ## Information Architecture & Navigation
 
-GoRouter routing around a bottom-navigation shell with 5 primary tabs:
+GoRouter around a bottom-nav shell with 5 primary tabs:
 
 1. **Accounts (`/accounts`)** — Bank/Cash/Wallet accounts, including credit cards.
-2. **Categories (`/categories`)** — Hierarchical category management with the 13 default groups and custom categories.
-3. **Overview (`/home`)** — Customizable dashboard with independently managed panels (Aiko greeting, Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, Aiko Goal Simulator), primary-color action icons, a scrollable Edit layout action at the bottom of the page content, and a Menu action in the app bar.
+2. **Categories (`/categories`)** — Hierarchical management with the 13 default groups + custom categories.
+3. **Overview (`/home`)** — Customizable dashboard of independently managed panels (Aiko greeting, Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, Aiko Goal Simulator), primary-color action icons, a scrollable in-page Edit layout action, and an app-bar Menu action.
 4. **Transactions (`/transactions`)** — Unified search, filters, recurring entries, auto-categorization rules.
-5. **Aiko (`/aiko`)** — Chat (`/aiko-assistant`), optimization (`/aiko-optimize`), and the course hub.
+5. **Aiko (`/aiko`)** — Chat (`/aiko-assistant`), optimization (`/aiko-optimize`), course hub.
 
-**Menu (`/settings`)** is opened from the app-bar action on Overview. It groups the secondary workspaces: **Planning** (Budget, Goals, Investments, Asset Allocation, Holding Detail, Assets and Net Worth, Travel Mode), **Insights and AI** (Learning Hub), **Tools and Data** (Calculators, Monthly Report, Export), and **Settings and Security** (Notifications, Notifications Center, Profile & Security). It also exposes the Profile, Appearance, and Language toggles.
+**Menu (`/settings`)** opens from the Overview app-bar action. Groups: **Planning** (Budget, Goals, Investments, Asset Allocation, Holding Detail, Assets and Net Worth, Travel Mode), **Insights and AI** (Learning Hub), **Tools and Data** (Calculators, Monthly Report, Export), **Settings and Security** (Notifications, Notifications Center, Profile & Security). Also exposes Profile, Appearance, Language toggles.
 
 ### Secondary Routes
 
@@ -160,13 +149,13 @@ GoRouter routing around a bottom-navigation shell with 5 primary tabs:
 | `/tax-center` | Tax deduction logs & reports |
 | `/calculators` | Built-in financial calculator hub |
 | `/learning-hub` | Financial education courses & quizzes |
-| `/settings` | Menu — Planning, AI, tools, and security entry points |
+| `/settings` | Menu — Planning, AI, tools, security entry points |
 
 ---
 
 ## Architecture
 
-Aiko optimizes for low backend cost, strong offline support, fast UX, and low vendor lock-in: the remote is standard Postgres behind repository interfaces, keeping a path open from Supabase Cloud → self-hosted Supabase → custom Postgres without UI changes.
+Optimizes for low backend cost, strong offline support, fast UX, low vendor lock-in: the remote is standard Postgres behind repository interfaces, keeping a path open from Supabase Cloud → self-hosted Supabase → custom Postgres without UI changes.
 
 ### Feature Module Pattern
 
@@ -179,61 +168,61 @@ Aiko optimizes for low backend cost, strong offline support, fast UX, and low ve
 ```
 
 - Screens compose UI and consume Riverpod providers (`ref.watch`/`ref.read`); application services hold business logic and coordinate repositories.
-- Repositories handle persistence and sync — screens never call Supabase, Brick, or SQLite directly.
+- Repositories own persistence and sync — screens never call Supabase, Brick, or SQLite directly.
 - Domain models stay framework-light. Brick models (`lib/brick/models/`) store primitives only and map to domain models via `lib/brick/offline_model_mappers.dart`.
 
 ### Offline-First & Sync
 
-Core finance data reads and writes locally first, using [Brick](https://github.com/GetDutchie/brick) with SQLite as the local store and Supabase Postgres as the remote source of truth. Brick handles model mapping, the local cache, the Supabase provider, the sync queue, and local query subscriptions — avoiding hand-rolled outbox/retry/mapper code.
+Core finance data reads/writes locally first via [Brick](https://github.com/GetDutchie/brick) (SQLite local store, Supabase Postgres remote). Brick handles mapping, local cache, the Supabase provider, the sync queue, and local query subscriptions — no hand-rolled outbox/retry/mappers.
 
-- Local writes are optimistic: profiles, accounts, categories, transactions, budgets, and goals persist to SQLite immediately and the UI updates at once.
-- When Supabase is configured and the user is authenticated, Brick queues writes and syncs in the background. When Supabase is unavailable, repositories return local data or safe empty/default states — never backend errors in normal flows. Prefer `tryClient()` + offline fallback over `AikoSupabase.requireSession()` in user-facing repositories.
-  - **Known gap (offline mode, no Supabase config):** `accountsProvider`, `transactionsProvider`, `budgetsProvider`, `goalsProvider`, `dashboardSummaryProvider`, and `dashboardDueItemsProvider` (`lib/app/providers.dart`) call their repositories without a try/catch. When the offline store or `OfflineUserContext` (`lib/core/offline/offline_user_context.dart`) throws (typical on first launch, fresh install, or in any environment where the secure-storage platform channel is unavailable), the error propagates to the screen's `AikoScreenState.error` and renders "X is unavailable". `dashboardLayoutRepository.load` is the only repo that already swallows errors. Tracked fix: wrap each `build()` / provider body in a try/catch and return an empty list or default summary so the screens fall through to their normal empty state. The "X is unavailable" error states include the underlying error in their message (`$error` / `error.toString()`) for diagnosis.
-- **Brick hand-patch (regen hazard):** `lib/brick/adapters/offline_account_adapter.g.dart` was hand-edited to null-coalesce `details_json` to `'{}'`. The migration that added the `details_json` column (`20260614145507`) didn't mark it NOT NULL, so existing rows are NULL and the generated `data['details_json'] as String` cast throws `type 'Null' is not a subtype of type 'String' in type cast`. If `dart run build_runner build` is rerun, both `fromSupabase` and `fromSqlite` must be re-patched (look for the `HAND-PATCH` comment). Proper fix: a new migration that backfills `details_json = '{}' WHERE details_json IS NULL` and alters the column to NOT NULL.
-- After editing `lib/brick/models/`, run `dart run build_runner build` and commit generated adapters, schema, and migrations.
-- System (default) categories are global Supabase rows (`user_id = NULL`) injected in-memory via `CategoryDefaults` (`lib/features/categories/domain/category_defaults.dart`) — never stored per-user in Brick, not user-writable, and their fixed UUIDs are stable constants (never change them). They belong to one of 13 global, read-only default category groups (`CategoryGroupDefaults.all`, same file — Income & Earnings, Investments & Savings, Food & Drink, Transport, Housing & Utilities, Health & Fitness, Shopping & Personal, Entertainment & Leisure, Education, Travel, Family & Giving, Bills & Financial, and the renamed "Other" catch-all) — each a `user_id = NULL` `category_groups` row injected in-memory with a fixed UUID. The groups section the Categories screen, the **"Other"** group additionally absorbs any unfiled custom category. Default groups are never user-editable or deletable, but are offerable as assignment targets for custom categories.
-- Use Supabase for Auth, Postgres, RLS, structured finance data, and attachment object storage. By default avoid Realtime and Edge Functions (unless a feature needs server logic) and large blobs in Postgres.
+- **Optimistic local writes:** profiles, accounts, categories, transactions, budgets, goals persist to SQLite immediately and the UI updates at once. With Supabase configured + authed, Brick queues writes and syncs in the background; when unavailable, repositories return local data or safe empty/default states — never backend errors in normal flows. Prefer `tryClient()` + offline fallback over `AikoSupabase.requireSession()` in user-facing repositories.
+- **⚠️ Known gap (offline, no Supabase config):** `accountsProvider`, `transactionsProvider`, `budgetsProvider`, `goalsProvider`, `dashboardSummaryProvider`, `dashboardDueItemsProvider` (`lib/app/providers.dart`) call repositories without try/catch. If the offline store or `OfflineUserContext` (`lib/core/offline/offline_user_context.dart`) throws (typical on fresh install, or where the secure-storage platform channel is unavailable), the error reaches the screen's `AikoScreenState.error` → "X is unavailable" (message includes `$error` for diagnosis). Only `dashboardLayoutRepository.load` swallows errors today. Fix: wrap each `build()`/provider body in try/catch returning an empty list or default summary.
+- **⚠️ Brick hand-patch (regen hazard):** `lib/brick/adapters/offline_account_adapter.g.dart` is hand-edited to null-coalesce `details_json` to `'{}'`. Migration `20260614145507` added the column without NOT NULL, so existing rows are NULL and the generated `data['details_json'] as String` cast throws. Re-running `dart run build_runner build` requires re-patching both `fromSupabase` and `fromSqlite` (see the `HAND-PATCH` comment). Proper fix: a migration that backfills `details_json = '{}' WHERE details_json IS NULL` then ALTERs the column to NOT NULL.
+- After editing `lib/brick/models/`, run `dart run build_runner build` and commit generated adapters, schema, migrations.
+- **System (default) categories:** global Supabase rows (`user_id = NULL`) injected in-memory via `CategoryDefaults` (`lib/features/categories/domain/category_defaults.dart`) — never stored per-user in Brick, not user-writable, fixed stable UUIDs (never change them). They belong to 13 global, read-only groups (`CategoryGroupDefaults.all`, same file): Income & Earnings, Investments & Savings, Food & Drink, Transport, Housing & Utilities, Health & Fitness, Shopping & Personal, Entertainment & Leisure, Education, Travel, Family & Giving, Bills & Financial, and the "Other" catch-all — each a `user_id = NULL` in-memory `category_groups` row with a fixed UUID. Groups section the Categories screen; "Other" also absorbs any unfiled custom category. Default groups aren't editable/deletable but are offerable as assignment targets for custom categories.
+- Use Supabase for Auth, Postgres, RLS, structured finance data, attachment storage. By default avoid Realtime/Edge Functions (unless a feature needs server logic) and large blobs in Postgres.
 
 ### Code Conventions
 
 - **State:** Riverpod for all state; avoid `setState` outside trivial local UI (focus, animation, ephemeral text fields). Top-level providers in `lib/app/providers.dart`; feature providers inside the module; shared state in `lib/shared/state/`.
+- **Provider caching & refresh:** Long-lived list/summary providers in `lib/app/providers.dart` (`transactionsProvider`, `budgetsProvider`, `categoriesProvider`, `goalsProvider`, `dashboardSummaryProvider`, `dashboardDueItemsProvider`) call `ref.keepAlive()` *after* a successful load, so switching tabs reuses cached data instead of re-showing a loading state (Overview no longer flashes a full-screen skeleton each visit). A failed load is not cached and still retries. Trade-off: a cached screen no longer auto-refreshes on revisit, so screens that can go stale own a `RefreshIndicator` whose `onRefresh` calls `ref.refresh(<provider>.future)` per provider shown — see `_refresh` in `lib/features/dashboard/presentation/home_dashboard_screen.dart`. Panels that watch a notifier directly still update live after writes; only `dashboardSummaryProvider`-derived numbers wait for a pull-to-refresh. *Per-widget loading (future):* loading is per-provider, so it's already granular — choose which widgets cache via where `ref.keepAlive()` sits, and which show a skeleton via whether their `.when(loading:)` is gated at the screen vs inside the panel.
 - **Routing:** all routes in `lib/app/app_router.dart`. Kebab-case paths (`/credit-cards`, `/debt-loans`, `/tax-center`). Idea-inspired screens belong to the existing feature owner — add subroutes/menus/inline tools, never duplicate a main screen. Accounts and Categories are primary nav tabs — don't add them as Planning or Menu cards.
 - **Money:** never use `double`. Use `Money` (`lib/core/money/money.dart`, wraps `Decimal`); format via `lib/core/formatting/currency_formatter.dart` (locale-aware `intl`). Base currency lives in the profile; multi-currency supports travel and portfolio.
 - **Naming:** files `snake_case.dart`, classes `PascalCase`, vars/functions `camelCase`, routes `/kebab-case`, DB tables/columns `snake_case`, feature dirs `snake_case`.
 
 ### Sync Fields & Conflict Resolution
 
-Every syncable table carries `id`, `user_id`, `created_at`, `updated_at`, `deleted_at` (soft delete — makes offline delete sync safe), and `version integer not null default 1`. Use soft delete rather than hard delete.
+Every syncable table carries `id`, `user_id`, `created_at`, `updated_at`, `deleted_at` (soft delete — makes offline delete sync safe), and `version integer not null default 1`. Use soft delete, never hard delete.
 
-Conflict rules: transactions/budgets/categories — latest `updated_at` wins; important records — compare `version` before overwriting; summaries — recalculated from transactions, never merged; account balances — calculated or snapshot-based; attachments — the WebP uploads to Supabase Storage and metadata syncs via Postgres, with the local copy kept as an offline cache.
+Conflict rules: transactions/budgets/categories — latest `updated_at` wins; important records — compare `version` before overwriting; summaries — recalculated from transactions, never merged; account balances — calculated or snapshot-based; attachments — WebP uploads to Storage, metadata syncs via Postgres, local copy kept as offline cache.
 
 ### Summary Tables
 
-Dashboards and reports read pre-aggregated summary tables instead of repeatedly scanning raw transactions: `daily_summary`, `monthly_summary`, `category_monthly_summary`, `budget_progress`, `account_balance_snapshot`, `net_worth_snapshot`.
+Dashboards/reports read pre-aggregated summary tables instead of rescanning raw transactions: `daily_summary`, `monthly_summary`, `category_monthly_summary`, `budget_progress`, `account_balance_snapshot`, `net_worth_snapshot`.
 
-### Receipt and Attachment Strategy
+### Receipt & Attachment Strategy
 
-Attachments (receipt photos, documents) live in **Supabase Storage** under a per-user, RLS-protected bucket path — never in Postgres `bytea`; only metadata goes to Postgres. Capture is camera or a recent gallery image (iOS + Android); OCR (if enabled) runs on the **original** first, then it's compressed to a single **WebP** (≈q80, ≤2000px long edge, EXIF stripped, iOS HEIC transcoded). That one ~100–300 KB file serves both list and detail — no separate thumbnail. Encoder is `flutter_image_compress`: native/fast on Android; iOS has no native WebP encoder, so it encodes in the background and falls back to JPEG (`UnsupportedError` → `CompressFormat.jpeg`). The pure-Dart `image` package can't encode WebP, so it's not an iOS fallback.
+Attachments live in **Supabase Storage** under a per-user, RLS-protected bucket path — never in Postgres `bytea`; only metadata goes to Postgres. Capture is camera or a recent gallery image (iOS + Android). OCR (if enabled) runs on the **original** first, then it's compressed to a single **WebP** (≈q80, ≤2000px long edge, EXIF stripped, iOS HEIC transcoded) — that one ~100–300 KB file serves both list and detail (no separate thumbnail). Encoder is `flutter_image_compress`: native on Android; iOS has no native WebP encoder, so it encodes in the background and falls back to JPEG (`UnsupportedError` → `CompressFormat.jpeg`). The pure-Dart `image` package can't encode WebP (not an iOS fallback).
 
-**No data loss.** Offline-first: the WebP is written locally and the row marked `sync_status = 'pending_upload'`; the original is discarded after OCR + compression; the WebP uploads through the sync queue (idempotent by `checksum`, retried) and flips to `synced`; deletes are soft (`deleted_at`). The local WebP is **kept as a persistent cache** — opening a transaction reads it locally and never re-downloads — reclaimed only under LRU pressure (re-fetched from Storage on demand).
+**No data loss (offline-first):** the WebP is written locally and the row marked `sync_status = 'pending_upload'`; the original is discarded after OCR + compression; the WebP uploads through the sync queue (idempotent by `checksum`, retried) and flips to `synced`; deletes are soft (`deleted_at`). The local WebP is a **persistent cache** — opening a transaction reads it locally, never re-downloads — reclaimed only under LRU pressure (re-fetched on demand).
 
-The `transaction_attachments` table carries standard sync fields plus `transaction_id`, `local_path`, `remote_path` (Storage path), `file_name`, `mime_type`, `file_size_bytes`, `checksum`, and `sync_status` (default `'pending_upload'`). File storage sits behind a `RemoteAttachmentStorage` interface (`upload`/`delete`/`getDownloadUrl`); `SupabaseAttachmentStorage` uploads the compressed file and serves short-lived signed URLs, so the backend is swappable without UI changes.
+`transaction_attachments` carries the standard sync fields plus `transaction_id`, `local_path`, `remote_path`, `file_name`, `mime_type`, `file_size_bytes`, `checksum`, `sync_status` (default `'pending_upload'`). Storage sits behind a `RemoteAttachmentStorage` interface (`upload`/`delete`/`getDownloadUrl`); `SupabaseAttachmentStorage` uploads the compressed file and serves short-lived signed URLs, so the backend is swappable without UI changes.
 
 ### Cost & Vendor Lock-in
 
-Cost stays low because most reads come from local SQLite, dashboards read local summary tables, writes are batched, and attachment uploads are compressed before hitting Supabase Storage. Avoid: loading all transactions from Supabase per screen, Realtime for every session by default, storing image bytes in Postgres `bytea`, Edge Functions for simple CRUD, and direct Supabase calls from UI. Lock-in stays low by keeping the schema standard Postgres, routing through repository interfaces, keeping business logic in Dart, and keeping file storage behind the `RemoteAttachmentStorage` interface.
+Cost stays low: most reads come from local SQLite, dashboards read local summary tables, writes are batched, attachments are compressed before Storage. Avoid: loading all transactions from Supabase per screen, Realtime every session by default, image bytes in Postgres `bytea`, Edge Functions for simple CRUD, direct Supabase calls from UI. Lock-in stays low via standard Postgres schema, repository interfaces, business logic in Dart, and file storage behind `RemoteAttachmentStorage`.
 
 ---
 
 ## Core Features
 
-- **🏠 Customizable Dashboard** — Aiko welcome card plus separately managed Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, and Aiko Goal Simulator panels, quick-add transaction, and a scrollable Edit layout action.
-- **💰 Money Tracking & Automation** — 13 transaction types (income, expense, transfer, refund, investment buy/sell, dividend, interest, loan payment, credit card payment, tax payment, fee, adjustment). Split transactions, receipt attachments, recurring entries (Once/Daily/Weekly/Monthly/Annually, each with its own end date), and duplicate detection. Amount-first quick entry with receipt OCR and voice. Transaction rules auto-apply categories, tags, splits, or names by merchant keyword, account, or amount.
-- **📊 Smart Budgeting** — Monthly/weekly/yearly/custom budgets, category- and account-level, with envelope, zero-based, and 50/30/20 templates and rollover. Aiko alerts at 50/75/90/100% usage. Safe-to-Spend: `Leftover = Income − Fixed Bills − Reserves − Debt − Goals − Current Spending`. Pace compares spending velocity against limits.
-- **🎯 Financial Goals** — SMART goals with priority ranking, auto-calculated monthly contributions, progress forecast, Monte Carlo success probability, and saving plans with milestone alerts.
-- **📈 Insights & Predictions** — Spending trends, cash flow with Sankey diagrams, pace, leftover/safe-to-spend, end-of-month forecasts, budget-overrun prediction, net worth projection, retirement readiness.
+- **🏠 Customizable Dashboard** — Aiko welcome card + separately managed Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, Aiko Goal Simulator panels; quick-add transaction; scrollable Edit layout action.
+- **💰 Money Tracking & Automation** — 13 transaction types (income, expense, transfer, refund, investment buy/sell, dividend, interest, loan payment, credit card payment, tax payment, fee, adjustment). Split transactions, receipt attachments, recurring entries (Once/Daily/Weekly/Monthly/Annually, each with its own end date), duplicate detection. Amount-first quick entry with receipt OCR and voice. Transaction rules auto-apply categories/tags/splits/names by merchant keyword, account, or amount.
+- **📊 Smart Budgeting** — Monthly/weekly/yearly/custom, category- and account-level, with envelope, zero-based, 50/30/20 templates and rollover. Aiko alerts at 50/75/90/100%. Safe-to-Spend: `Leftover = Income − Fixed Bills − Reserves − Debt − Goals − Current Spending`. Pace compares spending velocity against limits.
+- **🎯 Financial Goals** — SMART goals with priority ranking, auto-calculated monthly contributions, progress forecast, Monte Carlo success probability, saving plans with milestone alerts.
+- **📈 Insights & Predictions** — Spending trends, cash flow + Sankey, pace, leftover/safe-to-spend, end-of-month forecasts, budget-overrun prediction, net worth projection, retirement readiness.
 - **🤖 Aiko AI Assistant** — Natural-language chat, personalized insights, budget recommendations, debt payoff strategies, monthly reviews.
-- **💳 Credit & Debt** — Statement balances, APR, rewards, due dates, utilization; snowball/avalanche payoff plans with extra-payment and interest-savings simulation.
+- **💳 Credit & Debt** — Statement balances, APR, rewards, due dates, utilization; snowball/avalanche payoff with extra-payment and interest-savings simulation.
 - **📱 Portfolio, Assets & Tax** — Holdings with performance, allocation, dividends, realized/unrealized gains; allocation by class/currency/geography/risk; net worth trends; tax-deductible flagging, capital gains, document storage, estimated tax reports.
 - **🌍 Travel Mode** — Multi-currency accounts, automatic exchange rates, travel budgets, foreign-fee tracking, trip-based reports.
 
@@ -252,38 +241,27 @@ Saved calculations store as `SavedCalculatorScenario`, compare side-by-side, and
 
 ---
 
-## Prediction and AI System
+## Prediction & AI System
 
 - Rule-based forecasting drives core predictions (end-of-month balance, budget-overrun risk, goal completion); moving averages track recurring-expense trends; seasonality detection finds monthly patterns.
-- Monte Carlo simulations drive advanced goal/retirement probability under three scenarios (optimistic, expected/normal, conservative). Logic lives in `lib/core/prediction/`.
-- AI suggestions store as `AikoInsight` records in Supabase. Insights span four dimensions: **Descriptive** ("You spent $450 on dining out this month."), **Diagnostic** ("Dining out increased 20% from weekend restaurants."), **Predictive** ("At this pace you'll exceed your dining budget in 5 days."), **Prescriptive** ("Limit weekend spending to $15/day to stay on track.").
+- Monte Carlo simulations drive advanced goal/retirement probability under three scenarios (optimistic, expected, conservative). Logic in `lib/core/prediction/`.
+- AI suggestions store as `AikoInsight` records in Supabase across four dimensions: **Descriptive** ("You spent $450 on dining out this month."), **Diagnostic** ("Dining out increased 20% from weekend restaurants."), **Predictive** ("At this pace you'll exceed your dining budget in 5 days."), **Prescriptive** ("Limit weekend spending to $15/day to stay on track.").
 - **Disclaimer required:** *AI insights are estimates, not certified financial, investment, or tax advice.*
 
 ---
 
 ## Ask Aiko Chat Backend (`aiko-chat` Edge Function)
 
-The Ask Aiko chat assistant is the one feature that needs server logic, so it runs as a Supabase Edge Function (`supabase/functions/aiko-chat/`) — a Server-Sent Events proxy that streams Chat Completions from any **OpenAI-compatible provider** back to the app. Keeping the provider key server-side means it never ships in the client.
+The one feature needing server logic runs as a Supabase Edge Function (`supabase/functions/aiko-chat/`) — an SSE proxy that streams Chat Completions from any **OpenAI-compatible provider**. The provider key stays server-side.
 
-**Request flow:**
+**Request flow:** (1) validates the caller's Supabase JWT (`Authorization: Bearer <jwt>`); (2) enforces a per-user in-memory rate limit (default `20`/min, else `429 RATE_LIMITED`); (3) builds the message list (last 20) behind a fixed system prompt defining Aiko's persona, forcing the disclaimer on any numeric/recommendation answer, injecting the user's `baseCurrency`; (4) streams to the provider with `stream: true`, re-emitting each token as `data: {"delta":"..."}\n\n`, closing with `data: {"done":true}\n\n`. Client: `HttpChatEngine` in `lib/features/aiko_assistant/application/chat_engine.dart` calls `${SUPABASE_URL}/functions/v1/aiko-chat`.
 
-1. Validates the caller's Supabase JWT (`Authorization: Bearer <jwt>`).
-2. Enforces a per-user in-memory rate limit (default `20`/min) — otherwise `429 RATE_LIMITED`.
-3. Builds the message list (last 20 messages) behind a fixed system prompt that defines Aiko's persona, forces the standard disclaimer line on any numeric/recommendation answer, and injects the user's reported `baseCurrency`.
-4. Streams the answer to the provider's Chat Completions endpoint with `stream: true`, re-emitting each token as `data: {"delta":"..."}\n\n` and closing with `data: {"done":true}\n\n`.
+**How Aiko reads your data** (model only ever sees RLS-scoped data; key never leaves the server):
 
-The mobile client (`HttpChatEngine` in `lib/features/aiko_assistant/application/chat_engine.dart`) calls `${SUPABASE_URL}/functions/v1/aiko-chat`.
+- **Layer 1 — on-device snapshot (always on).** The client assembles a compact `AikoFinancialContext` (net worth, accounts, this-month income/spending, budget pace, goals, recent transactions) from local Brick and sends it in the body; the function folds it into the system prompt, so most "how am I doing" questions resolve in one round-trip. Aggregates only, capped, never the full ledger.
+- **Layer 2 — server-side tools (off by default, `AI_TOOLS_ENABLED`).** When on, the model may first call a fixed allow-list of **read-only** Postgres RPCs (`supabase/migrations/*_aiko_assistant_read_functions.sql`), each `SECURITY INVOKER` under the caller's JWT (RLS scopes results). The function never runs model-supplied SQL and never uses the service-role key.
 
-### How Aiko reads your data
-
-Two layers, both designed so the model only ever sees RLS-scoped data and the provider key never leaves the server:
-
-- **Layer 1 — on-device snapshot (always on).** The client assembles a compact `AikoFinancialContext` (net worth, accounts, this-month income/spending, budget pace, goals, recent transactions) from the local Brick store and sends it in the request body. The function folds it into the system prompt, so most "how am I doing" questions are answered in a single round-trip — no server-side data fetch. Aggregates only, capped, never the full ledger.
-- **Layer 2 — server-side tools (off by default, `AI_TOOLS_ENABLED`).** When enabled, the model may first call a fixed allow-list of **read-only** Postgres RPCs (`supabase/migrations/*_aiko_assistant_read_functions.sql`) for deeper, ad-hoc queries. Each RPC is `SECURITY INVOKER` and runs under the caller's JWT, so Postgres RLS scopes every result to that user. The function never executes model-supplied SQL and never uses the service-role key; results are fed back to the model, then the final answer is streamed.
-
-### Configuration
-
-Provider config is set as Supabase secrets — never in the app or `.env`. Any OpenAI-compatible provider works; point `AI_BASE_URL` at its `/v1` endpoint.
+**Configuration** (Supabase secrets — never in the app or `.env`; any OpenAI-compatible provider, point `AI_BASE_URL` at its `/v1`):
 
 ```sh
 supabase secrets set AI_API_KEY=sk-...
@@ -294,20 +272,16 @@ supabase secrets set AIKO_RATE_PER_MIN=20                    # default: 20
 supabase secrets set AI_TOOLS_ENABLED=false                  # default: false (Layer 2 tools)
 ```
 
-`SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected automatically by the runtime.
+`SUPABASE_URL` / `SUPABASE_ANON_KEY` are injected by the runtime.
 
-### Deploy & local dev
+**Deploy & local dev** (the function validates the JWT itself — keep gateway verification on; do **not** pass `--no-verify-jwt`):
 
 ```sh
-supabase functions deploy aiko-chat                                            # JWT verification left enabled
-supabase functions serve aiko-chat --env-file ./supabase/functions/.env.local  # local; .env.local is git-ignored
+supabase functions deploy aiko-chat
+supabase functions serve aiko-chat --env-file ./supabase/functions/.env.local  # .env.local is git-ignored
 ```
 
-The function validates the JWT itself — calling Supabase Auth with the caller's bearer token — so gateway-level verification stays on. Do **not** pass `--no-verify-jwt`.
-
-### Response & errors
-
-Success is `text/event-stream` (SSE), one event per provider token: `data: {"delta":"..."}` lines ending with `data: {"done":true}`. Errors *before* the stream starts are JSON with a `code` the client switches on; errors *after* it starts arrive as `data: {"error":"..."}` and the connection closes.
+**Response & errors:** success is `text/event-stream` (one event per token, ending `data: {"done":true}`). Errors *before* the stream are JSON with a `code` the client switches on; errors *after* it starts arrive as `data: {"error":"..."}` and close the connection.
 
 | Status | `code` | Meaning |
 | --- | --- | --- |
@@ -346,7 +320,7 @@ Success is `text/event-stream` (SSE), one event per provider token: `data: {"del
 | `aiko_insights` | AI-generated insights |
 | `devices` | Registered devices for sync |
 
-All tables enforce `user_id = auth.uid()` via RLS. Exception: `categories` uses split policies — SELECT allows `user_id IS NULL OR user_id = auth.uid()` so global system categories are readable by all authenticated users; INSERT/UPDATE/DELETE remain scoped to `auth.uid()`. Syncable tables also follow the shared sync-field and conflict conventions in [Architecture](#architecture).
+All tables enforce `user_id = auth.uid()` via RLS. Exception: `categories` uses split policies — SELECT allows `user_id IS NULL OR user_id = auth.uid()` (global system categories readable by all authed users); INSERT/UPDATE/DELETE stay scoped to `auth.uid()`. Syncable tables follow the [Architecture](#architecture) sync-field and conflict conventions.
 
 ### Entity Field Reference
 
@@ -368,17 +342,15 @@ All tables enforce `user_id = auth.uid()` via RLS. Exception: `categories` uses 
 | **SavedScenario** | `id`, `user_id`, `calculator_type`, `input_json`, `result_json`, `notes`, `created_at` |
 | **AikoInsight** | `id`, `user_id`, `insight_type`, `title`, `description`, `recommendation`, `confidence_score`, `source_data`, `dismissed_at`, `created_at` |
 
-**Backend rules:** migrations live in `supabase/migrations/` (never edit existing ones — create new); all tables use RLS scoped to `auth.uid()`; never expose the service-role key client-side; `seed.sql` is dev/demo only; push with `supabase link --project-ref <ref>` then `supabase db push`.
+**Backend rules:** migrations in `supabase/migrations/` (never edit existing — create new); RLS scoped to `auth.uid()` on every table; never expose the service-role key client-side; `seed.sql` is dev/demo only; push with `supabase link --project-ref <ref>` then `supabase db push`.
 
 ---
 
 ## Design System
 
-Source of truth for Aiko's visual system, screen patterns, and component rules. Don't add one-off colors or radii when a token or theme value exists. Theme code lives in `lib/theme/aiko_colors.dart`, `aiko_theme.dart`, `aiko_typography.dart`, `aiko_spacing.dart`.
+Source of truth for visuals, screen patterns, components. Don't add one-off colors/radii when a token or theme value exists. Theme code: `lib/theme/aiko_colors.dart`, `aiko_theme.dart`, `aiko_typography.dart`, `aiko_spacing.dart`.
 
-### Tokens
-
-Three-layer model — **Primitive** (raw colors, type, spacing, radius → `AikoColors`, `AikoTypography`), **Semantic** (primary, danger, surface, muted, outline → `ColorScheme`, theme extensions), **Component** (button, card, input, sheet, chip, nav → `AikoTheme`, shared widgets).
+**Tokens — three layers:** **Primitive** (raw colors, type, spacing, radius → `AikoColors`, `AikoTypography`), **Semantic** (primary, danger, surface, muted, outline → `ColorScheme`, theme extensions), **Component** (button, card, input, sheet, chip, nav → `AikoTheme`, shared widgets).
 
 ### Color
 
@@ -401,9 +373,9 @@ Three-layer model — **Primitive** (raw colors, type, spacing, radius → `Aiko
 | Danger | `#DC2626` | `#F87171` | Errors, destructive actions, overspending |
 | Analytics | `#0D9488` | `#2DD4BF` | Reports, portfolio, allocation, analysis |
 
-Rules: primary blue means current/continue/main action; Overview and Transactions app-bar action icons use the primary action color; purple is reserved for Aiko/AI/optimization/premium/review; green/orange/red/teal keep their semantic finance meanings; never rely on color alone (pair with text/icon/label/number); inactive states are neutral, not pale saturated.
+Rules: primary blue = current/continue/main action (and Overview/Transactions app-bar action icons); purple is reserved for Aiko/AI/optimization/premium/review; green/orange/red/teal keep their semantic finance meanings; never rely on color alone (pair with text/icon/label/number); inactive states are neutral, not pale saturated.
 
-10-stop ramps for charts, progress bars, and selected states:
+10-stop ramps for charts, progress bars, selected states:
 
 | Ramp | Stops |
 | --- | --- |
@@ -418,7 +390,7 @@ Test Aiko artwork on dark and light backgrounds; add a subtle glow/border if tra
 
 Headline = Hanken Grotesk (titles, major balances, hero numbers); Body & Label = Manrope.
 
-| Theme style | Size | Weight | Use |
+| Style | Size | Weight | Use |
 | --- | ---: | ---: | --- |
 | `displayLarge` | 48 | 700 | Rare onboarding/report moments |
 | `headlineLarge` | 36 | 700 | Major balance or summary number |
@@ -433,39 +405,39 @@ Headline = Hanken Grotesk (titles, major balances, hero numbers); Body & Label =
 | `labelMedium` | 12 | 700 | Chips and badges |
 | `labelSmall` | 11 | 700 | Dense status labels |
 
-Letter spacing `0`. Use tabular figures for aligned money columns. No display-scale text inside compact cards, lists, settings rows, sidebars, or form controls.
+Letter spacing `0`. Tabular figures for aligned money columns. No display-scale text inside compact cards, lists, settings rows, sidebars, or form controls.
 
 ### Spacing, Shape, Surfaces
 
 Spacing on a 4/8px rhythm: `space-1` 4 (icon/text gaps), `space-2` 8 (row/chip gaps), `space-3` 12 (compact card internals), `space-4` 16 (gutters, form gaps, default card padding), `space-5` 20 (prominent card padding), `space-6` 24 (section gaps), `space-8` 32 (major rhythm).
 
-Shape: cards/rows/inputs/chips/segmented controls 8px radius; bottom sheets 20px top radius; FABs may use 16px; avoid 20px+ radii on product cards and decorative shadows. Don't nest cards — use rows and dividers inside one card; repeated objects use list tiles or object cards. Density: daily lists compact, detail screens breathe, dashboards use fewer stronger metrics, settings use grouped rows, forms use full-width controls with consistent 16px gaps.
+Shape: cards/rows/inputs/chips/segmented controls 8px radius; bottom sheets 20px top radius; FABs may use 16px; avoid 20px+ radii on product cards and decorative shadows. Don't nest cards — use rows/dividers inside one card; repeated objects use list tiles or object cards. Density: daily lists compact, detail screens breathe, dashboards use fewer stronger metrics, settings use grouped rows, forms use full-width controls with 16px gaps.
 
 ### Screen Archetypes
 
 | Archetype | Examples | Rules |
 | --- | --- | --- |
-| Dashboard | Home, Budget overview, Portfolio overview | Lead with one primary financial summary, then 2-4 supporting metrics. Data before copy. Label charts with numbers and periods. |
-| List and detail | Transactions, Accounts, Categories, Bills, Goals | Compact tappable rows with type mark, title, subtitle, trailing amount/status, chevron. Details lead with primary number/title and grouped facts. |
+| Dashboard | Home, Budget overview, Portfolio overview | Lead with one primary summary, then 2-4 supporting metrics. Data before copy. Label charts with numbers + periods. |
+| List & detail | Transactions, Accounts, Categories, Bills, Goals | Compact tappable rows (type mark, title, subtitle, trailing amount/status, chevron). Details lead with primary number/title + grouped facts. |
 | Form | Add transaction, Budget form, Profile, Add category | Required controls first, full-width fields, helper text under controls, primary save button, progressive disclosure. |
-| Settings | Settings, Notifications, Profile | Grouped rows with icon, title, short description, status/control. Separate security and destructive actions. |
-| Assistant and AI | Aiko assistant, Optimize, Review | Cite financial context, give actions or dismiss reasons, avoid filler, keep finance states semantic even when AI uses purple. |
-| Planning and education | Goals, Learning Hub, Calculators, Reports | Progressive disclosure. Show progress/saved state. Calculators show input, result, conversion action. Reports pair charts with summary text. |
+| Settings | Settings, Notifications, Profile | Grouped rows (icon, title, short description, status/control). Separate security and destructive actions. |
+| Assistant & AI | Aiko assistant, Optimize, Review | Cite financial context, give actions or dismiss reasons, avoid filler, keep finance states semantic even when AI uses purple. |
+| Planning & education | Goals, Learning Hub, Calculators, Reports | Progressive disclosure. Show progress/saved state. Calculators show input → result → conversion action. Reports pair charts with summary text. |
 | Supplemental tools | Filters, split, receipt review, cash flow, loan calculator, profile security | Extend an owning feature, never duplicate top-level screens. First viewport shows the task object. Required completion actions use sticky bottom bars on mobile. |
-| Placeholders | Expansion screens | State what the feature will do and give one action. No fake finished dashboards. Prefer `AikoScreenState` or `AikoFeatureOverviewScreen`. |
+| Placeholders | Expansion screens | State what the feature will do + one action. No fake finished dashboards. Prefer `AikoScreenState` or `AikoFeatureOverviewScreen`. |
 
 ### Components
 
 - **`FinanceCard`** (financial objects, metrics, grouped task panels): 8px radius, 16px default / 20px prominent padding, outline-variant border, no default shadow, `titleMedium` title, `bodyMedium` body, 40px icon tile (8px radius, 12% accent opacity), stable `InkWell` tap state. Strict three-tier hierarchy: primary number/title → supporting metadata → one clear action/status. Never a decorative wrapper around another card.
-- **Buttons:** filled (primary), outlined (secondary), text (low-emphasis inline), icon (familiar commands). Min height 48px, 8px radius, visible non-interactive disabled state.
-- **Icon buttons:** 40–48px tile, 48px min tap target — Primary = blue circle/white icon, AI/premium = purple square or circle/white icon, Destructive = red circle/white icon.
-- **Inputs/pickers:** visible labels, 54px min height, 8px radius, pale-blue fill, thin blue-gray border, leading search icon, primary focus border, danger error border, muted-neutral placeholder. Helper/validation copy goes below the field, not inside. Custom pickers show the selected value plus context (category group, account balance); bottom-sheet pickers use compact rows with selected checkmarks.
+- **Buttons:** filled (primary), outlined (secondary), text (low-emphasis inline), icon (familiar commands). Min height 48px, 8px radius, visible disabled state.
+- **Icon buttons:** 40–48px tile, 48px min tap target — Primary = blue circle/white icon, AI/premium = purple square/circle/white icon, Destructive = red circle/white icon.
+- **Inputs/pickers:** visible labels, 54px min height, 8px radius, pale-blue fill, thin blue-gray border, leading search icon, primary focus border, danger error border, muted placeholder. Helper/validation copy below the field. Custom pickers show selected value + context (category group, account balance); bottom-sheet pickers use compact rows with selected checkmarks.
 - **Lists:** compact `ListTile` rows, 48px tap target, single-line titles, aligned trailing amounts/statuses, dividers/card borders instead of nested containers.
 - **Chips/badges:** short labels; status color matches semantic meaning and includes text.
-- **Navigation:** shell tabs Accounts/Categories/Overview/Transactions/Aiko; bottom nav is a flush, compact 60dp bar (1px top border, surface background, no pill, no shadow); active = a 3dp indicator bar at the top of the tab in primary blue (premium purple for the Aiko tab) with the icon + label staying on-surface; Aiko tab uses muted purple for the unselected label to keep a subtle AI identity hint; Menu (reached from the Overview app-bar action) holds Planning, Insights and AI, Tools and Data, and Settings and Security.
-- **Overview layout editing:** a scrollable in-page `Edit layout`/`Done` action at the bottom of Overview content — never in the app bar or a fixed bottom bar (keep the app bar for utilities like notifications).
-- **Sheets/dialogs:** bottom sheets for mobile create/edit (drag handle, safe area, scrollable, 20px top radius); dialogs for destructive confirmation (name the object and effect).
-- **Charts/progress:** every chart needs a text summary; every progress bar shows current, target, and period with semantic color + label (8px compact, 10–12px on dashboards).
+- **Navigation:** shell tabs Accounts/Categories/Overview/Transactions/Aiko; bottom nav is a flush, compact 60dp bar (1px top border, surface background, no pill, no shadow); active = a 3dp indicator bar at the top of the tab in primary blue (premium purple for Aiko) with icon + label on-surface; Aiko's unselected label uses muted purple for a subtle AI hint; Menu (Overview app-bar action) holds Planning, Insights and AI, Tools and Data, Settings and Security.
+- **Overview layout editing:** a scrollable in-page `Edit layout`/`Done` action at the bottom of Overview content — never in the app bar or a fixed bottom bar.
+- **Sheets/dialogs:** bottom sheets for mobile create/edit (drag handle, safe area, scrollable, 20px top radius); dialogs for destructive confirmation (name the object + effect).
+- **Charts/progress:** every chart needs a text summary; every progress bar shows current, target, period with semantic color + label (8px compact, 10–12px on dashboards).
 
 | Interactive state | Treatment |
 | --- | --- |
@@ -475,7 +447,7 @@ Shape: cards/rows/inputs/chips/segmented controls 8px radius; bottom sheets 20px
 | Disabled | 40% opacity, no interaction |
 | Dragging | Slight scale (1.02) with subtle shadow |
 
-Use `AikoScreenState` for loading (skeleton/quiet progress, no fake data), empty (what's missing + one action), error (retry/recovery), offline (local mode), and locked (authentication) states.
+Use `AikoScreenState` for loading (skeleton/quiet progress, no fake data), empty (what's missing + one action), error (retry/recovery), offline (local mode), locked (authentication).
 
 ### Shared Widgets
 
@@ -492,13 +464,13 @@ Use `lib/shared/widgets/aiko_data_widgets.dart` for idea-backed supplemental and
 
 ### Iconography
 
-Material Icons are the primary set; custom SVGs for brand moments only (don't replace standard icons for common actions). Sizes: 16 inline, 20 list-tile leading, 24 toolbar, 48 empty-state/hero. Colors: Default `onSurface`, Active/selected `primary`, Destructive `danger`, AI/premium `tertiary`, Muted/disabled `mutedText`.
+Material Icons are primary; custom SVGs for brand moments only (don't replace standard icons for common actions). Sizes: 16 inline, 20 list-tile leading, 24 toolbar, 48 empty-state/hero. Colors: Default `onSurface`, Active/selected `primary`, Destructive `danger`, AI/premium `tertiary`, Muted/disabled `mutedText`.
 
-Reusable SVGs live in `assets/icons/` as `aiko_<name>.svg`, `viewBox="0 0 24 24"`, `currentColor`, stroke-based, single-color, 24x24. Don't mix filled/duotone/outline in one control group. New required SVGs need tests in `test/shared/widgets/aiko_svg_assets_test.dart` before UI reliance. Required: `aiko_home`, `aiko_transactions`, `aiko_budget`, `aiko_insights`, `aiko_aiko`, `aiko_account`, `aiko_bank`, `aiko_wallet`, `aiko_credit_card`, `aiko_category`, `aiko_receipt`, `aiko_search_filter`, `aiko_goal`, `aiko_cash_flow`, `aiko_debt`, `aiko_loan`, `aiko_portfolio`, `aiko_tax`, `aiko_calculator`, `aiko_travel`, `aiko_security`, `aiko_notification`.
+Reusable SVGs in `assets/icons/` as `aiko_<name>.svg`, `viewBox="0 0 24 24"`, `currentColor`, stroke-based, single-color, 24x24. Don't mix filled/duotone/outline in one control group. New required SVGs need tests in `test/shared/widgets/aiko_svg_assets_test.dart` before UI reliance. Required: `aiko_home`, `aiko_transactions`, `aiko_budget`, `aiko_insights`, `aiko_aiko`, `aiko_account`, `aiko_bank`, `aiko_wallet`, `aiko_credit_card`, `aiko_category`, `aiko_receipt`, `aiko_search_filter`, `aiko_goal`, `aiko_cash_flow`, `aiko_debt`, `aiko_loan`, `aiko_portfolio`, `aiko_tax`, `aiko_calculator`, `aiko_travel`, `aiko_security`, `aiko_notification`.
 
 ### Aiko Character Usage
 
-Six expression variants: `happy`, `thinking`, `encouraging`, `warning`, `celebrating`, `welcome`. Use Aiko purposefully — warmth, reassurance, or guidance, never decoration. Good for: onboarding welcome/completion, insight explanations, goal encouragement, budget warnings, empty states needing reassurance, and assistant chat. Never over tables, charts, balances, forms, or critical actions; not on every screen. Tone — Use: "You're still on track. Groceries are running a little high, so I found two easy places to adjust." Avoid: "You spent too much again."
+Six expression variants: `happy`, `thinking`, `encouraging`, `warning`, `celebrating`, `welcome`. Use purposefully — warmth, reassurance, guidance, never decoration. Good for: onboarding welcome/completion, insight explanations, goal encouragement, budget warnings, empty states needing reassurance, assistant chat. Never over tables, charts, balances, forms, or critical actions; not on every screen. Use "You're still on track. Groceries are running a little high, so I found two easy places to adjust." Avoid "You spent too much again."
 
 ### Ownership
 
@@ -534,7 +506,7 @@ Accessibility: body text contrast ≥4.5:1, secondary ≥3:1; touch targets ≥4
 
 ### Flutter Implementation Rules
 
-Shared UI primitives live in `lib/shared/widgets/`; feature screens consume them instead of re-creating card/button/empty-state/picker styles. Idea-backed detail/tool screens use `AikoDetailScaffold` + `aiko_data_widgets.dart`. Prefer `AikoScreenState` for loading/empty/error/offline/locked/permission states; custom components cover default, pressed, focused, disabled, loading, error, and success. Supplemental route coverage lives in `test/app/idea_route_coverage_test.dart`. (Money/Riverpod/persistence rules are in [Architecture](#architecture).)
+Shared UI primitives live in `lib/shared/widgets/`; feature screens consume them instead of re-creating card/button/empty-state/picker styles. Idea-backed detail/tool screens use `AikoDetailScaffold` + `aiko_data_widgets.dart`. Prefer `AikoScreenState` for loading/empty/error/offline/locked/permission states; custom components cover default, pressed, focused, disabled, loading, error, success. Supplemental route coverage lives in `test/app/idea_route_coverage_test.dart`. (Money/Riverpod/persistence rules are in [Architecture](#architecture).)
 
 ### Route and Idea Coverage
 
@@ -548,23 +520,23 @@ Apply the design system in batches: (1) shared foundation — `FinanceCard`, `Ai
 | Credit, debt, portfolio, tax | Credit cards, debt, portfolio, assets, tax | `/credit-cards/detail`, `/debt-overview`, `/loans/detail`, `/net-worth`, `/portfolio/allocation`, `/portfolio/holding`, `/tax-analytics` |
 | Aiko AI, calculators, settings, extras | Aiko, calculators, bills, learning, travel, settings | `/aiko-insights`, `/calculator-result`, `/profile-security` |
 
-Route rules: don't duplicate an existing feature screen to match a board; use sticky bottom actions for filter/save/confirm/calculator-result screens; use a scrollable in-page action for Overview layout editing; keep sample data realistic and scoped to preview/offline states; real repositories remain the source of persisted data; Aiko guidance appears after the primary number/decision (except onboarding and chat); every supplemental route must render without a Supabase session.
+Route rules: don't duplicate an existing feature screen to match a board; sticky bottom actions for filter/save/confirm/calculator-result screens; scrollable in-page action for Overview layout editing; sample data realistic and scoped to preview/offline states; real repositories remain the source of persisted data; Aiko guidance appears after the primary number/decision (except onboarding and chat); every supplemental route must render without a Supabase session.
 
-Entry points: **Home** — app-bar Menu + notifications, in-page This Month Overview + Edit layout; **Transactions** — app-bar search with inline type/amount/date filters, split and receipt-review tools; **Budget** — tools menu (pace, safe-to-spend, cash flow, Sankey); **Goals** — tools menu (saving plan, chance of success, detail); **Reports** — monthly report from the list; **Calculators** — hub links to focused calculators and result states; **Menu (from Overview)** — Planning (budget, goals, investments, allocation, holding, net worth, travel), Insights and AI (learning hub), Tools and Data (calculators, monthly report, export), Settings and Security (notifications, profile & security).
+Entry points — **Home:** app-bar Menu + notifications, in-page This Month Overview + Edit layout. **Transactions:** app-bar search with inline type/amount/date filters, split + receipt-review tools. **Budget:** tools menu (pace, safe-to-spend, cash flow, Sankey). **Goals:** tools menu (saving plan, chance of success, detail). **Reports:** monthly report from the list. **Calculators:** hub → focused calculators + result states. **Menu (from Overview):** Planning, Insights and AI, Tools and Data, Settings and Security.
 
 ### QA Checklist
 
-Before a screen is design-complete: main task visible in the first viewport; primary action obvious and reachable while scrolling; financial numbers appear before AI guidance and include context; lists compact and tappable; form fields labeled with recovery-oriented validation; empty/loading/error/offline states exist or are intentionally inherited; no nested cards, decorative shadows, or oversized radii; raw colors limited to theme files or explicit data-viz; no text overlap/clipping at small widths; sufficient dark-theme contrast; Aiko only where useful; no duplication of an existing main route; widget tests cover critical rendering and interactions.
+Before a screen is design-complete: main task visible in the first viewport; primary action obvious and reachable while scrolling; financial numbers before AI guidance and with context; lists compact and tappable; form fields labeled with recovery-oriented validation; empty/loading/error/offline states exist or are intentionally inherited; no nested cards, decorative shadows, or oversized radii; raw colors limited to theme files or explicit data-viz; no text overlap/clipping at small widths; sufficient dark-theme contrast; Aiko only where useful; no duplication of an existing main route; widget tests cover critical rendering and interactions.
 
-Account-type-specific inputs (add each from a fresh state — subform appears, validates, saves; edit each type — values pre-populate, save round-trips identically; toggle shared limit on/off — limit field appears/disappears, referenced card picker excludes self; delete parent card — child detail screen shows migration notice; offline add — account persists locally, syncs on reconnect, no double-write).
+Account-type-specific inputs: add each from a fresh state (subform appears, validates, saves); edit each type (values pre-populate, save round-trips identically); toggle shared limit on/off (limit field appears/disappears, referenced card picker excludes self); delete parent card (child detail screen shows migration notice); offline add (account persists locally, syncs on reconnect, no double-write).
 
 ---
 
 ## Testing
 
 ```bash
-flutter test                      # money types, formatters, prediction, models, providers,
-                                  # rules, feature gating, parsers, idea route coverage, SVG assets
+flutter test                      # money types, formatters, prediction, models, providers, rules,
+                                  # feature gating, parsers, idea route coverage, SVG assets
 flutter test integration_test     # onboarding, transaction CRUD, budget/goal creation, dashboard, calculators
 ```
 
@@ -588,7 +560,7 @@ flutter test integration_test
 | **Premium** | Unlimited accounts, advanced reports, AI recommendations, forecasting, receipt OCR, credit-card optimization, portfolio analytics, tax reports, PDF/Excel export, multi-device sync |
 | **Pro** | Advanced accounting (double-entry, balance sheets, reconciliation), business reports, invoices, multi-user, advanced tax tools, estate planning, full Monte Carlo, API access |
 
-**Security:** PIN + biometrics (Face ID/Touch ID) for local access, secure token storage, remote device logout, cloud sync conflict resolution, and granular privacy options (AI use acknowledged at onboarding, local-only mode).
+**Security:** PIN + biometrics (Face ID/Touch ID) for local access, secure token storage, remote device logout, cloud sync conflict resolution, granular privacy (AI use acknowledged at onboarding, local-only mode).
 
 ---
 
@@ -609,13 +581,10 @@ flutter test integration_test
 
 ## Common Tasks
 
-**New feature module:** create `lib/features/<name>/` (`application/`, `data/`, `domain/`, `presentation/`); add routes in `lib/app/app_router.dart`; for a new table, add a migration with RLS filtered by `auth.uid()`; for offline support, add a Brick model under `lib/brick/models/` and run `dart run build_runner build`; register app-wide providers in `lib/app/providers.dart`; add tests for the model, repository fallback, and provider; use `Money` for all amounts.
-
-**New calculator:** add the file in `lib/features/calculators/`, register it in the hub's category list, make results saveable as `SavedCalculatorScenario`, and optionally convertible into goals/budgets/plans.
-
-**New Aiko insight type:** define it on the `AikoInsight` model, generate it in the relevant provider/background process, store it in `aiko_insights`, display it on the dashboard and insights screen, and always include a `source_data` reference.
-
-**New migration:** `supabase migration new <name>`, edit the SQL, then `supabase db push`.
+- **New feature module:** create `lib/features/<name>/` (`application/`, `data/`, `domain/`, `presentation/`); add routes in `lib/app/app_router.dart`; for a new table, add a migration with RLS filtered by `auth.uid()`; for offline support, add a Brick model under `lib/brick/models/` and run `dart run build_runner build`; register app-wide providers in `lib/app/providers.dart`; add tests for the model, repository fallback, provider; use `Money` for all amounts.
+- **New calculator:** add the file in `lib/features/calculators/`, register it in the hub's category list, make results saveable as `SavedCalculatorScenario`, optionally convertible into goals/budgets/plans.
+- **New Aiko insight type:** define it on `AikoInsight`, generate it in the relevant provider/background process, store it in `aiko_insights`, display on dashboard + insights screen, always include a `source_data` reference.
+- **New migration:** `supabase migration new <name>`, edit the SQL, `supabase db push`.
 
 ---
 
@@ -634,16 +603,6 @@ flutter test integration_test
 
 ## Contributing
 
-Follow the [Architecture](#architecture) and [Design System](#design-system) sections: use `Money` (never `double`); go through repositories (screens never touch Supabase/Brick/SQLite directly); add Brick models + regenerate adapters for offline storage; add RLS to every new table; consume shared widgets and tokens instead of one-off styles; write unit tests for new models and providers; run the QA checklist and all quality gates before submitting; and keep Aiko's voice warm, supportive, and non-judgmental.
+Follow [Architecture](#architecture) and [Design System](#design-system): use `Money` (never `double`); go through repositories (screens never touch Supabase/Brick/SQLite directly); add Brick models + regenerate adapters for offline storage; add RLS to every new table; consume shared widgets and tokens instead of one-off styles; write unit tests for new models and providers; run the QA checklist and all quality gates before submitting; keep Aiko's voice warm, supportive, non-judgmental.
 
----
-
-## License
-
-Private; not published to pub.dev. See `pubspec.yaml`.
-
----
-
-<p align="center">
-  <em>Built with 💙 — Grow wealth with Aiko.</em>
-</p>
+**License:** Private; not published to pub.dev. See `pubspec.yaml`.

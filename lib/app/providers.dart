@@ -87,6 +87,10 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
     final repo = ref.watch(transactionRepositoryProvider);
     final transactions = await repo.list();
     await _reconcileAccountBalances(transactions);
+    // Cache the loaded data so leaving and returning to a screen (e.g. the
+    // Overview tab) reuses it instead of showing a loading state again. A
+    // failed load is not cached, so it still retries on the next visit.
+    ref.keepAlive();
     return transactions;
   }
 
@@ -311,6 +315,7 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
   Future<List<Category>> build() async {
     final repo = ref.watch(categoryRepositoryProvider);
     final customCategories = await repo.list();
+    ref.keepAlive();
     return _combineWithDefaults(customCategories);
   }
 
@@ -473,7 +478,9 @@ class BudgetsNotifier extends AsyncNotifier<List<Budget>> {
   @override
   Future<List<Budget>> build() async {
     final repo = ref.watch(budgetRepositoryProvider);
-    return repo.list();
+    final budgets = await repo.list();
+    ref.keepAlive();
+    return budgets;
   }
 
   Future<void> addBudget(Budget budget) async {
@@ -517,7 +524,9 @@ class GoalsNotifier extends AsyncNotifier<List<Goal>> {
   @override
   Future<List<Goal>> build() async {
     final repo = ref.watch(goalRepositoryProvider);
-    return repo.list();
+    final goals = await repo.list();
+    ref.keepAlive();
+    return goals;
   }
 
   Future<void> addGoal(Goal goal) async {
@@ -558,15 +567,21 @@ final aikoInsightsProvider = FutureProvider.autoDispose<List<AikoInsight>>((
 
 final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummary>((
   ref,
-) {
+) async {
   final repo = ref.watch(dashboardRepositoryProvider);
-  return repo.loadSummary();
+  final summary = await repo.loadSummary();
+  // Keep the computed summary cached across tab switches so the Overview shows
+  // instantly on return; pull-to-refresh recomputes it on demand.
+  ref.keepAlive();
+  return summary;
 });
 
 final dashboardDueItemsProvider =
-    FutureProvider.autoDispose<List<DashboardDueItem>>((ref) {
+    FutureProvider.autoDispose<List<DashboardDueItem>>((ref) async {
       final repo = ref.watch(dashboardDueItemRepositoryProvider);
-      return repo.loadUpcomingItems(DateTime.now());
+      final items = await repo.loadUpcomingItems(DateTime.now());
+      ref.keepAlive();
+      return items;
     });
 
 class DashboardLayoutNotifier

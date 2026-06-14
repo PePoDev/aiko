@@ -164,11 +164,11 @@ abstract class AppLocalizations {
   /// **'Planning'**
   String get planningGroup;
 
-  /// No description provided for @menuTitle.
+  /// No description provided for @settingsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Menu'**
-  String get menuTitle;
+  /// **'Settings'**
+  String get settingsTitle;
 
   /// No description provided for @moreTab.
   ///
@@ -499,12 +499,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Budget'**
   String get addBudget;
-
-  /// No description provided for @settingsTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Settings'**
-  String get settingsTitle;
 
   /// No description provided for @profile.
   ///

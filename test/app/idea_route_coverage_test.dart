@@ -12,12 +12,9 @@ void main() {
     '/budget/safe-to-spend': 'Safe to Spend',
     '/budget/cash-flow': 'Cash Flow',
     '/budget/cash-flow-sankey': 'Cash Flow Sankey',
-    '/goals/detail': 'Goal Detail',
     '/goals/saving-plan': 'Saving Plan',
     '/goals/chance-of-success': 'Chance of Success',
     '/reports/monthly': 'Monthly Report',
-    '/aiko-insights': 'Aiko Insights',
-    '/loan-calculator': 'Loan Calculator',
     '/profile-security': 'Profile & Security',
   };
 

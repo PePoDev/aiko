@@ -6,6 +6,8 @@
 </p>
 
 > Canonical source of truth for contributors and coding agents — product scope, design system, and implementation rules. If code conflicts with this file, fix the code (or surface the conflict).
+>
+> **Agents: be brief.** Prefer concise, high-signal responses and minimal, focused diffs; skip preamble and restating the obvious.
 
 ---
 
@@ -65,6 +67,7 @@ Product rule: when an idea board overlaps an existing feature, improve the exist
 | Backend | Supabase Cloud (Auth, Postgres, Storage, RLS) |
 | Offline Store | Brick offline-first with SQLite (`sqflite`) |
 | Sync | Brick request queue to Supabase after local writes |
+| Attachments | Supabase Storage (per-user bucket) + client-side WebP compression (`flutter_image_compress`, JPEG fallback on iOS) |
 | Money Arithmetic | `decimal` (no floating-point errors) |
 | Charts | `fl_chart` |
 | Security | `flutter_secure_storage`, `local_auth` (PIN + biometric) |
@@ -162,7 +165,7 @@ GoRouter routing around a bottom-navigation shell with 5 primary tabs:
 
 ## Architecture
 
-Aiko optimizes for low backend cost, strong offline support, fast UX, and low vendor lock-in: the remote is standard Postgres behind repository interfaces, keeping a path open from Supabase Cloud → self-hosted Supabase → custom Postgres without UI changes. Concrete designs flagged "planned" below are the intended approach for features as they land, not all shipped.
+Aiko optimizes for low backend cost, strong offline support, fast UX, and low vendor lock-in: the remote is standard Postgres behind repository interfaces, keeping a path open from Supabase Cloud → self-hosted Supabase → custom Postgres without UI changes.
 
 ### Feature Module Pattern
 
@@ -186,7 +189,7 @@ Core finance data reads and writes locally first, using [Brick](https://github.c
 - When Supabase is configured and the user is authenticated, Brick queues writes and syncs in the background. When Supabase is unavailable, repositories return local data or safe empty/default states — never backend errors in normal flows. Prefer `tryClient()` + offline fallback over `AikoSupabase.requireSession()` in user-facing repositories.
 - After editing `lib/brick/models/`, run `dart run build_runner build` and commit generated adapters, schema, and migrations.
 - System (default) categories are global Supabase rows (`user_id = NULL`) injected in-memory via `CategoryDefaults` (`lib/features/categories/domain/category_defaults.dart`) — never stored per-user in Brick, not user-writable, and their fixed UUIDs are stable constants (never change them).
-- Use Supabase only for Auth, Postgres, RLS, and structured finance data. By default avoid Supabase Storage, Realtime, Edge Functions (unless a feature needs server logic), and large blobs in Postgres.
+- Use Supabase for Auth, Postgres, RLS, structured finance data, and attachment object storage. By default avoid Realtime and Edge Functions (unless a feature needs server logic) and large blobs in Postgres.
 
 ### Code Conventions
 
@@ -199,33 +202,23 @@ Core finance data reads and writes locally first, using [Brick](https://github.c
 
 Every syncable table carries `id`, `user_id`, `created_at`, `updated_at`, `deleted_at` (soft delete — makes offline delete sync safe), and `version integer not null default 1`. Use soft delete rather than hard delete.
 
-Conflict rules: transactions/budgets/categories — latest `updated_at` wins; important records — compare `version` before overwriting; summaries — recalculated from transactions, never merged; account balances — calculated or snapshot-based; attachments — local file wins on-device, only metadata syncs.
+Conflict rules: transactions/budgets/categories — latest `updated_at` wins; important records — compare `version` before overwriting; summaries — recalculated from transactions, never merged; account balances — calculated or snapshot-based; attachments — the WebP uploads to Supabase Storage and metadata syncs via Postgres, with the local copy kept as an offline cache.
 
-### Summary Tables (planned)
+### Summary Tables
 
 Dashboards and reports read pre-aggregated summary tables instead of repeatedly scanning raw transactions: `daily_summary`, `monthly_summary`, `category_monthly_summary`, `budget_progress`, `account_balance_snapshot`, `net_worth_snapshot`.
 
 ### Receipt and Attachment Strategy
 
-No Supabase Storage or remote object store (e.g. Cloudflare R2) for the MVP. Receipt images stay on the device (local filesystem via `path_provider`), never in Postgres `bytea`. Postgres stores only metadata (file name, local path, optional remote path, checksum, size, mime type, sync status). Trade-off: receipt **images** don't sync across devices yet — only their metadata does — which is acceptable for a low-cost MVP.
+Attachments (receipt photos, documents) live in **Supabase Storage** under a per-user, RLS-protected bucket path — never in Postgres `bytea`; only metadata goes to Postgres. Capture is camera or a recent gallery image (iOS + Android); OCR (if enabled) runs on the **original** first, then it's compressed to a single **WebP** (≈q80, ≤2000px long edge, EXIF stripped, iOS HEIC transcoded). That one ~100–300 KB file serves both list and detail — no separate thumbnail. Encoder is `flutter_image_compress`: native/fast on Android; iOS has no native WebP encoder, so it encodes in the background and falls back to JPEG (`UnsupportedError` → `CompressFormat.jpeg`). The pure-Dart `image` package can't encode WebP, so it's not an iOS fallback.
 
-Planned `transaction_attachments` table: standard sync fields plus `transaction_id`, `local_path`, `remote_path` (null until remote storage is added), `file_name`, `mime_type`, `file_size_bytes`, `checksum`, and `sync_status text not null default 'local_only'`.
+**No data loss.** Offline-first: the WebP is written locally and the row marked `sync_status = 'pending_upload'`; the original is discarded after OCR + compression; the WebP uploads through the sync queue (idempotent by `checksum`, retried) and flips to `synced`; deletes are soft (`deleted_at`). The local WebP is **kept as a persistent cache** — opening a transaction reads it locally and never re-downloads — reclaimed only under LRU pressure (re-fetched from Storage on demand).
 
-Keep remote storage replaceable through an interface so it can be added later without touching the UI:
-
-```dart
-abstract class RemoteAttachmentStorage {
-  Future<String> upload({required String localPath, required String remotePath, required String contentType});
-  Future<void> delete(String remotePath);
-  Future<String> getDownloadUrl(String remotePath);
-}
-```
-
-For the MVP, ship a `NoopRemoteAttachmentStorage` that throws `UnsupportedError` on `upload`/`getDownloadUrl` and no-ops `delete`.
+The `transaction_attachments` table carries standard sync fields plus `transaction_id`, `local_path`, `remote_path` (Storage path), `file_name`, `mime_type`, `file_size_bytes`, `checksum`, and `sync_status` (default `'pending_upload'`). File storage sits behind a `RemoteAttachmentStorage` interface (`upload`/`delete`/`getDownloadUrl`); `SupabaseAttachmentStorage` uploads the compressed file and serves short-lived signed URLs, so the backend is swappable without UI changes.
 
 ### Cost & Vendor Lock-in
 
-Cost stays low because most reads come from local SQLite, dashboards read local summary tables, writes are batched, and there's no Storage/R2/Realtime cost. Avoid: loading all transactions from Supabase per screen, Realtime for every session by default, image bytes in the database, Edge Functions for simple CRUD, and direct Supabase calls from UI. Lock-in stays low by keeping the schema standard Postgres, routing through repository interfaces, keeping business logic in Dart, and making file storage replaceable via an interface.
+Cost stays low because most reads come from local SQLite, dashboards read local summary tables, writes are batched, and attachment uploads are compressed before hitting Supabase Storage. Avoid: loading all transactions from Supabase per screen, Realtime for every session by default, storing image bytes in Postgres `bytea`, Edge Functions for simple CRUD, and direct Supabase calls from UI. Lock-in stays low by keeping the schema standard Postgres, routing through repository interfaces, keeping business logic in Dart, and keeping file storage behind the `RemoteAttachmentStorage` interface.
 
 ---
 
@@ -258,7 +251,7 @@ Saved calculations store as `SavedCalculatorScenario`, compare side-by-side, and
 
 ## Prediction and AI System
 
-- Rule-based forecasting drives MVP predictions (end-of-month balance, budget-overrun risk, goal completion); moving averages track recurring-expense trends; seasonality detection finds monthly patterns.
+- Rule-based forecasting drives core predictions (end-of-month balance, budget-overrun risk, goal completion); moving averages track recurring-expense trends; seasonality detection finds monthly patterns.
 - Monte Carlo simulations drive advanced goal/retirement probability under three scenarios (optimistic, expected/normal, conservative). Logic lives in `lib/core/prediction/`.
 - AI suggestions store as `AikoInsight` records in Supabase. Insights span four dimensions: **Descriptive** ("You spent $450 on dining out this month."), **Diagnostic** ("Dining out increased 20% from weekend restaurants."), **Predictive** ("At this pace you'll exceed your dining budget in 5 days."), **Prescriptive** ("Limit weekend spending to $15/day to stay on track.").
 - **Disclaimer required:** *AI insights are estimates, not certified financial, investment, or tax advice.*

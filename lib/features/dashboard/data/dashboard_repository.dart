@@ -119,7 +119,6 @@ class DashboardRepository {
     final type = switch (row['widget_key'] as String? ?? '') {
       'summary' => DashboardWidgetType.aikoWelcome,
       'pace' => DashboardWidgetType.dailySpending,
-      'goals' => DashboardWidgetType.insights,
       'analytics' => DashboardWidgetType.dailySummary,
       'due_items' => DashboardWidgetType.dueItems,
       'this_month_overview' => DashboardWidgetType.thisMonthOverview,

@@ -4,14 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('dashboard preferences serialize for persistence', () {
     const preference = DashboardWidgetPreference(
-      type: DashboardWidgetType.insights,
+      type: DashboardWidgetType.dueItems,
       isVisible: false,
       position: 3,
     );
 
     final restored = DashboardWidgetPreference.fromJson(preference.toJson());
 
-    expect(restored.type, DashboardWidgetType.insights);
+    expect(restored.type, DashboardWidgetType.dueItems);
     expect(restored.isVisible, isFalse);
     expect(restored.position, 3);
   });
@@ -27,7 +27,6 @@ void main() {
         DashboardWidgetType.netEarnings,
         DashboardWidgetType.categoryBudgets,
         DashboardWidgetType.spendingCalendar,
-        DashboardWidgetType.insights,
         DashboardWidgetType.dueItems,
         DashboardWidgetType.thisMonthOverview,
         DashboardWidgetType.cashFlowMapping,

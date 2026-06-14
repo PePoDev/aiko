@@ -163,7 +163,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       DashboardWidgetType.spendingCalendar => const _OverviewAnalyticsWidget(
         kind: _AnalyticsWidgetKind.spendingCalendar,
       ),
-      DashboardWidgetType.insights => const _OverviewInsightsSection(),
       DashboardWidgetType.dueItems => dueItemsAsync.when(
         loading: () => FinanceCard(
           title: l10n.upcomingDueDates,
@@ -1108,71 +1107,6 @@ class _OverviewMiniCard extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(onTap: onTap, borderRadius: radius, child: content),
-    );
-  }
-}
-
-class _OverviewInsightsSection extends ConsumerWidget {
-  const _OverviewInsightsSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context);
-    final textTheme = Theme.of(context).textTheme;
-    final insightsAsync = ref.watch(aikoInsightsProvider);
-
-    return insightsAsync.when(
-      loading: () => const FinanceCard(
-        title: 'Insights',
-        icon: Icons.insights,
-        accentColor: AikoColors.analyticsTeal,
-        child: Text('Loading Aiko insights...'),
-      ),
-      error: (error, stack) => FinanceCard(
-        title: l10n.insights,
-        icon: Icons.insights,
-        accentColor: AikoColors.analyticsTeal,
-        child: Text(l10n.dashboardUnavailableMessage),
-      ),
-      data: (insights) {
-        if (insights.isEmpty) {
-          return const FinanceCard(
-            title: 'Insights',
-            icon: Icons.insights,
-            accentColor: AikoColors.analyticsTeal,
-            child: Text(
-              'Aiko will show personalized insights here after more activity.',
-            ),
-          );
-        }
-
-        return Column(
-          children: [
-            for (final insight in insights) ...[
-              FinanceCard(
-                title: insight.title,
-                icon: Icons.insights,
-                accentColor: AikoColors.analyticsTeal,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(insight.description),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Aiko Suggests: ${insight.recommendation}',
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: AikoColors.analyticsTeal,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-          ],
-        );
-      },
     );
   }
 }

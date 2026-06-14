@@ -151,8 +151,6 @@ void main() {
       lessThan(tester.getTopLeft(find.text('This Month Overview')).dy),
     );
     expect(find.text('Total balance'), findsOneWidget);
-    expect(find.text('Left to save'), findsOneWidget);
-    expect(find.text('Cash flow'), findsOneWidget);
     final monthOverviewCard = find
         .ancestor(
           of: find.text('This Month Overview'),
@@ -171,6 +169,13 @@ void main() {
       find.descendant(of: monthOverviewCard, matching: find.text('Savings')),
       findsOneWidget,
     );
+    await tester.scrollUntilVisible(
+      find.text('Left to save'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Left to save'), findsOneWidget);
+    expect(find.text('Cash flow'), findsOneWidget);
   });
 
   testWidgets('overview editor manages each overview panel separately', (

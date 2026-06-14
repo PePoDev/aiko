@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../../shared/widgets/aiko_data_widgets.dart';
 import '../../../../../theme/aiko_colors.dart';
-import '../../../domain/account_details.dart';
 import 'account_subform.dart';
 
 class CashSubform extends AccountSubform {

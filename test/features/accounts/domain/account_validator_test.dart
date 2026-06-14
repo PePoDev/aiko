@@ -7,13 +7,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   Account acct(AccountDetails d, {String currency = 'USD'}) => Account(
-        id: 'a',
-        userId: 'u',
-        name: 'n',
-        type: AccountType.creditCard,
-        currentBalance: Money.parse('0', currency),
-        details: d,
-      );
+    id: 'a',
+    userId: 'u',
+    name: 'n',
+    type: AccountType.creditCard,
+    currentBalance: Money.parse('0', currency),
+    details: d,
+  );
 
   test('cash account always validates', () {
     final a = Account(
@@ -78,11 +78,7 @@ void main() {
   });
 
   test('credit card shares limit requires reference', () {
-    const d = CreditCardDetails(
-      statementDay: 1,
-      dueDay: 1,
-      sharesLimit: true,
-    );
+    const d = CreditCardDetails(statementDay: 1, dueDay: 1, sharesLimit: true);
     expect(
       () => AccountValidator.validate(acct(d), allAccounts: const []),
       throwsA(isA<Exception>()),

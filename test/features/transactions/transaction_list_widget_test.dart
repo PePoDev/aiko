@@ -269,7 +269,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Categories'), findsOneWidget);
-    expect(find.text('Dining'), findsOneWidget);
+    expect(find.text('Dining Out'), findsOneWidget);
   });
 
   testWidgets('transaction list opens categories without bottom navigation', (
@@ -291,14 +291,19 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Transactions'), findsWidgets);
-    expect(find.text('Planning'), findsOneWidget);
+    expect(find.text('Aiko'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Categories'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byTooltip('Categories'),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Categories'), findsOneWidget);
     expect(find.text('Transactions'), findsNothing);
-    expect(find.text('Planning'), findsNothing);
+    expect(find.text('Aiko'), findsNothing);
   });
 
   testWidgets('transaction list opens accounts without bottom navigation', (
@@ -328,15 +333,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Transactions'), findsWidgets);
-    expect(find.text('Planning'), findsOneWidget);
+    expect(find.text('Aiko'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Accounts'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byTooltip('Accounts'),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Accounts'), findsOneWidget);
     expect(find.text('Cash Wallet'), findsOneWidget);
     expect(find.text('Transactions'), findsNothing);
-    expect(find.text('Planning'), findsNothing);
+    expect(find.text('Aiko'), findsNothing);
   });
 
   testWidgets('transaction list plus opens transaction form directly', (

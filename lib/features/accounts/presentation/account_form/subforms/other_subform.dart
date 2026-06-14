@@ -7,7 +7,11 @@ import '../../../domain/account_details.dart';
 import 'account_subform.dart';
 
 class OtherSubform extends AccountSubform {
-  const OtherSubform({super.key, required this.initial, required this.onChanged});
+  const OtherSubform({
+    super.key,
+    required this.initial,
+    required this.onChanged,
+  });
   final OtherDetails initial;
   final ValueChanged<OtherDetails> onChanged;
 
@@ -26,9 +30,11 @@ class _OtherSubformState extends AccountSubformState<OtherSubform> {
   }
 
   void _emit() {
-    widget.onChanged(OtherDetails(
-      notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-    ));
+    widget.onChanged(
+      OtherDetails(
+        notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+      ),
+    );
   }
 
   @override
@@ -39,8 +45,8 @@ class _OtherSubformState extends AccountSubformState<OtherSubform> {
 
   @override
   AccountDetails getDetails() => OtherDetails(
-        notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-      );
+    notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+  );
 
   @override
   String? validate() => null;

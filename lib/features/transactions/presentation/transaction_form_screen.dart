@@ -13,6 +13,8 @@ import '../../../core/money/money.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
 import '../../categories/domain/category.dart';
+import '../../categories/domain/category_defaults.dart';
+import '../../categories/presentation/category_visual.dart';
 import '../domain/transaction.dart';
 import '../domain/transaction_attachment.dart';
 import '../data/transaction_attachment_repository.dart';
@@ -143,6 +145,40 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
   void _removeTag(String tag) {
     setState(() => _tags.remove(tag));
+  }
+
+  /// Handles the user picking a different transaction type (Expense / Income /
+  /// Transfer) on the segmented selector. In add mode this resets the typed
+  /// fields so a half-entered expense can't accidentally be saved as an
+  /// income (or vice versa). In edit mode we only clear the category since
+  /// expense/income categories live in disjoint sets; the rest of the
+  /// transaction is preserved so the user can flip the type without losing
+  /// their work.
+  ///
+  /// Date, recurring-series settings, and attachments are preserved in add
+  /// mode too — they describe the transaction context, not its direction.
+  void _onTransactionTypeChanged(String newType) {
+    if (widget.initialTransaction != null) {
+      setState(() {
+        _type = newType;
+        _selectedCategoryId = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _type = newType;
+      _titleController.clear();
+      _amountController.clear();
+      _selectedCurrency = 'THB';
+      _exchangeRateController.text = '1.00';
+      _noteController.clear();
+      _selectedCategoryId = null;
+      _selectedAccountId = null;
+      _selectedToAccountId = null;
+      _tags.clear();
+      _tagInputController.clear();
+    });
   }
 
   void _applyItemSuggestion(FinanceTransaction suggestion) {
@@ -1257,6 +1293,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
+    final categoryGroupsAsync = ref.watch(categoryGroupsProvider);
     final accountsAsync = ref.watch(accountsProvider);
     final transactionsAsync = ref.watch(transactionsProvider);
     final accountSnapshot =
@@ -1337,12 +1374,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               ),
             ],
             selected: {_type},
-            onSelectionChanged: (selection) {
-              setState(() {
-                _type = selection.first;
-                _selectedCategoryId = null;
-              });
-            },
+            onSelectionChanged: (selection) =>
+                _onTransactionTypeChanged(selection.first),
           ),
           const SizedBox(height: 16),
           _ItemNameInput(
@@ -1415,8 +1448,26 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 if (activeCategories.isEmpty) {
                   return const Text('No categories available');
                 }
+                // Section the list by group. User-defined groups first (so a
+                // user-added group is more prominent than the global defaults),
+                // then the 13 system groups in their canonical order. The
+                // "Other" group is moved to the end regardless of source
+                // order so unfiled custom categories stay out of the way.
+                final userGroups =
+                    categoryGroupsAsync
+                        .whenOrNull(data: (groups) => groups)
+                        ?.where((group) => !group.isSystem)
+                        .toList() ??
+                    const <CategoryGroup>[];
+                final orderedGroups = <CategoryGroup>[
+                  ...userGroups,
+                  for (final group in CategoryGroupDefaults.all)
+                    if (group.id != CategoryGroupDefaults.unfiledGroupId) group,
+                  CategoryGroupDefaults.other,
+                ];
                 return _CategoryPicker(
                   categories: activeCategories,
+                  groups: orderedGroups,
                   selectedCategoryId: _selectedCategoryId,
                   transactionType: _type,
                   onSelected: (value) {
@@ -2131,12 +2182,14 @@ class _AccountMark extends StatelessWidget {
 class _CategoryPicker extends StatelessWidget {
   const _CategoryPicker({
     required this.categories,
+    required this.groups,
     required this.selectedCategoryId,
     required this.transactionType,
     required this.onSelected,
   });
 
   final List<Category> categories;
+  final List<CategoryGroup> groups;
   final String? selectedCategoryId;
   final String transactionType;
   final ValueChanged<String> onSelected;
@@ -2214,47 +2267,468 @@ class _CategoryPicker extends StatelessWidget {
   void _showCategoryPickerSheet(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Choose category',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+      builder: (sheetContext) {
+        return _CategoryPickerSheet(
+          categories: categories,
+          groups: groups,
+          selectedCategoryId: selectedCategoryId,
+          onSelected: (value) {
+            onSelected(value);
+            Navigator.of(sheetContext).pop();
+          },
+        );
+      },
+    );
+  }
+}
+
+/// Modal bottom sheet for choosing a category. Sections the categories by
+/// group, supports full-text search, and renders each group as a compact
+/// grid so the user can browse 60+ entries with minimal scrolling.
+///
+/// Layout (top to bottom):
+///   1. Title
+///   2. Sticky search field (auto-focus on open)
+///   3. Sticky horizontal group chip bar (hidden while searching)
+///   4. Scrollable body: one section per group, each with a compact header
+///      and a 2- or 3-column grid of compact category cards.
+class _CategoryPickerSheet extends StatefulWidget {
+  const _CategoryPickerSheet({
+    required this.categories,
+    required this.groups,
+    required this.selectedCategoryId,
+    required this.onSelected,
+  });
+
+  final List<Category> categories;
+  final List<CategoryGroup> groups;
+  final String? selectedCategoryId;
+  final ValueChanged<String> onSelected;
+
+  @override
+  State<_CategoryPickerSheet> createState() => _CategoryPickerSheetState();
+}
+
+class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
+  final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
+  final _scrollController = ScrollController();
+  final _chipScrollController = ScrollController();
+  final _sectionKeys = <String, GlobalKey>{};
+  String _query = '';
+  int _activeGroupIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-focus so users can start typing immediately; the keyboard is
+    // expected to push the sheet to its `isScrollControlled: true` ceiling.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _searchFocusNode.requestFocus();
+      }
+    });
+    _scrollController.addListener(_handleScroll);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _scrollController
+      ..removeListener(_handleScroll)
+      ..dispose();
+    _chipScrollController.dispose();
+    super.dispose();
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_sectionKeys.isEmpty) return;
+    final scrollOffset =
+        _scrollController.offset +
+        _CategoryPickerSheetLayout.searchHeaderExtent;
+    String? currentKey;
+    for (final entry in _sectionKeys.entries) {
+      final ctx = entry.value.currentContext;
+      if (ctx == null) continue;
+      final box = ctx.findRenderObject() as RenderBox?;
+      if (box == null || !box.attached) continue;
+      final position =
+          box.localToGlobal(Offset.zero).dy -
+          _CategoryPickerSheetLayout.bodyTopInset;
+      if (position <= 16) {
+        currentKey = entry.key;
+      } else {
+        break;
+      }
+    }
+    if (currentKey == null) return;
+    final index = widget.groups.indexWhere((group) => group.id == currentKey);
+    if (index >= 0 && index != _activeGroupIndex) {
+      setState(() => _activeGroupIndex = index);
+    }
+    // Best-effort: keep scrollOffset referenced to silence unused warnings if
+    // the heuristic is replaced with an IntersectionObserver later.
+    assert(scrollOffset >= 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final mediaQuery = MediaQuery.of(context);
+    final maxHeight = mediaQuery.size.height * 0.86;
+
+    // Build section map: ordered groups (already sorted by caller) → only the
+    // groups that actually have at least one matching category.
+    final normalizedQuery = _query.trim().toLowerCase();
+    final sections = <_CategorySectionData>[];
+    for (final group in widget.groups) {
+      final members = widget.categories
+          .where((c) => _belongsToGroup(c, group))
+          .where(
+            (c) =>
+                normalizedQuery.isEmpty ||
+                c.name.toLowerCase().contains(normalizedQuery),
+          )
+          .toList(growable: false);
+      if (members.isEmpty) continue;
+      sections.add(_CategorySectionData(group: group, categories: members));
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 4),
+              Text(
+                'Choose category',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
                 ),
+              ),
+              const SizedBox(height: 12),
+              _CategorySearchField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                onChanged: (value) {
+                  setState(() {
+                    _query = value;
+                    // Re-collect section keys because the visible groups can
+                    // change as the query narrows the list.
+                    _sectionKeys.clear();
+                    _activeGroupIndex = 0;
+                  });
+                },
+                onClear: () {
+                  _searchController.clear();
+                  setState(() {
+                    _query = '';
+                    _sectionKeys.clear();
+                    _activeGroupIndex = 0;
+                  });
+                },
+              ),
+              if (normalizedQuery.isEmpty && sections.length > 1) ...[
                 const SizedBox(height: 12),
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: categories.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 6),
-                    itemBuilder: (context, index) {
-                      final category = categories[index];
-                      final selected = category.id == selectedCategoryId;
-                      return _CategoryOptionTile(
-                        category: category,
-                        selected: selected,
-                        onTap: () {
-                          onSelected(category.id);
-                          Navigator.of(context).pop();
-                        },
-                      );
-                    },
-                  ),
+                _CategoryGroupChipBar(
+                  controller: _chipScrollController,
+                  sections: sections,
+                  activeIndex: _activeGroupIndex,
+                  onTap: (index) => _scrollToSection(sections, index),
                 ),
               ],
+              const SizedBox(height: 8),
+              Flexible(
+                child: sections.isEmpty
+                    ? _CategoryEmptyResults(query: _query)
+                    : _CategorySectionList(
+                        scrollController: _scrollController,
+                        sections: sections,
+                        selectedCategoryId: widget.selectedCategoryId,
+                        onCategoryTap: widget.onSelected,
+                        registerSectionKey: (groupId, key) {
+                          _sectionKeys[groupId] = key;
+                        },
+                      ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _scrollToSection(List<_CategorySectionData> sections, int index) {
+    if (index < 0 || index >= sections.length) return;
+    final key = _sectionKeys[sections[index].group.id];
+    final ctx = key?.currentContext;
+    if (ctx == null) return;
+    setState(() => _activeGroupIndex = index);
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      alignment: 0.02,
+    );
+  }
+}
+
+/// Mirrors [CategoryManagementScreen._belongsToGroup] so a custom category
+/// with a null/empty `groupId` is filed under the "Other" catch-all group.
+bool _belongsToGroup(Category category, CategoryGroup group) {
+  if (group.id == CategoryGroupDefaults.unfiledGroupId) {
+    return category.groupId == group.id ||
+        category.groupId == null ||
+        category.groupId!.isEmpty;
+  }
+  return category.groupId == group.id;
+}
+
+/// Layout constants shared by the search/chip/scroll sync logic. Kept here so
+/// the scroll handler can re-create the same Y offset the layout produces.
+class _CategoryPickerSheetLayout {
+  static const double searchHeaderExtent = 168;
+  static const double bodyTopInset = 8;
+}
+
+class _CategorySectionData {
+  const _CategorySectionData({required this.group, required this.categories});
+
+  final CategoryGroup group;
+  final List<Category> categories;
+}
+
+class _CategorySearchField extends StatelessWidget {
+  const _CategorySearchField({
+    required this.controller,
+    required this.focusNode,
+    required this.onChanged,
+    required this.onClear,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: TextField(
+        key: const Key('transaction-category-search-field'),
+        controller: controller,
+        focusNode: focusNode,
+        textInputAction: TextInputAction.search,
+        onChanged: onChanged,
+        decoration: InputDecoration(
+          hintText: 'Search categories',
+          prefixIcon: const Icon(Icons.search, size: 20),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 12,
+          ),
+          filled: true,
+          fillColor: theme.colorScheme.surface,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(
+              color: theme.colorScheme.primary,
+              width: 1.4,
             ),
+          ),
+          suffixIcon: controller.text.isEmpty
+              ? null
+              : IconButton(
+                  key: const Key('transaction-category-search-clear'),
+                  tooltip: 'Clear search',
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: onClear,
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryGroupChipBar extends StatelessWidget {
+  const _CategoryGroupChipBar({
+    required this.controller,
+    required this.sections,
+    required this.activeIndex,
+    required this.onTap,
+  });
+
+  final ScrollController controller;
+  final List<_CategorySectionData> sections;
+  final int activeIndex;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        key: const Key('transaction-category-group-chips'),
+        controller: controller,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: sections.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final section = sections[index];
+          final color = aikoHexColor(section.group.color);
+          final selected = index == activeIndex;
+          return _CategoryGroupChip(
+            label: section.group.name,
+            count: section.categories.length,
+            color: color,
+            selected: selected,
+            onTap: () => onTap(index),
+            groupId: section.group.id,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CategoryGroupChip extends StatelessWidget {
+  const _CategoryGroupChip({
+    required this.label,
+    required this.count,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+    required this.groupId,
+  });
+
+  final String label;
+  final int count;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+  final String groupId;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: selected
+          ? color.withValues(alpha: 0.14)
+          : theme.colorScheme.surface,
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: selected
+              ? color.withValues(alpha: 0.55)
+              : theme.colorScheme.outlineVariant,
+          width: selected ? 1.2 : 1,
+        ),
+      ),
+      child: InkWell(
+        key: Key('transaction-category-group-chip-$groupId'),
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: selected ? color : theme.colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? color.withValues(alpha: 0.22)
+                      : theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$count',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: selected
+                        ? color
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategorySectionList extends StatelessWidget {
+  const _CategorySectionList({
+    required this.scrollController,
+    required this.sections,
+    required this.selectedCategoryId,
+    required this.onCategoryTap,
+    required this.registerSectionKey,
+  });
+
+  final ScrollController scrollController;
+  final List<_CategorySectionData> sections;
+  final String? selectedCategoryId;
+  final ValueChanged<String> onCategoryTap;
+  final void Function(String groupId, GlobalKey key) registerSectionKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      key: const Key('transaction-category-section-list'),
+      controller: scrollController,
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      itemCount: sections.length,
+      itemBuilder: (context, index) {
+        final section = sections[index];
+        final key = GlobalKey(
+          debugLabel: 'category-section-${section.group.id}',
+        );
+        // Register on this build so the parent can resolve the section
+        // position for the chip-tap jump scroll.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          registerSectionKey(section.group.id, key);
+        });
+        return Padding(
+          key: key,
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _CategoryGroupSection(
+            section: section,
+            selectedCategoryId: selectedCategoryId,
+            onCategoryTap: onCategoryTap,
           ),
         );
       },
@@ -2262,8 +2736,114 @@ class _CategoryPicker extends StatelessWidget {
   }
 }
 
-class _CategoryOptionTile extends StatelessWidget {
-  const _CategoryOptionTile({
+class _CategoryGroupSection extends StatelessWidget {
+  const _CategoryGroupSection({
+    required this.section,
+    required this.selectedCategoryId,
+    required this.onCategoryTap,
+  });
+
+  final _CategorySectionData section;
+  final String? selectedCategoryId;
+  final ValueChanged<String> onCategoryTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = aikoHexColor(section.group.color);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                aikoCategoryIcon(section.group.icon),
+                color: color,
+                size: 14,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                section.group.name,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              '${section.categories.length}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _CategoryCardGrid(
+          categories: section.categories,
+          selectedCategoryId: selectedCategoryId,
+          onTap: onCategoryTap,
+        ),
+      ],
+    );
+  }
+}
+
+class _CategoryCardGrid extends StatelessWidget {
+  const _CategoryCardGrid({
+    required this.categories,
+    required this.selectedCategoryId,
+    required this.onTap,
+  });
+
+  final List<Category> categories;
+  final String? selectedCategoryId;
+  final ValueChanged<String> onTap;
+
+  static const double _spacing = 8;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 2 columns on most phones; 3 columns on wider surfaces.
+        final crossAxisCount = constraints.maxWidth >= 360 ? 2 : 1;
+        final usableWidth =
+            constraints.maxWidth - _spacing * (crossAxisCount - 1);
+        final cardWidth = usableWidth / crossAxisCount;
+        return Wrap(
+          spacing: _spacing,
+          runSpacing: _spacing,
+          children: [
+            for (final category in categories)
+              SizedBox(
+                width: cardWidth,
+                child: _CategoryGridCard(
+                  category: category,
+                  selected: category.id == selectedCategoryId,
+                  onTap: () => onTap(category.id),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _CategoryGridCard extends StatelessWidget {
+  const _CategoryGridCard({
     required this.category,
     required this.selected,
     required this.onTap,
@@ -2275,39 +2855,102 @@ class _CategoryOptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _categoryColorFrom(category);
     final theme = Theme.of(context);
+    final color = _categoryColorFrom(category);
+    final surface = theme.colorScheme.surface;
+    final fillColor = selected ? color.withValues(alpha: 0.12) : surface;
+    final borderColor = selected
+        ? color.withValues(alpha: 0.6)
+        : theme.colorScheme.outlineVariant;
 
     return Material(
-      color: selected
-          ? color.withValues(alpha: 0.10)
-          : theme.colorScheme.surface,
+      color: fillColor,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(
-          color: selected
-              ? color.withValues(alpha: 0.45)
-              : theme.colorScheme.outlineVariant,
-        ),
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: borderColor, width: selected ? 1.2 : 1),
       ),
-      child: ListTile(
+      child: InkWell(
         key: Key('transaction-category-option-${category.id}'),
-        dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-        leading: _CategoryMark(category: category, fallbackColor: color),
-        title: Text(
-          category.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w800,
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _categoryIconFor(category.icon),
+                  color: color,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  category.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (selected)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Icon(Icons.check_circle, color: color, size: 18),
+                ),
+            ],
           ),
         ),
-        subtitle: Text(_categoryGroupLabel(category.group)),
-        trailing: selected
-            ? Icon(Icons.check_circle, color: color)
-            : const Icon(Icons.chevron_right, size: 18),
-        onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _CategoryEmptyResults extends StatelessWidget {
+  const _CategoryEmptyResults({required this.query});
+
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 40, 16, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.search_off,
+            size: 36,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            query.isEmpty ? 'No categories' : 'No matches for "$query"',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (query.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Try a different keyword or pick a group above.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -146,6 +146,30 @@ abstract class AppLocalizations {
   /// **'Menu'**
   String get menuTab;
 
+  /// No description provided for @accountsTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounts'**
+  String get accountsTab;
+
+  /// No description provided for @categoriesTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories'**
+  String get categoriesTab;
+
+  /// No description provided for @planningGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Planning'**
+  String get planningGroup;
+
+  /// No description provided for @menuTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Menu'**
+  String get menuTitle;
+
   /// No description provided for @moreTab.
   ///
   /// In en, this message translates to:

@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../app/providers.dart';
 import '../../../../core/money/money.dart';
+import '../../../transactions/domain/transaction.dart';
 import '../../domain/account.dart';
 import '../../domain/account_details.dart';
 import '../../domain/account_type.dart';
@@ -35,6 +36,7 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
   final _nameController = TextEditingController();
   final _balanceController = TextEditingController();
   final _institutionController = TextEditingController();
+  final _currencyController = TextEditingController();
 
   late AccountType _type;
   late String _currency;
@@ -64,6 +66,7 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
     _includeInNetWorth = a?.includeInNetWorth ?? true;
     _isActive = a?.isActive ?? true;
     _subformKey = GlobalKey<AccountSubformState>();
+    _currencyController.text = _currency;
   }
 
   @override
@@ -71,6 +74,7 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
     _nameController.dispose();
     _balanceController.dispose();
     _institutionController.dispose();
+    _currencyController.dispose();
     super.dispose();
   }
 
@@ -115,60 +119,102 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
       child: switch (_type) {
         AccountType.cash => const CashSubform(),
         AccountType.bank => BankSubform(
-            key: const ValueKey('bank'),
-            initial: _details as BankDetails,
-            onChanged: (d) => setState(() => _details = d),
-          ),
+          key: const ValueKey('bank'),
+          initial: _details as BankDetails,
+          onChanged: (d) => setState(() => _details = d),
+        ),
         AccountType.eWallet => EWalletSubform(
-            key: const ValueKey('ew'),
-            initial: _details as EWalletDetails,
-            onChanged: (d) => setState(() => _details = d),
-          ),
+          key: const ValueKey('ew'),
+          initial: _details as EWalletDetails,
+          onChanged: (d) => setState(() => _details = d),
+        ),
         AccountType.creditCard => CreditCardSubform(
-            key: _subformKey,
-            initial: _details as CreditCardDetails,
-            availableCards: allCards
-                .where((a) => a.id != widget.account?.id)
-                .toList(),
-            onChanged: (d) => setState(() => _details = d),
-          ),
+          key: _subformKey,
+          initial: _details as CreditCardDetails,
+          availableCards: allCards
+              .where((a) => a.id != widget.account?.id)
+              .toList(),
+          onChanged: (d) => setState(() => _details = d),
+        ),
         AccountType.loan => LoanSubform(
-            key: _subformKey,
-            initial: _details as LoanDetails,
-            currency: _currency,
-            onChanged: (d) => setState(() => _details = d),
-          ),
+          key: _subformKey,
+          initial: _details as LoanDetails,
+          currency: _currency,
+          onChanged: (d) => setState(() => _details = d),
+        ),
         AccountType.investment => InvestmentSubform(
-            key: const ValueKey('inv'),
-            initial: _details as InvestmentDetails,
-            onChanged: (d) => setState(() => _details = d),
-          ),
+          key: const ValueKey('inv'),
+          initial: _details as InvestmentDetails,
+          onChanged: (d) => setState(() => _details = d),
+        ),
         AccountType.asset => AssetSubform(
-            key: _subformKey,
-            initial: _details as AssetDetails,
-            currency: _currency,
-            onChanged: (d) => setState(() => _details = d),
-          ),
+          key: _subformKey,
+          initial: _details as AssetDetails,
+          currency: _currency,
+          onChanged: (d) => setState(() => _details = d),
+        ),
         AccountType.liability => LiabilitySubform(
-            key: const ValueKey('liab'),
-            initial: _details as LiabilityDetails,
-            onChanged: (d) => setState(() => _details = d),
-          ),
+          key: const ValueKey('liab'),
+          initial: _details as LiabilityDetails,
+          onChanged: (d) => setState(() => _details = d),
+        ),
         AccountType.other => OtherSubform(
-            key: const ValueKey('other'),
-            initial: _details as OtherDetails,
-            onChanged: (d) => setState(() => _details = d),
-          ),
+          key: const ValueKey('other'),
+          initial: _details as OtherDetails,
+          onChanged: (d) => setState(() => _details = d),
+        ),
       },
     );
+  }
+
+  void _showSnack(BuildContext context, String message) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+      ),
+    );
+  }
+
+  Future<void> _createInitialBalanceTransaction(Account account) async {
+    final amount = account.currentBalance.amount;
+    if (amount == Decimal.zero) {
+      return;
+    }
+
+    final isNegative = amount < Decimal.zero;
+    final transactionAmount = Money(
+      amount: isNegative ? Decimal.zero - amount : amount,
+      currency: account.currentBalance.currency,
+    );
+
+    await ref
+        .read(transactionsProvider.notifier)
+        .addTransaction(
+          FinanceTransaction(
+            id: const Uuid().v4(),
+            userId: account.userId,
+            accountId: account.id,
+            type: isNegative ? TransactionType.expense : TransactionType.income,
+            amount: transactionAmount,
+            date: DateTime.now(),
+            merchant: 'Initial balance',
+            note: 'Created from account starting balance',
+          ),
+          updateAccountBalance: false,
+        );
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final subError = _subformKey?.currentState?.validate();
     if (subError != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(subError)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(subError)));
       return;
     }
     final latest = _subformKey?.currentState?.getDetails() ?? _details;
@@ -195,15 +241,27 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
       AccountValidator.validate(account, allAccounts: all);
       await ref.read(accountsProvider.notifier).saveAccount(account);
       if (!mounted) return;
+      if (widget.account == null) {
+        await _createInitialBalanceTransaction(account);
+      }
+      if (!mounted) return;
       Navigator.of(context).pop(account);
+      _showSnack(
+        context,
+        widget.account == null
+            ? 'Account "${account.name}" created.'
+            : 'Account "${account.name}" updated.',
+      );
     } on AccountValidationException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Save failed: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -228,10 +286,9 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
             children: [
               Text(
                 widget.account == null ? 'Add account' : 'Edit account',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w700),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -246,24 +303,26 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
                 nameController: _nameController,
                 balanceController: _balanceController,
                 institutionController: _institutionController,
-                onChanged: ({
-                  String? name,
-                  AccountType? type,
-                  String? currency,
-                  String? balance,
-                  String? institution,
-                  bool? includeInNetWorth,
-                  bool? isActive,
-                }) {
-                  if (type != null) _changeType(type);
-                  setState(() {
-                    if (currency != null) _currency = currency;
-                    if (includeInNetWorth != null) {
-                      _includeInNetWorth = includeInNetWorth;
-                    }
-                    if (isActive != null) _isActive = isActive;
-                  });
-                },
+                currencyController: _currencyController,
+                onChanged:
+                    ({
+                      String? name,
+                      AccountType? type,
+                      String? currency,
+                      String? balance,
+                      String? institution,
+                      bool? includeInNetWorth,
+                      bool? isActive,
+                    }) {
+                      if (type != null) _changeType(type);
+                      setState(() {
+                        if (currency != null) _currency = currency;
+                        if (includeInNetWorth != null) {
+                          _includeInNetWorth = includeInNetWorth;
+                        }
+                        if (isActive != null) _isActive = isActive;
+                      });
+                    },
               ),
               const SizedBox(height: 16),
               _buildSubform(accountsAsync),
@@ -280,7 +339,7 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
                       )
                     : const Icon(Icons.check),
                 label: Text(
-                  widget.account == null ? 'Create account' : 'Save changes',
+                  widget.account == null ? 'Create Account' : 'Save Changes',
                 ),
               ),
             ],

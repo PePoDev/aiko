@@ -24,19 +24,27 @@ class _BankSubformState extends AccountSubformState<BankSubform> {
   @override
   void initState() {
     super.initState();
-    _last4 = TextEditingController(text: widget.initial.accountNumberLast4 ?? '');
-    _holder = TextEditingController(text: widget.initial.accountHolderName ?? '');
+    _last4 = TextEditingController(
+      text: widget.initial.accountNumberLast4 ?? '',
+    );
+    _holder = TextEditingController(
+      text: widget.initial.accountHolderName ?? '',
+    );
     _last4.addListener(_emit);
     _holder.addListener(_emit);
   }
 
   void _emit() {
-    widget.onChanged(BankDetails(
-      accountNumberLast4:
-          _last4.text.trim().isEmpty ? null : _last4.text.trim(),
-      accountHolderName:
-          _holder.text.trim().isEmpty ? null : _holder.text.trim(),
-    ));
+    widget.onChanged(
+      BankDetails(
+        accountNumberLast4: _last4.text.trim().isEmpty
+            ? null
+            : _last4.text.trim(),
+        accountHolderName: _holder.text.trim().isEmpty
+            ? null
+            : _holder.text.trim(),
+      ),
+    );
   }
 
   @override
@@ -48,11 +56,9 @@ class _BankSubformState extends AccountSubformState<BankSubform> {
 
   @override
   AccountDetails getDetails() => BankDetails(
-        accountNumberLast4:
-            _last4.text.trim().isEmpty ? null : _last4.text.trim(),
-        accountHolderName:
-            _holder.text.trim().isEmpty ? null : _holder.text.trim(),
-      );
+    accountNumberLast4: _last4.text.trim().isEmpty ? null : _last4.text.trim(),
+    accountHolderName: _holder.text.trim().isEmpty ? null : _holder.text.trim(),
+  );
 
   @override
   String? validate() => null;

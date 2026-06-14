@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/aiko_navigation.dart';
 import '../../../app/providers.dart';
 import '../../../app/locale_controller.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/profile.dart';
@@ -17,7 +18,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  Future<void> _showLanguageSettings(Locale currentLocale) async {
+  Future<void> _showLanguageSettings(AppLocaleState localeState) async {
     await showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -39,6 +40,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
+                ListTile(
+                  key: const ValueKey('language-option-system'),
+                  leading: const Icon(
+                    Icons.smartphone,
+                    color: AikoColors.primaryBlue,
+                  ),
+                  title: const Text('System default'),
+                  subtitle: Text(_deviceLanguageSubtitle(localeState.locale)),
+                  trailing: localeState.followsSystem
+                      ? const Icon(
+                          Icons.check_circle,
+                          color: AikoColors.successGreen,
+                        )
+                      : null,
+                  onTap: () async {
+                    await ref
+                        .read(appLocaleControllerProvider.notifier)
+                        .followSystemLocale();
+                    if (!context.mounted) {
+                      return;
+                    }
+                    Navigator.pop(context);
+                  },
+                ),
+                const Divider(height: 1),
                 for (final option in _languageOptions)
                   ListTile(
                     key: ValueKey('language-option-${option.languageCode}'),
@@ -51,7 +77,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     title: Text(option.label),
                     subtitle: Text(option.nativeLabel),
-                    trailing: currentLocale.languageCode == option.languageCode
+                    trailing:
+                        !localeState.followsSystem &&
+                            localeState.locale.languageCode ==
+                                option.languageCode
                         ? const Icon(
                             Icons.check_circle,
                             color: AikoColors.successGreen,
@@ -138,15 +167,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentLocale =
-        ref.watch(appLocaleControllerProvider).asData?.value ??
-        AppLocaleController.fallbackLocale;
-    final currentLanguage = _languageLabelFor(currentLocale);
+    final localeState = ref.watch(appLocaleControllerProvider).asData?.value;
+    final locale = localeState?.locale ?? AppLocaleController.fallbackLocale;
+    final currentLanguage = localeState == null
+        ? _languageLabelFor(locale)
+        : localeState.followsSystem
+        ? 'System default (${_languageLabelFor(locale)})'
+        : _languageLabelFor(locale);
     final profileAsync = ref.watch(profileProvider);
     final profile = profileAsync.asData?.value;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: Text(AppLocalizations.of(context).menuTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         children: [
@@ -185,7 +217,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   icon: Icons.language,
                   title: 'Language',
                   subtitle: currentLanguage,
-                  onTap: () => _showLanguageSettings(currentLocale),
+                  onTap: () => _showLanguageSettings(
+                    localeState ??
+                        AppLocaleState(
+                          locale: AppLocaleController.fallbackLocale,
+                          followsSystem: true,
+                        ),
+                  ),
                 ),
               ],
             ),
@@ -224,6 +262,10 @@ String _languageLabelFor(Locale locale) {
     }
   }
   return 'Thai (ไทย)';
+}
+
+String _deviceLanguageSubtitle(Locale deviceLocale) {
+  return 'Follow device language (${_languageLabelFor(deviceLocale)})';
 }
 
 String _themeLabel(PreferredTheme theme) {
@@ -298,6 +340,7 @@ class _SettingsNavigationGroupCard extends StatelessWidget {
 
   IconData _iconForGroup(String title) {
     return switch (title) {
+      'Planning' => Icons.route_outlined,
       'Insights and AI' => Icons.auto_awesome_outlined,
       'Tools and Data' => Icons.widgets_outlined,
       'Settings and Security' => Icons.admin_panel_settings_outlined,
@@ -307,6 +350,7 @@ class _SettingsNavigationGroupCard extends StatelessWidget {
 
   Color _colorForGroup(String title) {
     return switch (title) {
+      'Planning' => AikoColors.successGreen,
       'Insights and AI' => AikoColors.premiumPurple,
       'Tools and Data' => AikoColors.analyticsTeal,
       'Settings and Security' => AikoColors.primaryBlue,

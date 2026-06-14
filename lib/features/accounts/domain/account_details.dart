@@ -15,16 +15,15 @@ sealed class AccountDetails {
       AccountType.cash => const CashDetails(),
       AccountType.bank => const BankDetails(),
       AccountType.eWallet => const EWalletDetails(),
-      AccountType.creditCard =>
-        CreditCardDetails(statementDay: 1, dueDay: 1),
+      AccountType.creditCard => CreditCardDetails(statementDay: 1, dueDay: 1),
       AccountType.loan => LoanDetails(
-          loanType: LoanType.other,
-          principal: Money.zero('USD'),
-          interestRatePercent: 0,
-          termMonths: 1,
-          monthlyPayment: Money.zero('USD'),
-          nextDueDate: DateTime.utc(1970, 1, 1),
-        ),
+        loanType: LoanType.other,
+        principal: Money.zero('USD'),
+        interestRatePercent: 0,
+        termMonths: 1,
+        monthlyPayment: Money.zero('USD'),
+        nextDueDate: DateTime.utc(1970, 1, 1),
+      ),
       AccountType.investment => const InvestmentDetails(),
       AccountType.asset => const AssetDetails(assetClass: AssetClass.other),
       AccountType.liability => const LiabilityDetails(),
@@ -52,11 +51,10 @@ class BankDetails extends AccountDetails {
   BankDetails copyWith({
     String? accountNumberLast4,
     String? accountHolderName,
-  }) =>
-      BankDetails(
-        accountNumberLast4: accountNumberLast4 ?? this.accountNumberLast4,
-        accountHolderName: accountHolderName ?? this.accountHolderName,
-      );
+  }) => BankDetails(
+    accountNumberLast4: accountNumberLast4 ?? this.accountNumberLast4,
+    accountHolderName: accountHolderName ?? this.accountHolderName,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -75,13 +73,12 @@ class EWalletDetails extends AccountDetails {
   String get variantName => 'eWallet';
 
   EWalletDetails copyWith({String? linkedPhoneOrEmail}) => EWalletDetails(
-        linkedPhoneOrEmail: linkedPhoneOrEmail ?? this.linkedPhoneOrEmail,
-      );
+    linkedPhoneOrEmail: linkedPhoneOrEmail ?? this.linkedPhoneOrEmail,
+  );
 
   @override
   bool operator ==(Object other) =>
-      other is EWalletDetails &&
-      other.linkedPhoneOrEmail == linkedPhoneOrEmail;
+      other is EWalletDetails && other.linkedPhoneOrEmail == linkedPhoneOrEmail;
 
   @override
   int get hashCode => linkedPhoneOrEmail.hashCode;
@@ -123,20 +120,19 @@ class CreditCardDetails extends AccountDetails {
     bool? sharesLimit,
     String? sharedLimitAccountId,
     bool clearSharedLimitAccountId = false,
-  }) =>
-      CreditCardDetails(
-        creditLimit: creditLimit ?? this.creditLimit,
-        statementDay: statementDay ?? this.statementDay,
-        dueDay: dueDay ?? this.dueDay,
-        aprPercent: aprPercent ?? this.aprPercent,
-        rewardsType: rewardsType ?? this.rewardsType,
-        annualFee: annualFee ?? this.annualFee,
-        minimumPayment: minimumPayment ?? this.minimumPayment,
-        sharesLimit: sharesLimit ?? this.sharesLimit,
-        sharedLimitAccountId: clearSharedLimitAccountId
-            ? null
-            : (sharedLimitAccountId ?? this.sharedLimitAccountId),
-      );
+  }) => CreditCardDetails(
+    creditLimit: creditLimit ?? this.creditLimit,
+    statementDay: statementDay ?? this.statementDay,
+    dueDay: dueDay ?? this.dueDay,
+    aprPercent: aprPercent ?? this.aprPercent,
+    rewardsType: rewardsType ?? this.rewardsType,
+    annualFee: annualFee ?? this.annualFee,
+    minimumPayment: minimumPayment ?? this.minimumPayment,
+    sharesLimit: sharesLimit ?? this.sharesLimit,
+    sharedLimitAccountId: clearSharedLimitAccountId
+        ? null
+        : (sharedLimitAccountId ?? this.sharedLimitAccountId),
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -153,16 +149,16 @@ class CreditCardDetails extends AccountDetails {
 
   @override
   int get hashCode => Object.hash(
-        creditLimit,
-        statementDay,
-        dueDay,
-        aprPercent,
-        rewardsType,
-        annualFee,
-        minimumPayment,
-        sharesLimit,
-        sharedLimitAccountId,
-      );
+    creditLimit,
+    statementDay,
+    dueDay,
+    aprPercent,
+    rewardsType,
+    annualFee,
+    minimumPayment,
+    sharesLimit,
+    sharedLimitAccountId,
+  );
 }
 
 class LoanDetails extends AccountDetails {
@@ -191,15 +187,14 @@ class LoanDetails extends AccountDetails {
     int? termMonths,
     Money? monthlyPayment,
     DateTime? nextDueDate,
-  }) =>
-      LoanDetails(
-        loanType: loanType ?? this.loanType,
-        principal: principal ?? this.principal,
-        interestRatePercent: interestRatePercent ?? this.interestRatePercent,
-        termMonths: termMonths ?? this.termMonths,
-        monthlyPayment: monthlyPayment ?? this.monthlyPayment,
-        nextDueDate: nextDueDate ?? this.nextDueDate,
-      );
+  }) => LoanDetails(
+    loanType: loanType ?? this.loanType,
+    principal: principal ?? this.principal,
+    interestRatePercent: interestRatePercent ?? this.interestRatePercent,
+    termMonths: termMonths ?? this.termMonths,
+    monthlyPayment: monthlyPayment ?? this.monthlyPayment,
+    nextDueDate: nextDueDate ?? this.nextDueDate,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -213,13 +208,13 @@ class LoanDetails extends AccountDetails {
 
   @override
   int get hashCode => Object.hash(
-        loanType,
-        principal,
-        interestRatePercent,
-        termMonths,
-        monthlyPayment,
-        nextDueDate,
-      );
+    loanType,
+    principal,
+    interestRatePercent,
+    termMonths,
+    monthlyPayment,
+    nextDueDate,
+  );
 }
 
 class InvestmentDetails extends AccountDetails {
@@ -229,8 +224,8 @@ class InvestmentDetails extends AccountDetails {
   String get variantName => 'investment';
 
   InvestmentDetails copyWith({String? accountNumberLast4}) => InvestmentDetails(
-        accountNumberLast4: accountNumberLast4 ?? this.accountNumberLast4,
-      );
+    accountNumberLast4: accountNumberLast4 ?? this.accountNumberLast4,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -260,13 +255,12 @@ class AssetDetails extends AccountDetails {
     Money? purchasePrice,
     DateTime? purchaseDate,
     String? notes,
-  }) =>
-      AssetDetails(
-        assetClass: assetClass ?? this.assetClass,
-        purchasePrice: purchasePrice ?? this.purchasePrice,
-        purchaseDate: purchaseDate ?? this.purchaseDate,
-        notes: notes ?? this.notes,
-      );
+  }) => AssetDetails(
+    assetClass: assetClass ?? this.assetClass,
+    purchasePrice: purchasePrice ?? this.purchasePrice,
+    purchaseDate: purchaseDate ?? this.purchaseDate,
+    notes: notes ?? this.notes,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -297,12 +291,11 @@ class LiabilityDetails extends AccountDetails {
     String? liabilityType,
     double? interestRatePercent,
     String? notes,
-  }) =>
-      LiabilityDetails(
-        liabilityType: liabilityType ?? this.liabilityType,
-        interestRatePercent: interestRatePercent ?? this.interestRatePercent,
-        notes: notes ?? this.notes,
-      );
+  }) => LiabilityDetails(
+    liabilityType: liabilityType ?? this.liabilityType,
+    interestRatePercent: interestRatePercent ?? this.interestRatePercent,
+    notes: notes ?? this.notes,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -312,8 +305,7 @@ class LiabilityDetails extends AccountDetails {
       other.notes == notes;
 
   @override
-  int get hashCode =>
-      Object.hash(liabilityType, interestRatePercent, notes);
+  int get hashCode => Object.hash(liabilityType, interestRatePercent, notes);
 }
 
 class OtherDetails extends AccountDetails {

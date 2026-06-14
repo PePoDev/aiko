@@ -50,14 +50,16 @@ class _LoanSubformState extends AccountSubformState<LoanSubform> {
   }
 
   void _emit() {
-    widget.onChanged(LoanDetails(
-      loanType: _type,
-      principal: _parseMoney(_principal.text),
-      interestRatePercent: double.tryParse(_apr.text.trim()) ?? 0,
-      termMonths: int.tryParse(_term.text.trim()) ?? 0,
-      monthlyPayment: _parseMoney(_payment.text),
-      nextDueDate: _due,
-    ));
+    widget.onChanged(
+      LoanDetails(
+        loanType: _type,
+        principal: _parseMoney(_principal.text),
+        interestRatePercent: double.tryParse(_apr.text.trim()) ?? 0,
+        termMonths: int.tryParse(_term.text.trim()) ?? 0,
+        monthlyPayment: _parseMoney(_payment.text),
+        nextDueDate: _due,
+      ),
+    );
   }
 
   Money _parseMoney(String raw) {
@@ -85,13 +87,13 @@ class _LoanSubformState extends AccountSubformState<LoanSubform> {
 
   @override
   AccountDetails getDetails() => LoanDetails(
-        loanType: _type,
-        principal: _parseMoney(_principal.text),
-        interestRatePercent: double.tryParse(_apr.text.trim()) ?? 0,
-        termMonths: int.tryParse(_term.text.trim()) ?? 0,
-        monthlyPayment: _parseMoney(_payment.text),
-        nextDueDate: _due,
-      );
+    loanType: _type,
+    principal: _parseMoney(_principal.text),
+    interestRatePercent: double.tryParse(_apr.text.trim()) ?? 0,
+    termMonths: int.tryParse(_term.text.trim()) ?? 0,
+    monthlyPayment: _parseMoney(_payment.text),
+    nextDueDate: _due,
+  );
 
   @override
   String? validate() {
@@ -125,12 +127,7 @@ class _LoanSubformState extends AccountSubformState<LoanSubform> {
             prefixIcon: Icon(Icons.handshake_outlined),
           ),
           items: LoanType.values
-              .map(
-                (t) => DropdownMenuItem(
-                  value: t,
-                  child: Text(t.name),
-                ),
-              )
+              .map((t) => DropdownMenuItem(value: t, child: Text(t.name)))
               .toList(),
           onChanged: (v) {
             if (v != null) {

@@ -33,6 +33,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get menuTab => 'Menu';
 
   @override
+  String get accountsTab => 'Accounts';
+
+  @override
+  String get categoriesTab => 'Categories';
+
+  @override
+  String get planningGroup => 'Planning';
+
+  @override
+  String get menuTitle => 'Menu';
+
+  @override
   String get moreTab => 'More';
 
   @override

@@ -36,11 +36,13 @@ class _LiabilitySubformState extends AccountSubformState<LiabilitySubform> {
   }
 
   void _emit() {
-    widget.onChanged(LiabilityDetails(
-      liabilityType: _type.text.trim().isEmpty ? null : _type.text.trim(),
-      interestRatePercent: double.tryParse(_apr.text.trim()),
-      notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-    ));
+    widget.onChanged(
+      LiabilityDetails(
+        liabilityType: _type.text.trim().isEmpty ? null : _type.text.trim(),
+        interestRatePercent: double.tryParse(_apr.text.trim()),
+        notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+      ),
+    );
   }
 
   @override
@@ -53,10 +55,10 @@ class _LiabilitySubformState extends AccountSubformState<LiabilitySubform> {
 
   @override
   AccountDetails getDetails() => LiabilityDetails(
-        liabilityType: _type.text.trim().isEmpty ? null : _type.text.trim(),
-        interestRatePercent: double.tryParse(_apr.text.trim()),
-        notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-      );
+    liabilityType: _type.text.trim().isEmpty ? null : _type.text.trim(),
+    interestRatePercent: double.tryParse(_apr.text.trim()),
+    notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+  );
 
   @override
   String? validate() {

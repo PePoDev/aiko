@@ -33,6 +33,18 @@ class AppLocalizationsTh extends AppLocalizations {
   String get menuTab => 'เมนู';
 
   @override
+  String get accountsTab => 'บัญชี';
+
+  @override
+  String get categoriesTab => 'หมวดหมู่';
+
+  @override
+  String get planningGroup => 'การวางแผน';
+
+  @override
+  String get menuTitle => 'เมนู';
+
+  @override
   String get moreTab => 'เพิ่มเติม';
 
   @override

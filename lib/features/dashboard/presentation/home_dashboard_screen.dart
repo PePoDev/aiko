@@ -47,6 +47,11 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         title: Text(l10n.overview),
         actions: [
           IconButton(
+            tooltip: l10n.menuTitle,
+            onPressed: () => context.push('/settings'),
+            icon: Icon(Icons.menu_rounded, color: actionColor),
+          ),
+          IconButton(
             tooltip: 'Notifications',
             onPressed: () => context.push('/notifications'),
             icon: Icon(Icons.notifications_none, color: actionColor),

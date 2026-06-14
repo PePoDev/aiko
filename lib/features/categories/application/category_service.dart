@@ -13,7 +13,7 @@ class CategoryService {
     return source.copyWith(isActive: false);
   }
 
-  /// Returns the 30 global system categories. [userId] is unused — system
+  /// Returns the 81 global default categories. [userId] is unused — default
   /// categories are global (user_id = NULL in Supabase) and injected
   /// in-memory at the provider layer without per-user storage.
   List<Category> defaultCategoriesFor(String userId) => CategoryDefaults.all;

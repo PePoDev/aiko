@@ -54,8 +54,9 @@ void main() {
     expect(state.validate(), isNotNull);
   });
 
-  testWidgets('sharesLimit toggle reveals picker and emits null limit',
-      (tester) async {
+  testWidgets('sharesLimit toggle reveals picker and emits null limit', (
+    tester,
+  ) async {
     final parent = Account(
       id: 'parent',
       userId: 'u',

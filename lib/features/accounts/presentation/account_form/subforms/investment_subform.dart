@@ -22,16 +22,20 @@ class _InvestmentSubformState extends AccountSubformState<InvestmentSubform> {
   @override
   void initState() {
     super.initState();
-    _last4 =
-        TextEditingController(text: widget.initial.accountNumberLast4 ?? '');
+    _last4 = TextEditingController(
+      text: widget.initial.accountNumberLast4 ?? '',
+    );
     _last4.addListener(_emit);
   }
 
   void _emit() {
-    widget.onChanged(InvestmentDetails(
-      accountNumberLast4:
-          _last4.text.trim().isEmpty ? null : _last4.text.trim(),
-    ));
+    widget.onChanged(
+      InvestmentDetails(
+        accountNumberLast4: _last4.text.trim().isEmpty
+            ? null
+            : _last4.text.trim(),
+      ),
+    );
   }
 
   @override
@@ -42,9 +46,8 @@ class _InvestmentSubformState extends AccountSubformState<InvestmentSubform> {
 
   @override
   AccountDetails getDetails() => InvestmentDetails(
-        accountNumberLast4:
-            _last4.text.trim().isEmpty ? null : _last4.text.trim(),
-      );
+    accountNumberLast4: _last4.text.trim().isEmpty ? null : _last4.text.trim(),
+  );
 
   @override
   String? validate() => null;

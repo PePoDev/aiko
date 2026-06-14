@@ -9,8 +9,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  _defaultsInvariantsTests();
+
   testWidgets(
-    'expense tab shows the system group by default and switches to income',
+    'expense tab shows the Other group by default and switches to income',
     (tester) async {
       await tester.pumpWidget(
         ProviderScope(
@@ -80,7 +82,7 @@ void main() {
         tester.widget<TabBar>(find.byType(TabBar)).labelColor,
         AikoColors.dangerRed,
       );
-      expect(find.text('System'), findsOneWidget);
+      expect(find.text('Other'), findsOneWidget);
       expect(find.text('Salary'), findsNothing);
       expect(find.text('Side Hustle'), findsNothing);
       expect(find.text('Groceries'), findsOneWidget);
@@ -186,26 +188,26 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Expense tab: Household (rent + utilities) and System (pet care, an
-    // unfiled custom category that the System group absorbs).
+    // Expense tab: Household (rent + utilities) and Other (pet care, an
+    // unfiled custom category that the Other group absorbs).
     expect(find.text('Household'), findsOneWidget);
     expect(find.text('Side Income'), findsNothing);
-    expect(find.text('System'), findsOneWidget);
+    expect(find.text('Other'), findsOneWidget);
     expect(find.text('Rent'), findsOneWidget);
     expect(find.text('Utilities'), findsOneWidget);
     expect(find.text('Pet Care'), findsOneWidget);
     expect(find.text('Freelance'), findsNothing);
 
-    // The Household group should be the first expense group, and the System
+    // The Household group should be the first expense group, and the Other
     // group follows it.
     final householdFinder = find.text('Household');
-    final systemFinder = find.text('System');
+    final otherFinder = find.text('Other');
     expect(
       tester.getTopLeft(householdFinder).dy,
-      lessThan(tester.getTopLeft(systemFinder).dy),
+      lessThan(tester.getTopLeft(otherFinder).dy),
     );
 
-    // Switch to Income tab: Side Income (freelance); the System group is empty
+    // Switch to Income tab: Side Income (freelance); the Other group is empty
     // here because the income default/unfiled categories aren't seeded.
     await tester.drag(find.byType(TabBarView), const Offset(-500, 0));
     await tester.pumpAndSettle();
@@ -496,7 +498,7 @@ void main() {
     final defaultCard = tester.widget<Card>(defaultCardFinder);
     final customCard = tester.widget<Card>(customCardFinder);
 
-    expect(find.text('System'), findsOneWidget);
+    expect(find.text('Other'), findsOneWidget);
     expect(defaultCard.color, customCard.color);
     expect(
       find.descendant(
@@ -730,7 +732,7 @@ void main() {
   });
 
   testWidgets(
-    'system group renders built-ins and unfiled customs, locked and expanded',
+    'Other group renders built-ins and unfiled customs, locked and expanded',
     (tester) async {
       await tester.pumpWidget(
         ProviderScope(
@@ -743,7 +745,7 @@ void main() {
                   name: 'Groceries',
                   type: CategoryType.expense,
                   group: CategoryBudgetGroup.needs,
-                  groupId: CategoryGroupDefaults.systemId,
+                  groupId: CategoryGroupDefaults.unfiledGroupId,
                   icon: 'groceries',
                   color: '#F97316',
                 ),
@@ -772,19 +774,13 @@ void main() {
       await tester.pumpAndSettle();
 
       // Expanded by default: both the built-in and the unfiled custom show.
-      expect(find.text('System'), findsOneWidget);
+      expect(find.text('Other'), findsOneWidget);
       expect(find.byKey(const Key('system-group-section')), findsOneWidget);
       expect(find.text('Groceries'), findsOneWidget);
       expect(find.text('Pet Care'), findsOneWidget);
 
-      // Locked: no edit (tune) button and no in-group add action.
+      // The group is locked (no edit/tune button).
       expect(find.byTooltip('Edit group'), findsNothing);
-      expect(
-        find.byKey(
-          Key('add-category-in-group-${CategoryGroupDefaults.systemId}'),
-        ),
-        findsNothing,
-      );
 
       // The built-in keeps its lock; the unfiled custom does not.
       expect(
@@ -806,7 +802,7 @@ void main() {
     },
   );
 
-  testWidgets('category editor group picker excludes the System group', (
+  testWidgets('category editor group picker offers user and default groups', (
     tester,
   ) async {
     final groups = [
@@ -847,9 +843,9 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    // No System section on screen (the only category is filed under Household),
-    // so any 'System' match below would have to come from the picker.
-    expect(find.text('System'), findsNothing);
+    // The only category is filed under Household, so no Other section renders.
+    // The 'Other' match below would have to come from the picker.
+    expect(find.text('Other'), findsNothing);
 
     await tester.tap(find.text('Coffee'));
     await tester.pumpAndSettle();
@@ -863,9 +859,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // The user group is offered; the read-only System group is not.
+    // Both the user group AND the default groups are offerable as targets
+    // (Decision D4). skipOffstage: false so the assertion holds even when
+    // the long dropdown list scrolls items off the test viewport.
     expect(find.text('Household'), findsWidgets);
-    expect(find.text('System'), findsNothing);
+    expect(find.text('Other', skipOffstage: false), findsWidgets);
   });
 }
 
@@ -883,11 +881,12 @@ class _GroupsNotifier extends CategoryGroupsNotifier {
 
   final List<CategoryGroup> groups;
 
-  // Mirror production: the global System group is always injected last.
+  // Mirror production: the 13 default groups are always injected after the
+  // user's own groups, in their declared display order.
   @override
   Future<List<CategoryGroup>> build() async => [
     ...groups,
-    CategoryGroupDefaults.system,
+    ...CategoryGroupDefaults.all,
   ];
 }
 
@@ -915,4 +914,41 @@ class _DeletingCategoriesNotifier extends _CategoriesNotifier {
       categories.where((category) => category.id != id).toList(growable: false),
     );
   }
+}
+
+void _defaultsInvariantsTests() {
+  test('every default category points at a known default group', () {
+    for (final category in CategoryDefaults.all) {
+      expect(
+        CategoryGroupDefaults.systemIds,
+        contains(category.groupId),
+        reason:
+            'Category ${category.id} (${category.name}) has groupId '
+            '${category.groupId} which is not in CategoryGroupDefaults.systemIds',
+      );
+    }
+  });
+
+  test('CategoryGroupDefaults.all covers every default group exactly once', () {
+    expect(
+      CategoryGroupDefaults.all.map((g) => g.id).toSet(),
+      CategoryGroupDefaults.systemIds,
+    );
+  });
+
+  test('unfiledGroupId is the renamed "Other" group', () {
+    final unfiled = CategoryGroupDefaults.all.firstWhere(
+      (g) => g.id == CategoryGroupDefaults.unfiledGroupId,
+    );
+    expect(unfiled.name, 'Other');
+  });
+
+  test('systemIds is exactly 13', () {
+    expect(CategoryGroupDefaults.systemIds.length, 13);
+  });
+
+  test('CategoryDefaults.allIds has the expected count', () {
+    // 11 income + 70 expense = 81.
+    expect(CategoryDefaults.allIds.length, 81);
+  });
 }

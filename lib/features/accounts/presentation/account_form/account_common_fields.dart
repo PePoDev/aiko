@@ -3,15 +3,16 @@ import 'package:flutter/material.dart';
 
 import '../../domain/account_type.dart';
 
-typedef CommonFieldsCallbacks = void Function({
-  String? name,
-  AccountType? type,
-  String? currency,
-  String? balance,
-  String? institution,
-  bool? includeInNetWorth,
-  bool? isActive,
-});
+typedef CommonFieldsCallbacks =
+    void Function({
+      String? name,
+      AccountType? type,
+      String? currency,
+      String? balance,
+      String? institution,
+      bool? includeInNetWorth,
+      bool? isActive,
+    });
 
 class AccountCommonFields extends StatelessWidget {
   const AccountCommonFields({
@@ -24,6 +25,7 @@ class AccountCommonFields extends StatelessWidget {
     required this.nameController,
     required this.balanceController,
     required this.institutionController,
+    required this.currencyController,
     required this.onChanged,
   });
 
@@ -35,6 +37,7 @@ class AccountCommonFields extends StatelessWidget {
   final TextEditingController nameController;
   final TextEditingController balanceController;
   final TextEditingController institutionController;
+  final TextEditingController currencyController;
   final CommonFieldsCallbacks onChanged;
 
   @override
@@ -47,7 +50,7 @@ class AccountCommonFields extends StatelessWidget {
         TextFormField(
           controller: nameController,
           decoration: const InputDecoration(
-            labelText: 'Account name',
+            labelText: 'Account Name',
             hintText: 'e.g. Daily Expenses, Savings Wallet',
             prefixIcon: Icon(Icons.badge_outlined),
           ),
@@ -60,16 +63,11 @@ class AccountCommonFields extends StatelessWidget {
         DropdownButtonFormField<AccountType>(
           initialValue: initialType,
           decoration: const InputDecoration(
-            labelText: 'Account type',
+            labelText: 'Account Type',
             prefixIcon: Icon(Icons.account_balance_wallet_outlined),
           ),
           items: AccountType.values
-              .where(
-                (t) => t != AccountType.eWallet && t != AccountType.other,
-              )
-              .map(
-                (t) => DropdownMenuItem(value: t, child: Text(_label(t))),
-              )
+              .map((t) => DropdownMenuItem(value: t, child: Text(_label(t))))
               .toList(),
           onChanged: (v) {
             if (v != null) onChanged(type: v);
@@ -81,7 +79,7 @@ class AccountCommonFields extends StatelessWidget {
             controller: institutionController,
             enabled: !institutionDisabled,
             decoration: InputDecoration(
-              labelText: 'Institution',
+              labelText: 'Institution Name',
               hintText: institutionDisabled
                   ? 'Not used for this account type.'
                   : 'e.g. Chase, PayPal, Coinbase',
@@ -91,28 +89,46 @@ class AccountCommonFields extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
-        DropdownButtonFormField<String>(
-          initialValue: initialCurrency,
-          decoration: const InputDecoration(
-            labelText: 'Currency',
-            prefixIcon: Icon(Icons.payments_outlined),
-          ),
-          items: currencies
+        DropdownMenu<String>(
+          controller: currencyController,
+          initialSelection: initialCurrency,
+          enableFilter: true,
+          enableSearch: true,
+          requestFocusOnTap: true,
+          expandedInsets: EdgeInsets.zero,
+          leadingIcon: const Icon(Icons.payments_outlined),
+          label: const Text('Currency'),
+          dropdownMenuEntries: currencies
               .map(
-                (c) => DropdownMenuItem(value: c.code, child: Text(c.code)),
+                (c) => DropdownMenuEntry<String>(
+                  value: c.code,
+                  label: '${c.code} - ${c.name}',
+                ),
               )
-              .toList(),
-          onChanged: (v) {
-            if (v != null) onChanged(currency: v);
+              .toList(growable: false),
+          onSelected: (value) {
+            if (value != null) onChanged(currency: value);
           },
         ),
         const SizedBox(height: 12),
         TextFormField(
           controller: balanceController,
-          decoration: const InputDecoration(
-            labelText: 'Current balance',
+          decoration: InputDecoration(
+            labelText: 'Current Balance',
             hintText: '0.00',
-            prefixIcon: Icon(Icons.attach_money_outlined),
+            prefixIcon: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Center(
+                widthFactor: 1,
+                child: Text(
+                  _currencySymbol(initialCurrency),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+            prefixIconConstraints: const BoxConstraints(minWidth: 48),
           ),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           onChanged: (v) => onChanged(balance: v),
@@ -148,5 +164,18 @@ class AccountCommonFields extends StatelessWidget {
       buf.write(i == 0 ? c.toUpperCase() : c);
     }
     return buf.toString();
+  }
+
+  String _currencySymbol(String currency) {
+    return switch (currency.toUpperCase()) {
+      'THB' => '฿',
+      'USD' => r'$',
+      'EUR' => '€',
+      'GBP' => '£',
+      'JPY' || 'CNY' => '¥',
+      'KRW' => '₩',
+      'INR' => '₹',
+      _ => currency.toUpperCase(),
+    };
   }
 }

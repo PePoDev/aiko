@@ -27,6 +27,60 @@ class AikoNavigationItem {
 
 const aikoNavigationGroups = [
   AikoNavigationGroup(
+    title: 'Planning',
+    items: [
+      AikoNavigationItem(
+        label: 'Budget',
+        path: '/budget',
+        icon: Icons.pie_chart_outline,
+        description: 'Plan category limits, alerts, and monthly spending pace.',
+        accentColor: AikoColors.warningOrange,
+      ),
+      AikoNavigationItem(
+        label: 'Goals',
+        path: '/goals',
+        icon: Icons.flag_outlined,
+        description: 'Plan SMART goals and saving milestones.',
+        accentColor: AikoColors.successGreen,
+      ),
+      AikoNavigationItem(
+        label: 'Investments',
+        path: '/portfolio',
+        icon: Icons.show_chart_outlined,
+        description: 'Track holdings, gains, allocation, and rebalance alerts.',
+        accentColor: AikoColors.analyticsTeal,
+      ),
+      AikoNavigationItem(
+        label: 'Asset Allocation',
+        path: '/portfolio/allocation',
+        icon: Icons.donut_small_outlined,
+        description: 'Analyze allocation by class, currency, and risk.',
+        accentColor: AikoColors.analyticsTeal,
+      ),
+      AikoNavigationItem(
+        label: 'Holding Detail',
+        path: '/portfolio/holding',
+        icon: Icons.trending_up_outlined,
+        description: 'Inspect a single holding performance and history.',
+        accentColor: AikoColors.analyticsTeal,
+      ),
+      AikoNavigationItem(
+        label: 'Assets and Net Worth',
+        path: '/assets-net-worth',
+        icon: Icons.account_balance_wallet_outlined,
+        description: 'View total assets, liabilities, and net worth over time.',
+        accentColor: AikoColors.analyticsTeal,
+      ),
+      AikoNavigationItem(
+        label: 'Travel Mode',
+        path: '/travel-mode',
+        icon: Icons.flight_takeoff_outlined,
+        description: 'Plan trips, currencies, and travel budgets.',
+        accentColor: AikoColors.primaryBlue,
+      ),
+    ],
+  ),
+  AikoNavigationGroup(
     title: 'Insights and AI',
     items: [
       AikoNavigationItem(

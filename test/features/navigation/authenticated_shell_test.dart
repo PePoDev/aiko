@@ -17,6 +17,14 @@ void main() {
           builder: (context, state, child) => AuthenticatedShell(child: child),
           routes: [
             GoRoute(
+              path: '/accounts',
+              builder: (context, state) => const Text('Accounts page'),
+            ),
+            GoRoute(
+              path: '/categories',
+              builder: (context, state) => const Text('Categories page'),
+            ),
+            GoRoute(
               path: '/home',
               builder: (context, state) => const Text('Home page'),
             ),
@@ -32,10 +40,6 @@ void main() {
               builder: (context, state) => const Text('Ask Aiko page'),
             ),
             GoRoute(
-              path: '/planning',
-              builder: (context, state) => const Text('Planning page'),
-            ),
-            GoRoute(
               path: '/settings',
               builder: (context, state) => const Text('Settings page'),
             ),
@@ -49,7 +53,8 @@ void main() {
     );
   }
 
-  testWidgets('bottom navigation uses planning and menu tabs', (tester) async {
+  testWidgets('bottom navigation uses accounts, categories, overview, '
+      'transactions, aiko tabs', (tester) async {
     await tester.pumpWidget(
       MaterialApp.router(
         locale: const Locale('en'),
@@ -67,22 +72,29 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Planning'), findsOneWidget);
-    expect(find.text('Menu'), findsOneWidget);
-    expect(find.text('Settings'), findsNothing);
-    expect(find.byIcon(Icons.grid_view_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.settings_outlined), findsNothing);
-    expect(find.text('Insights'), findsNothing);
+    for (final label in [
+      'Accounts',
+      'Categories',
+      'Overview',
+      'Transactions',
+      'Aiko',
+    ]) {
+      expect(find.text(label), findsOneWidget);
+    }
+    expect(find.text('Planning'), findsNothing);
+    expect(find.text('Menu'), findsNothing);
 
-    await tester.tap(find.text('Planning'));
+    await tester.tap(find.text('Accounts'));
     await tester.pumpAndSettle();
+    expect(find.text('Accounts page'), findsOneWidget);
 
-    expect(find.text('Planning page'), findsOneWidget);
-
-    await tester.tap(find.text('Menu'));
+    await tester.tap(find.text('Categories'));
     await tester.pumpAndSettle();
+    expect(find.text('Categories page'), findsOneWidget);
 
-    expect(find.text('Settings page'), findsOneWidget);
+    await tester.tap(find.text('Aiko'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ask Aiko page'), findsOneWidget);
   });
 
   testWidgets('tapping active transactions tab reopens transactions', (

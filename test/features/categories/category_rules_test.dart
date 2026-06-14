@@ -40,7 +40,10 @@ void main() {
         .toSet();
 
     expect(incomeNames, containsAll(['Salary', 'Freelance', 'Dividends']));
-    expect(expenseNames, containsAll(['Groceries', 'Rent', 'Subscriptions']));
+    expect(
+      expenseNames,
+      containsAll(['Groceries', 'Rent / Mortgage', 'Subscriptions']),
+    );
   });
 
   test('default categories are app-defined by id', () {

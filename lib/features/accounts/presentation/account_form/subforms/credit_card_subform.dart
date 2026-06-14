@@ -63,8 +63,9 @@ class CreditCardSubformState extends AccountSubformState<CreditCardSubform> {
       c.addListener(_emit);
     }
     if (_sharesLimit && _sharedLimitAccountId != null) {
-      final exists =
-          widget.availableCards.any((a) => a.id == _sharedLimitAccountId);
+      final exists = widget.availableCards.any(
+        (a) => a.id == _sharedLimitAccountId,
+      );
       if (!exists) {
         _sharesLimit = false;
         _sharedLimitAccountId = null;
@@ -92,19 +93,21 @@ class CreditCardSubformState extends AccountSubformState<CreditCardSubform> {
 
   void _emit() {
     setState(() => _validationError = null);
-    widget.onChanged(CreditCardDetails(
-      creditLimit: _sharesLimit
-          ? null
-          : _parseMoney(_limit.text, _accountCurrency),
-      statementDay: _statementDay,
-      dueDay: _dueDay,
-      aprPercent: double.tryParse(_apr.text.trim()),
-      rewardsType: _rewardsType,
-      annualFee: _parseMoney(_annualFee.text, _accountCurrency),
-      minimumPayment: _parseMoney(_minPayment.text, _accountCurrency),
-      sharesLimit: _sharesLimit,
-      sharedLimitAccountId: _sharesLimit ? _sharedLimitAccountId : null,
-    ));
+    widget.onChanged(
+      CreditCardDetails(
+        creditLimit: _sharesLimit
+            ? null
+            : _parseMoney(_limit.text, _accountCurrency),
+        statementDay: _statementDay,
+        dueDay: _dueDay,
+        aprPercent: double.tryParse(_apr.text.trim()),
+        rewardsType: _rewardsType,
+        annualFee: _parseMoney(_annualFee.text, _accountCurrency),
+        minimumPayment: _parseMoney(_minPayment.text, _accountCurrency),
+        sharesLimit: _sharesLimit,
+        sharedLimitAccountId: _sharesLimit ? _sharedLimitAccountId : null,
+      ),
+    );
   }
 
   @override
@@ -126,18 +129,18 @@ class CreditCardSubformState extends AccountSubformState<CreditCardSubform> {
 
   @override
   AccountDetails getDetails() => CreditCardDetails(
-        creditLimit: _sharesLimit
-            ? null
-            : _parseMoney(_limit.text, _accountCurrency),
-        statementDay: _statementDay,
-        dueDay: _dueDay,
-        aprPercent: double.tryParse(_apr.text.trim()),
-        rewardsType: _rewardsType,
-        annualFee: _parseMoney(_annualFee.text, _accountCurrency),
-        minimumPayment: _parseMoney(_minPayment.text, _accountCurrency),
-        sharesLimit: _sharesLimit,
-        sharedLimitAccountId: _sharesLimit ? _sharedLimitAccountId : null,
-      );
+    creditLimit: _sharesLimit
+        ? null
+        : _parseMoney(_limit.text, _accountCurrency),
+    statementDay: _statementDay,
+    dueDay: _dueDay,
+    aprPercent: double.tryParse(_apr.text.trim()),
+    rewardsType: _rewardsType,
+    annualFee: _parseMoney(_annualFee.text, _accountCurrency),
+    minimumPayment: _parseMoney(_minPayment.text, _accountCurrency),
+    sharesLimit: _sharesLimit,
+    sharedLimitAccountId: _sharesLimit ? _sharedLimitAccountId : null,
+  );
 
   @override
   String? validate() {
@@ -222,12 +225,7 @@ class CreditCardSubformState extends AccountSubformState<CreditCardSubform> {
               prefixIcon: Icon(Icons.credit_card_outlined),
             ),
             items: widget.availableCards
-                .map(
-                  (a) => DropdownMenuItem(
-                    value: a.id,
-                    child: Text(a.name),
-                  ),
-                )
+                .map((a) => DropdownMenuItem(value: a.id, child: Text(a.name)))
                 .toList(),
             onChanged: (v) {
               setState(() => _sharedLimitAccountId = v);
@@ -267,10 +265,8 @@ class CreditCardSubformState extends AccountSubformState<CreditCardSubform> {
               child: Text('None'),
             ),
             ...RewardsType.values.map(
-              (r) => DropdownMenuItem<RewardsType?>(
-                value: r,
-                child: Text(r.name),
-              ),
+              (r) =>
+                  DropdownMenuItem<RewardsType?>(value: r, child: Text(r.name)),
             ),
           ],
           onChanged: (v) {

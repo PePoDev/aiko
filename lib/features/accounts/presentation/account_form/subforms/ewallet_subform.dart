@@ -22,16 +22,20 @@ class _EWalletSubformState extends AccountSubformState<EWalletSubform> {
   @override
   void initState() {
     super.initState();
-    _contact =
-        TextEditingController(text: widget.initial.linkedPhoneOrEmail ?? '');
+    _contact = TextEditingController(
+      text: widget.initial.linkedPhoneOrEmail ?? '',
+    );
     _contact.addListener(_emit);
   }
 
   void _emit() {
-    widget.onChanged(EWalletDetails(
-      linkedPhoneOrEmail:
-          _contact.text.trim().isEmpty ? null : _contact.text.trim(),
-    ));
+    widget.onChanged(
+      EWalletDetails(
+        linkedPhoneOrEmail: _contact.text.trim().isEmpty
+            ? null
+            : _contact.text.trim(),
+      ),
+    );
   }
 
   @override
@@ -42,9 +46,10 @@ class _EWalletSubformState extends AccountSubformState<EWalletSubform> {
 
   @override
   AccountDetails getDetails() => EWalletDetails(
-        linkedPhoneOrEmail:
-            _contact.text.trim().isEmpty ? null : _contact.text.trim(),
-      );
+    linkedPhoneOrEmail: _contact.text.trim().isEmpty
+        ? null
+        : _contact.text.trim(),
+  );
 
   @override
   String? validate() => null;

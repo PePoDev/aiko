@@ -6,8 +6,7 @@ abstract final class AccountValidationMessages {
       'Enter a credit limit or turn on shared limit.';
   static const sharedLimitReferenceRequired =
       'Pick a card to share the limit with.';
-  static const sharedLimitSelfReference =
-      'A card cannot share its own limit.';
+  static const sharedLimitSelfReference = 'A card cannot share its own limit.';
   static const sharedLimitReferenceMissing =
       'The referenced card no longer exists.';
   static const creditLimitCurrencyMismatch =

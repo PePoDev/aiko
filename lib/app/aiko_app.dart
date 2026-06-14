@@ -58,9 +58,12 @@ class _AikoAppState extends State<AikoApp> {
     return ProviderScope(
       child: Consumer(
         builder: (context, ref, child) {
+          final localeState = ref
+              .watch(appLocaleControllerProvider)
+              .asData
+              ?.value;
           final locale =
-              ref.watch(appLocaleControllerProvider).asData?.value ??
-              AppLocaleController.fallbackLocale;
+              localeState?.locale ?? AppLocaleController.fallbackLocale;
           final preferredTheme = ref
               .watch(profileProvider)
               .maybeWhen(

@@ -110,7 +110,8 @@ abstract final class AccountValidator {
     final d = a.resolvedDetails;
     if (d is CreditCardDetails && d.sharesLimit) {
       final refId = d.sharedLimitAccountId;
-      final found = refId != null &&
+      final found =
+          refId != null &&
           allAccounts.any(
             (x) => x.id == refId && x.type == AccountType.creditCard,
           );

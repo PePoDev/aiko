@@ -2,6 +2,7 @@ import 'package:aiko/app/providers.dart';
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/categories/domain/category.dart';
+import 'package:aiko/features/categories/domain/category_defaults.dart';
 import 'package:aiko/features/transactions/data/transaction_repository.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
 import 'package:aiko/features/transactions/presentation/transaction_form_screen.dart';
@@ -361,6 +362,242 @@ void main() {
     expect(find.byIcon(Icons.restaurant_outlined), findsOneWidget);
   });
 
+  testWidgets('category picker sheet groups categories under their groups', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              _category(
+                'groceries',
+                'Groceries',
+                CategoryType.expense,
+                groupId: CategoryGroupDefaults.foodAndDrinkId,
+                icon: 'food',
+                color: '#F97316',
+              ),
+              _category(
+                'coffee',
+                'Coffee',
+                CategoryType.expense,
+                groupId: CategoryGroupDefaults.foodAndDrinkId,
+                icon: 'coffee',
+                color: '#F97316',
+              ),
+              _category(
+                'fuel',
+                'Fuel',
+                CategoryType.expense,
+                groupId: CategoryGroupDefaults.transportId,
+                icon: 'fuel',
+                color: '#3B82F6',
+              ),
+            ]),
+          ),
+          categoryGroupsProvider.overrideWith(() => _EmptyGroupsNotifier()),
+          accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await _openCategoryPicker(tester);
+
+    // Group names from the 13 default groups appear twice — once in the
+    // group chip bar and once as a section header — so each name shows up
+    // at least once.
+    expect(find.text('Food & Drink'), findsWidgets);
+    expect(find.text('Transport'), findsWidgets);
+
+    // Group chips show counts for each section so the user can size up
+    // the picker before scrolling.
+    final foodChip = find.byKey(
+      Key(
+        'transaction-category-group-chip-${CategoryGroupDefaults.foodAndDrinkId}',
+      ),
+    );
+    expect(foodChip, findsOneWidget);
+    expect(
+      find.descendant(of: foodChip, matching: find.text('2')),
+      findsOneWidget,
+    );
+
+    final transportChip = find.byKey(
+      Key(
+        'transaction-category-group-chip-${CategoryGroupDefaults.transportId}',
+      ),
+    );
+    expect(
+      find.descendant(of: transportChip, matching: find.text('1')),
+      findsOneWidget,
+    );
+
+    // The picker still selects via the same option key the form already
+    // listens on.
+    await tester.tap(find.byKey(const Key('transaction-category-option-fuel')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fuel'), findsWidgets);
+  });
+
+  testWidgets('category picker sheet search filters across all groups', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              _category(
+                'groceries',
+                'Groceries',
+                CategoryType.expense,
+                groupId: CategoryGroupDefaults.foodAndDrinkId,
+              ),
+              _category(
+                'lunch',
+                'Lunch Out',
+                CategoryType.expense,
+                groupId: CategoryGroupDefaults.foodAndDrinkId,
+              ),
+              _category(
+                'fuel',
+                'Fuel',
+                CategoryType.expense,
+                groupId: CategoryGroupDefaults.transportId,
+              ),
+            ]),
+          ),
+          categoryGroupsProvider.overrideWith(() => _EmptyGroupsNotifier()),
+          accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await _openCategoryPicker(tester);
+
+    // Searching collapses the group chip bar (only useful for the full list)
+    // and narrows the body to matching entries.
+    await tester.enterText(
+      find.byKey(const Key('transaction-category-search-field')),
+      'lun',
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('transaction-category-group-chips')),
+      findsNothing,
+    );
+    expect(find.text('Lunch Out'), findsOneWidget);
+    expect(find.text('Groceries'), findsNothing);
+    expect(find.text('Fuel'), findsNothing);
+
+    // Clearing the search restores the full grouped view.
+    await tester.tap(
+      find.byKey(const Key('transaction-category-search-clear')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lunch Out'), findsOneWidget);
+    expect(find.text('Groceries'), findsOneWidget);
+    expect(find.text('Fuel'), findsOneWidget);
+    expect(
+      find.byKey(const Key('transaction-category-group-chips')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('category picker sheet renders categories as a 2-column grid', (
+    tester,
+  ) async {
+    // Lay out three groups of three categories each so we can verify the
+    // grid wraps categories inside a single group on a single row pair.
+    final categories = <Category>[
+      for (final id in const ['breakfast', 'lunch', 'dinner'])
+        _category(
+          id,
+          id[0].toUpperCase() + id.substring(1),
+          CategoryType.expense,
+          groupId: CategoryGroupDefaults.foodAndDrinkId,
+        ),
+      for (final id in const ['bus', 'taxi', 'train'])
+        _category(
+          id,
+          id[0].toUpperCase() + id.substring(1),
+          CategoryType.expense,
+          groupId: CategoryGroupDefaults.transportId,
+        ),
+    ];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier(categories),
+          ),
+          categoryGroupsProvider.overrideWith(() => _EmptyGroupsNotifier()),
+          accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const TransactionFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await _openCategoryPicker(tester);
+
+    // All six categories are visible without scrolling — the compact 2-up
+    // grid packs the full set inside the first viewport.
+    expect(find.text('Breakfast'), findsOneWidget);
+    expect(find.text('Lunch'), findsOneWidget);
+    expect(find.text('Dinner'), findsOneWidget);
+    expect(find.text('Bus'), findsOneWidget);
+    expect(find.text('Taxi'), findsOneWidget);
+    expect(find.text('Train'), findsOneWidget);
+
+    // Each card sits within the picker's body width / 2, confirming the
+    // grid is actually rendering 2 columns rather than 1.
+    final cardFinder = find.byKey(const Key('transaction-category-option-bus'));
+    final cardBox = tester.getRect(cardFinder);
+    final bodyWidth = tester
+        .getRect(find.byKey(const Key('transaction-category-section-list')))
+        .width;
+    expect(cardBox.width, lessThan(bodyWidth / 1.5));
+  });
+
   testWidgets('account picker shows selected account as a designed tile', (
     tester,
   ) async {
@@ -477,6 +714,272 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Groceries'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'switching transaction type in add mode clears typed form fields',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            categoriesProvider.overrideWith(
+              () => _CategoriesNotifier([
+                _category('groceries', 'Groceries', CategoryType.expense),
+                _category('salary', 'Salary', CategoryType.income),
+              ]),
+            ),
+            accountsProvider.overrideWith(
+              () => _AccountsNotifier([
+                Account(
+                  id: 'cash',
+                  userId: 'user',
+                  name: 'Cash',
+                  type: AccountType.cash,
+                  currentBalance: Money.zero('USD'),
+                ),
+              ]),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AikoTheme.light(),
+            home: const TransactionFormScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Fill the form as an expense so we can confirm every typed field is
+      // wiped after the type switch.
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Item name'),
+        'Lunch Out',
+      );
+      await tester.enterText(
+        find.byKey(const Key('transaction-amount-field')),
+        '12.50',
+      );
+      await _selectCategory(tester, 'groceries');
+      await _selectAccount(tester, 'cash');
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('transaction-tags-field')),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.enterText(
+        find.byKey(const Key('transaction-tags-field')),
+        'work,',
+      );
+      await tester.pump();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('transaction-note-field')),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.enterText(
+        find.byKey(const Key('transaction-note-field')),
+        'Client meeting',
+      );
+      await tester.pumpAndSettle();
+
+      // Switch from Expense to Income. The typed fields should all reset.
+      // The selector is at the top of the form; drag the ListView back up
+      // to make it tappable.
+      for (var i = 0; i < 6; i++) {
+        await tester.drag(find.byType(ListView).first, const Offset(0, 600));
+        await tester.pump();
+      }
+      await tester.tap(find.text('Income'));
+      await tester.pumpAndSettle();
+
+      // Item name, amount, note, tags, and category/account selections are
+      // all cleared.
+      final itemField = tester.widget<TextField>(
+        find.widgetWithText(TextField, 'Item name'),
+      );
+      expect(itemField.controller?.text, '');
+
+      final amountField = tester.widget<TextField>(
+        find.byKey(const Key('transaction-amount-field')),
+      );
+      expect(amountField.controller?.text, '');
+
+      final noteField = tester.widget<TextField>(
+        find.byKey(const Key('transaction-note-field')),
+      );
+      expect(noteField.controller?.text, '');
+
+      // Category and account pickers drop back to their "Select" placeholder.
+      expect(find.text('Select category'), findsOneWidget);
+      _expectSelectedAccountLabel(
+        tester,
+        field: 'account',
+        label: 'Select account',
+      );
+
+      // No leftover tag chips.
+      expect(find.byType(InputChip), findsNothing);
+
+      // The selected type did change.
+      expect(_selectedSelectorColor(tester), AikoColors.successGreen);
+    },
+  );
+
+  testWidgets(
+    'switching transaction type in add mode preserves date and recurring settings',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+            accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AikoTheme.light(),
+            home: const TransactionFormScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Type a value so we can verify the switch clears it.
+      await tester.enterText(
+        find.byKey(const Key('transaction-amount-field')),
+        '12.50',
+      );
+
+      // Toggle the recurring switch on. This must survive the type switch.
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('transaction-recurring-toggle')),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const Key('transaction-recurring-toggle')));
+      await tester.pumpAndSettle();
+
+      // Switch the type to Income.
+      for (var i = 0; i < 6; i++) {
+        await tester.drag(find.byType(ListView).first, const Offset(0, 600));
+        await tester.pump();
+      }
+      await tester.tap(find.text('Income'));
+      await tester.pumpAndSettle();
+
+      // Amount is cleared …
+      final amountField = tester.widget<TextField>(
+        find.byKey(const Key('transaction-amount-field')),
+      );
+      expect(amountField.controller?.text, '');
+
+      // … but the recurring switch is still on. Scroll back down to it
+      // since the form was scrolled to the top after the type switch.
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('transaction-recurring-toggle')),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      final recurringSwitch = tester.widget<Switch>(
+        find.byKey(const Key('transaction-recurring-toggle')),
+      );
+      expect(recurringSwitch.value, isTrue);
+    },
+  );
+
+  testWidgets(
+    'switching transaction type in edit mode preserves the transaction data',
+    (tester) async {
+      final repository = _FakeTransactionRepository();
+      final initial = FinanceTransaction(
+        id: 'tx-edit',
+        userId: 'user',
+        accountId: 'cash',
+        categoryId: 'groceries',
+        type: TransactionType.expense,
+        amount: Money.parse('42.50', 'USD'),
+        date: DateTime(2026, 5, 1),
+        merchant: 'Office lunch',
+        tags: const ['work', 'reimbursable'],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            transactionRepositoryProvider.overrideWithValue(repository),
+            categoriesProvider.overrideWith(
+              () => _CategoriesNotifier([
+                _category('groceries', 'Groceries', CategoryType.expense),
+                _category('salary', 'Salary', CategoryType.income),
+              ]),
+            ),
+            accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AikoTheme.light(),
+            home: TransactionFormScreen(initialTransaction: initial),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Editing fields are populated from the initial transaction.
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, 'Item name'))
+            .controller
+            ?.text,
+        'Office lunch',
+      );
+      expect(find.text('Groceries'), findsOneWidget);
+
+      // Flip the type to Income.
+      await tester.tap(find.text('Income'));
+      await tester.pumpAndSettle();
+
+      // Item name and amount are preserved …
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, 'Item name'))
+            .controller
+            ?.text,
+        'Office lunch',
+      );
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const Key('transaction-amount-field')),
+            )
+            .controller
+            ?.text,
+        '42.5',
+      );
+
+      // … but the expense category is cleared (different category set).
+      expect(find.text('Groceries'), findsNothing);
+      expect(find.text('Select category'), findsOneWidget);
     },
   );
 
@@ -866,15 +1369,13 @@ void main() {
   );
 
   testWidgets(
-    'selecting an item name suggestion prefills amount, category, account, and tags',
+    'selecting an item name suggestion prefills amount, title, and tags',
     (tester) async {
       final repository = _FakeTransactionRepository([
         _transaction(
           id: 'tx-coffee',
           merchant: 'Morning Latte',
           amount: Money.parse('4.75', 'USD'),
-          categoryId: 'coffee',
-          accountId: 'cash',
           tags: const ['caffeine', 'work'],
           date: DateTime(2026, 1, 5),
         ),
@@ -884,22 +1385,8 @@ void main() {
         ProviderScope(
           overrides: [
             transactionRepositoryProvider.overrideWithValue(repository),
-            categoriesProvider.overrideWith(
-              () => _CategoriesNotifier([
-                _category('coffee', 'Coffee', CategoryType.expense),
-              ]),
-            ),
-            accountsProvider.overrideWith(
-              () => _AccountsNotifier([
-                Account(
-                  id: 'cash',
-                  userId: 'user',
-                  name: 'Cash',
-                  type: AccountType.cash,
-                  currentBalance: Money.zero('USD'),
-                ),
-              ]),
-            ),
+            categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+            accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
           ],
           child: MaterialApp(
             localizationsDelegates: const [
@@ -921,13 +1408,11 @@ void main() {
       await tester.tap(find.widgetWithText(TextField, 'Item name'));
       await tester.pumpAndSettle();
       await tester.tap(
-        find.byKey(
-          const Key('transaction-item-name-option-Morning Latte'),
-        ),
+        find.byKey(const Key('transaction-item-name-option-Morning Latte')),
       );
       await tester.pumpAndSettle();
 
-      // Item name, amount, currency, and tags match the source transaction.
+      // Item name and amount are prefilled from the suggestion.
       final itemField = tester.widget<TextField>(
         find.widgetWithText(TextField, 'Item name'),
       );
@@ -937,10 +1422,6 @@ void main() {
         find.byKey(const Key('transaction-amount-field')),
       );
       expect(amountField.controller?.text, '4.75');
-
-      // Category and account pickers now display the source values.
-      expect(find.text('Coffee'), findsOneWidget);
-      _expectSelectedAccountLabel(tester, field: 'account', label: 'Cash');
 
       // Tags were replaced by the source tags.
       await tester.scrollUntilVisible(
@@ -960,15 +1441,20 @@ void main() {
   );
 
   testWidgets(
-    'item name prefill skips category that no longer matches the type',
+    'item name suggestion source transaction must match the selected type',
     (tester) async {
       final repository = _FakeTransactionRepository([
         _transaction(
-          id: 'tx-mismatch',
-          merchant: 'Lunch Out',
-          amount: Money.parse('12.00', 'USD'),
-          categoryId: 'salary',
+          id: 'tx-coffee',
+          merchant: 'Morning Latte',
+          amount: Money.parse('4.75', 'USD'),
           type: TransactionType.expense,
+        ),
+        _transaction(
+          id: 'tx-salary',
+          merchant: 'Monthly Salary',
+          amount: Money.parse('5000', 'USD'),
+          type: TransactionType.income,
         ),
       ]);
 
@@ -976,23 +1462,8 @@ void main() {
         ProviderScope(
           overrides: [
             transactionRepositoryProvider.overrideWithValue(repository),
-            categoriesProvider.overrideWith(
-              () => _CategoriesNotifier([
-                _category('salary', 'Salary', CategoryType.income),
-                _category('groceries', 'Groceries', CategoryType.expense),
-              ]),
-            ),
-            accountsProvider.overrideWith(
-              () => _AccountsNotifier([
-                Account(
-                  id: 'cash',
-                  userId: 'user',
-                  name: 'Cash',
-                  type: AccountType.cash,
-                  currentBalance: Money.zero('USD'),
-                ),
-              ]),
-            ),
+            categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+            accountsProvider.overrideWith(() => _EmptyAccountsNotifier()),
           ],
           child: MaterialApp(
             localizationsDelegates: const [
@@ -1009,26 +1480,22 @@ void main() {
       );
 
       await tester.pumpAndSettle();
-      await _selectCategory(tester, 'groceries');
 
+      // Switch to income so the income-only suggestion is visible.
+      await tester.tap(find.text('Income'));
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(TextField, 'Item name'));
       await tester.pumpAndSettle();
       await tester.tap(
-        find.byKey(const Key('transaction-item-name-option-Lunch Out')),
+        find.byKey(const Key('transaction-item-name-option-Monthly Salary')),
       );
       await tester.pumpAndSettle();
 
-      // Amount and account come from the suggestion.
+      // The amount is prefilled from the income source transaction.
       final amountField = tester.widget<TextField>(
         find.byKey(const Key('transaction-amount-field')),
       );
-      expect(amountField.controller?.text, '12.00');
-      _expectSelectedAccountLabel(tester, field: 'account', label: 'Cash');
-
-      // The mismatched category id ('salary', income-type) is ignored; the
-      // existing expense selection remains in place.
-      expect(find.text('Groceries'), findsOneWidget);
-      expect(find.text('Salary'), findsNothing);
+      expect(amountField.controller?.text, '5000.00');
     },
   );
 
@@ -1503,6 +1970,11 @@ class _AccountsNotifier extends AccountsNotifier {
   Future<List<Account>> build() async => accounts;
 }
 
+class _EmptyGroupsNotifier extends CategoryGroupsNotifier {
+  @override
+  Future<List<CategoryGroup>> build() async => const [];
+}
+
 class _FakeTransactionRepository extends TransactionRepository {
   _FakeTransactionRepository([List<FinanceTransaction>? transactions])
     : _transactions = transactions ?? [];
@@ -1531,6 +2003,7 @@ Category _category(
   CategoryBudgetGroup group = CategoryBudgetGroup.custom,
   String icon = 'category',
   String color = '#3B82F6',
+  String? groupId,
 }) {
   return Category(
     id: id,
@@ -1538,6 +2011,7 @@ Category _category(
     name: name,
     type: type,
     group: group,
+    groupId: groupId,
     icon: icon,
     color: color,
   );

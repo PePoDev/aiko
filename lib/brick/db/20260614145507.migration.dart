@@ -10,11 +10,11 @@ part of 'schema.g.dart';
 // The migration version must **always** mirror the file name
 
 const List<MigrationCommand> _migration_20260614145507_up = [
-  InsertColumn('details_json', Column.varchar, onTable: 'OfflineAccount')
+  InsertColumn('details_json', Column.varchar, onTable: 'OfflineAccount'),
 ];
 
 const List<MigrationCommand> _migration_20260614145507_down = [
-  DropColumn('details_json', onTable: 'OfflineAccount')
+  DropColumn('details_json', onTable: 'OfflineAccount'),
 ];
 
 //

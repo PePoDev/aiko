@@ -57,52 +57,51 @@ class AccountDetailsDto {
     return switch (type) {
       'cash' => const CashDetails(),
       'bank' => BankDetails(
-          accountNumberLast4: json['accountNumberLast4'] as String?,
-          accountHolderName: json['accountHolderName'] as String?,
-        ),
+        accountNumberLast4: json['accountNumberLast4'] as String?,
+        accountHolderName: json['accountHolderName'] as String?,
+      ),
       'eWallet' => EWalletDetails(
-          linkedPhoneOrEmail: json['linkedPhoneOrEmail'] as String?,
-        ),
+        linkedPhoneOrEmail: json['linkedPhoneOrEmail'] as String?,
+      ),
       'creditCard' => CreditCardDetails(
-          creditLimit: _money(json['creditLimit']),
-          statementDay: (json['statementDay'] as int?) ?? 1,
-          dueDay: (json['dueDay'] as int?) ?? 1,
-          aprPercent: (json['aprPercent'] as num?)?.toDouble(),
-          rewardsType: _rewardsType(json['rewardsType'] as String?),
-          annualFee: _money(json['annualFee']),
-          minimumPayment: _money(json['minimumPayment']),
-          sharesLimit: (json['sharesLimit'] as bool?) ?? false,
-          sharedLimitAccountId: json['sharedLimitAccountId'] as String?,
-        ),
+        creditLimit: _money(json['creditLimit']),
+        statementDay: (json['statementDay'] as int?) ?? 1,
+        dueDay: (json['dueDay'] as int?) ?? 1,
+        aprPercent: (json['aprPercent'] as num?)?.toDouble(),
+        rewardsType: _rewardsType(json['rewardsType'] as String?),
+        annualFee: _money(json['annualFee']),
+        minimumPayment: _money(json['minimumPayment']),
+        sharesLimit: (json['sharesLimit'] as bool?) ?? false,
+        sharedLimitAccountId: json['sharedLimitAccountId'] as String?,
+      ),
       'loan' => LoanDetails(
-          loanType: _loanType(json['loanType'] as String?),
-          principal: _money(json['principal'], 'USD') ??
-              Money.zero('USD'),
-          interestRatePercent:
-              (json['interestRatePercent'] as num?)?.toDouble() ?? 0,
-          termMonths: (json['termMonths'] as int?) ?? 1,
-          monthlyPayment:
-              _money(json['monthlyPayment'], 'USD') ?? Money.zero('USD'),
-          nextDueDate: json['nextDueDate'] is String
-              ? DateTime.parse(json['nextDueDate'] as String)
-              : DateTime.utc(1970, 1, 1),
-        ),
+        loanType: _loanType(json['loanType'] as String?),
+        principal: _money(json['principal'], 'USD') ?? Money.zero('USD'),
+        interestRatePercent:
+            (json['interestRatePercent'] as num?)?.toDouble() ?? 0,
+        termMonths: (json['termMonths'] as int?) ?? 1,
+        monthlyPayment:
+            _money(json['monthlyPayment'], 'USD') ?? Money.zero('USD'),
+        nextDueDate: json['nextDueDate'] is String
+            ? DateTime.parse(json['nextDueDate'] as String)
+            : DateTime.utc(1970, 1, 1),
+      ),
       'investment' => InvestmentDetails(
-          accountNumberLast4: json['accountNumberLast4'] as String?,
-        ),
+        accountNumberLast4: json['accountNumberLast4'] as String?,
+      ),
       'asset' => AssetDetails(
-          assetClass: _assetClass(json['assetClass'] as String?),
-          purchasePrice: _money(json['purchasePrice']),
-          purchaseDate: json['purchaseDate'] is String
-              ? DateTime.parse(json['purchaseDate'] as String)
-              : null,
-          notes: json['notes'] as String?,
-        ),
+        assetClass: _assetClass(json['assetClass'] as String?),
+        purchasePrice: _money(json['purchasePrice']),
+        purchaseDate: json['purchaseDate'] is String
+            ? DateTime.parse(json['purchaseDate'] as String)
+            : null,
+        notes: json['notes'] as String?,
+      ),
       'liability' => LiabilityDetails(
-          liabilityType: json['liabilityType'] as String?,
-          interestRatePercent: (json['interestRatePercent'] as num?)?.toDouble(),
-          notes: json['notes'] as String?,
-        ),
+        liabilityType: json['liabilityType'] as String?,
+        interestRatePercent: (json['interestRatePercent'] as num?)?.toDouble(),
+        notes: json['notes'] as String?,
+      ),
       'other' => OtherDetails(notes: json['notes'] as String?),
       _ => const CashDetails(),
     };

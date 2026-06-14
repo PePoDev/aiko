@@ -1,3 +1,5 @@
+import 'package:flutter/widgets.dart';
+
 import '../../../brick/offline_model_mappers.dart';
 import '../../../brick/repository.dart';
 import '../../../brick/models/profile.model.dart';
@@ -29,6 +31,7 @@ class ProfileRepository {
         country: 'TH',
         onboardingStatus: OnboardingStatus.notStarted,
         securityStatus: SecurityStatus.notConfigured,
+        preferredTheme: resolveInitialTheme(),
       );
       return save(profile);
     }
@@ -50,5 +53,20 @@ class ProfileRepository {
     );
     final saved = await OfflineStore().upsert(profileWithUser.toOffline());
     return saved.toDomain();
+  }
+
+  /// Resolves the device's current platform brightness to an explicit
+  /// [PreferredTheme] (light or dark) used to seed a first-launch profile.
+  /// `system` is intentionally avoided so the user's first-launch intent is
+  /// preserved even if the device theme later changes; they can still switch
+  /// back to "System" from the Appearance settings at any time. Reads through
+  /// [WidgetsBinding.platformDispatcher] so the test binding's
+  /// `platformBrightnessTestValue` is honored in tests.
+  static PreferredTheme resolveInitialTheme() {
+    final brightness =
+        WidgetsBinding.instance.platformDispatcher.platformBrightness;
+    return brightness == Brightness.dark
+        ? PreferredTheme.dark
+        : PreferredTheme.light;
   }
 }

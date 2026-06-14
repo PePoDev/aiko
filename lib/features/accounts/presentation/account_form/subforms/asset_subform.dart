@@ -42,14 +42,16 @@ class _AssetSubformState extends AccountSubformState<AssetSubform> {
   }
 
   void _emit() {
-    widget.onChanged(AssetDetails(
-      assetClass: _class,
-      purchasePrice: _price.text.trim().isEmpty
-          ? null
-          : Money.parse(_price.text.trim(), widget.currency),
-      purchaseDate: _date,
-      notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-    ));
+    widget.onChanged(
+      AssetDetails(
+        assetClass: _class,
+        purchasePrice: _price.text.trim().isEmpty
+            ? null
+            : Money.parse(_price.text.trim(), widget.currency),
+        purchaseDate: _date,
+        notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+      ),
+    );
   }
 
   @override
@@ -65,13 +67,13 @@ class _AssetSubformState extends AccountSubformState<AssetSubform> {
 
   @override
   AccountDetails getDetails() => AssetDetails(
-        assetClass: _class,
-        purchasePrice: _price.text.trim().isEmpty
-            ? null
-            : Money.parse(_price.text.trim(), widget.currency),
-        purchaseDate: _date,
-        notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-      );
+    assetClass: _class,
+    purchasePrice: _price.text.trim().isEmpty
+        ? null
+        : Money.parse(_price.text.trim(), widget.currency),
+    purchaseDate: _date,
+    notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+  );
 
   @override
   String? validate() {
@@ -106,12 +108,7 @@ class _AssetSubformState extends AccountSubformState<AssetSubform> {
             prefixIcon: Icon(Icons.category_outlined),
           ),
           items: AssetClass.values
-              .map(
-                (c) => DropdownMenuItem(
-                  value: c,
-                  child: Text(c.name),
-                ),
-              )
+              .map((c) => DropdownMenuItem(value: c, child: Text(c.name)))
               .toList(),
           onChanged: (v) {
             if (v != null) {

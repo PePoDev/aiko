@@ -39,11 +39,7 @@ void main() {
             ]),
           ),
         ],
-        child: const MaterialApp(
-          home: Scaffold(
-            body: AccountFormSheet(),
-          ),
-        ),
+        child: const MaterialApp(home: Scaffold(body: AccountFormSheet())),
       ),
     );
     await tester.pumpAndSettle();

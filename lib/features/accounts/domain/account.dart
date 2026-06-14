@@ -29,7 +29,8 @@ class Account {
 
   String get currency => currentBalance.currency;
 
-  AccountDetails get resolvedDetails => details ?? AccountDetails.defaultFor(type);
+  AccountDetails get resolvedDetails =>
+      details ?? AccountDetails.defaultFor(type);
 
   static AccountDetails defaultDetailsFor(AccountType t) =>
       AccountDetails.defaultFor(t);

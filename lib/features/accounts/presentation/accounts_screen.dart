@@ -1,7 +1,5 @@
-import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
@@ -473,7 +471,7 @@ class _RelatedTransactionTile extends StatelessWidget {
           fontWeight: FontWeight.w800,
         ),
       ),
-          onTap: () => Navigator.of(context).push(
+      onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => TransactionDetailScreen(transaction: transaction),
         ),
@@ -490,54 +488,51 @@ class _AccountTypeDetailsCard extends StatelessWidget {
     return switch (d) {
       CashDetails() => const [],
       BankDetails() => [
-          if (d.accountNumberLast4 != null)
-            ('Last 4', d.accountNumberLast4!),
-          if (d.accountHolderName != null) ('Holder', d.accountHolderName!),
-        ],
+        if (d.accountNumberLast4 != null) ('Last 4', d.accountNumberLast4!),
+        if (d.accountHolderName != null) ('Holder', d.accountHolderName!),
+      ],
       EWalletDetails() => [
-          if (d.linkedPhoneOrEmail != null)
-            ('Contact', d.linkedPhoneOrEmail!),
-        ],
+        if (d.linkedPhoneOrEmail != null) ('Contact', d.linkedPhoneOrEmail!),
+      ],
       CreditCardDetails() => [
-          ('Statement day', '${d.statementDay}'),
-          ('Due day', '${d.dueDay}'),
-          if (d.creditLimit != null)
-            ('Credit limit', d.creditLimit!.format()),
-          if (d.aprPercent != null)
-            ('APR', '${d.aprPercent!.toStringAsFixed(2)}%'),
-          if (d.rewardsType != null) ('Rewards', d.rewardsType!.name),
-          if (d.annualFee != null) ('Annual fee', d.annualFee!.format()),
-          if (d.minimumPayment != null)
-            ('Min payment', d.minimumPayment!.format()),
-          ('Shares limit', d.sharesLimit ? 'Yes' : 'No'),
-          if (d.sharedLimitAccountId != null)
-            ('Shared with', d.sharedLimitAccountId!),
-        ],
+        ('Statement day', '${d.statementDay}'),
+        ('Due day', '${d.dueDay}'),
+        if (d.creditLimit != null) ('Credit limit', d.creditLimit!.format()),
+        if (d.aprPercent != null)
+          ('APR', '${d.aprPercent!.toStringAsFixed(2)}%'),
+        if (d.rewardsType != null) ('Rewards', d.rewardsType!.name),
+        if (d.annualFee != null) ('Annual fee', d.annualFee!.format()),
+        if (d.minimumPayment != null)
+          ('Min payment', d.minimumPayment!.format()),
+        ('Shares limit', d.sharesLimit ? 'Yes' : 'No'),
+        if (d.sharedLimitAccountId != null)
+          ('Shared with', d.sharedLimitAccountId!),
+      ],
       LoanDetails() => [
-          ('Type', d.loanType.name),
-          ('Principal', d.principal.format()),
-          ('Rate', '${d.interestRatePercent.toStringAsFixed(2)}%'),
-          ('Term', '${d.termMonths} mo'),
-          ('Monthly', d.monthlyPayment.format()),
-          ('Next due', d.nextDueDate.toIso8601String().substring(0, 10)),
-        ],
+        ('Type', d.loanType.name),
+        ('Principal', d.principal.format()),
+        ('Rate', '${d.interestRatePercent.toStringAsFixed(2)}%'),
+        ('Term', '${d.termMonths} mo'),
+        ('Monthly', d.monthlyPayment.format()),
+        ('Next due', d.nextDueDate.toIso8601String().substring(0, 10)),
+      ],
       InvestmentDetails() => [
-          if (d.accountNumberLast4 != null) ('Last 4', d.accountNumberLast4!),
-        ],
+        if (d.accountNumberLast4 != null) ('Last 4', d.accountNumberLast4!),
+      ],
       AssetDetails() => [
-          ('Class', d.assetClass.name),
-          if (d.purchasePrice != null)
-            ('Purchase price', d.purchasePrice!.format()),
-          if (d.purchaseDate != null)
-            ('Purchased', d.purchaseDate!.toIso8601String().substring(0, 10)),
-          if (d.notes != null) ('Notes', d.notes!),
-        ],
+        ('Class', d.assetClass.name),
+        if (d.purchasePrice != null)
+          ('Purchase price', d.purchasePrice!.format()),
+        if (d.purchaseDate != null)
+          ('Purchased', d.purchaseDate!.toIso8601String().substring(0, 10)),
+        if (d.notes != null) ('Notes', d.notes!),
+      ],
       LiabilityDetails() => [
-          if (d.liabilityType != null) ('Type', d.liabilityType!),
-          if (d.interestRatePercent != null)
-            ('Rate', '${d.interestRatePercent!.toStringAsFixed(2)}%'),
-          if (d.notes != null) ('Notes', d.notes!),
-        ],
+        if (d.liabilityType != null) ('Type', d.liabilityType!),
+        if (d.interestRatePercent != null)
+          ('Rate', '${d.interestRatePercent!.toStringAsFixed(2)}%'),
+        if (d.notes != null) ('Notes', d.notes!),
+      ],
       OtherDetails() => [if (d.notes != null) ('Notes', d.notes!)],
     };
   }
@@ -581,10 +576,7 @@ class _DetailRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
-          Expanded(
-            flex: 2,
-            child: Text(value, textAlign: TextAlign.end),
-          ),
+          Expanded(flex: 2, child: Text(value, textAlign: TextAlign.end)),
         ],
       ),
     );

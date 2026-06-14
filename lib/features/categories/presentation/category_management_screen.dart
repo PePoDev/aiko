@@ -26,8 +26,8 @@ class _CategoryManagementScreenState
   int _selectedTabIndex = 0;
 
   /// Tracks the expansion state of each group section, keyed by group id
-  /// (including the global System group). All start expanded so users see
-  /// their categories by default.
+  /// (including the 13 global default groups). All start expanded so users
+  /// see their categories by default.
   final Map<String, bool> _expanded = <String, bool>{};
 
   Color get _selectedTabColor =>
@@ -116,13 +116,15 @@ class _CategoryManagementScreenState
           }
 
           // Always section the system-managed (and unfiled) categories under
-          // the read-only System group, even if the user-group load failed —
-          // the System group is canonical and rendered exactly once.
+          // the read-only default groups, even if the user-group load failed —
+          // the 13 defaults are canonical and always appended in their
+          // declared display order (income → investments → expense groups →
+          // Other last).
           final groups = <CategoryGroup>[
             ...(groupsAsync.value ?? const <CategoryGroup>[]).where(
               (group) => !group.isSystem,
             ),
-            CategoryGroupDefaults.system,
+            ...CategoryGroupDefaults.all,
           ];
 
           final incomeCategories = categories
@@ -267,8 +269,10 @@ class _CategoryTypeView extends StatelessWidget {
     final widgets = <Widget>[];
 
     // Group sections in repository order (sortOrder, then createdAt, then
-    // name); the global System group is injected last. The System group is
-    // read-only and also absorbs any unfiled custom categories.
+    // name); the 13 default groups are injected last in their declared order.
+    // Each group is read-only (can't be renamed/deleted) but accepts user-
+    // added custom categories filed into it. The "Other" group additionally
+    // absorbs any unfiled custom category — see [_belongsToGroup].
     for (final group in groups) {
       final groupCategories = categories
           .where((c) => _belongsToGroup(c, group))
@@ -281,9 +285,7 @@ class _CategoryTypeView extends StatelessWidget {
           categories: groupCategories,
           isExpanded: expanded[group.id] ?? true,
           onToggle: () => onToggle(group.id),
-          onAddCategory: group.isSystem
-              ? null
-              : () => onAddCategory(groupIdHint: group.id),
+          onAddCategory: () => onAddCategory(groupIdHint: group.id),
         ),
       );
     }
@@ -291,11 +293,12 @@ class _CategoryTypeView extends StatelessWidget {
     return widgets;
   }
 
-  /// A category belongs to [group] when its `groupId` matches. The System
-  /// group additionally claims every unfiled custom category (`groupId` null
-  /// or empty), so it plays the role the old "Ungrouped" bucket used to.
+  /// A category belongs to [group] when its `groupId` matches. The
+  /// [CategoryGroupDefaults.unfiledGroupId] group (currently "Other")
+  /// additionally claims every unfiled custom category (`groupId` null or
+  /// empty), so it plays the role the old "Ungrouped" bucket used to.
   bool _belongsToGroup(Category category, CategoryGroup group) {
-    if (group.isSystem) {
+    if (group.id == CategoryGroupDefaults.unfiledGroupId) {
       return category.groupId == group.id ||
           category.groupId == null ||
           category.groupId!.isEmpty;
@@ -344,8 +347,10 @@ class _CategoryGroupSection extends StatelessWidget {
   final bool isExpanded;
   final VoidCallback onToggle;
 
-  /// When null (e.g. the read-only System group) the in-group "Add category"
-  /// action is hidden.
+  /// When null, the in-group "Add category" action is hidden. Currently always
+  /// non-null — even default groups are offerable as assignment targets for
+  /// custom categories (Decision D4), so users can file a custom category
+  /// into any group without renaming or deleting the group itself.
   final VoidCallback? onAddCategory;
 
   @override
@@ -354,7 +359,9 @@ class _CategoryGroupSection extends StatelessWidget {
 
     return Card(
       key: Key(
-        group.isSystem ? 'system-group-section' : 'category-group-section',
+        group.id == CategoryGroupDefaults.unfiledGroupId
+            ? 'system-group-section'
+            : 'category-group-section',
       ),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(

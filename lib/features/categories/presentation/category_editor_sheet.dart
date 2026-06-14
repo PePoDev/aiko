@@ -226,11 +226,12 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
     final groupsAsync = ref.watch(categoryGroupsProvider);
-    // The global System group is read-only — exclude it from the assignable
-    // groups so users can't manually file a category into it.
-    final groups = (groupsAsync.value ?? const <CategoryGroup>[])
-        .where((group) => !group.isSystem)
-        .toList(growable: false);
+    // All 13 default groups are offerable as assignment targets — users can
+    // file a custom category into any of them. (Groups themselves stay
+    // read-only via the "Edit group" affordance in the management screen.)
+    final groups = (groupsAsync.value ?? const <CategoryGroup>[]).toList(
+      growable: false,
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -566,7 +567,7 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
     if (created == true) {
       // After save, the new group will be at the tail of the user groups —
       // pick the most-recent one (the one we just created) as the new
-      // selection. The injected System group always sorts last, so skip it.
+      // selection. The 13 default groups always sort after user groups.
       final userGroups = (ref.read(categoryGroupsProvider).value ?? const [])
           .where((group) => !group.isSystem)
           .toList(growable: false);

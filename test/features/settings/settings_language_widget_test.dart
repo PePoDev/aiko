@@ -1,5 +1,6 @@
 import 'package:aiko/app/locale_controller.dart';
 import 'package:aiko/app/providers.dart';
+import 'package:aiko/core/storage/secure_storage_service.dart';
 import 'package:aiko/features/settings/data/profile_repository.dart';
 import 'package:aiko/features/settings/domain/profile.dart';
 import 'package:aiko/features/settings/presentation/settings_screen.dart';
@@ -82,10 +83,60 @@ void main() {
     await tester.tap(find.byKey(const Key('language-option-en')));
     await tester.pumpAndSettle();
 
-    final locale = capturedRef.read(appLocaleControllerProvider).asData?.value;
-    expect(locale?.languageCode, 'en');
+    final state = capturedRef.read(appLocaleControllerProvider).asData?.value;
+    expect(state?.locale.languageCode, 'en');
+    expect(state?.followsSystem, isFalse);
     expect(find.text('English (English)'), findsOneWidget);
   });
+
+  testWidgets(
+    'selecting System default makes the controller follow the device',
+    (tester) async {
+      late WidgetRef capturedRef;
+      final storage = MemorySecureStorageService();
+      await storage.write('aiko_language_code', 'en');
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            profileRepositoryProvider.overrideWithValue(
+              _FakeProfileRepository(_profile),
+            ),
+            appLocaleControllerProvider.overrideWith(
+              () => AppLocaleController(storage: storage),
+            ),
+          ],
+          child: MaterialApp(
+            locale: const Locale('en'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AikoTheme.light(),
+            home: Consumer(
+              builder: (context, ref, child) {
+                capturedRef = ref;
+                return const SettingsScreen();
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Language'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('language-option-system')));
+      await tester.pumpAndSettle();
+
+      final state = capturedRef.read(appLocaleControllerProvider).asData?.value;
+      expect(state?.followsSystem, isTrue);
+      expect(await storage.read('aiko_language_code'), isNull);
+    },
+  );
 
   testWidgets('settings exposes appearance outside profile', (tester) async {
     final repository = _FakeProfileRepository(_profile);

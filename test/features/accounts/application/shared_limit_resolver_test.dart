@@ -6,25 +6,20 @@ import 'package:aiko/features/accounts/domain/account_type.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Account _card(
-    String id, {
-    bool shares = false,
-    String? ref,
-  }) =>
-      Account(
-        id: id,
-        userId: 'u',
-        name: id,
-        type: AccountType.creditCard,
-        currentBalance: Money.zero('USD'),
-        details: CreditCardDetails(
-          statementDay: 1,
-          dueDay: 1,
-          creditLimit: shares ? null : Money.parse('5000', 'USD'),
-          sharesLimit: shares,
-          sharedLimitAccountId: ref,
-        ),
-      );
+  Account _card(String id, {bool shares = false, String? ref}) => Account(
+    id: id,
+    userId: 'u',
+    name: id,
+    type: AccountType.creditCard,
+    currentBalance: Money.zero('USD'),
+    details: CreditCardDetails(
+      statementDay: 1,
+      dueDay: 1,
+      creditLimit: shares ? null : Money.parse('5000', 'USD'),
+      sharesLimit: shares,
+      sharedLimitAccountId: ref,
+    ),
+  );
 
   test('flips child to not sharing when parent missing', () {
     final child = _card('child', shares: true, ref: 'gone');

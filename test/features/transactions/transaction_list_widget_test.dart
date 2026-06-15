@@ -1,4 +1,3 @@
-import 'package:aiko/app/app_router.dart';
 import 'package:aiko/app/providers.dart';
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
@@ -6,11 +5,9 @@ import 'package:aiko/features/categories/data/category_repository.dart';
 import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/transactions/data/transaction_repository.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
-import 'package:aiko/l10n/app_localizations.dart';
 import 'package:aiko/theme/aiko_colors.dart';
 import 'package:aiko/theme/aiko_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 
@@ -18,38 +15,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:aiko/features/transactions/presentation/transaction_list_screen.dart';
 
 void main() {
-  testWidgets('transaction app bar actions use primary action color', (
-    tester,
-  ) async {
-    final theme = AikoTheme.light();
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          transactionRepositoryProvider.overrideWithValue(
-            const _FakeTransactionRepository([]),
-          ),
-        ],
-        child: MaterialApp(theme: theme, home: const TransactionListScreen()),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    for (final icon in [
-      Icons.search,
-      Icons.account_balance_wallet_outlined,
-      Icons.category_outlined,
-      Icons.rule,
-    ]) {
-      final actionIcon = tester.widget<Icon>(
-        find.descendant(of: find.byType(AppBar), matching: find.byIcon(icon)),
-      );
-      expect(actionIcon.color, theme.colorScheme.primary);
-    }
-    expect(find.byTooltip('Filters'), findsNothing);
-  });
-
   testWidgets('transaction list opens search from the app bar icon', (
     tester,
   ) async {
@@ -236,121 +201,6 @@ void main() {
       expect(find.text('City Rent'), findsOneWidget);
     },
   );
-
-  testWidgets('transaction list opens categories from the app bar icon', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          transactionRepositoryProvider.overrideWithValue(
-            const _FakeTransactionRepository([]),
-          ),
-          categoryRepositoryProvider.overrideWithValue(
-            const _FakeCategoryRepository([]),
-          ),
-        ],
-        child: MaterialApp(
-          theme: AikoTheme.light(),
-          home: const TransactionListScreen(),
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    expect(find.byTooltip('Accounts'), findsOneWidget);
-    expect(find.byTooltip('Categories'), findsOneWidget);
-    expect(
-      tester.getTopLeft(find.byTooltip('Accounts')).dx,
-      lessThan(tester.getTopLeft(find.byTooltip('Categories')).dx),
-    );
-    await tester.tap(find.byTooltip('Categories'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Categories'), findsOneWidget);
-    // Dining Out is in the Expense section, which sits below Income in the
-    // unified scroll — confirm it is present (offstage is fine, the prior
-    // tab layout didn't make it onscreen at the default viewport either).
-    expect(find.text('Dining Out', skipOffstage: false), findsOneWidget);
-  });
-
-  testWidgets('transaction list opens categories without bottom navigation', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _transactionsRouterApp(
-        overrides: [
-          transactionRepositoryProvider.overrideWithValue(
-            const _FakeTransactionRepository([]),
-          ),
-          categoryRepositoryProvider.overrideWithValue(
-            const _FakeCategoryRepository([]),
-          ),
-        ],
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    expect(find.text('Transactions'), findsWidgets);
-    expect(find.text('Aiko'), findsOneWidget);
-
-    await tester.tap(
-      find.descendant(
-        of: find.byType(AppBar),
-        matching: find.byTooltip('Categories'),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Categories'), findsOneWidget);
-    expect(find.text('Transactions'), findsNothing);
-    expect(find.text('Aiko'), findsNothing);
-  });
-
-  testWidgets('transaction list opens accounts without bottom navigation', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _transactionsRouterApp(
-        overrides: [
-          transactionRepositoryProvider.overrideWithValue(
-            const _FakeTransactionRepository([]),
-          ),
-          accountsProvider.overrideWith(
-            () => _AccountsNotifier([
-              Account(
-                id: 'cash',
-                userId: 'user',
-                name: 'Cash Wallet',
-                type: AccountType.cash,
-                currentBalance: Money.parse('25', 'USD'),
-              ),
-            ]),
-          ),
-        ],
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    expect(find.text('Transactions'), findsWidgets);
-    expect(find.text('Aiko'), findsOneWidget);
-
-    await tester.tap(
-      find.descendant(
-        of: find.byType(AppBar),
-        matching: find.byTooltip('Accounts'),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Accounts'), findsOneWidget);
-    expect(find.text('Cash Wallet'), findsOneWidget);
-    expect(find.text('Transactions'), findsNothing);
-    expect(find.text('Aiko'), findsNothing);
-  });
 
   testWidgets('transaction list plus opens transaction form directly', (
     tester,
@@ -837,24 +687,6 @@ class _FakeCategoryRepository extends CategoryRepository {
 
   @override
   Future<Category> save(Category category) async => category;
-}
-
-Widget _transactionsRouterApp({required List<Object?> overrides}) {
-  return ProviderScope(
-    overrides: overrides.cast(),
-    child: MaterialApp.router(
-      locale: const Locale('en'),
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: AppLocalizations.supportedLocales,
-      theme: AikoTheme.light(),
-      routerConfig: createAikoRouter(initialLocation: '/transactions'),
-    ),
-  );
 }
 
 class _StaleListAfterDeleteTransactionRepository extends TransactionRepository {

@@ -6,6 +6,7 @@ import '../../aiko_character/presentation/aiko_avatar.dart';
 import '../application/aiko_chat_controller.dart';
 import '../application/chat_engine.dart';
 import '../domain/aiko_prompt_suggestions.dart';
+import 'aiko_markdown.dart';
 
 class AikoAssistantScreen extends ConsumerStatefulWidget {
   const AikoAssistantScreen({super.key});
@@ -306,32 +307,7 @@ class _ContentBlock extends StatelessWidget {
     if (content.isEmpty && streaming) {
       return const _ThinkingDots();
     }
-    if (streaming && content.isNotEmpty) {
-      return RichText(
-        text: TextSpan(
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontSize: 15,
-            height: 1.4,
-          ),
-          children: [
-            TextSpan(text: content),
-            const WidgetSpan(
-              alignment: PlaceholderAlignment.middle,
-              child: _BlinkingCaret(),
-            ),
-          ],
-        ),
-      );
-    }
-    return Text(
-      content,
-      style: TextStyle(
-        color: Theme.of(context).colorScheme.onSurface,
-        fontSize: 15,
-        height: 1.4,
-      ),
-    );
+    return AikoMarkdownText(content: content, streaming: streaming);
   }
 }
 
@@ -378,45 +354,6 @@ class _ThinkingDotsState extends State<_ThinkingDots>
           }),
         );
       },
-    );
-  }
-}
-
-class _BlinkingCaret extends StatefulWidget {
-  const _BlinkingCaret();
-
-  @override
-  State<_BlinkingCaret> createState() => _BlinkingCaretState();
-}
-
-class _BlinkingCaretState extends State<_BlinkingCaret>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 800),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _controller,
-      child: const Padding(
-        padding: EdgeInsets.only(left: 2),
-        child: Text(
-          '│',
-          style: TextStyle(
-            color: AikoColors.primaryBlue,
-            fontSize: 14,
-            fontWeight: FontWeight.w300,
-          ),
-        ),
-      ),
     );
   }
 }

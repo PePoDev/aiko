@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'chat_engine.dart';
@@ -137,7 +138,7 @@ class AikoChatController extends Notifier<ChatState> {
       case ChatReplyDelta(delta: final delta):
         _appendToLast(delta);
       case ChatReplyDone(fullText: _):
-        state = state.copyWith(isStreaming: false, clearError: true);
+        _finalizeLastMessage();
       case ChatReplyError(error: final e, retryable: final retryable):
         state = state.copyWith(
           isStreaming: false,
@@ -152,6 +153,25 @@ class AikoChatController extends Notifier<ChatState> {
     final last = messages.removeLast();
     messages.add(ChatMessage(role: last.role, content: last.content + delta));
     state = state.copyWith(messages: messages);
+  }
+
+  void _finalizeLastMessage() {
+    if (state.messages.isEmpty) return;
+    final messages = [...state.messages];
+    final last = messages.removeLast();
+    final split = splitTrailingDisclaimer(last.content);
+    messages.add(
+      ChatMessage(
+        role: last.role,
+        content: split.content,
+        disclaimer: split.disclaimer,
+      ),
+    );
+    state = state.copyWith(
+      messages: messages,
+      isStreaming: false,
+      clearError: true,
+    );
   }
 
   String _humanize(Object error) {
@@ -174,3 +194,22 @@ final supabaseConfigProvider = Provider<_SupabaseConfig>((ref) {
   final url = const String.fromEnvironment('SUPABASE_URL');
   return _SupabaseConfig(url: url, isConfigured: url.isNotEmpty);
 });
+
+/// Splits an AI reply's accumulated text into its main answer and a trailing
+/// italic disclaimer. Both the offline engine and the cloud Aiko prompt wrap
+/// the disclaimer in `_…_` (or `*…*`) and separate it from the body with a
+/// blank line — we lift that block out so the chat can render it compact and
+/// below a divider instead of as inline body text.
+@visibleForTesting
+({String content, String? disclaimer}) splitTrailingDisclaimer(String text) {
+  final match = _trailingDisclaimerPattern.firstMatch(text);
+  if (match == null) return (content: text, disclaimer: null);
+  final disclaimer = match.group(2)!.trim();
+  if (disclaimer.isEmpty) return (content: text, disclaimer: null);
+  final content = text.substring(0, match.start).trimRight();
+  return (content: content, disclaimer: disclaimer);
+}
+
+final RegExp _trailingDisclaimerPattern = RegExp(
+  r'\n\n([_*])([^*_]+?)\1\s*$',
+);

@@ -9,10 +9,19 @@ import 'aiko_assistant_service.dart';
 import 'financial_context.dart';
 
 class ChatMessage {
-  const ChatMessage({required this.role, required this.content});
+  const ChatMessage({
+    required this.role,
+    required this.content,
+    this.disclaimer,
+  });
 
   final String role;
   final String content;
+
+  /// Optional AI disclaimer (estimates, not financial advice, etc.). When
+  /// set, the chat UI renders it as compact italic text below a horizontal
+  /// divider so it visually separates from the main answer.
+  final String? disclaimer;
 
   bool get isUser => role == 'user';
 }

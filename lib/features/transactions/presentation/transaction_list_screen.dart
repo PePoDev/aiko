@@ -1,8 +1,10 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/money/money.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
@@ -97,22 +99,7 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: _isSearching
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                textAlignVertical: TextAlignVertical.center,
-                decoration: const InputDecoration(
-                  hintText: 'Search merchant, note, tag, category',
-                  prefixIcon: Icon(Icons.search),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 16),
-                ),
-              )
-            : const Text('Transactions'),
+        title: const Text('Transactions'),
         actions: [
           if (_isSearching)
             IconButton(
@@ -147,6 +134,7 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
           return _MonthlyTransactionTabs(
             transactions: transactions,
             isSearching: _isSearching,
+            searchController: _searchController,
             searchState: _searchState,
             typeFilter: _typeFilter,
             dateFilter: _dateFilter,
@@ -213,6 +201,7 @@ class _MonthlyTransactionTabs extends StatelessWidget {
   const _MonthlyTransactionTabs({
     required this.transactions,
     required this.isSearching,
+    required this.searchController,
     required this.searchState,
     required this.typeFilter,
     required this.dateFilter,
@@ -227,6 +216,7 @@ class _MonthlyTransactionTabs extends StatelessWidget {
 
   final List<FinanceTransaction> transactions;
   final bool isSearching;
+  final TextEditingController searchController;
   final _TransactionSearchState searchState;
   final _TransactionTypeFilter typeFilter;
   final _TransactionDateFilter dateFilter;
@@ -257,7 +247,8 @@ class _MonthlyTransactionTabs extends StatelessWidget {
               tabs: [for (final month in months) Tab(text: month.label)],
             ),
           ),
-          if (isSearching)
+          if (isSearching) ...[
+            _TransactionSearchField(controller: searchController),
             _TransactionInlineFilters(
               typeFilter: typeFilter,
               dateFilter: dateFilter,
@@ -270,6 +261,7 @@ class _MonthlyTransactionTabs extends StatelessWidget {
               onClearSearch: onClearSearch,
               hasActiveFilters: searchState.isActive,
             ),
+          ],
           Expanded(
             child: TabBarView(
               children: [
@@ -323,6 +315,33 @@ class _MonthlyTransactionTabs extends StatelessWidget {
     return transactions
         .where((transaction) => _MonthKey.fromDate(transaction.date) == month)
         .toList(growable: false);
+  }
+}
+
+class _TransactionSearchField extends StatelessWidget {
+  const _TransactionSearchField({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+        child: TextField(
+          controller: controller,
+          autofocus: true,
+          textAlignVertical: TextAlignVertical.center,
+          decoration: const InputDecoration(
+            hintText: 'Search merchant, note, tag, category',
+            prefixIcon: Icon(Icons.search),
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(vertical: 12),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -553,7 +572,7 @@ class _TransactionMonthPage extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
       children: [
         for (final group in groups) ...[
-          _TransactionDateHeader(date: group.date),
+          _TransactionDateHeader(date: group.date, total: group.total),
           for (final tx in group.transactions)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -658,16 +677,41 @@ class _TransactionMonthPage extends ConsumerWidget {
           date: date,
           transactions: grouped[date]!
             ..sort((a, b) => b.date.compareTo(a.date)),
+          total: _dailyTotal(grouped[date]!),
         ),
     ];
+  }
+
+  Money _dailyTotal(List<FinanceTransaction> transactions) {
+    if (transactions.isEmpty) {
+      return Money.zero('USD');
+    }
+    final currency = transactions.first.amount.currency;
+    var amount = Decimal.zero;
+    for (final transaction in transactions) {
+      if (transaction.amount.currency != currency) {
+        continue;
+      }
+      if (transaction.type == TransactionType.income) {
+        amount += transaction.amount.amount;
+      } else {
+        amount -= transaction.amount.amount;
+      }
+    }
+    return Money(amount: amount, currency: currency);
   }
 }
 
 class _TransactionDateGroup {
-  const _TransactionDateGroup({required this.date, required this.transactions});
+  const _TransactionDateGroup({
+    required this.date,
+    required this.transactions,
+    required this.total,
+  });
 
   final DateTime date;
   final List<FinanceTransaction> transactions;
+  final Money total;
 }
 
 Map<String, String> _accountLabelsForTransactions({
@@ -703,20 +747,34 @@ Map<String, String> _accountLabelsForTransactions({
 }
 
 class _TransactionDateHeader extends StatelessWidget {
-  const _TransactionDateHeader({required this.date});
+  const _TransactionDateHeader({required this.date, required this.total});
 
   final DateTime date;
+  final Money total;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
-      child: Text(
-        _dateHeaderLabel(date),
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w700,
-        ),
+      child: Row(
+        children: [
+          Text(
+            _dateHeaderLabel(date),
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            _formatDailyTotal(total),
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -984,4 +1042,16 @@ String _dateHeaderLabel(DateTime date) {
     return 'Yesterday';
   }
   return DateFormat('EEE, MMM d, yyyy').format(date);
+}
+
+String _formatDailyTotal(Money total) {
+  final isNegative = total.isNegative;
+  final absAmount = total.amount.abs();
+  final symbol = NumberFormat.simpleCurrency(
+    name: total.currency,
+  ).currencySymbol;
+  final formatter = NumberFormat.decimalPattern();
+  final formatted = formatter.format(absAmount.toDouble());
+  final sign = isNegative ? '-' : '';
+  return '$sign$symbol$formatted';
 }

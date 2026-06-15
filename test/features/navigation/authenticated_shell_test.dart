@@ -54,8 +54,8 @@ void main() {
     );
   }
 
-  testWidgets('bottom navigation uses accounts, categories, overview, '
-      'transactions, aiko tabs', (tester) async {
+  testWidgets('bottom navigation uses home, transactions, accounts, '
+      'categories, aiko tabs', (tester) async {
     await tester.pumpWidget(
       MaterialApp.router(
         locale: const Locale('en'),
@@ -74,10 +74,10 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final label in [
+      'Home',
+      'Transactions',
       'Accounts',
       'Categories',
-      'Overview',
-      'Transactions',
       'Aiko',
     ]) {
       expect(find.text(label), findsOneWidget);
@@ -235,10 +235,10 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final label in [
+      'Home',
+      'Transactions',
       'Accounts',
       'Categories',
-      'Overview',
-      'Transactions',
       'Aiko',
     ]) {
       final cell = find.byTooltip(label);

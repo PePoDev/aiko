@@ -201,7 +201,7 @@ Core finance data reads/writes locally first via [Brick](https://github.com/GetD
 
 ### Sync Fields & Conflict Resolution
 
-Every syncable table carries `id`, `user_id`, `created_at`, `updated_at`, `deleted_at` (soft delete — makes offline delete sync safe), and `version integer not null default 1`. Use soft delete, never hard delete.
+Every syncable table carries `id`, `user_id`, `created_at`, `updated_at`, and `version integer not null default 1`. Deletes are **hard deletes**: `OfflineStore.delete` removes the local row and queues a remote `DELETE` through Brick (SQLite-only when offline/local mode). There is no `deleted_at` tombstone. Known gap: a row deleted while signed out in cloud mode is removed locally but its remote `DELETE` is not queued (no session at delete time), so it won't propagate on next sign-in.
 
 Conflict rules: transactions/budgets/categories — latest `updated_at` wins; important records — compare `version` before overwriting; summaries — recalculated from transactions, never merged; account balances — calculated or snapshot-based; attachments — WebP uploads to Storage, metadata syncs via Postgres, local copy kept as offline cache.
 
@@ -213,7 +213,7 @@ Dashboards/reports read pre-aggregated summary tables instead of rescanning raw 
 
 Attachments live in **Supabase Storage** under a per-user, RLS-protected bucket path — never in Postgres `bytea`; only metadata goes to Postgres. Capture is camera or a recent gallery image (iOS + Android). OCR (if enabled) runs on the **original** first, then it's compressed to a single **WebP** (≈q80, ≤2000px long edge, EXIF stripped, iOS HEIC transcoded) — that one ~100–300 KB file serves both list and detail (no separate thumbnail). Encoder is `flutter_image_compress`: native on Android; iOS has no native WebP encoder, so it encodes in the background and falls back to JPEG (`UnsupportedError` → `CompressFormat.jpeg`). The pure-Dart `image` package can't encode WebP (not an iOS fallback).
 
-**No data loss (offline-first):** the WebP is written locally and the row marked `sync_status = 'pending_upload'`; the original is discarded after OCR + compression; the WebP uploads through the sync queue (idempotent by `checksum`, retried) and flips to `synced`; deletes are soft (`deleted_at`). The local WebP is a **persistent cache** — opening a transaction reads it locally, never re-downloads — reclaimed only under LRU pressure (re-fetched on demand).
+**No data loss (offline-first):** the WebP is written locally and the row marked `sync_status = 'pending_upload'`; the original is discarded after OCR + compression; the WebP uploads through the sync queue (idempotent by `checksum`, retried) and flips to `synced`; deletes are hard (row + Storage object removed). The local WebP is a **persistent cache** — opening a transaction reads it locally, never re-downloads — reclaimed only under LRU pressure (re-fetched on demand).
 
 `transaction_attachments` carries the standard sync fields plus `transaction_id`, `local_path`, `remote_path`, `file_name`, `mime_type`, `file_size_bytes`, `checksum`, `sync_status` (default `'pending_upload'`). Storage sits behind a `RemoteAttachmentStorage` interface (`upload`/`delete`/`getDownloadUrl`); `SupabaseAttachmentStorage` uploads the compressed file and serves short-lived signed URLs, so the backend is swappable without UI changes.
 

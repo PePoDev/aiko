@@ -19,7 +19,6 @@ class OfflineProfile extends OfflineFirstWithSupabaseModel {
     this.onboardingStatus = 'notStarted',
     this.securityStatus = 'notConfigured',
     DateTime? updatedAt,
-    this.deletedAt,
     this.version = 1,
   }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
 
@@ -41,10 +40,6 @@ class OfflineProfile extends OfflineFirstWithSupabaseModel {
   @Sqlite(name: 'updated_at')
   @Supabase(name: 'updated_at')
   final DateTime updatedAt;
-
-  @Sqlite(name: 'deleted_at', index: true)
-  @Supabase(name: 'deleted_at')
-  final DateTime? deletedAt;
 
   @Sqlite(name: 'version')
   @Supabase(name: 'version', defaultValue: '1')

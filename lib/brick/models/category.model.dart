@@ -27,7 +27,6 @@ class OfflineCategory extends OfflineFirstWithSupabaseModel {
     this.budgetRollover = false,
     this.alertThresholds = const [50, 75, 90, 100],
     DateTime? updatedAt,
-    this.deletedAt,
     this.version = 1,
   }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
 
@@ -104,10 +103,6 @@ class OfflineCategory extends OfflineFirstWithSupabaseModel {
   @Sqlite(name: 'updated_at')
   @Supabase(name: 'updated_at')
   final DateTime updatedAt;
-
-  @Sqlite(name: 'deleted_at', index: true)
-  @Supabase(name: 'deleted_at')
-  final DateTime? deletedAt;
 
   @Sqlite(name: 'version')
   @Supabase(name: 'version', defaultValue: '1')

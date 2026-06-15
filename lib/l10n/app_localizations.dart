@@ -113,7 +113,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeTab.
   ///
   /// In en, this message translates to:
-  /// **'Overview'**
+  /// **'Home'**
   String get homeTab;
 
   /// No description provided for @transactionsTab.

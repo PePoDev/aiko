@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:aiko/core/storage/secure_storage_service.dart';
 import 'package:aiko/features/aiko_assistant/application/aiko_chat_controller.dart';
 import 'package:aiko/features/aiko_assistant/application/chat_engine.dart';
 import 'package:aiko/features/aiko_assistant/application/financial_context.dart';
+import 'package:aiko/features/aiko_assistant/data/chat_session_store.dart';
 import 'package:aiko/features/aiko_assistant/domain/aiko_prompt_suggestions.dart';
 import 'package:aiko/features/aiko_assistant/presentation/aiko_assistant_screen.dart';
 import 'package:aiko/theme/aiko_theme.dart';
@@ -84,6 +87,58 @@ void main() {
     expect(fakeEngine.calls.single.last.content, prompt);
     expect(find.text(prompt), findsWidgets);
   });
+
+  testWidgets(
+    'renders saved chat history under the greeting on the empty state',
+    (tester) async {
+      // Regression: when the empty state had saved history, the list builder
+      // hardcoded the history row at index 1 but offset the message index by
+      // -1, indexing `state.messages[-1]` on the greeting row and crashing
+      // with `RangeError (length): Invalid value: Only valid value is 0: -1`.
+      _useWideSurface(tester);
+      final store = ChatSessionStore(storage: _seededStorage());
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [chatSessionStoreProvider.overrideWithValue(store)],
+          child: MaterialApp(
+            theme: AikoTheme.light(),
+            home: const AikoAssistantScreen(),
+          ),
+        ),
+      );
+      // First pump builds the screen, second flushes the async session load.
+      await tester.pump();
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining("I'm Aiko"), findsOneWidget);
+      expect(find.text('Recent chats'), findsOneWidget);
+      expect(find.text('Past chat'), findsOneWidget);
+    },
+  );
+}
+
+/// In-memory secure storage pre-seeded with a single saved chat session so the
+/// session store reports a non-empty history.
+SecureStorageService _seededStorage() {
+  final storage = MemorySecureStorageService();
+  storage.write(
+    'aiko_chat_sessions',
+    jsonEncode([
+      {
+        'id': 'past-1',
+        'title': 'Past chat',
+        'createdAt': '2026-01-01T00:00:00.000Z',
+        'updatedAt': '2026-01-02T00:00:00.000Z',
+        'pinned': false,
+        'messages': [
+          {'role': 'user', 'content': 'hi'},
+          {'role': 'assistant', 'content': 'hello'},
+        ],
+      },
+    ]),
+  );
+  return storage;
 }
 
 /// The prompt pool members currently rendered as suggestion chips.

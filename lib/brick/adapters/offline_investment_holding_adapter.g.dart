@@ -27,11 +27,6 @@ Future<OfflineInvestmentHolding> _$OfflineInvestmentHoldingFromSupabase(
     updatedAt: data['updated_at'] == null
         ? null
         : DateTime.tryParse(data['updated_at'] as String),
-    deletedAt: data['deleted_at'] == null
-        ? null
-        : data['deleted_at'] == null
-        ? null
-        : DateTime.tryParse(data['deleted_at'] as String),
     version: data['version'] as int ?? 1,
   );
 }
@@ -54,7 +49,6 @@ Future<Map<String, dynamic>> _$OfflineInvestmentHoldingToSupabase(
     'target_allocation_percent': instance.targetAllocationPercent,
     'created_at': instance.createdAt?.toIso8601String(),
     'updated_at': instance.updatedAt.toIso8601String(),
-    'deleted_at': instance.deletedAt?.toIso8601String(),
     'version': instance.version,
   };
 }
@@ -83,11 +77,6 @@ Future<OfflineInvestmentHolding> _$OfflineInvestmentHoldingFromSqlite(
         ? null
         : DateTime.tryParse(data['created_at'] as String),
     updatedAt: DateTime.parse(data['updated_at'] as String),
-    deletedAt: data['deleted_at'] == null
-        ? null
-        : data['deleted_at'] == null
-        ? null
-        : DateTime.tryParse(data['deleted_at'] as String),
     version: data['version'] as int,
   )..primaryKey = data['_brick_id'] as int;
 }
@@ -110,7 +99,6 @@ Future<Map<String, dynamic>> _$OfflineInvestmentHoldingToSqlite(
     'target_allocation_percent': instance.targetAllocationPercent,
     'created_at': instance.createdAt?.toIso8601String(),
     'updated_at': instance.updatedAt.toIso8601String(),
-    'deleted_at': instance.deletedAt?.toIso8601String(),
     'version': instance.version,
   };
 }
@@ -173,10 +161,6 @@ class OfflineInvestmentHoldingAdapter
     'updatedAt': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'updated_at',
-    ),
-    'deletedAt': const RuntimeSupabaseColumnDefinition(
-      association: false,
-      columnName: 'deleted_at',
     ),
     'version': const RuntimeSupabaseColumnDefinition(
       association: false,
@@ -264,12 +248,6 @@ class OfflineInvestmentHoldingAdapter
     'updatedAt': const RuntimeSqliteColumnDefinition(
       association: false,
       columnName: 'updated_at',
-      iterable: false,
-      type: DateTime,
-    ),
-    'deletedAt': const RuntimeSqliteColumnDefinition(
-      association: false,
-      columnName: 'deleted_at',
       iterable: false,
       type: DateTime,
     ),

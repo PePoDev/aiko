@@ -21,7 +21,11 @@ const List<MigrationCommand> _migration_20260615204827_up = [
   InsertColumn('updated_at', Column.datetime, onTable: 'OfflineCategoryGroup'),
   InsertColumn('deleted_at', Column.datetime, onTable: 'OfflineCategoryGroup'),
   InsertColumn('version', Column.integer, onTable: 'OfflineCategoryGroup'),
-  InsertColumn('deleted_at', Column.datetime, onTable: 'OfflineInvestmentHolding'),
+  InsertColumn(
+    'deleted_at',
+    Column.datetime,
+    onTable: 'OfflineInvestmentHolding',
+  ),
   InsertColumn('version', Column.integer, onTable: 'OfflineInvestmentHolding'),
   InsertColumn('updated_at', Column.datetime, onTable: 'OfflineProfile'),
   InsertColumn('deleted_at', Column.datetime, onTable: 'OfflineProfile'),
@@ -29,12 +33,36 @@ const List<MigrationCommand> _migration_20260615204827_up = [
   InsertColumn('updated_at', Column.datetime, onTable: 'OfflineTransaction'),
   InsertColumn('deleted_at', Column.datetime, onTable: 'OfflineTransaction'),
   InsertColumn('version', Column.integer, onTable: 'OfflineTransaction'),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineAccount', unique: false),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineCategory', unique: false),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineCategoryGroup', unique: false),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineInvestmentHolding', unique: false),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineProfile', unique: false),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineTransaction', unique: false)
+  CreateIndex(
+    columns: ['deleted_at'],
+    onTable: 'OfflineAccount',
+    unique: false,
+  ),
+  CreateIndex(
+    columns: ['deleted_at'],
+    onTable: 'OfflineCategory',
+    unique: false,
+  ),
+  CreateIndex(
+    columns: ['deleted_at'],
+    onTable: 'OfflineCategoryGroup',
+    unique: false,
+  ),
+  CreateIndex(
+    columns: ['deleted_at'],
+    onTable: 'OfflineInvestmentHolding',
+    unique: false,
+  ),
+  CreateIndex(
+    columns: ['deleted_at'],
+    onTable: 'OfflineProfile',
+    unique: false,
+  ),
+  CreateIndex(
+    columns: ['deleted_at'],
+    onTable: 'OfflineTransaction',
+    unique: false,
+  ),
 ];
 
 const List<MigrationCommand> _migration_20260615204827_down = [
@@ -61,7 +89,7 @@ const List<MigrationCommand> _migration_20260615204827_down = [
   DropIndex('index_OfflineCategoryGroup_on_deleted_at'),
   DropIndex('index_OfflineInvestmentHolding_on_deleted_at'),
   DropIndex('index_OfflineProfile_on_deleted_at'),
-  DropIndex('index_OfflineTransaction_on_deleted_at')
+  DropIndex('index_OfflineTransaction_on_deleted_at'),
 ];
 
 //

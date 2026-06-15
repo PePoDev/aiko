@@ -15,7 +15,6 @@ class OfflineCategoryGroup extends OfflineFirstWithSupabaseModel {
     this.sortOrder = 0,
     this.createdAt,
     DateTime? updatedAt,
-    this.deletedAt,
     this.version = 1,
   }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
 
@@ -44,10 +43,6 @@ class OfflineCategoryGroup extends OfflineFirstWithSupabaseModel {
   @Sqlite(name: 'updated_at')
   @Supabase(name: 'updated_at')
   final DateTime updatedAt;
-
-  @Sqlite(name: 'deleted_at', index: true)
-  @Supabase(name: 'deleted_at')
-  final DateTime? deletedAt;
 
   @Sqlite(name: 'version')
   @Supabase(name: 'version', defaultValue: '1')

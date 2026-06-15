@@ -37,11 +37,6 @@ Future<OfflineCategory> _$OfflineCategoryFromSupabase(
     updatedAt: data['updated_at'] == null
         ? null
         : DateTime.tryParse(data['updated_at'] as String),
-    deletedAt: data['deleted_at'] == null
-        ? null
-        : data['deleted_at'] == null
-        ? null
-        : DateTime.tryParse(data['deleted_at'] as String),
     version: data['version'] as int ?? 1,
   );
 }
@@ -70,7 +65,6 @@ Future<Map<String, dynamic>> _$OfflineCategoryToSupabase(
     'budget_rollover': instance.budgetRollover,
     'alert_thresholds': instance.alertThresholds,
     'updated_at': instance.updatedAt.toIso8601String(),
-    'deleted_at': instance.deletedAt?.toIso8601String(),
     'version': instance.version,
   };
 }
@@ -107,11 +101,6 @@ Future<OfflineCategory> _$OfflineCategoryFromSqlite(
     budgetRollover: data['budget_rollover'] == 1,
     alertThresholds: alertThresholdsFromColumn(data['alert_thresholds']),
     updatedAt: DateTime.parse(data['updated_at'] as String),
-    deletedAt: data['deleted_at'] == null
-        ? null
-        : data['deleted_at'] == null
-        ? null
-        : DateTime.tryParse(data['deleted_at'] as String),
     version: data['version'] as int,
   )..primaryKey = data['_brick_id'] as int;
 }
@@ -140,7 +129,6 @@ Future<Map<String, dynamic>> _$OfflineCategoryToSqlite(
     'budget_rollover': instance.budgetRollover ? 1 : 0,
     'alert_thresholds': jsonEncode(instance.alertThresholds),
     'updated_at': instance.updatedAt.toIso8601String(),
-    'deleted_at': instance.deletedAt?.toIso8601String(),
     'version': instance.version,
   };
 }
@@ -227,10 +215,6 @@ class OfflineCategoryAdapter
     'updatedAt': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'updated_at',
-    ),
-    'deletedAt': const RuntimeSupabaseColumnDefinition(
-      association: false,
-      columnName: 'deleted_at',
     ),
     'version': const RuntimeSupabaseColumnDefinition(
       association: false,
@@ -354,12 +338,6 @@ class OfflineCategoryAdapter
     'updatedAt': const RuntimeSqliteColumnDefinition(
       association: false,
       columnName: 'updated_at',
-      iterable: false,
-      type: DateTime,
-    ),
-    'deletedAt': const RuntimeSqliteColumnDefinition(
-      association: false,
-      columnName: 'deleted_at',
       iterable: false,
       type: DateTime,
     ),

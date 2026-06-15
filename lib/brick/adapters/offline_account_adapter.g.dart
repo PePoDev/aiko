@@ -33,11 +33,6 @@ Future<OfflineAccount> _$OfflineAccountFromSupabase(
     updatedAt: data['updated_at'] == null
         ? null
         : DateTime.tryParse(data['updated_at'] as String),
-    deletedAt: data['deleted_at'] == null
-        ? null
-        : data['deleted_at'] == null
-        ? null
-        : DateTime.tryParse(data['deleted_at'] as String),
     version: data['version'] as int ?? 1,
   );
 }
@@ -62,7 +57,6 @@ Future<Map<String, dynamic>> _$OfflineAccountToSupabase(
     'goal_target_date': instance.goalTargetDate?.toIso8601String(),
     'goal_priority': instance.goalPriority,
     'updated_at': instance.updatedAt.toIso8601String(),
-    'deleted_at': instance.deletedAt?.toIso8601String(),
     'version': instance.version,
   };
 }
@@ -95,11 +89,6 @@ Future<OfflineAccount> _$OfflineAccountFromSqlite(
         : DateTime.tryParse(data['goal_target_date'] as String),
     goalPriority: goalPriorityFromColumn(data['goal_priority']),
     updatedAt: DateTime.parse(data['updated_at'] as String),
-    deletedAt: data['deleted_at'] == null
-        ? null
-        : data['deleted_at'] == null
-        ? null
-        : DateTime.tryParse(data['deleted_at'] as String),
     version: data['version'] as int,
   )..primaryKey = data['_brick_id'] as int;
 }
@@ -124,7 +113,6 @@ Future<Map<String, dynamic>> _$OfflineAccountToSqlite(
     'goal_target_date': instance.goalTargetDate?.toIso8601String(),
     'goal_priority': instance.goalPriority,
     'updated_at': instance.updatedAt.toIso8601String(),
-    'deleted_at': instance.deletedAt?.toIso8601String(),
     'version': instance.version,
   };
 }
@@ -195,10 +183,6 @@ class OfflineAccountAdapter
     'updatedAt': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'updated_at',
-    ),
-    'deletedAt': const RuntimeSupabaseColumnDefinition(
-      association: false,
-      columnName: 'deleted_at',
     ),
     'version': const RuntimeSupabaseColumnDefinition(
       association: false,
@@ -298,12 +282,6 @@ class OfflineAccountAdapter
     'updatedAt': const RuntimeSqliteColumnDefinition(
       association: false,
       columnName: 'updated_at',
-      iterable: false,
-      type: DateTime,
-    ),
-    'deletedAt': const RuntimeSqliteColumnDefinition(
-      association: false,
-      columnName: 'deleted_at',
       iterable: false,
       type: DateTime,
     ),

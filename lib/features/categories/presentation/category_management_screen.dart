@@ -213,11 +213,20 @@ class _CategorySectionState extends State<_CategorySection> {
           .toList(growable: false);
       if (groupCategories.isEmpty) continue;
       Money? groupTotal;
+      Money? groupBudget;
       int groupCount = 0;
       for (final category in groupCategories) {
         final amount = widget.totals.amountForCategory(category.id);
         if (amount != null) {
           groupTotal = groupTotal == null ? amount : groupTotal + amount;
+        }
+        // Group budget = sum of its categories' limits. Skip mismatched
+        // currencies (Money addition requires a shared currency).
+        final limit = category.hasBudget ? category.monthlyLimit : null;
+        if (limit != null &&
+            (groupBudget == null ||
+                groupBudget.currency == limit.currency)) {
+          groupBudget = groupBudget == null ? limit : groupBudget + limit;
         }
         groupCount += widget.totals.countForCategory(category.id);
       }
@@ -226,6 +235,7 @@ class _CategorySectionState extends State<_CategorySection> {
           group: group,
           categories: groupCategories,
           total: groupTotal,
+          budget: groupBudget,
           count: groupCount,
         ),
       );
@@ -299,6 +309,14 @@ class _CategorySectionState extends State<_CategorySection> {
   }
 }
 
+/// Trailing money string for a row/header: `-฿240/฿1000` when a budget
+/// [limit] is set, otherwise just the spent amount (or `—` when neither).
+String _spentOverLimit(Money? spent, Money? limit) {
+  if (limit == null) return spent == null ? '—' : AikoFormatters.money(spent);
+  final spentMoney = spent ?? Money.zero(limit.currency);
+  return '${AikoFormatters.money(spentMoney)}/${AikoFormatters.money(limit)}';
+}
+
 bool _belongsToGroup(Category category, CategoryGroup group) {
   if (group.id == CategoryGroupDefaults.unfiledGroupId) {
     return category.groupId == group.id ||
@@ -313,12 +331,14 @@ class _GroupEntry {
     required this.group,
     required this.categories,
     required this.total,
+    required this.budget,
     required this.count,
   });
 
   final CategoryGroup group;
   final List<Category> categories;
   final Money? total;
+  final Money? budget;
   final int count;
 }
 
@@ -407,6 +427,7 @@ class _GroupAccordion extends StatelessWidget {
         _GroupHeader(
           title: entry.group.name,
           total: entry.total,
+          budget: entry.budget,
           count: entry.count,
           categoryCount: entry.categories.length,
           color: color,
@@ -458,6 +479,7 @@ class _GroupHeader extends StatelessWidget {
   const _GroupHeader({
     required this.title,
     required this.total,
+    required this.budget,
     required this.count,
     required this.categoryCount,
     required this.color,
@@ -469,6 +491,7 @@ class _GroupHeader extends StatelessWidget {
 
   final String title;
   final Money? total;
+  final Money? budget;
   final int count;
   final int categoryCount;
   final Color color;
@@ -524,7 +547,7 @@ class _GroupHeader extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                total == null ? '—' : AikoFormatters.money(total!),
+                _spentOverLimit(total, budget),
                 key: const ValueKey('group-total-amount'),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
@@ -639,7 +662,10 @@ class _CategoryRow extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Text(
-                amount == null ? '—' : AikoFormatters.money(amount!),
+                _spentOverLimit(
+                  amount,
+                  category.hasBudget ? category.monthlyLimit : null,
+                ),
                 textAlign: TextAlign.right,
                 key: ValueKey('category-${category.id}-total'),
                 style: theme.textTheme.bodyMedium?.copyWith(

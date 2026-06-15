@@ -167,7 +167,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
                   builder: (context) {
                     final history = state.history;
                     final showHistory = state.isEmpty && history.isNotEmpty;
-                    final historyOffset = showHistory ? 1 : 0;
+                    final messageCount = state.messages.length;
                     return ListView.builder(
                       controller: _scrollController,
                       padding: EdgeInsets.fromLTRB(
@@ -176,9 +176,9 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
                         16,
                         12 + _suggestionsHeight,
                       ),
-                      itemCount: state.messages.length + historyOffset,
+                      itemCount: messageCount + (showHistory ? 1 : 0),
                       itemBuilder: (context, index) {
-                        if (showHistory && index == 1) {
+                        if (showHistory && index == messageCount) {
                           final notifier = ref.read(
                             aikoChatControllerProvider.notifier,
                           );
@@ -191,10 +191,8 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
                             onDelete: notifier.deleteSession,
                           );
                         }
-                        final messageIndex = index - historyOffset;
-                        final message = state.messages[messageIndex];
-                        final isLast =
-                            messageIndex == state.messages.length - 1;
+                        final message = state.messages[index];
+                        final isLast = index == messageCount - 1;
                         return _MessageBubble(
                           message: message,
                           streaming: isLast && state.isStreaming,
@@ -700,13 +698,14 @@ class _InputBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasText = controller.text.trim().isNotEmpty;
+    final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: theme.colorScheme.surface,
         border: Border(
           top: BorderSide(
-            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
+            color: theme.colorScheme.outline.withValues(alpha: 0.3),
           ),
         ),
       ),
@@ -729,57 +728,58 @@ class _InputBar extends StatelessWidget {
                       ? 'Aiko is busy...'
                       : 'Ask about your money...',
                   hintStyle: TextStyle(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                    color: theme.colorScheme.onSurfaceVariant
+                        .withValues(alpha: 0.6),
                   ),
                   filled: true,
-                  fillColor: Theme.of(context).inputDecorationTheme.fillColor,
+                  fillColor: theme.inputDecorationTheme.fillColor,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.outline.withValues(alpha: 0.5),
+                      color: theme.colorScheme.outline.withValues(alpha: 0.4),
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.outline.withValues(alpha: 0.5),
+                      color: theme.colorScheme.outline.withValues(alpha: 0.4),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    borderSide: const BorderSide(color: AikoColors.primaryBlue),
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: const BorderSide(
+                      color: AikoColors.primaryBlue,
+                    ),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
+                    horizontal: 16,
+                    vertical: 12,
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            Material(
-              color: (disabled || !hasText)
-                  ? AikoColors.softBlue
-                  : AikoColors.primaryBlue,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: (disabled || !hasText)
-                    ? null
-                    : () => onSubmit(controller.text),
-                child: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Icon(
-                    Icons.send_rounded,
-                    color: AikoColors.white,
-                    size: 20,
+            SizedBox(
+              width: 48,
+              height: 48,
+              child: Material(
+                color: (disabled || !hasText)
+                    ? theme.colorScheme.outline.withValues(alpha: 0.3)
+                    : AikoColors.primaryBlue,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: (disabled || !hasText)
+                      ? null
+                      : () => onSubmit(controller.text),
+                  child: Center(
+                    child: Icon(
+                      Icons.arrow_upward_rounded,
+                      color: (disabled || !hasText)
+                          ? theme.colorScheme.onSurfaceVariant
+                          : AikoColors.white,
+                      size: 22,
+                    ),
                   ),
                 ),
               ),

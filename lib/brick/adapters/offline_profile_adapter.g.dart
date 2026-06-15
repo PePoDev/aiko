@@ -21,11 +21,6 @@ Future<OfflineProfile> _$OfflineProfileFromSupabase(
     updatedAt: data['updated_at'] == null
         ? null
         : DateTime.tryParse(data['updated_at'] as String),
-    deletedAt: data['deleted_at'] == null
-        ? null
-        : data['deleted_at'] == null
-        ? null
-        : DateTime.tryParse(data['deleted_at'] as String),
     version: data['version'] as int ?? 1,
   );
 }
@@ -48,7 +43,6 @@ Future<Map<String, dynamic>> _$OfflineProfileToSupabase(
     'onboarding_status': instance.onboardingStatus,
     'security_status': instance.securityStatus,
     'updated_at': instance.updatedAt.toIso8601String(),
-    'deleted_at': instance.deletedAt?.toIso8601String(),
     'version': instance.version,
   };
 }
@@ -71,11 +65,6 @@ Future<OfflineProfile> _$OfflineProfileFromSqlite(
     onboardingStatus: data['onboarding_status'] as String,
     securityStatus: data['security_status'] as String,
     updatedAt: DateTime.parse(data['updated_at'] as String),
-    deletedAt: data['deleted_at'] == null
-        ? null
-        : data['deleted_at'] == null
-        ? null
-        : DateTime.tryParse(data['deleted_at'] as String),
     version: data['version'] as int,
   )..primaryKey = data['_brick_id'] as int;
 }
@@ -98,7 +87,6 @@ Future<Map<String, dynamic>> _$OfflineProfileToSqlite(
     'onboarding_status': instance.onboardingStatus,
     'security_status': instance.securityStatus,
     'updated_at': instance.updatedAt.toIso8601String(),
-    'deleted_at': instance.deletedAt?.toIso8601String(),
     'version': instance.version,
   };
 }
@@ -161,10 +149,6 @@ class OfflineProfileAdapter
     'updatedAt': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'updated_at',
-    ),
-    'deletedAt': const RuntimeSupabaseColumnDefinition(
-      association: false,
-      columnName: 'deleted_at',
     ),
     'version': const RuntimeSupabaseColumnDefinition(
       association: false,
@@ -252,12 +236,6 @@ class OfflineProfileAdapter
     'updatedAt': const RuntimeSqliteColumnDefinition(
       association: false,
       columnName: 'updated_at',
-      iterable: false,
-      type: DateTime,
-    ),
-    'deletedAt': const RuntimeSqliteColumnDefinition(
-      association: false,
-      columnName: 'deleted_at',
       iterable: false,
       type: DateTime,
     ),

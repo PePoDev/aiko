@@ -63,36 +63,28 @@ set
 from (
   select
     category_id,
-    max(amount) filter (where period <> 'daily') as budget_amount,
+    -- `budgets.amount` is numeric; `categories.budget_amount` is text.
+    (max(amount) filter (where period <> 'daily'))::text as budget_amount,
     max(currency) as budget_currency,
     coalesce(
       max(period) filter (where period <> 'daily'),
       'monthly'
     ) as budget_period,
-    bool_or(coalesce(rollover, false)) as budget_rollover,
+    -- legacy `budgets` has no `rollover` column; treat all as non-rollover.
+    false as budget_rollover,
+    -- legacy `budgets.alert_thresholds` is int[]. Flatten every row's array
+    -- into one distinct, sorted jsonb array of ints. `left join lateral`
+    -- multiplies rows per threshold but leaves the max()/group aggregates
+    -- above unaffected.
     coalesce(
-      jsonb_agg(distinct alert_thresholds) filter (where alert_thresholds is not null),
+      jsonb_agg(distinct threshold order by threshold)
+        filter (where threshold is not null),
       '[50,75,90,100]'::jsonb
     ) as alert_thresholds
-  from (
-    select
-      category_id,
-      amount,
-      currency,
-      period,
-      -- legacy `budgets` schema does not have a `rollover` column; treat
-      -- every migrated row as non-rollover.
-      false as rollover,
-      -- legacy `budgets` schema stores thresholds as an int[] / jsonb array.
-      case
-        when alert_thresholds is null then '[50,75,90,100]'::jsonb
-        when jsonb_typeof(alert_thresholds) = 'array' then alert_thresholds
-        else '[50,75,90,100]'::jsonb
-      end as alert_thresholds
-    from budgets
-    where category_id is not null
-      and coalesce(status, 'active') = 'active'
-  ) legacy
+  from budgets
+  left join lateral unnest(alert_thresholds) as threshold on true
+  where category_id is not null
+    and coalesce(status, 'active') = 'active'
   group by category_id
 ) b
 where c.id = b.category_id
@@ -115,7 +107,8 @@ select
   null,
   true,
   true,
-  g.target_amount,
+  -- `goals.target_amount` is numeric; `accounts.goal_target_amount` is text.
+  g.target_amount::text,
   g.target_date,
   case
     when g.priority = 3 then 'high'
@@ -128,5 +121,8 @@ where not exists (
 );
 
 -- 5. Drop the legacy tables.
+-- saving_plans FK-references goals and is now unused (the saving plan reads
+-- from the goal account row); drop it first so goals can go.
+drop table if exists saving_plans;
 drop table if exists budgets;
 drop table if exists goals;

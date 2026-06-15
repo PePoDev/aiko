@@ -2,7 +2,7 @@
   "@@locale": "en",
   "appTitle": "Aiko",
   "appSubtitle": "Your financial companion",
-  "homeTab": "Overview",
+  "homeTab": "Home",
   "transactionsTab": "Transactions",
   "budgetTab": "Budget",
   "insightsTab": "Insights",

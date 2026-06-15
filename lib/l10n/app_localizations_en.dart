@@ -15,7 +15,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appSubtitle => 'Your financial companion';
 
   @override
-  String get homeTab => 'Overview';
+  String get homeTab => 'Home';
 
   @override
   String get transactionsTab => 'Transactions';

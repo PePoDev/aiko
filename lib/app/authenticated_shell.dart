@@ -19,16 +19,16 @@ class AuthenticatedShell extends StatelessWidget {
         selectedIcon: Icons.home_rounded,
       ),
       _AikoNavItem(
+        label: l10n.transactionsTab,
+        path: '/transactions',
+        icon: Icons.receipt_long_outlined,
+        selectedIcon: Icons.receipt_long,
+      ),
+      _AikoNavItem(
         label: l10n.accountsTab,
         path: '/accounts',
         icon: Icons.account_balance_wallet_outlined,
         selectedIcon: Icons.account_balance_wallet_rounded,
-      ),
-      _AikoNavItem(
-        label: l10n.aikoTab,
-        path: '/aiko',
-        icon: Icons.face_retouching_natural_outlined,
-        selectedIcon: Icons.face_retouching_natural,
       ),
       _AikoNavItem(
         label: l10n.categoriesTab,
@@ -37,10 +37,10 @@ class AuthenticatedShell extends StatelessWidget {
         selectedIcon: Icons.category_rounded,
       ),
       _AikoNavItem(
-        label: l10n.transactionsTab,
-        path: '/transactions',
-        icon: Icons.receipt_long_outlined,
-        selectedIcon: Icons.receipt_long,
+        label: l10n.aikoTab,
+        path: '/aiko',
+        icon: Icons.face_retouching_natural_outlined,
+        selectedIcon: Icons.face_retouching_natural,
       ),
     ];
   }

@@ -15,7 +15,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get appSubtitle => 'เพื่อนคู่ใจทางการเงินของคุณ';
 
   @override
-  String get homeTab => 'ภาพรวม';
+  String get homeTab => 'หน้าหลัก';
 
   @override
   String get transactionsTab => 'รายการ';

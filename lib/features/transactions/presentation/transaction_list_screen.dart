@@ -285,16 +285,20 @@ class _MonthlyTransactionTabs extends StatelessWidget {
     List<FinanceTransaction> transactions,
     _MonthKey currentMonth,
   ) {
-    var firstMonth = currentMonth.addMonths(-120);
-    var lastMonth = currentMonth.addMonths(120);
+    // Cap the initial TabBarView to a 13-month window (last 12 + 1
+    // forward) so the first build doesn't allocate 241 pages. The window
+    // still grows automatically when the user scrolls to a transaction
+    // older / newer than the bounds, so no functionality is lost.
+    var firstMonth = currentMonth.addMonths(-12);
+    var lastMonth = currentMonth.addMonths(1);
 
     for (final transaction in transactions) {
       final transactionMonth = _MonthKey.fromDate(transaction.date);
       if (transactionMonth.compareTo(firstMonth) < 0) {
-        firstMonth = transactionMonth.addMonths(-12);
+        firstMonth = transactionMonth.addMonths(-1);
       }
       if (transactionMonth.compareTo(lastMonth) > 0) {
-        lastMonth = transactionMonth.addMonths(12);
+        lastMonth = transactionMonth.addMonths(1);
       }
     }
 

@@ -18,6 +18,15 @@ Future<OfflineProfile> _$OfflineProfileFromSupabase(
     aikoPersonalitySetting: data['aiko_personality_setting'] as String,
     onboardingStatus: data['onboarding_status'] as String,
     securityStatus: data['security_status'] as String,
+    updatedAt: data['updated_at'] == null
+        ? null
+        : DateTime.tryParse(data['updated_at'] as String),
+    deletedAt: data['deleted_at'] == null
+        ? null
+        : data['deleted_at'] == null
+        ? null
+        : DateTime.tryParse(data['deleted_at'] as String),
+    version: data['version'] as int ?? 1,
   );
 }
 
@@ -38,6 +47,9 @@ Future<Map<String, dynamic>> _$OfflineProfileToSupabase(
     'aiko_personality_setting': instance.aikoPersonalitySetting,
     'onboarding_status': instance.onboardingStatus,
     'security_status': instance.securityStatus,
+    'updated_at': instance.updatedAt.toIso8601String(),
+    'deleted_at': instance.deletedAt?.toIso8601String(),
+    'version': instance.version,
   };
 }
 
@@ -58,6 +70,13 @@ Future<OfflineProfile> _$OfflineProfileFromSqlite(
     aikoPersonalitySetting: data['aiko_personality_setting'] as String,
     onboardingStatus: data['onboarding_status'] as String,
     securityStatus: data['security_status'] as String,
+    updatedAt: DateTime.parse(data['updated_at'] as String),
+    deletedAt: data['deleted_at'] == null
+        ? null
+        : data['deleted_at'] == null
+        ? null
+        : DateTime.tryParse(data['deleted_at'] as String),
+    version: data['version'] as int,
   )..primaryKey = data['_brick_id'] as int;
 }
 
@@ -78,6 +97,9 @@ Future<Map<String, dynamic>> _$OfflineProfileToSqlite(
     'aiko_personality_setting': instance.aikoPersonalitySetting,
     'onboarding_status': instance.onboardingStatus,
     'security_status': instance.securityStatus,
+    'updated_at': instance.updatedAt.toIso8601String(),
+    'deleted_at': instance.deletedAt?.toIso8601String(),
+    'version': instance.version,
   };
 }
 
@@ -135,6 +157,18 @@ class OfflineProfileAdapter
     'securityStatus': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'security_status',
+    ),
+    'updatedAt': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'updated_at',
+    ),
+    'deletedAt': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'deleted_at',
+    ),
+    'version': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'version',
     ),
   };
   @override
@@ -214,6 +248,24 @@ class OfflineProfileAdapter
       columnName: 'security_status',
       iterable: false,
       type: String,
+    ),
+    'updatedAt': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'updated_at',
+      iterable: false,
+      type: DateTime,
+    ),
+    'deletedAt': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'deleted_at',
+      iterable: false,
+      type: DateTime,
+    ),
+    'version': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'version',
+      iterable: false,
+      type: int,
     ),
   };
   @override

@@ -12,10 +12,9 @@ void main() {
       title: 'Budgeting basics',
       category: 'budgeting',
     );
-    final recommendation = const LessonRecommendationService().recommend(
-      [lesson],
-      'budgeting',
-    );
+    final recommendation = const LessonRecommendationService().recommend([
+      lesson,
+    ], 'budgeting');
     final trusted = const DeviceSessionService().trust(
       const DeviceSession(deviceId: 'phone', deviceName: 'Phone'),
     );

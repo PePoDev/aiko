@@ -2,6 +2,7 @@ import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/investments/application/allocation_service.dart';
 import 'package:aiko/features/investments/domain/allocation_target.dart';
 import 'package:aiko/features/investments/domain/investment_holding.dart';
+import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -11,11 +12,11 @@ void main() {
         id: 'test-1',
         symbol: 'ABC',
         assetClass: 'Stocks',
-        quantity: 10,
+        quantity: Decimal.fromInt(10),
         averageCost: Money.parse('5', 'USD'),
         currentPrice: Money.parse('8', 'USD'),
       ),
-      quantitySold: 2,
+      quantitySold: Decimal.fromInt(2),
       salePrice: Money.parse('9', 'USD'),
     );
 
@@ -31,7 +32,7 @@ void main() {
         id: 'test-2',
         symbol: 'ABC',
         assetClass: 'Stocks',
-        quantity: 10,
+        quantity: Decimal.fromInt(10),
         averageCost: Money.parse('10', 'USD'),
         currentPrice: Money.parse('10', 'USD'),
       ),

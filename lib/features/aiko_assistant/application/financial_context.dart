@@ -2,9 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../../accounts/domain/account.dart';
-import '../../budgets/application/budget_progress_service.dart';
-import '../../budgets/domain/budget.dart';
-import '../../goals/domain/goal.dart';
+import '../../categories/application/category_budget_progress_service.dart';
+import '../../categories/domain/category.dart';
 import '../../transactions/domain/transaction.dart';
 
 /// Layer 1 of Aiko's data access: a compact, read-only snapshot of the user's
@@ -50,11 +49,14 @@ class AikoFinancialContext {
   /// tested without Riverpod. Amounts are summed as doubles in the reported
   /// base currency; multi-currency holdings are treated as approximate, which
   /// is acceptable for advisory context.
+  ///
+  /// After the budgets -> categories / goals -> accounts merge (PR5) the
+  /// budget shape is sourced from [Category]s that have a `monthlyLimit`,
+  /// and goals are [Account]s with `type = AccountType.goal`.
   factory AikoFinancialContext.from({
     required String baseCurrency,
     required List<Account> accounts,
-    required List<Budget> budgets,
-    required List<Goal> goals,
+    required List<Category> categories,
     required List<FinanceTransaction> transactions,
     required DateTime now,
   }) {
@@ -66,11 +68,14 @@ class AikoFinancialContext {
         t.status == TransactionStatus.posted ||
         t.status == TransactionStatus.draft;
 
+    // Goal accounts are savings targets, not free cash, so they are excluded
+    // from net worth / spend aggregation by the goal-specific check below.
     final activeAccounts = accounts.where((a) => a.isActive).toList();
 
     double netWorth = 0;
     for (final a in activeAccounts) {
       if (!a.includeInNetWorth) continue;
+      if (a.type == AccountType.goal) continue;
       final sign =
           a.type == AccountType.loan ||
               a.type == AccountType.liability ||
@@ -91,32 +96,33 @@ class AikoFinancialContext {
       }
     }
 
-    const progressService = BudgetProgressService();
-    final budgetRows = budgets
-        .where((b) => b.status == BudgetStatus.active)
-        .map((b) {
-          final progress = progressService.progressFor(b, transactions);
-          final pct = progress.percentUsed;
-          final pace = pct >= 100
-              ? 'over'
-              : pct >= 80
-              ? 'high'
-              : 'ok';
-          return (
-            name: b.name,
-            limit: _round2(b.amount.amount.toDouble()),
-            spent: _round2(progress.used.amount.toDouble()),
-            pace: pace,
-          );
-        })
-        .toList();
-
-    final goalRows = goals.where((g) => g.status == GoalStatus.active).map((g) {
+    const progressService = CategoryBudgetProgressService();
+    final budgetRows = categories.where((c) => c.hasBudget).map((c) {
+      final progress = progressService.progressFor(c, transactions);
+      final pct = progress.ratio * 100;
+      final pace = pct >= 100
+          ? 'over'
+          : pct >= 80
+          ? 'high'
+          : 'ok';
       return (
-        name: g.name,
-        pct: _round2(g.progress.clamp(0, 1).toDouble()),
-        current: _round2(g.currentAmount.amount.toDouble()),
-        target: _round2(g.targetAmount.amount.toDouble()),
+        name: c.name,
+        limit: _round2(c.monthlyLimit!.amount.toDouble()),
+        spent: _round2(progress.used.amount.toDouble()),
+        pace: pace,
+      );
+    }).toList();
+
+    final goalAccounts = activeAccounts.where(
+      (a) => a.type == AccountType.goal,
+    );
+    final goalRows = goalAccounts.map((a) {
+      final pct = (a.goalProgress * 100).clamp(0, 100).toDouble();
+      return (
+        name: a.name,
+        pct: _round2(pct / 100),
+        current: _round2(a.currentBalance.amount.toDouble()),
+        target: _round2(a.targetAmount?.amount.toDouble() ?? 0),
       );
     }).toList();
 
@@ -200,14 +206,12 @@ Future<AikoFinancialContext?> buildAikoFinancialContext(Ref ref) async {
   try {
     final profile = await ref.read(profileRepositoryProvider).load();
     final accounts = await ref.read(accountRepositoryProvider).list();
-    final budgets = await ref.read(budgetRepositoryProvider).list();
-    final goals = await ref.read(goalRepositoryProvider).list();
+    final categories = await ref.read(categoryRepositoryProvider).list();
     final transactions = await ref.read(transactionRepositoryProvider).list();
     return AikoFinancialContext.from(
       baseCurrency: profile.baseCurrency,
       accounts: accounts,
-      budgets: budgets,
-      goals: goals,
+      categories: categories,
       transactions: transactions,
       now: DateTime.now(),
     );

@@ -4,6 +4,13 @@ class AikoColors {
   const AikoColors._();
 
   static const white = Color(0xFFFFFFFF);
+
+  /// The brand's primary blue in hex form. The single source of truth for the
+  /// primary colour across theme and data defaults. Pair with
+  /// [primaryBlue] (a `Color` of the same value) when Flutter needs a
+  /// `Color`; use [kAikoPrimaryColorHex] when a `String` is needed (e.g.
+  /// persisted on a `Category` row in offline storage).
+  static const kAikoPrimaryColorHex = '#3B82F6';
   static const primaryBlue = Color(0xFF3B82F6);
   static const deepBlue = Color(0xFF1D4ED8);
   static const softBlue = Color(0xFF93C5FD);

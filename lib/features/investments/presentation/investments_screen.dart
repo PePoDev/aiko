@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -873,8 +874,8 @@ String _formatSignedMoney(Money money) {
   return money.format();
 }
 
-String _formatQuantity(double quantity) {
-  if (quantity == quantity.roundToDouble()) {
+String _formatQuantity(Decimal quantity) {
+  if (quantity == quantity.round()) {
     return quantity.toStringAsFixed(0);
   }
   return quantity.toStringAsFixed(2);
@@ -947,7 +948,7 @@ class _AddHoldingBottomSheetState
 
     try {
       final symbol = _symbolController.text.trim().toUpperCase();
-      final quantity = double.parse(_quantityController.text.trim());
+      final quantity = Decimal.parse(_quantityController.text.trim());
       final averageCost = _averageCostController.text.trim();
       final currentPrice = _currentPriceController.text.trim().isEmpty
           ? averageCost

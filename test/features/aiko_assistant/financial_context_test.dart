@@ -1,8 +1,7 @@
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/aiko_assistant/application/financial_context.dart';
-import 'package:aiko/features/budgets/domain/budget.dart';
-import 'package:aiko/features/goals/domain/goal.dart';
+import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -41,8 +40,7 @@ void main() {
         account('Checking', AccountType.bank, '1000'),
         account('Visa', AccountType.creditCard, '200'),
       ],
-      budgets: const [],
-      goals: const [],
+      categories: const [],
       transactions: const [],
       now: now,
     );
@@ -55,8 +53,7 @@ void main() {
     final ctx = AikoFinancialContext.from(
       baseCurrency: 'USD',
       accounts: const [],
-      budgets: const [],
-      goals: const [],
+      categories: const [],
       transactions: [
         tx('a', TransactionType.income, '500', DateTime(2026, 6, 14)),
         tx('b', TransactionType.expense, '120', DateTime(2026, 6, 13)),
@@ -83,18 +80,17 @@ void main() {
     final ctx = AikoFinancialContext.from(
       baseCurrency: 'USD',
       accounts: const [],
-      budgets: [
-        Budget(
-          id: 'bud',
+      categories: [
+        Category(
+          id: 'cat-groceries',
           userId: 'u',
           name: 'Groceries',
-          categoryId: 'cat-groceries',
-          amount: Money.parse('100', 'USD'),
-          periodStart: DateTime(2026, 6, 1),
-          periodEnd: DateTime(2026, 6, 30),
+          type: CategoryType.expense,
+          group: CategoryBudgetGroup.needs,
+          monthlyLimit: Money.parse('100', 'USD'),
+          budgetPeriod: CategoryBudgetPeriod.monthly,
         ),
       ],
-      goals: const [],
       transactions: [
         tx(
           'b',
@@ -112,22 +108,21 @@ void main() {
     expect(ctx.budgets.single.limit, 100.0);
   });
 
-  test('goals report progress and recent transactions sort newest first', () {
+  test('goal accounts report progress and are sorted newest first', () {
     final ctx = AikoFinancialContext.from(
       baseCurrency: 'USD',
-      accounts: const [],
-      budgets: const [],
-      goals: [
-        Goal(
+      accounts: [
+        Account(
           id: 'g',
           userId: 'u',
           name: 'Emergency',
-          purpose: GoalPurpose.emergencyFund,
+          type: AccountType.goal,
+          currentBalance: Money.parse('250', 'USD'),
           targetAmount: Money.parse('1000', 'USD'),
-          currentAmount: Money.parse('250', 'USD'),
           targetDate: DateTime(2026, 12, 1),
         ),
       ],
+      categories: const [],
       transactions: [
         tx('older', TransactionType.expense, '10', DateTime(2026, 6, 10)),
         tx('newer', TransactionType.income, '20', DateTime(2026, 6, 14)),

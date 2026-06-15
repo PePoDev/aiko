@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/formatting/money_formatter.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/finance_card.dart';
 import '../../domain/dashboard_due_item.dart';

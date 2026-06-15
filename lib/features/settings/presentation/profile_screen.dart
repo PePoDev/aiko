@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
 import '../../../shared/widgets/finance_card.dart';
+import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/profile.dart';
 import '../../auth/data/auth_repository.dart';
@@ -194,7 +195,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
       ),
       body: profileAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AikoScreenState.loading(),
         error: (error, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),

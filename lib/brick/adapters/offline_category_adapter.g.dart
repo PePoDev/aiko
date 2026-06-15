@@ -23,6 +23,26 @@ Future<OfflineCategory> _$OfflineCategoryFromSupabase(
         : data['created_at'] == null
         ? null
         : DateTime.tryParse(data['created_at'] as String),
+    budgetAmount: data['budget_amount'] == null
+        ? null
+        : data['budget_amount'] == null
+        ? null
+        : data['budget_amount'].toString(),
+    budgetCurrency: data['budget_currency'] == null
+        ? null
+        : data['budget_currency'] as String?,
+    budgetPeriod: data['budget_period'] as String,
+    budgetRollover: data['budget_rollover'] as bool,
+    alertThresholds: data['alert_thresholds'].toList().cast<int>(),
+    updatedAt: data['updated_at'] == null
+        ? null
+        : DateTime.tryParse(data['updated_at'] as String),
+    deletedAt: data['deleted_at'] == null
+        ? null
+        : data['deleted_at'] == null
+        ? null
+        : DateTime.tryParse(data['deleted_at'] as String),
+    version: data['version'] as int ?? 1,
   );
 }
 
@@ -44,6 +64,14 @@ Future<Map<String, dynamic>> _$OfflineCategoryToSupabase(
     'budget_enabled': instance.budgetEnabled,
     'is_active': instance.isActive,
     'created_at': instance.createdAt?.toIso8601String(),
+    'budget_amount': instance.budgetAmount,
+    'budget_currency': instance.budgetCurrency,
+    'budget_period': instance.budgetPeriod,
+    'budget_rollover': instance.budgetRollover,
+    'alert_thresholds': instance.alertThresholds,
+    'updated_at': instance.updatedAt.toIso8601String(),
+    'deleted_at': instance.deletedAt?.toIso8601String(),
+    'version': instance.version,
   };
 }
 
@@ -69,6 +97,22 @@ Future<OfflineCategory> _$OfflineCategoryFromSqlite(
         : data['created_at'] == null
         ? null
         : DateTime.tryParse(data['created_at'] as String),
+    budgetAmount: data['budget_amount'] == null
+        ? null
+        : data['budget_amount'] as String?,
+    budgetCurrency: data['budget_currency'] == null
+        ? null
+        : data['budget_currency'] as String?,
+    budgetPeriod: data['budget_period'] as String,
+    budgetRollover: data['budget_rollover'] == 1,
+    alertThresholds: jsonDecode(data['alert_thresholds']).toList().cast<int>(),
+    updatedAt: DateTime.parse(data['updated_at'] as String),
+    deletedAt: data['deleted_at'] == null
+        ? null
+        : data['deleted_at'] == null
+        ? null
+        : DateTime.tryParse(data['deleted_at'] as String),
+    version: data['version'] as int,
   )..primaryKey = data['_brick_id'] as int;
 }
 
@@ -90,6 +134,14 @@ Future<Map<String, dynamic>> _$OfflineCategoryToSqlite(
     'budget_enabled': instance.budgetEnabled ? 1 : 0,
     'is_active': instance.isActive ? 1 : 0,
     'created_at': instance.createdAt?.toIso8601String(),
+    'budget_amount': instance.budgetAmount,
+    'budget_currency': instance.budgetCurrency,
+    'budget_period': instance.budgetPeriod,
+    'budget_rollover': instance.budgetRollover ? 1 : 0,
+    'alert_thresholds': jsonEncode(instance.alertThresholds),
+    'updated_at': instance.updatedAt.toIso8601String(),
+    'deleted_at': instance.deletedAt?.toIso8601String(),
+    'version': instance.version,
   };
 }
 
@@ -151,6 +203,38 @@ class OfflineCategoryAdapter
     'createdAt': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'created_at',
+    ),
+    'budgetAmount': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'budget_amount',
+    ),
+    'budgetCurrency': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'budget_currency',
+    ),
+    'budgetPeriod': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'budget_period',
+    ),
+    'budgetRollover': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'budget_rollover',
+    ),
+    'alertThresholds': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'alert_thresholds',
+    ),
+    'updatedAt': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'updated_at',
+    ),
+    'deletedAt': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'deleted_at',
+    ),
+    'version': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'version',
     ),
   };
   @override
@@ -236,6 +320,54 @@ class OfflineCategoryAdapter
       columnName: 'created_at',
       iterable: false,
       type: DateTime,
+    ),
+    'budgetAmount': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'budget_amount',
+      iterable: false,
+      type: String,
+    ),
+    'budgetCurrency': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'budget_currency',
+      iterable: false,
+      type: String,
+    ),
+    'budgetPeriod': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'budget_period',
+      iterable: false,
+      type: String,
+    ),
+    'budgetRollover': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'budget_rollover',
+      iterable: false,
+      type: bool,
+    ),
+    'alertThresholds': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'alert_thresholds',
+      iterable: true,
+      type: int,
+    ),
+    'updatedAt': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'updated_at',
+      iterable: false,
+      type: DateTime,
+    ),
+    'deletedAt': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'deleted_at',
+      iterable: false,
+      type: DateTime,
+    ),
+    'version': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'version',
+      iterable: false,
+      type: int,
     ),
   };
   @override

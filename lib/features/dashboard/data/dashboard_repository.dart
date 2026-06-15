@@ -4,8 +4,7 @@ import '../../../core/money/money.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../../accounts/data/account_repository.dart';
 import '../../accounts/domain/account.dart';
-import '../../budgets/data/budget_repository.dart';
-import '../../budgets/domain/budget.dart';
+import '../../categories/data/category_repository.dart';
 import '../../transactions/data/transaction_repository.dart';
 import '../../transactions/domain/transaction.dart';
 import '../domain/dashboard_summary.dart';
@@ -29,19 +28,21 @@ class DashboardRepository {
               !transaction.date.isAfter(periodEnd),
         )
         .toList(growable: false);
-    final budgets = (await const BudgetRepository().list())
+    final categories = (await const CategoryRepository().list())
         .where(
-          (budget) =>
-              budget.status.name == 'active' &&
-              !budget.periodStart.isAfter(periodEnd) &&
-              !budget.periodEnd.isBefore(periodStart),
+          (category) =>
+              category.monthlyLimit != null &&
+              category.monthlyLimit!.amount > Decimal.zero,
         )
         .toList(growable: false);
 
-    final currency = _firstCurrency(accounts, transactions, budgets);
+    final currency = _firstCurrency(accounts, transactions, categories);
     var netWorth = Decimal.zero;
     var totalCash = Decimal.zero;
     for (final account in accounts) {
+      // Goal accounts represent savings targets, not free cash; skip them
+      // when summing cash and liquid assets.
+      if (account.type == AccountType.goal) continue;
       final amount = account.currentBalance.amount;
       if (account.includeInNetWorth) {
         netWorth += amount;
@@ -63,8 +64,8 @@ class DashboardRepository {
     }
 
     var totalBudget = Decimal.zero;
-    for (final budget in budgets) {
-      totalBudget += budget.amount.amount;
+    for (final category in categories) {
+      totalBudget += category.monthlyLimit!.amount;
     }
 
     final weeklyFlow =
@@ -143,7 +144,7 @@ class DashboardRepository {
   static String _firstCurrency(
     Iterable<Account> accounts,
     Iterable<FinanceTransaction> transactions,
-    Iterable<Budget> budgets,
+    Iterable<Object> categories,
   ) {
     for (final account in accounts) {
       if (account.currentBalance.currency.isNotEmpty) {
@@ -153,11 +154,6 @@ class DashboardRepository {
     for (final transaction in transactions) {
       if (transaction.amount.currency.isNotEmpty) {
         return transaction.amount.currency;
-      }
-    }
-    for (final budget in budgets) {
-      if (budget.amount.currency.isNotEmpty) {
-        return budget.amount.currency;
       }
     }
     return 'USD';

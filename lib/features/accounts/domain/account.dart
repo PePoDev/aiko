@@ -58,12 +58,12 @@ class Account {
   /// Money still to save to reach [targetAmount]. Returns [Money.zero] for
   /// non-goal accounts or when the target is null.
   Money get goalRemaining {
-    if (targetAmount == null) return Money.zero(currentBalance.currency);
-    final diff = targetAmount!.amount - currentBalance.amount;
-    if (diff.amount <= _zeroFor(diff.currency).amount) {
-      return _zeroFor(diff.currency);
-    }
-    return diff;
+    final target = targetAmount;
+    if (target == null) return Money.zero(currentBalance.currency);
+    final diffAmount = target.amount - currentBalance.amount;
+    final zero = _zeroFor(currentBalance.currency);
+    if (diffAmount <= zero.amount) return zero;
+    return Money(amount: diffAmount, currency: currentBalance.currency);
   }
 
   double get goalProgress {
@@ -71,8 +71,7 @@ class Account {
     if (target == null || target.amount <= _zeroFor(target.currency).amount) {
       return 0;
     }
-    final ratio = currentBalance.amount.toDouble() /
-        target.amount.toDouble();
+    final ratio = currentBalance.amount.toDouble() / target.amount.toDouble();
     if (ratio.isNaN || ratio.isInfinite) return 0;
     return ratio.clamp(0.0, 1.0).toDouble();
   }
@@ -116,4 +115,3 @@ class Account {
 const Object _accountUnset = Object();
 
 Money _zeroFor(String currency) => Money.zero(currency);
-

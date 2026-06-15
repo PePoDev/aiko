@@ -45,7 +45,22 @@ class RecurringSettings {
     this.dayOfWeek,
     this.dayOfMonth,
     this.monthOfYear,
-  });
+  }) : assert(
+          dayOfWeek == null || (dayOfWeek >= 1 && dayOfWeek <= 7),
+          'dayOfWeek must be 1–7 (ISO-8601) or null.',
+        ),
+       assert(
+          dayOfMonth == null || (dayOfMonth >= 1 && dayOfMonth <= 31),
+          'dayOfMonth must be 1–31 or null.',
+        ),
+       assert(
+          monthOfYear == null || (monthOfYear >= 1 && monthOfYear <= 12),
+          'monthOfYear must be 1–12 or null.',
+        ),
+       assert(
+          maxOccurrences == null || maxOccurrences > 0,
+          'maxOccurrences must be positive when set.',
+        );
 
   /// Inclusive date the series stops. null = open-ended (until cancelled).
   final DateTime? endDate;
@@ -135,9 +150,14 @@ class FinanceTransaction {
   }
 
   FinanceTransaction copyWith({
+    String? accountId,
+    TransactionType? type,
     Money? amount,
+    DateTime? date,
     String? categoryId,
+    bool clearCategoryId = false,
     String? merchant,
+    String? note,
     List<String>? tags,
     List<TransactionSplit>? splits,
     TransactionStatus? status,
@@ -148,13 +168,13 @@ class FinanceTransaction {
     return FinanceTransaction(
       id: id,
       userId: userId,
-      accountId: accountId,
-      type: type,
+      accountId: accountId ?? this.accountId,
+      type: type ?? this.type,
       amount: amount ?? this.amount,
-      date: date,
-      categoryId: categoryId ?? this.categoryId,
+      date: date ?? this.date,
+      categoryId: clearCategoryId ? null : (categoryId ?? this.categoryId),
       merchant: merchant ?? this.merchant,
-      note: note,
+      note: note ?? this.note,
       tags: tags ?? this.tags,
       splits: splits ?? this.splits,
       status: status ?? this.status,

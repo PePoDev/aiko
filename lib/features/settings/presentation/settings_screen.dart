@@ -228,10 +228,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
-          for (final group in aikoNavigationGroups) ...[
-            const SizedBox(height: 16),
-            _SettingsNavigationGroupCard(group: group),
-          ],
+          const SizedBox(height: 16),
+          FinanceCard(
+            title: 'Tools and settings',
+            icon: Icons.apps_outlined,
+            child: Column(
+              children: [
+                for (
+                  var index = 0;
+                  index < aikoNavigationItems.length;
+                  index++
+                ) ...[
+                  if (index > 0) const Divider(),
+                  _SettingsNavigationTile(item: aikoNavigationItems[index]),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -313,49 +326,6 @@ class _SettingsRow extends StatelessWidget {
       trailing: onTap == null ? null : const Icon(Icons.chevron_right),
       onTap: onTap,
     );
-  }
-}
-
-class _SettingsNavigationGroupCard extends StatelessWidget {
-  const _SettingsNavigationGroupCard({required this.group});
-
-  final AikoNavigationGroup group;
-
-  @override
-  Widget build(BuildContext context) {
-    return FinanceCard(
-      title: group.title,
-      icon: _iconForGroup(group.title),
-      accentColor: _colorForGroup(group.title),
-      child: Column(
-        children: [
-          for (var index = 0; index < group.items.length; index++) ...[
-            if (index > 0) const Divider(),
-            _SettingsNavigationTile(item: group.items[index]),
-          ],
-        ],
-      ),
-    );
-  }
-
-  IconData _iconForGroup(String title) {
-    return switch (title) {
-      'Planning' => Icons.route_outlined,
-      'Insights and AI' => Icons.auto_awesome_outlined,
-      'Tools and Data' => Icons.widgets_outlined,
-      'Settings and Security' => Icons.admin_panel_settings_outlined,
-      _ => Icons.apps_outlined,
-    };
-  }
-
-  Color _colorForGroup(String title) {
-    return switch (title) {
-      'Planning' => AikoColors.successGreen,
-      'Insights and AI' => AikoColors.premiumPurple,
-      'Tools and Data' => AikoColors.analyticsTeal,
-      'Settings and Security' => AikoColors.primaryBlue,
-      _ => AikoColors.primaryBlue,
-    };
   }
 }
 

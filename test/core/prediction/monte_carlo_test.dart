@@ -14,9 +14,9 @@ void main() {
       );
 
       expect(result.successProbabilityPercent, 100.0);
-      expect(result.expectedValue, 5000.0);
-      expect(result.conservativeValue, 5000.0);
-      expect(result.optimisticValue, 5000.0);
+      expect(result.expectedAmount, 5000.0);
+      expect(result.conservativeAmount, 5000.0);
+      expect(result.optimisticAmount, 5000.0);
     });
 
     test('Zero months to target returns 0% if not achieved', () {
@@ -44,11 +44,14 @@ void main() {
         iterations: 1000,
       );
 
-      expect(result.conservativeValue.isFinite, isTrue);
-      expect(result.expectedValue.isFinite, isTrue);
-      expect(result.optimisticValue.isFinite, isTrue);
-      expect(result.conservativeValue, lessThanOrEqualTo(result.expectedValue));
-      expect(result.expectedValue, lessThanOrEqualTo(result.optimisticValue));
+      expect(result.conservativeAmount.isFinite, isTrue);
+      expect(result.expectedAmount.isFinite, isTrue);
+      expect(result.optimisticAmount.isFinite, isTrue);
+      expect(
+        result.conservativeAmount,
+        lessThanOrEqualTo(result.expectedAmount),
+      );
+      expect(result.expectedAmount, lessThanOrEqualTo(result.optimisticAmount));
       expect(result.successProbabilityPercent, inInclusiveRange(0.0, 100.0));
     });
   });

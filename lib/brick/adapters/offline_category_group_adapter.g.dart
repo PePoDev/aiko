@@ -18,6 +18,15 @@ Future<OfflineCategoryGroup> _$OfflineCategoryGroupFromSupabase(
         : data['created_at'] == null
         ? null
         : DateTime.tryParse(data['created_at'] as String),
+    updatedAt: data['updated_at'] == null
+        ? null
+        : DateTime.tryParse(data['updated_at'] as String),
+    deletedAt: data['deleted_at'] == null
+        ? null
+        : data['deleted_at'] == null
+        ? null
+        : DateTime.tryParse(data['deleted_at'] as String),
+    version: data['version'] as int ?? 1,
   );
 }
 
@@ -34,6 +43,9 @@ Future<Map<String, dynamic>> _$OfflineCategoryGroupToSupabase(
     'color': instance.color,
     'sort_order': instance.sortOrder,
     'created_at': instance.createdAt?.toIso8601String(),
+    'updated_at': instance.updatedAt.toIso8601String(),
+    'deleted_at': instance.deletedAt?.toIso8601String(),
+    'version': instance.version,
   };
 }
 
@@ -54,6 +66,13 @@ Future<OfflineCategoryGroup> _$OfflineCategoryGroupFromSqlite(
         : data['created_at'] == null
         ? null
         : DateTime.tryParse(data['created_at'] as String),
+    updatedAt: DateTime.parse(data['updated_at'] as String),
+    deletedAt: data['deleted_at'] == null
+        ? null
+        : data['deleted_at'] == null
+        ? null
+        : DateTime.tryParse(data['deleted_at'] as String),
+    version: data['version'] as int,
   )..primaryKey = data['_brick_id'] as int;
 }
 
@@ -70,6 +89,9 @@ Future<Map<String, dynamic>> _$OfflineCategoryGroupToSqlite(
     'color': instance.color,
     'sort_order': instance.sortOrder,
     'created_at': instance.createdAt?.toIso8601String(),
+    'updated_at': instance.updatedAt.toIso8601String(),
+    'deleted_at': instance.deletedAt?.toIso8601String(),
+    'version': instance.version,
   };
 }
 
@@ -111,6 +133,18 @@ class OfflineCategoryGroupAdapter
     'createdAt': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'created_at',
+    ),
+    'updatedAt': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'updated_at',
+    ),
+    'deletedAt': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'deleted_at',
+    ),
+    'version': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'version',
     ),
   };
   @override
@@ -166,6 +200,24 @@ class OfflineCategoryGroupAdapter
       columnName: 'created_at',
       iterable: false,
       type: DateTime,
+    ),
+    'updatedAt': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'updated_at',
+      iterable: false,
+      type: DateTime,
+    ),
+    'deletedAt': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'deleted_at',
+      iterable: false,
+      type: DateTime,
+    ),
+    'version': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'version',
+      iterable: false,
+      type: int,
     ),
   };
   @override

@@ -11,6 +11,8 @@ part '20260613162843.migration.dart';
 part '20260614125205.migration.dart';
 part '20260614145507.migration.dart';
 part '20260615000000.migration.dart';
+part '20260615060000.migration.dart';
+part '20260615175141.migration.dart';
 
 /// All intelligently-generated migrations from all `@Migratable` classes on disk
 final migrations = <Migration>{
@@ -24,11 +26,13 @@ final migrations = <Migration>{
   const Migration20260614125205(),
   const Migration20260614145507(),
   const Migration20260615000000(),
+  const Migration20260615060000(),
+  const Migration20260615175141(),
 };
 
 /// A consumable database structure including the latest generated migration.
 final schema = Schema(
-  20260615000000,
+  20260615175141,
   generatorVersion: 1,
   tables: <SchemaTable>{
     SchemaTable(
@@ -54,37 +58,13 @@ final schema = Schema(
         SchemaColumn('goal_target_amount', Column.varchar),
         SchemaColumn('goal_target_date', Column.datetime),
         SchemaColumn('goal_priority', Column.varchar),
+        SchemaColumn('updated_at', Column.datetime),
+        SchemaColumn('deleted_at', Column.datetime),
+        SchemaColumn('version', Column.integer),
       },
       indices: <SchemaIndex>{
         SchemaIndex(columns: ['user_id'], unique: false),
-      },
-    ),
-    SchemaTable(
-      'OfflineBudget',
-      columns: <SchemaColumn>{
-        SchemaColumn(
-          '_brick_id',
-          Column.integer,
-          autoincrement: true,
-          nullable: false,
-          isPrimaryKey: true,
-        ),
-        SchemaColumn('id', Column.varchar, unique: true),
-        SchemaColumn('user_id', Column.varchar),
-        SchemaColumn('name', Column.varchar),
-        SchemaColumn('category_id', Column.varchar),
-        SchemaColumn('amount', Column.varchar),
-        SchemaColumn('currency', Column.varchar),
-        SchemaColumn('period_start', Column.datetime),
-        SchemaColumn('period_end', Column.datetime),
-        SchemaColumn('period', Column.varchar),
-        SchemaColumn('alert_thresholds', Column.varchar),
-        SchemaColumn('status', Column.varchar),
-        SchemaColumn('included_category_ids', Column.varchar),
-        SchemaColumn('is_app_defined', Column.boolean),
-      },
-      indices: <SchemaIndex>{
-        SchemaIndex(columns: ['user_id'], unique: false),
+        SchemaIndex(columns: ['deleted_at'], unique: false),
       },
     ),
     SchemaTable(
@@ -114,9 +94,13 @@ final schema = Schema(
         SchemaColumn('budget_period', Column.varchar),
         SchemaColumn('budget_rollover', Column.boolean),
         SchemaColumn('alert_thresholds', Column.varchar),
+        SchemaColumn('updated_at', Column.datetime),
+        SchemaColumn('deleted_at', Column.datetime),
+        SchemaColumn('version', Column.integer),
       },
       indices: <SchemaIndex>{
         SchemaIndex(columns: ['user_id'], unique: false),
+        SchemaIndex(columns: ['deleted_at'], unique: false),
       },
     ),
     SchemaTable(
@@ -136,36 +120,13 @@ final schema = Schema(
         SchemaColumn('color', Column.varchar),
         SchemaColumn('sort_order', Column.integer),
         SchemaColumn('created_at', Column.datetime),
+        SchemaColumn('updated_at', Column.datetime),
+        SchemaColumn('deleted_at', Column.datetime),
+        SchemaColumn('version', Column.integer),
       },
       indices: <SchemaIndex>{
         SchemaIndex(columns: ['user_id'], unique: false),
-      },
-    ),
-    SchemaTable(
-      'OfflineGoal',
-      columns: <SchemaColumn>{
-        SchemaColumn(
-          '_brick_id',
-          Column.integer,
-          autoincrement: true,
-          nullable: false,
-          isPrimaryKey: true,
-        ),
-        SchemaColumn('id', Column.varchar, unique: true),
-        SchemaColumn('user_id', Column.varchar),
-        SchemaColumn('name', Column.varchar),
-        SchemaColumn('purpose', Column.varchar),
-        SchemaColumn('target_amount', Column.varchar),
-        SchemaColumn('current_amount', Column.varchar),
-        SchemaColumn('currency', Column.varchar),
-        SchemaColumn('target_date', Column.datetime),
-        SchemaColumn('linked_account_id', Column.varchar),
-        SchemaColumn('priority', Column.integer),
-        SchemaColumn('success_probability', Column.Double),
-        SchemaColumn('status', Column.varchar),
-      },
-      indices: <SchemaIndex>{
-        SchemaIndex(columns: ['user_id'], unique: false),
+        SchemaIndex(columns: ['deleted_at'], unique: false),
       },
     ),
     SchemaTable(
@@ -190,9 +151,12 @@ final schema = Schema(
         SchemaColumn('target_allocation_percent', Column.Double),
         SchemaColumn('created_at', Column.datetime),
         SchemaColumn('updated_at', Column.datetime),
+        SchemaColumn('deleted_at', Column.datetime),
+        SchemaColumn('version', Column.integer),
       },
       indices: <SchemaIndex>{
         SchemaIndex(columns: ['user_id'], unique: false),
+        SchemaIndex(columns: ['deleted_at'], unique: false),
       },
     ),
     SchemaTable(
@@ -216,8 +180,13 @@ final schema = Schema(
         SchemaColumn('aiko_personality_setting', Column.varchar),
         SchemaColumn('onboarding_status', Column.varchar),
         SchemaColumn('security_status', Column.varchar),
+        SchemaColumn('updated_at', Column.datetime),
+        SchemaColumn('deleted_at', Column.datetime),
+        SchemaColumn('version', Column.integer),
       },
-      indices: <SchemaIndex>{},
+      indices: <SchemaIndex>{
+        SchemaIndex(columns: ['deleted_at'], unique: false),
+      },
     ),
     SchemaTable(
       'OfflineTransaction',
@@ -248,10 +217,14 @@ final schema = Schema(
         SchemaColumn('recurring_day_of_week', Column.integer),
         SchemaColumn('recurring_day_of_month', Column.integer),
         SchemaColumn('recurring_month_of_year', Column.integer),
+        SchemaColumn('updated_at', Column.datetime),
+        SchemaColumn('deleted_at', Column.datetime),
+        SchemaColumn('version', Column.integer),
       },
       indices: <SchemaIndex>{
         SchemaIndex(columns: ['user_id'], unique: false),
         SchemaIndex(columns: ['account_id'], unique: false),
+        SchemaIndex(columns: ['deleted_at'], unique: false),
       },
     ),
   },

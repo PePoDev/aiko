@@ -9,17 +9,23 @@ class AikoAvatar extends StatelessWidget {
     this.size = 32,
     this.pulse = false,
     this.borderColor,
+    this.semanticLabel,
   });
 
   final double size;
   final bool pulse;
   final Color? borderColor;
 
+  /// When `null`, the avatar is treated as purely decorative and excluded
+  /// from the semantic tree. Provide a label when the avatar is
+  /// the only signal of Aiko on the screen — e.g. a hero greeting.
+  final String? semanticLabel;
+
   @override
   Widget build(BuildContext context) {
     final ringColor =
         borderColor ?? AikoColors.primaryBlue.withValues(alpha: 0.18);
-    return TweenAnimationBuilder<double>(
+    final avatar = TweenAnimationBuilder<double>(
       tween: Tween(begin: 1, end: pulse ? 1.06 : 1),
       duration: const Duration(milliseconds: 1200),
       curve: Curves.easeInOut,
@@ -62,5 +68,11 @@ class AikoAvatar extends StatelessWidget {
         ),
       ),
     );
+    if (semanticLabel == null) {
+      // Decorative by default; screen readers skip the avatar so the chat
+      // transcript or empty-state headline is the only thing announced.
+      return ExcludeSemantics(child: avatar);
+    }
+    return Semantics(label: semanticLabel, child: avatar);
   }
 }

@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/money/money.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/category.dart';
 import 'category_group_editor_sheet.dart';
 import 'category_visual.dart';
+import 'widgets/category_budget_section.dart';
+import 'widgets/category_group_picker.dart';
 
 /// Shows the bottom sheet for creating or editing a [Category]. Returns
 /// `true` on save, `false` on cancel, or `null` if dismissed. The sheet is
@@ -68,11 +71,14 @@ class _CategoryEditorSheet extends ConsumerStatefulWidget {
 class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _budgetAmountController = TextEditingController();
 
   CategoryType _selectedType = CategoryType.expense;
-  String _selectedColorHex = '#3B82F6';
+  String _selectedColorHex = AikoColors.kAikoPrimaryColorHex;
   String _selectedIconKey = 'category';
   String? _selectedGroupId;
+  CategoryBudgetPeriod _budgetPeriod = CategoryBudgetPeriod.monthly;
+  bool _rolloverUnused = false;
   bool _isSubmitting = false;
   bool _isDeleting = false;
 
@@ -92,11 +98,18 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
     _selectedColorHex = initialCategory.color;
     _selectedIconKey = initialCategory.icon;
     _selectedGroupId = initialCategory.groupId;
+    final limit = initialCategory.monthlyLimit;
+    if (limit != null) {
+      _budgetAmountController.text = limit.amount.toString();
+    }
+    _budgetPeriod = initialCategory.budgetPeriod;
+    _rolloverUnused = initialCategory.rolloverUnused;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _budgetAmountController.dispose();
     super.dispose();
   }
 
@@ -113,6 +126,10 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
 
     try {
       final initialCategory = widget.initialCategory;
+      final budgetAmount = _budgetAmountController.text.trim();
+      final monthlyLimit = budgetAmount.isEmpty
+          ? null
+          : Money.parse(budgetAmount, _baseCurrency);
       final category = initialCategory == null
           ? Category(
               id: const Uuid().v4(),
@@ -124,6 +141,9 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
               color: _selectedColorHex,
               icon: _selectedIconKey,
               budgetEnabled: true,
+              monthlyLimit: monthlyLimit,
+              budgetPeriod: _budgetPeriod,
+              rolloverUnused: _rolloverUnused,
             )
           : initialCategory.copyWith(
               name: _nameController.text.trim(),
@@ -131,6 +151,9 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
               color: _selectedColorHex,
               icon: _selectedIconKey,
               groupId: _selectedGroupId,
+              monthlyLimit: monthlyLimit,
+              budgetPeriod: _budgetPeriod,
+              rolloverUnused: _rolloverUnused,
             );
 
       await ref.read(categoriesProvider.notifier).saveCategory(category);
@@ -163,6 +186,11 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
         );
       }
     }
+  }
+
+  String get _baseCurrency {
+    final profile = ref.read(profileProvider).value;
+    return profile?.baseCurrency ?? 'USD';
   }
 
   Future<void> _confirmDelete() async {
@@ -375,7 +403,7 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                 },
               ),
               const SizedBox(height: 16),
-              _GroupPicker(
+              CategoryGroupPicker(
                 key: const Key('category-group-picker'),
                 groups: groups,
                 selectedGroupId: _selectedGroupId,
@@ -523,6 +551,16 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                 },
               ),
               const SizedBox(height: 24),
+              CategoryBudgetSection(
+                key: const Key('category-budget-section'),
+                amountController: _budgetAmountController,
+                period: _budgetPeriod,
+                rolloverUnused: _rolloverUnused,
+                currency: _baseCurrency,
+                onPeriodChanged: (p) => setState(() => _budgetPeriod = p),
+                onRolloverChanged: (v) => setState(() => _rolloverUnused = v),
+              ),
+              const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: _isSubmitting || _isDeleting ? null : _submit,
                 style: FilledButton.styleFrom(
@@ -575,103 +613,5 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
         setState(() => _selectedGroupId = userGroups.last.id);
       }
     }
-  }
-}
-
-class _GroupPicker extends StatelessWidget {
-  const _GroupPicker({
-    super.key,
-    required this.groups,
-    required this.selectedGroupId,
-    required this.onChanged,
-    required this.onCreateNew,
-    required this.accentColor,
-  });
-
-  final List<CategoryGroup> groups;
-  final String? selectedGroupId;
-  final ValueChanged<String?> onChanged;
-  final VoidCallback onCreateNew;
-  final Color accentColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Group',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String?>(
-          initialValue: selectedGroupId,
-          isExpanded: true,
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.folder_outlined),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          hint: const Text('Ungrouped'),
-          items: <DropdownMenuItem<String?>>[
-            const DropdownMenuItem<String?>(
-              value: null,
-              child: Text('Ungrouped'),
-            ),
-            for (final group in groups)
-              DropdownMenuItem<String?>(
-                value: group.id,
-                child: Row(
-                  children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: aikoHexColor(group.color),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        group.name,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            DropdownMenuItem<String?>(
-              value: '__create__',
-              child: Row(
-                children: [
-                  Icon(Icons.add, color: accentColor, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Create new group...',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: accentColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          onChanged: (value) {
-            if (value == '__create__') {
-              onCreateNew();
-              return;
-            }
-            onChanged(value);
-          },
-        ),
-      ],
-    );
   }
 }

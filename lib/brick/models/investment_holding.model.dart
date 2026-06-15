@@ -18,8 +18,10 @@ class OfflineInvestmentHolding extends OfflineFirstWithSupabaseModel {
     required this.marketValue,
     this.targetAllocationPercent,
     this.createdAt,
-    this.updatedAt,
-  });
+    DateTime? updatedAt,
+    this.deletedAt,
+    this.version = 1,
+  }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
 
   @Sqlite(unique: true)
   @Supabase(unique: true)
@@ -51,5 +53,19 @@ class OfflineInvestmentHolding extends OfflineFirstWithSupabaseModel {
   final double? targetAllocationPercent;
 
   final DateTime? createdAt;
-  final DateTime? updatedAt;
+
+  // `updatedAt` is set to `now()` whenever a row is upserted; the
+  // domain-level `updatedAt` (separate from this column) is the original
+  // record timestamp surfaced on the domain model.
+  @Sqlite(name: 'updated_at')
+  @Supabase(name: 'updated_at')
+  final DateTime updatedAt;
+
+  @Sqlite(name: 'deleted_at', index: true)
+  @Supabase(name: 'deleted_at')
+  final DateTime? deletedAt;
+
+  @Sqlite(name: 'version')
+  @Supabase(name: 'version', defaultValue: '1')
+  final int version;
 }

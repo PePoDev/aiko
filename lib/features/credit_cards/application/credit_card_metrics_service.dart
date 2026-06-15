@@ -3,7 +3,6 @@ import 'package:decimal/decimal.dart';
 import '../../../core/money/money.dart';
 import '../../accounts/domain/account.dart';
 import '../../accounts/domain/account_details.dart';
-import '../../accounts/domain/account_type.dart';
 import '../domain/credit_card_detail.dart';
 
 class CreditCardMetricsService {

@@ -19,6 +19,26 @@ Future<OfflineAccount> _$OfflineAccountFromSupabase(
     includeInNetWorth: data['include_in_net_worth'] as bool,
     isActive: data['is_active'] as bool,
     detailsJson: accountDetailsFromSupabase(data['details']),
+    goalTargetAmount: data['goal_target_amount'] == null
+        ? null
+        : data['goal_target_amount'] == null
+        ? null
+        : data['goal_target_amount'].toString(),
+    goalTargetDate: data['goal_target_date'] == null
+        ? null
+        : data['goal_target_date'] == null
+        ? null
+        : DateTime.tryParse(data['goal_target_date'] as String),
+    goalPriority: data['goal_priority'] as String,
+    updatedAt: data['updated_at'] == null
+        ? null
+        : DateTime.tryParse(data['updated_at'] as String),
+    deletedAt: data['deleted_at'] == null
+        ? null
+        : data['deleted_at'] == null
+        ? null
+        : DateTime.tryParse(data['deleted_at'] as String),
+    version: data['version'] as int ?? 1,
   );
 }
 
@@ -38,6 +58,12 @@ Future<Map<String, dynamic>> _$OfflineAccountToSupabase(
     'include_in_net_worth': instance.includeInNetWorth,
     'is_active': instance.isActive,
     'details': accountDetailsToSupabase(instance.detailsJson),
+    'goal_target_amount': instance.goalTargetAmount,
+    'goal_target_date': instance.goalTargetDate?.toIso8601String(),
+    'goal_priority': instance.goalPriority,
+    'updated_at': instance.updatedAt.toIso8601String(),
+    'deleted_at': instance.deletedAt?.toIso8601String(),
+    'version': instance.version,
   };
 }
 
@@ -59,6 +85,22 @@ Future<OfflineAccount> _$OfflineAccountFromSqlite(
     includeInNetWorth: data['include_in_net_worth'] == 1,
     isActive: data['is_active'] == 1,
     detailsJson: accountDetailsFromSqlite(data['details_json']),
+    goalTargetAmount: data['goal_target_amount'] == null
+        ? null
+        : data['goal_target_amount'] as String?,
+    goalTargetDate: data['goal_target_date'] == null
+        ? null
+        : data['goal_target_date'] == null
+        ? null
+        : DateTime.tryParse(data['goal_target_date'] as String),
+    goalPriority: data['goal_priority'] as String,
+    updatedAt: DateTime.parse(data['updated_at'] as String),
+    deletedAt: data['deleted_at'] == null
+        ? null
+        : data['deleted_at'] == null
+        ? null
+        : DateTime.tryParse(data['deleted_at'] as String),
+    version: data['version'] as int,
   )..primaryKey = data['_brick_id'] as int;
 }
 
@@ -78,6 +120,12 @@ Future<Map<String, dynamic>> _$OfflineAccountToSqlite(
     'include_in_net_worth': instance.includeInNetWorth ? 1 : 0,
     'is_active': instance.isActive ? 1 : 0,
     'details_json': instance.detailsJson,
+    'goal_target_amount': instance.goalTargetAmount,
+    'goal_target_date': instance.goalTargetDate?.toIso8601String(),
+    'goal_priority': instance.goalPriority,
+    'updated_at': instance.updatedAt.toIso8601String(),
+    'deleted_at': instance.deletedAt?.toIso8601String(),
+    'version': instance.version,
   };
 }
 
@@ -131,6 +179,30 @@ class OfflineAccountAdapter
     'detailsJson': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'details',
+    ),
+    'goalTargetAmount': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'goal_target_amount',
+    ),
+    'goalTargetDate': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'goal_target_date',
+    ),
+    'goalPriority': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'goal_priority',
+    ),
+    'updatedAt': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'updated_at',
+    ),
+    'deletedAt': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'deleted_at',
+    ),
+    'version': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'version',
     ),
   };
   @override
@@ -204,6 +276,42 @@ class OfflineAccountAdapter
       columnName: 'details_json',
       iterable: false,
       type: String,
+    ),
+    'goalTargetAmount': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'goal_target_amount',
+      iterable: false,
+      type: String,
+    ),
+    'goalTargetDate': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'goal_target_date',
+      iterable: false,
+      type: DateTime,
+    ),
+    'goalPriority': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'goal_priority',
+      iterable: false,
+      type: String,
+    ),
+    'updatedAt': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'updated_at',
+      iterable: false,
+      type: DateTime,
+    ),
+    'deletedAt': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'deleted_at',
+      iterable: false,
+      type: DateTime,
+    ),
+    'version': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'version',
+      iterable: false,
+      type: int,
     ),
   };
   @override

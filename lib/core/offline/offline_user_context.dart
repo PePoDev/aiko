@@ -8,7 +8,11 @@ class OfflineUserContext {
     : _storage = storage ?? FlutterSecureStorageService();
 
   static const _knownUserIdKey = 'aiko_offline_user_id';
-  static const _localUserIdPrefix = 'local:';
+
+  /// Public prefix so callers (e.g. `OfflineDataMigrator`) don't have to
+  /// redeclare their own copy. Local-only anonymous ids start with
+  /// this string and are reassigned to the real Supabase user id on sign-in.
+  static const localUserIdPrefix = 'local:';
 
   final SecureStorageService _storage;
 
@@ -24,13 +28,13 @@ class OfflineUserContext {
       return cachedUserId;
     }
 
-    final localUserId = '$_localUserIdPrefix${const Uuid().v4()}';
+    final localUserId = '$localUserIdPrefix${const Uuid().v4()}';
     await _storage.write(_knownUserIdKey, localUserId);
     return localUserId;
   }
 
   Future<bool> get isLocalOnlyUser async {
     final userId = await resolveUserId();
-    return userId.startsWith(_localUserIdPrefix);
+    return userId.startsWith(localUserIdPrefix);
   }
 }

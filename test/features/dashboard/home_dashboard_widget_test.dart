@@ -1,7 +1,6 @@
 import 'package:aiko/app/providers.dart';
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
-import 'package:aiko/features/budgets/domain/budget.dart';
 import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/dashboard/domain/dashboard_summary.dart';
 import 'package:aiko/features/dashboard/domain/dashboard_widget_preference.dart';
@@ -237,7 +236,7 @@ void main() {
   });
 
   testWidgets(
-    'home dashboard shows daily spending gauge and safe week summary',
+    'home dashboard shows daily spending total derived from transactions',
     (tester) async {
       final now = DateTime.now();
 
@@ -263,20 +262,6 @@ void main() {
               date: DateTime(now.year, now.month, now.day, 12),
             ),
           ],
-          budgets: [
-            Budget(
-              id: Budget.dailySpendingId,
-              userId: 'user',
-              name: 'Daily Spending',
-              categoryId: 'groceries',
-              amount: Money.parse('250', 'USD'),
-              periodStart: DateTime(now.year, now.month, now.day),
-              periodEnd: DateTime(now.year, now.month, now.day, 23, 59, 59),
-              period: BudgetPeriod.daily,
-              includedCategoryIds: const ['groceries'],
-              isAppDefined: true,
-            ),
-          ],
           child: MaterialApp(
             locale: const Locale('en'),
             localizationsDelegates: const [
@@ -295,25 +280,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Daily spending'), findsOneWidget);
-      expect(find.text('\$40.00 / \$250.00'), findsOneWidget);
-      expect(find.text('Current / limit'), findsOneWidget);
-      final dailySpendingCard = find
-          .ancestor(
-            of: find.text('Daily spending'),
-            matching: find.byType(Card),
-          )
-          .first;
-      final indicator = tester.widget<LinearProgressIndicator>(
-        find
-            .descendant(
-              of: dailySpendingCard,
-              matching: find.byType(LinearProgressIndicator),
-            )
-            .first,
-      );
-      expect(indicator.value, 0.16);
-      expect(find.text('Accounts'), findsNothing);
-      expect(find.text('Today'), findsNothing);
+      expect(find.text('\$50.00'), findsOneWidget);
+      expect(find.text('Today'), findsOneWidget);
       expect(find.text('Safe this week'), findsOneWidget);
       expect(find.text('Estimate'), findsOneWidget);
 
@@ -345,34 +313,32 @@ void main() {
     },
   );
 
-  testWidgets('home dashboard asks user to set up daily spending budget', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _dashboardScope(
-        child: MaterialApp(
-          locale: const Locale('en'),
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          theme: AikoTheme.light(),
-          home: const HomeDashboardScreen(),
+  testWidgets(
+    'home dashboard shows the Daily spending panel even with no spend',
+    (tester) async {
+      await tester.pumpWidget(
+        _dashboardScope(
+          child: MaterialApp(
+            locale: const Locale('en'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AikoTheme.light(),
+            home: const HomeDashboardScreen(),
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(find.text('Daily spending'), findsOneWidget);
-    expect(
-      find.text('Set up Daily Spending to track today\'s limit'),
-      findsOneWidget,
-    );
-  });
+      expect(find.text('Daily spending'), findsOneWidget);
+      expect(find.text('Today'), findsOneWidget);
+    },
+  );
 
   testWidgets('quick add plus opens the transaction form directly', (
     tester,
@@ -427,7 +393,7 @@ void main() {
             date: DateTime(now.year, now.month, now.day),
           ),
         ],
-        categories: const [
+        categories: [
           Category(
             id: 'coffee',
             userId: 'user',
@@ -435,17 +401,8 @@ void main() {
             type: CategoryType.expense,
             group: CategoryBudgetGroup.wants,
             color: '#8B5CF6',
-          ),
-        ],
-        budgets: [
-          Budget(
-            id: 'budget-coffee',
-            userId: 'user',
-            name: 'Coffee budget',
-            categoryId: 'coffee',
-            amount: Money.parse('100', 'USD'),
-            periodStart: DateTime(now.year, now.month, 1),
-            periodEnd: DateTime(now.year, now.month + 1, 0),
+            monthlyLimit: Money.parse('100', 'USD'),
+            budgetPeriod: CategoryBudgetPeriod.monthly,
           ),
         ],
         child: MaterialApp(
@@ -553,7 +510,6 @@ Widget _dashboardScope({
   required Widget child,
   List<FinanceTransaction> transactions = const [],
   List<Category> categories = const [],
-  List<Budget> budgets = const [],
   List<Account> accounts = const [],
 }) {
   return ProviderScope(
@@ -577,7 +533,6 @@ Widget _dashboardScope({
         () => _TransactionsNotifier(transactions),
       ),
       categoriesProvider.overrideWith(() => _CategoriesNotifier(categories)),
-      budgetsProvider.overrideWith(() => _BudgetsNotifier(budgets)),
       accountsProvider.overrideWith(() => _AccountsNotifier(accounts)),
     ],
     child: child,
@@ -607,15 +562,6 @@ class _CategoriesNotifier extends CategoriesNotifier {
 
   @override
   Future<List<Category>> build() async => categories;
-}
-
-class _BudgetsNotifier extends BudgetsNotifier {
-  _BudgetsNotifier(this.budgets);
-
-  final List<Budget> budgets;
-
-  @override
-  Future<List<Budget>> build() async => budgets;
 }
 
 class _AccountsNotifier extends AccountsNotifier {

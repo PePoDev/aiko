@@ -26,7 +26,10 @@ class OfflineTransaction extends OfflineFirstWithSupabaseModel {
     this.recurringDayOfWeek,
     this.recurringDayOfMonth,
     this.recurringMonthOfYear,
-  });
+    DateTime? updatedAt,
+    this.deletedAt,
+    this.version = 1,
+  }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
 
   @Sqlite(unique: true)
   @Supabase(unique: true)
@@ -74,4 +77,16 @@ class OfflineTransaction extends OfflineFirstWithSupabaseModel {
 
   /// Annual anchor (1–12). Annually series only.
   final int? recurringMonthOfYear;
+
+  @Sqlite(name: 'updated_at')
+  @Supabase(name: 'updated_at')
+  final DateTime updatedAt;
+
+  @Sqlite(name: 'deleted_at', index: true)
+  @Supabase(name: 'deleted_at')
+  final DateTime? deletedAt;
+
+  @Sqlite(name: 'version')
+  @Supabase(name: 'version', defaultValue: '1')
+  final int version;
 }

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../app/providers.dart';
 import '../data/chat_session_store.dart';
 import '../domain/chat_session.dart';
 import 'chat_engine.dart';
@@ -336,8 +337,10 @@ class _SupabaseConfig {
 }
 
 final supabaseConfigProvider = Provider<_SupabaseConfig>((ref) {
-  final url = const String.fromEnvironment('SUPABASE_URL');
-  return _SupabaseConfig(url: url, isConfigured: url.isNotEmpty);
+  return _SupabaseConfig(
+    url: ref.watch(aikoSupabaseConfigProvider).url,
+    isConfigured: ref.watch(aikoSupabaseConfigProvider).isConfigured,
+  );
 });
 
 /// Splits an AI reply's accumulated text into its main answer and a trailing

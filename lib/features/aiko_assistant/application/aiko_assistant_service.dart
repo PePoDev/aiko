@@ -2,8 +2,7 @@ import '../../../core/money/money.dart';
 import '../../insights/domain/aiko_insight.dart';
 import '../domain/aiko_response.dart';
 import '../../accounts/domain/account.dart';
-import '../../budgets/domain/budget.dart';
-import '../../goals/domain/goal.dart';
+import '../../categories/domain/category.dart';
 import '../../transactions/domain/transaction.dart';
 
 class AikoAssistantService {
@@ -39,8 +38,7 @@ class AikoAssistantService {
     Money? safeToSpendAmount,
     List<AikoInsight> insights = const [],
     List<Account> accounts = const [],
-    List<Budget> budgets = const [],
-    List<Goal> goals = const [],
+    List<Category> categories = const [],
     List<FinanceTransaction> transactions = const [],
   }) {
     final normalized = question.toLowerCase();
@@ -71,24 +69,30 @@ class AikoAssistantService {
       );
     }
 
-    // Goals query
+    // Goals query — goal accounts (AccountType.goal) replaced the legacy
+    // Goal model after the merge.
     if (normalized.contains('goal') || normalized.contains('saving')) {
-      if (goals.isEmpty) {
+      final goalAccounts = accounts
+          .where((a) => a.type == AccountType.goal)
+          .toList(growable: false);
+      if (goalAccounts.isEmpty) {
         return const AikoResponse(
           type: AikoResponseType.answer,
           answer:
-              "You don't have any active savings goals yet. You can tap the Budgets & Goals tab to create a new SMART saving goal!",
+              "You don't have any active savings goals yet. You can add a Goal account from the Accounts tab to create a new SMART saving goal!",
           explanation: 'Setting goals is the first step to financial security.',
           disclaimer:
               'Estimated timeline and milestones are based on current contributions.',
         );
       }
       final buffer = StringBuffer();
-      buffer.writeln('You have ${goals.length} active savings goal(s):');
-      for (final goal in goals) {
-        final progressPct = (goal.progress * 100).toStringAsFixed(0);
+      buffer.writeln('You have ${goalAccounts.length} active savings goal(s):');
+      for (final acc in goalAccounts) {
+        final progressPct = (acc.goalProgress * 100).toStringAsFixed(0);
         buffer.writeln(
-          '• **${goal.name}**: ${goal.currentAmount.format()} of ${goal.targetAmount.format()} ($progressPct% complete, remaining ${goal.remaining.format()})',
+          '• **${acc.name}**: ${acc.currentBalance.format()} '
+          'of ${acc.targetAmount?.format() ?? '—'} '
+          '($progressPct% complete, remaining ${acc.goalRemaining.format()})',
         );
       }
       return AikoResponse(
@@ -96,7 +100,7 @@ class AikoAssistantService {
         answer: buffer.toString().trim(),
         explanation:
             'Track your targets closely to optimize interest and automatic allocations.',
-        sourceSummary: const ['goals'],
+        sourceSummary: const ['accounts'],
         recommendation:
             'Automate your savings contributions weekly to reach your goals faster.',
         disclaimer:
@@ -119,6 +123,7 @@ class AikoAssistantService {
         );
       }
       final double totalValue = accounts.fold<double>(0, (sum, acc) {
+        if (acc.type == AccountType.goal) return sum;
         final double factor =
             acc.type == AccountType.loan ||
                 acc.type == AccountType.liability ||
@@ -154,24 +159,27 @@ class AikoAssistantService {
       );
     }
 
-    // Budgets query
+    // Budgets query — categories that own a budget (Category.monthlyLimit)
+    // replaced the legacy Budget model after the merge.
     if (normalized.contains('budget') ||
         normalized.contains('limit') ||
         normalized.contains('envelope')) {
-      if (budgets.isEmpty) {
+      final active = categories.where((c) => c.hasBudget).toList();
+      if (active.isEmpty) {
         return const AikoResponse(
           type: AikoResponseType.answer,
           answer:
-              "You don't have any active budgets set up yet. Tap the Budgets & Goals tab to create category limits, or select a pre-made 50/30/20 template!",
+              "You don't have any active budgets set up yet. Open the Categories tab to set a limit on a category, or pick a pre-made 50/30/20 template!",
           explanation:
               'Setting category budgets prevents overspending and reserves cash for your savings goals.',
         );
       }
       final buffer = StringBuffer();
-      buffer.writeln('You have ${budgets.length} active category budget(s):');
-      for (final budget in budgets) {
+      buffer.writeln('You have ${active.length} active category budget(s):');
+      for (final c in active) {
+        final limit = c.monthlyLimit!;
         buffer.writeln(
-          '• **${budget.name}**: ${budget.amount.format()} per month',
+          '• **${c.name}**: ${limit.format()} per ${c.budgetPeriod.name}',
         );
       }
       return AikoResponse(
@@ -179,11 +187,11 @@ class AikoAssistantService {
         answer: buffer.toString().trim(),
         explanation:
             'Aiko tracks real-time spending pace against these category limits.',
-        sourceSummary: const ['budgets'],
+        sourceSummary: const ['categories'],
         recommendation:
             'Consider moving category envelopes around if you overrun a category budget.',
         disclaimer:
-            'Budgets are recalculated monthly based on your selected starting date.',
+            'Budgets are recalculated based on the period configured per category.',
       );
     }
 

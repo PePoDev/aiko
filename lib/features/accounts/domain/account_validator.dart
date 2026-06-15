@@ -1,6 +1,5 @@
 import 'account.dart';
 import 'account_details.dart';
-import 'account_type.dart';
 import 'account_validation_exception.dart';
 import 'account_validation_messages.dart';
 

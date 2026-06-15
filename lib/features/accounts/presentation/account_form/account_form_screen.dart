@@ -17,6 +17,7 @@ import 'subforms/bank_subform.dart';
 import 'subforms/cash_subform.dart';
 import 'subforms/credit_card_subform.dart';
 import 'subforms/ewallet_subform.dart';
+import 'subforms/goal_subform.dart';
 import 'subforms/investment_subform.dart';
 import 'subforms/liability_subform.dart';
 import 'subforms/loan_subform.dart';
@@ -43,6 +44,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
   late bool _isActive;
   late AccountDetails _details;
   GlobalKey<AccountSubformState>? _subformKey;
+  GlobalKey<GoalSubformState>? _goalSubformKey;
   var _isSubmitting = false;
   static const _currencies = [
     ('THB', 'Thai Baht'),
@@ -65,6 +67,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     _includeInNetWorth = a?.includeInNetWorth ?? true;
     _isActive = a?.isActive ?? true;
     _subformKey = GlobalKey<AccountSubformState>();
+    _goalSubformKey = GlobalKey<GoalSubformState>();
   }
 
   @override
@@ -81,6 +84,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       _type = next;
       _details = AccountDetails.defaultFor(next);
       _subformKey = GlobalKey<AccountSubformState>();
+      _goalSubformKey = GlobalKey<GoalSubformState>();
     });
   }
 
@@ -137,6 +141,19 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
             initial: _details as LiabilityDetails,
             onChanged: (d) => setState(() => _details = d),
           ),
+          AccountType.goal => _accountSeedForGoal().maybeWhen(
+            data: (initial) => GoalSubform(
+              key: _goalSubformKey,
+              initial: initial,
+              currency: _currency,
+              onChanged: (a) {
+                // The shared form reads the account from the form state
+                // directly; we only need to ensure the typed values land
+                // in the goal fields when the form is saved.
+              },
+            ),
+            orElse: () => const SizedBox.shrink(),
+          ),
           AccountType.other => OtherSubform(
             key: const ValueKey('other'),
             initial: _details as OtherDetails,
@@ -144,6 +161,35 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           ),
         },
       ),
+    );
+  }
+
+  /// Returns the [Account] used to seed the goal subform. When the form
+  /// is editing an existing goal account we pass it through; otherwise we
+  /// build a placeholder with the user's current draft values.
+  AsyncValue<Account> _accountSeedForGoal() {
+    final async = ref.watch(accountsProvider);
+    return async.whenData((_) => _draftGoalAccount());
+  }
+
+  Account _draftGoalAccount() {
+    final existing = widget.account;
+    if (existing != null && existing.type == AccountType.goal) {
+      return existing;
+    }
+    return Account(
+      id: widget.account?.id ?? const Uuid().v4(),
+      userId: widget.account?.userId ?? '',
+      name: _nameController.text.trim(),
+      type: AccountType.goal,
+      currentBalance: Money(
+        amount:
+            Decimal.tryParse(_balanceController.text.trim()) ?? Decimal.zero,
+        currency: _currency,
+      ),
+      targetAmount: null,
+      targetDate: null,
+      priority: GoalPriority.medium,
     );
   }
 
@@ -185,25 +231,47 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       ).showSnackBar(SnackBar(content: Text(subError)));
       return;
     }
+    final goalError = _goalSubformKey?.currentState?.validate();
+    if (goalError != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(goalError)));
+      return;
+    }
     final latest = _subformKey?.currentState?.getDetails() ?? _details;
+    final goalSubform = _goalSubformKey?.currentState;
+    final goalTargetAmount = goalSubform != null && _type == AccountType.goal
+        ? _parseGoalMoney(goalSubform, _currency, kind: 'target')
+        : null;
+    final goalCurrentAmount = goalSubform != null && _type == AccountType.goal
+        ? _parseGoalMoney(goalSubform, _currency, kind: 'current')
+        : null;
 
     setState(() => _isSubmitting = true);
     try {
+      final balance = _type == AccountType.goal && goalCurrentAmount != null
+          ? goalCurrentAmount
+          : Money(
+              amount: Decimal.parse(_balanceController.text.trim()),
+              currency: _currency,
+            );
       final account = Account(
         id: widget.account?.id ?? const Uuid().v4(),
         userId: widget.account?.userId ?? '',
         name: _nameController.text.trim(),
         type: _type,
-        currentBalance: Money(
-          amount: Decimal.parse(_balanceController.text.trim()),
-          currency: _currency,
-        ),
+        currentBalance: balance,
         institution: _institutionController.text.trim().isEmpty
             ? null
             : _institutionController.text.trim(),
         includeInNetWorth: _includeInNetWorth,
         isActive: _isActive,
         details: latest,
+        targetAmount: goalTargetAmount,
+        targetDate: _type == AccountType.goal ? goalSubform?.targetDate : null,
+        priority: _type == AccountType.goal
+            ? goalSubform?.priority ?? GoalPriority.medium
+            : GoalPriority.medium,
       );
       final all = ref.read(accountsProvider).value ?? const <Account>[];
       AccountValidator.validate(account, allAccounts: all);
@@ -239,6 +307,19 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Money? _parseGoalMoney(
+    GoalSubformState subform,
+    String currency, {
+    required String kind,
+  }) {
+    final controller = kind == 'target'
+        ? subform.targetController
+        : subform.currentController;
+    final value = controller.text.trim();
+    if (value.isEmpty) return null;
+    return Money.parse(value, currency);
   }
 
   @override

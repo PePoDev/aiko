@@ -2,6 +2,7 @@ import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/investments/application/investments_provider.dart';
 import 'package:aiko/features/investments/domain/investment_holding.dart';
 import 'package:aiko/features/investments/presentation/investments_screen.dart';
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -61,7 +62,7 @@ final _holdings = [
     id: 'test-vti',
     symbol: 'VTI',
     assetClass: 'Stocks',
-    quantity: 10,
+    quantity: Decimal.fromInt(10),
     averageCost: Money.parse('180', 'USD'),
     currentPrice: Money.parse('240', 'USD'),
   ),
@@ -69,7 +70,7 @@ final _holdings = [
     id: 'test-bnd',
     symbol: 'BND',
     assetClass: 'Bonds',
-    quantity: 5,
+    quantity: Decimal.fromInt(5),
     averageCost: Money.parse('75', 'USD'),
     currentPrice: Money.parse('72', 'USD'),
   ),

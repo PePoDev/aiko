@@ -2,13 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/aiko_colors.dart';
 
-class AikoNavigationGroup {
-  const AikoNavigationGroup({required this.title, required this.items});
-
-  final String title;
-  final List<AikoNavigationItem> items;
-}
-
 class AikoNavigationItem {
   const AikoNavigationItem({
     required this.label,
@@ -25,117 +18,134 @@ class AikoNavigationItem {
   final Color accentColor;
 }
 
-const aikoNavigationGroups = [
-  AikoNavigationGroup(
-    title: 'Planning',
-    items: [
-      AikoNavigationItem(
-        label: 'Budget',
-        path: '/budget',
-        icon: Icons.pie_chart_outline,
-        description: 'Plan category limits, alerts, and monthly spending pace.',
-        accentColor: AikoColors.warningOrange,
-      ),
-      AikoNavigationItem(
-        label: 'Goals',
-        path: '/goals',
-        icon: Icons.flag_outlined,
-        description: 'Plan SMART goals and saving milestones.',
-        accentColor: AikoColors.successGreen,
-      ),
-      AikoNavigationItem(
-        label: 'Investments',
-        path: '/portfolio',
-        icon: Icons.show_chart_outlined,
-        description: 'Track holdings, gains, allocation, and rebalance alerts.',
-        accentColor: AikoColors.analyticsTeal,
-      ),
-      AikoNavigationItem(
-        label: 'Asset Allocation',
-        path: '/portfolio/allocation',
-        icon: Icons.donut_small_outlined,
-        description: 'Analyze allocation by class, currency, and risk.',
-        accentColor: AikoColors.analyticsTeal,
-      ),
-      AikoNavigationItem(
-        label: 'Holding Detail',
-        path: '/portfolio/holding',
-        icon: Icons.trending_up_outlined,
-        description: 'Inspect a single holding performance and history.',
-        accentColor: AikoColors.analyticsTeal,
-      ),
-      AikoNavigationItem(
-        label: 'Assets and Net Worth',
-        path: '/assets-net-worth',
-        icon: Icons.account_balance_wallet_outlined,
-        description: 'View total assets, liabilities, and net worth over time.',
-        accentColor: AikoColors.analyticsTeal,
-      ),
-      AikoNavigationItem(
-        label: 'Travel Mode',
-        path: '/travel-mode',
-        icon: Icons.flight_takeoff_outlined,
-        description: 'Plan trips, currencies, and travel budgets.',
-        accentColor: AikoColors.primaryBlue,
-      ),
-    ],
+/// Flattened Settings list, per the merge plan. The previous grouped layout
+/// (Planning / Insights and AI / Tools and Data / Settings and Security) is
+/// removed; entries are presented as a single ordered list, each with a
+/// leading icon, title, and short description. Order here is the order the
+/// user sees in Settings.
+const aikoNavigationItems = <AikoNavigationItem>[
+  // Planning
+  AikoNavigationItem(
+    label: 'Budget: Pace',
+    path: '/settings/pace',
+    icon: Icons.speed_outlined,
+    description: 'See whether this month is on track, per category.',
+    accentColor: AikoColors.warningOrange,
   ),
-  AikoNavigationGroup(
-    title: 'Insights and AI',
-    items: [
-      AikoNavigationItem(
-        label: 'Learning Hub',
-        path: '/learning-hub',
-        icon: Icons.school_outlined,
-        description: 'Take lessons, quizzes, and glossary refreshers.',
-      ),
-    ],
+  AikoNavigationItem(
+    label: 'Budget: Safe to Spend',
+    path: '/settings/safe-to-spend',
+    icon: Icons.savings_outlined,
+    description: 'Leftover after fixed bills, debt, goals, and current spend.',
+    accentColor: AikoColors.primaryBlue,
   ),
-  AikoNavigationGroup(
-    title: 'Tools and Data',
-    items: [
-      AikoNavigationItem(
-        label: 'Calculators',
-        path: '/calculators',
-        icon: Icons.calculate_outlined,
-        description:
-            'Run finance, loan, retirement, stock, and everyday calculators.',
-      ),
-      AikoNavigationItem(
-        label: 'Monthly Report',
-        path: '/reports/monthly',
-        icon: Icons.summarize_outlined,
-        description: 'Open the current monthly finance review.',
-      ),
-      AikoNavigationItem(
-        label: 'Export',
-        path: '/export',
-        icon: Icons.file_download_outlined,
-        description: 'Create CSV, Excel-compatible, and PDF-ready outputs.',
-      ),
-    ],
+  AikoNavigationItem(
+    label: 'Budget: Cash Flow',
+    path: '/settings/cash-flow',
+    icon: Icons.waterfall_chart,
+    description: 'Income vs expenses vs savings — month over month.',
+    accentColor: AikoColors.analyticsTeal,
   ),
-  AikoNavigationGroup(
-    title: 'Settings and Security',
-    items: [
-      AikoNavigationItem(
-        label: 'Notifications',
-        path: '/notification-settings',
-        icon: Icons.notifications_outlined,
-        description: 'Configure recurring, budget, goal, and insight alerts.',
-      ),
-      AikoNavigationItem(
-        label: 'Notifications Center',
-        path: '/notifications',
-        icon: Icons.notifications_active_outlined,
-        description: 'Review recent alerts, updates, and financial reminders.',
-      ),
-      AikoNavigationItem(
-        label: 'Profile & Security',
-        path: '/profile-security',
-        icon: Icons.admin_panel_settings_outlined,
-        description: 'Manage account security, biometrics, and login alerts.',
-      ),
-    ],
+  AikoNavigationItem(
+    label: 'Budget: Cash Flow (Sankey)',
+    path: '/settings/cash-flow-sankey',
+    icon: Icons.account_tree_outlined,
+    description: 'Visual Sankey of where your income flows.',
+    accentColor: AikoColors.analyticsTeal,
+  ),
+  AikoNavigationItem(
+    label: 'Goals: Saving Plan',
+    path: '/settings/saving-plan',
+    icon: Icons.savings_outlined,
+    description: 'Required monthly contribution for each active goal.',
+    accentColor: AikoColors.successGreen,
+  ),
+  AikoNavigationItem(
+    label: 'Goals: Chance of Success',
+    path: '/settings/chance-of-success',
+    icon: Icons.auto_graph_outlined,
+    description: 'Monte Carlo probability of hitting every goal on time.',
+    accentColor: AikoColors.premiumPurple,
+  ),
+  AikoNavigationItem(
+    label: 'Investments',
+    path: '/portfolio',
+    icon: Icons.show_chart_outlined,
+    description: 'Track holdings, gains, allocation, and rebalance alerts.',
+    accentColor: AikoColors.analyticsTeal,
+  ),
+  AikoNavigationItem(
+    label: 'Asset Allocation',
+    path: '/portfolio/allocation',
+    icon: Icons.donut_small_outlined,
+    description: 'Analyze allocation by class, currency, and risk.',
+    accentColor: AikoColors.analyticsTeal,
+  ),
+  AikoNavigationItem(
+    label: 'Holding Detail',
+    path: '/portfolio/holding',
+    icon: Icons.trending_up_outlined,
+    description: 'Inspect a single holding performance and history.',
+    accentColor: AikoColors.analyticsTeal,
+  ),
+  AikoNavigationItem(
+    label: 'Assets and Net Worth',
+    path: '/assets-net-worth',
+    icon: Icons.account_balance_wallet_outlined,
+    description: 'View total assets, liabilities, and net worth over time.',
+    accentColor: AikoColors.analyticsTeal,
+  ),
+  AikoNavigationItem(
+    label: 'Travel Mode',
+    path: '/travel-mode',
+    icon: Icons.flight_takeoff_outlined,
+    description: 'Plan trips, currencies, and travel budgets.',
+    accentColor: AikoColors.primaryBlue,
+  ),
+  // Insights and AI
+  AikoNavigationItem(
+    label: 'Learning Hub',
+    path: '/learning-hub',
+    icon: Icons.school_outlined,
+    description: 'Take lessons, quizzes, and glossary refreshers.',
+  ),
+  // Tools and Data
+  AikoNavigationItem(
+    label: 'Calculators',
+    path: '/calculators',
+    icon: Icons.calculate_outlined,
+    description:
+        'Run finance, loan, retirement, stock, and everyday calculators.',
+  ),
+  AikoNavigationItem(
+    label: 'Monthly Report',
+    path: '/reports/monthly',
+    icon: Icons.summarize_outlined,
+    description: 'Open the current monthly finance review.',
+  ),
+  AikoNavigationItem(
+    label: 'Export',
+    path: '/export',
+    icon: Icons.file_download_outlined,
+    description: 'Create CSV, Excel-compatible, and PDF-ready outputs.',
+  ),
+  // Settings and Security
+  AikoNavigationItem(
+    label: 'Notifications',
+    path: '/notification-settings',
+    icon: Icons.notifications_outlined,
+    description: 'Configure recurring, budget, goal, and insight alerts.',
+  ),
+  AikoNavigationItem(
+    label: 'Notifications Center',
+    path: '/notifications',
+    icon: Icons.notifications_active_outlined,
+    description: 'Review recent alerts, updates, and financial reminders.',
+  ),
+  AikoNavigationItem(
+    label: 'Profile & Security',
+    path: '/profile-security',
+    icon: Icons.admin_panel_settings_outlined,
+    description: 'Manage account security, biometrics, and login alerts.',
   ),
 ];

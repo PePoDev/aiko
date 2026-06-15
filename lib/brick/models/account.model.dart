@@ -22,7 +22,10 @@ class OfflineAccount extends OfflineFirstWithSupabaseModel {
     this.goalTargetAmount,
     this.goalTargetDate,
     this.goalPriority = 'medium',
-  });
+    DateTime? updatedAt,
+    this.deletedAt,
+    this.version = 1,
+  }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
 
   @Sqlite(unique: true)
   @Supabase(unique: true)
@@ -63,7 +66,8 @@ class OfflineAccount extends OfflineFirstWithSupabaseModel {
   @Sqlite(name: 'goal_target_amount')
   @Supabase(
     name: 'goal_target_amount',
-    fromGenerator: 'data[\'goal_target_amount\'] == null ? null : data[\'goal_target_amount\'].toString()',
+    fromGenerator:
+        'data[\'goal_target_amount\'] == null ? null : data[\'goal_target_amount\'].toString()',
   )
   final String? goalTargetAmount;
 
@@ -74,6 +78,22 @@ class OfflineAccount extends OfflineFirstWithSupabaseModel {
   @Sqlite(name: 'goal_priority')
   @Supabase(name: 'goal_priority')
   final String goalPriority;
+
+  // `updatedAt` is set to `now()` whenever a row is upserted.
+  // `deletedAt` is the soft-delete tombstone; non-null rows are filtered out
+  // of domain reads. `version` is bumped on every write to support LWW
+  // conflict resolution on important records.
+  @Sqlite(name: 'updated_at')
+  @Supabase(name: 'updated_at')
+  final DateTime updatedAt;
+
+  @Sqlite(name: 'deleted_at', index: true)
+  @Supabase(name: 'deleted_at')
+  final DateTime? deletedAt;
+
+  @Sqlite(name: 'version')
+  @Supabase(name: 'version', defaultValue: '1')
+  final int version;
 }
 
 /// Decodes the Supabase `details` jsonb column into the local JSON string.

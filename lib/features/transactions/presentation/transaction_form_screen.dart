@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../core/money/supported_currencies.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
 import '../../categories/domain/category.dart';
@@ -23,18 +24,7 @@ import '../application/voice_transaction_parser.dart';
 import '../application/voice_transcription_service.dart';
 import 'transaction_attachment_section.dart';
 
-const _supportedCurrencies = [
-  'THB',
-  'USD',
-  'EUR',
-  'GBP',
-  'JPY',
-  'SGD',
-  'AUD',
-  'CAD',
-  'CNY',
-  'HKD',
-];
+const _supportedCurrencies = kAikoSupportedCurrencies;
 
 class TransactionFormScreen extends ConsumerStatefulWidget {
   const TransactionFormScreen({this.initialTransaction, super.key});
@@ -55,7 +45,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _tagFocusNode = FocusNode();
   final _imagePicker = ImagePicker();
   final List<String> _tags = [];
-  String _type = 'expense';
+  TransactionType _type = TransactionType.expense;
   String _selectedCurrency = 'THB';
   DateTime _selectedDate = DateTime.now();
   String? _selectedCategoryId;
@@ -95,11 +85,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _selectedCurrency = _normalizeCurrency(transaction.amount.currency);
     _noteController.text = transaction.note ?? '';
     _type = switch (transaction.type) {
-      TransactionType.income => 'income',
+      TransactionType.income => TransactionType.income,
       TransactionType.transfer ||
       TransactionType.transferIn ||
-      TransactionType.transferOut => 'transfer',
-      _ => 'expense',
+      TransactionType.transferOut => TransactionType.transfer,
+      _ => TransactionType.expense,
     };
     _selectedDate = transaction.date;
     _selectedCategoryId = transaction.categoryId;
@@ -159,7 +149,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   ///
   /// Date, recurring-series settings, and attachments are preserved in add
   /// mode too — they describe the transaction context, not its direction.
-  void _onTransactionTypeChanged(String newType) {
+  void _onTransactionTypeChanged(TransactionType newType) {
     if (widget.initialTransaction != null) {
       setState(() {
         _type = newType;
@@ -207,7 +197,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   String? _validateSuggestionCategory(String? categoryId) {
-    if (categoryId == null || _type == 'transfer') {
+    if (categoryId == null || _type == TransactionType.transfer) {
       return null;
     }
     final categories =
@@ -260,7 +250,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   void _autofillForm({
     required double amount,
     required String note,
-    required String type,
+    required TransactionType type,
     required DateTime date,
     String title = '',
     String currency = 'THB',
@@ -416,7 +406,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _autofillForm(
       amount: autofill.total?.amount.toDouble() ?? 0.0,
       note: 'Scanned receipt: ${autofill.merchant ?? captured.name}',
-      type: 'expense',
+      type: TransactionType.expense,
       date: autofill.date ?? DateTime.now(),
       title: autofill.merchant ?? '',
       currency: autofill.total?.currency ?? 'THB',
@@ -724,7 +714,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _autofillForm(
         amount: draft.amount.amount.toDouble(),
         note: draft.note ?? 'Voice command parser',
-        type: draft.type == TransactionType.income ? 'income' : 'expense',
+        type: draft.type == TransactionType.income
+            ? TransactionType.income
+            : TransactionType.expense,
         date: draft.date,
         title: draft.merchant ?? '',
         currency: draft.amount.currency,
@@ -1119,7 +1111,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
-    if (_type == 'transfer' && _selectedToAccountId == null) {
+    if (_type == TransactionType.transfer && _selectedToAccountId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
@@ -1135,11 +1127,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     // When editing a transfer leg, keep its original direction (transferIn /
     // transferOut) rather than collapsing back to a plain transfer.
-    final txType = (_type == 'transfer' && widget.initialTransaction != null)
+    final txType =
+        (_type == TransactionType.transfer && widget.initialTransaction != null)
         ? widget.initialTransaction!.type
         : switch (_type) {
-            'income' => TransactionType.income,
-            'transfer' => TransactionType.transfer,
+            TransactionType.income => TransactionType.income,
+            TransactionType.transfer => TransactionType.transfer,
             _ => TransactionType.expense,
           };
 
@@ -1162,7 +1155,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     // A new transfer is recorded as a paired outflow/inflow: one leg leaves the
     // source account, the other arrives in the destination. Editing an existing
     // transfer leg falls through to the single-row path below.
-    if (_type == 'transfer' && existingTransaction == null) {
+    if (_type == TransactionType.transfer && existingTransaction == null) {
       await _submitTransferPair(
         amount: amount,
         tags: tags,
@@ -1431,7 +1424,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           // Standard Entry Fields
-          SegmentedButton<String>(
+          SegmentedButton<TransactionType>(
             key: const Key('transaction-type-selector'),
             showSelectedIcon: false,
             style: ButtonStyle(
@@ -1455,18 +1448,18 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               }),
             ),
             segments: const [
-              ButtonSegment(
-                value: 'expense',
+              ButtonSegment<TransactionType>(
+                value: TransactionType.expense,
                 label: Text('Expense'),
                 icon: Icon(Icons.north_east),
               ),
-              ButtonSegment(
-                value: 'income',
+              ButtonSegment<TransactionType>(
+                value: TransactionType.income,
                 label: Text('Income'),
                 icon: Icon(Icons.south_west),
               ),
-              ButtonSegment(
-                value: 'transfer',
+              ButtonSegment<TransactionType>(
+                value: TransactionType.transfer,
                 label: Text('Transfer'),
                 icon: Icon(Icons.swap_horiz),
               ),
@@ -1530,7 +1523,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           const SizedBox(height: 12),
 
           // Category dropdown
-          if (_type != 'transfer') ...[
+          if (_type != TransactionType.transfer) ...[
             categoriesAsync.when(
               loading: () => const CircularProgressIndicator(),
               error: (_, _) => const Text('Error loading categories'),
@@ -1589,7 +1582,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 );
               }
 
-              if (_type == 'transfer') {
+              if (_type == TransactionType.transfer) {
                 // Show the source and destination side by side with an arrow
                 // between them, so the money visibly moves left → right.
                 return Row(
@@ -2349,7 +2342,7 @@ class _CategoryPicker extends StatelessWidget {
   final List<Category> categories;
   final List<CategoryGroup> groups;
   final String? selectedCategoryId;
-  final String transactionType;
+  final TransactionType transactionType;
   final ValueChanged<String> onSelected;
 
   @override
@@ -4298,18 +4291,22 @@ String _calculatorKeyName(String label) {
   };
 }
 
-Color _transactionTypeColor(String type) {
+Color _transactionTypeColor(TransactionType type) {
   return switch (type) {
-    'income' => AikoColors.successGreen,
-    'transfer' => AikoColors.primaryBlue,
+    TransactionType.income => AikoColors.successGreen,
+    TransactionType.transfer ||
+    TransactionType.transferIn ||
+    TransactionType.transferOut => AikoColors.primaryBlue,
     _ => AikoColors.dangerRed,
   };
 }
 
-CategoryType _categoryTypeFor(String type) {
+CategoryType _categoryTypeFor(TransactionType type) {
   return switch (type) {
-    'income' => CategoryType.income,
-    'transfer' => CategoryType.transfer,
+    TransactionType.income => CategoryType.income,
+    TransactionType.transfer ||
+    TransactionType.transferIn ||
+    TransactionType.transferOut => CategoryType.transfer,
     _ => CategoryType.expense,
   };
 }
@@ -4362,7 +4359,11 @@ Color _categoryColorFrom(Category category) {
     final hexColor = category.color.replaceAll('#', '');
     return Color(int.parse('FF$hexColor', radix: 16));
   } catch (_) {
-    return _transactionTypeColor(category.type.name);
+    return _transactionTypeColor(switch (category.type) {
+      CategoryType.income => TransactionType.income,
+      CategoryType.transfer => TransactionType.transfer,
+      _ => TransactionType.expense,
+    });
   }
 }
 
@@ -4396,6 +4397,7 @@ IconData _accountIconFor(AccountType type) {
     AccountType.investment => Icons.trending_up_outlined,
     AccountType.asset => Icons.home_work_outlined,
     AccountType.liability => Icons.request_quote_outlined,
+    AccountType.goal => Icons.flag_outlined,
     AccountType.other => Icons.account_balance_wallet_outlined,
   };
 }
@@ -4410,6 +4412,7 @@ Color _accountColorFor(AccountType type) {
     AccountType.investment => AikoColors.analyticsTeal,
     AccountType.asset => AikoColors.analyticsTeal,
     AccountType.liability => AikoColors.dangerRed,
+    AccountType.goal => AikoColors.premiumPurple,
     AccountType.other => AikoColors.primaryBlue,
   };
 }
@@ -4496,12 +4499,8 @@ List<FinanceTransaction> _itemNameSuggestionsFrom(
   return suggestions;
 }
 
-TransactionType _transactionTypeFromFormType(String formType) {
-  return switch (formType) {
-    'income' => TransactionType.income,
-    'transfer' => TransactionType.transfer,
-    _ => TransactionType.expense,
-  };
+TransactionType _transactionTypeFromFormType(TransactionType formType) {
+  return formType;
 }
 
 List<FinanceTransaction> _filteredItemNameSuggestions(

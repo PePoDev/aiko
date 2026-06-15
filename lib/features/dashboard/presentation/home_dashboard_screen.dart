@@ -12,13 +12,11 @@ import '../../../shared/widgets/aiko_data_widgets.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
-import '../../budgets/domain/budget.dart';
-import '../../budgets/presentation/budget_form_screen.dart';
+import '../../accounts/domain/account.dart';
 import '../../categories/domain/category.dart';
 import '../domain/dashboard_due_item.dart';
 import '../domain/dashboard_summary.dart';
 import '../domain/dashboard_widget_preference.dart';
-import '../../goals/domain/goal.dart';
 import '../../transactions/domain/transaction.dart';
 import '../../transactions/presentation/transaction_form_screen.dart';
 import 'widgets/dashboard_due_items_widget.dart';
@@ -39,9 +37,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       ref.refresh(dashboardSummaryProvider.future),
       ref.refresh(dashboardDueItemsProvider.future),
       ref.refresh(transactionsProvider.future),
-      ref.refresh(budgetsProvider.future),
+      ref.refresh(accountsProvider.future),
       ref.refresh(categoriesProvider.future),
-      ref.refresh(goalsProvider.future),
     ]);
   }
 
@@ -218,11 +215,15 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       DashboardWidgetType.netWorthTrend => const _NetWorthTrendPanel(),
       DashboardWidgetType.assetsLiabilities => const _AssetsLiabilitiesPanel(),
       DashboardWidgetType.topAssets => const _TopAssetsPanel(),
-      DashboardWidgetType.totalDebt => const _TotalDebtPanel(),
-      DashboardWidgetType.debtBreakdown => const _DebtBreakdownPanel(),
-      DashboardWidgetType.taxLiability => const _TaxLiabilityPanel(),
-      DashboardWidgetType.taxBreakdown => const _TaxBreakdownPanel(),
-      DashboardWidgetType.topDeductions => const _TopDeductionsPanel(),
+      // The five "tax / debt / deductions" panels were mock-data placeholders
+      // The enum entries are kept so existing user-stored layouts
+      // continue to deserialize, but the widgets render nothing. The Add
+      // Widgets panel hides them too (see the picker filter below).
+      DashboardWidgetType.totalDebt ||
+      DashboardWidgetType.debtBreakdown ||
+      DashboardWidgetType.taxLiability ||
+      DashboardWidgetType.taxBreakdown ||
+      DashboardWidgetType.topDeductions => const SizedBox.shrink(),
     };
   }
 }
@@ -351,111 +352,6 @@ class _ThisMonthOverviewSection extends StatelessWidget {
   }
 }
 
-class _TotalDebtPanel extends StatelessWidget {
-  const _TotalDebtPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return const AikoMetricCard(
-      label: 'Total Debt',
-      value: '\$47,250.00',
-      change: '-\$1,250 vs last month',
-      icon: Icons.account_balance_wallet_outlined,
-      accentColor: AikoColors.dangerRed,
-      progress: 0.32,
-    );
-  }
-}
-
-class _DebtBreakdownPanel extends StatelessWidget {
-  const _DebtBreakdownPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    return AikoDataListCard(
-      title: 'Debt Breakdown',
-      icon: Icons.pie_chart_outline,
-      rows: [
-        AikoDataRow(
-          label: 'Credit Cards',
-          value: '\$6,250.00',
-          color: AikoColors.warningOrange,
-        ),
-        AikoDataRow(
-          label: 'Student Loans',
-          value: '\$28,500.00',
-          color: AikoColors.primaryBlue,
-        ),
-        AikoDataRow(
-          label: 'Personal Loans',
-          value: '\$7,500.00',
-          color: AikoColors.premiumPurple,
-        ),
-        AikoDataRow(label: 'Other Debt', value: '\$5,000.00', color: muted),
-      ],
-    );
-  }
-}
-
-class _TaxLiabilityPanel extends StatelessWidget {
-  const _TaxLiabilityPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return const AikoMetricCard(
-      label: 'Estimated Tax Liability',
-      value: r'$8,750.00',
-      change: r'-$520 vs 2025',
-      icon: Icons.request_quote_outlined,
-      accentColor: AikoColors.successGreen,
-    );
-  }
-}
-
-class _TaxBreakdownPanel extends StatelessWidget {
-  const _TaxBreakdownPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: AikoDonutChart(
-          values: [6250.0, 1500.0, 600.0, 400.0],
-          colors: [
-            AikoColors.primaryBlue,
-            AikoColors.dangerRed,
-            AikoColors.analyticsTeal,
-            AikoColors.warningOrange,
-          ],
-          centerLabel:
-              r'$8,750'
-              '\nTax',
-        ),
-      ),
-    );
-  }
-}
-
-class _TopDeductionsPanel extends StatelessWidget {
-  const _TopDeductionsPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return const AikoDataListCard(
-      title: 'Top Deductions',
-      icon: Icons.fact_check_outlined,
-      rows: [
-        AikoDataRow(label: 'Mortgage Interest', value: r'$3,650.00'),
-        AikoDataRow(label: 'Charitable Donations', value: r'$2,020.00'),
-        AikoDataRow(label: 'Medical Expenses', value: r'$1,450.00'),
-        AikoDataRow(label: 'Business Expenses', value: r'$1,230.00'),
-      ],
-    );
-  }
-}
-
 class _TotalBalancePanel extends ConsumerWidget {
   const _TotalBalancePanel();
 
@@ -496,7 +392,7 @@ class _TotalBalancePanel extends ConsumerWidget {
         value.currency != target.currency) {
       return 0;
     }
-    return (value.amount.toDouble() / target.amount.toDouble()).clamp(0.0, 1.0);
+    return value.ratio(target).clamp(0.0, 1.0);
   }
 }
 
@@ -895,117 +791,56 @@ class _DailySpendingPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final budgetsAsync = ref.watch(budgetsProvider);
     final transactionsAsync = ref.watch(transactionsProvider);
 
-    return budgetsAsync.when(
+    return transactionsAsync.when(
       loading: () => const _OverviewMiniCard(
         title: 'Daily spending',
         value: 'Loading',
-        caption: 'Daily limit',
+        caption: 'Today',
         icon: Icons.today_outlined,
         accentColor: AikoColors.warningOrange,
       ),
       error: (_, _) => const _OverviewMiniCard(
         title: 'Daily spending',
         value: 'Unavailable',
-        caption: 'Daily limit',
+        caption: 'Today',
         icon: Icons.today_outlined,
         accentColor: AikoColors.warningOrange,
       ),
-      data: (budgets) {
-        Budget? dailyBudget;
-        for (final budget in budgets) {
-          if (budget.isDailySpending) {
-            dailyBudget = budget;
-            break;
-          }
-        }
-        if (dailyBudget == null) {
-          return const _OverviewMiniCard(
-            title: 'Daily spending',
-            value: 'Set up Daily Spending to track today\'s limit',
-            caption: '',
-            icon: Icons.today_outlined,
-            accentColor: AikoColors.warningOrange,
-            valueMaxLines: 2,
-          );
-        }
-
-        return transactionsAsync.when(
-          loading: () => const _OverviewMiniCard(
-            title: 'Daily spending',
-            value: 'Loading',
-            caption: 'Current / limit',
-            icon: Icons.today_outlined,
-            accentColor: AikoColors.warningOrange,
-          ),
-          error: (_, _) => const _OverviewMiniCard(
-            title: 'Daily spending',
-            value: 'Unavailable',
-            caption: 'Current / limit',
-            icon: Icons.today_outlined,
-            accentColor: AikoColors.warningOrange,
-          ),
-          data: (transactions) {
-            final current = _dailySpendingUsed(
-              budget: dailyBudget!,
-              transactions: transactions,
-            );
-            final progress = _budgetProgressValue(
-              used: current,
-              limit: dailyBudget.amount,
-            );
-
-            return _OverviewMiniCard(
-              title: 'Daily spending',
-              value: '${current.format()} / ${dailyBudget.amount.format()}',
-              caption: 'Current / limit',
-              icon: Icons.today_outlined,
-              accentColor: AikoColors.warningOrange,
-              progressValue: progress,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => BudgetFormScreen(initialBudget: dailyBudget),
-                ),
-              ),
-            );
-          },
+      data: (transactions) {
+        final used = _dailySpendingUsed(transactions);
+        // Daily Spending became a derived panel from transaction date instead
+        // of a stored budget, so the "limit" half is intentionally dropped.
+        // The "Today" caption frames the number as a fact, not a target.
+        return _OverviewMiniCard(
+          title: 'Daily spending',
+          value: used.format(),
+          caption: 'Today',
+          icon: Icons.today_outlined,
+          accentColor: AikoColors.warningOrange,
         );
       },
     );
   }
 
-  Money _dailySpendingUsed({
-    required Budget budget,
-    required List<FinanceTransaction> transactions,
-  }) {
+  Money _dailySpendingUsed(List<FinanceTransaction> transactions) {
     final today = DateTime.now();
-    var used = Money.zero(budget.amount.currency);
-
+    String? currency;
+    Money running = Money.zero('USD');
     for (final transaction in transactions) {
-      final isToday =
-          transaction.date.year == today.year &&
-          transaction.date.month == today.month &&
-          transaction.date.day == today.day;
-      if (!isToday ||
-          !transaction.isExpense ||
-          transaction.status != TransactionStatus.posted ||
-          !budget.includesCategory(transaction.categoryId) ||
-          transaction.amount.currency != budget.amount.currency) {
+      if (!transaction.isExpense) continue;
+      if (transaction.status != TransactionStatus.posted) continue;
+      if (transaction.date.year != today.year ||
+          transaction.date.month != today.month ||
+          transaction.date.day != today.day) {
         continue;
       }
-      used = used + transaction.amount;
+      currency ??= transaction.amount.currency;
+      if (transaction.amount.currency != currency) continue;
+      running = running + transaction.amount;
     }
-
-    return used;
-  }
-
-  double _budgetProgressValue({required Money used, required Money limit}) {
-    if (limit.amount == Money.zero(limit.currency).amount) {
-      return 0;
-    }
-    return (used.amount.toDouble() / limit.amount.toDouble()).clamp(0.0, 1.0);
+    return running;
   }
 }
 
@@ -1049,9 +884,7 @@ class _OverviewMiniCard extends StatelessWidget {
     required this.caption,
     required this.icon,
     required this.accentColor,
-    this.onTap,
     this.progressValue,
-    this.valueMaxLines = 1,
   });
 
   final String title;
@@ -1059,9 +892,7 @@ class _OverviewMiniCard extends StatelessWidget {
   final String caption;
   final IconData icon;
   final Color accentColor;
-  final VoidCallback? onTap;
   final double? progressValue;
-  final int valueMaxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -1097,7 +928,7 @@ class _OverviewMiniCard extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             value,
-            maxLines: valueMaxLines,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w700,
@@ -1136,7 +967,7 @@ class _OverviewMiniCard extends StatelessWidget {
         side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(onTap: onTap, borderRadius: radius, child: content),
+      child: content,
     );
   }
 }
@@ -1269,9 +1100,9 @@ class _AikoGoalSimulatorPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final goalsAsync = ref.watch(goalsProvider);
+    final goalAccountsAsync = ref.watch(goalAccountsDerivedProvider);
 
-    return goalsAsync.when(
+    return goalAccountsAsync.when(
       loading: () => const FinanceCard(
         title: 'Aiko Goal Simulator',
         icon: Icons.query_stats_outlined,
@@ -1284,17 +1115,23 @@ class _AikoGoalSimulatorPanel extends ConsumerWidget {
         accentColor: AikoColors.premiumPurple,
         child: Text('Unable to load goal simulation right now.'),
       ),
-      data: (goals) {
-        final activeGoals = goals
-            .where((goal) => goal.status == GoalStatus.active)
-            .toList();
-        if (activeGoals.isEmpty) {
-          return const _MockGoalSimulationCard();
+      data: (goalAccounts) {
+        if (goalAccounts.isEmpty) {
+          return const FinanceCard(
+            title: 'Aiko Goal Simulator',
+            icon: Icons.query_stats_outlined,
+            accentColor: AikoColors.premiumPurple,
+            child: Text(
+              'Set up a SMART savings goal to run real-time Monte Carlo models '
+              'forecasting your actual chance of success under volatile '
+              'market bands.',
+            ),
+          );
         }
 
         return Column(
           children: [
-            for (final goal in activeGoals) ...[
+            for (final goal in goalAccounts) ...[
               _GoalMonteCarloCard(goal: goal),
               const SizedBox(height: 16),
             ],
@@ -1338,32 +1175,30 @@ class _FlowAmount extends StatelessWidget {
 class _GoalMonteCarloCard extends StatelessWidget {
   const _GoalMonteCarloCard({required this.goal});
 
-  final Goal goal;
+  final Account goal;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final now = DateTime.now();
-    var months =
-        ((goal.targetDate.year - now.year) * 12) +
-        goal.targetDate.month -
-        now.month;
+    final target = goal.targetDate ?? now.add(const Duration(days: 365));
+    var months = ((target.year - now.year) * 12) + target.month - now.month;
     if (months <= 0) months = 1;
 
-    final targetNeeded = goal.remaining.amount.toDouble();
-    var monthlyContribution = targetNeeded / months;
+    final remaining = goal.goalRemaining.amount.toDouble();
+    var monthlyContribution = remaining / months;
     if (monthlyContribution <= 0) monthlyContribution = 100.0;
 
     const engine = MonteCarloEngine();
     final result = engine.run(
-      currentBalance: goal.currentAmount.amount.toDouble(),
+      currentBalance: goal.currentBalance.amount.toDouble(),
       monthlyContribution: monthlyContribution,
-      targetAmount: goal.targetAmount.amount.toDouble(),
+      targetAmount: goal.targetAmount?.amount.toDouble() ?? 1,
       targetMonths: months,
       expectedAnnualReturnPercent: 6.0,
       annualVolatilityPercent: 12.0,
     );
-    final currencyFormat = NumberFormat.simpleCurrency(name: 'USD');
+    final currencyFormat = NumberFormat.simpleCurrency(name: goal.currency);
 
     return FinanceCard(
       title: 'Monte Carlo: ${goal.name}',
@@ -1385,47 +1220,9 @@ class _GoalMonteCarloCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _ProjectionBands(
-            conservative: currencyFormat.format(result.conservativeValue),
-            expected: currencyFormat.format(result.expectedValue),
-            optimistic: currencyFormat.format(result.optimisticValue),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MockGoalSimulationCard extends StatelessWidget {
-  const _MockGoalSimulationCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final currencyFormat = NumberFormat.simpleCurrency(name: 'USD');
-
-    return FinanceCard(
-      title: 'Aiko Goal Simulator',
-      icon: Icons.query_stats_outlined,
-      accentColor: AikoColors.premiumPurple,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const _GoalProbabilityHeader(probability: 94.2),
-          const SizedBox(height: 16),
-          Text(
-            'Set up a SMART savings goal to run real-time Monte Carlo models forecasting your actual chance of success under volatile market bands.',
-            style: textTheme.bodyMedium,
-          ),
-          const Divider(height: 24),
-          Text(
-            'Simulated Future Emergency Fund Bands (18 Months):',
-            style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          _ProjectionBands(
-            conservative: currencyFormat.format(4250.0),
-            expected: currencyFormat.format(4720.0),
-            optimistic: currencyFormat.format(5380.0),
+            conservative: currencyFormat.format(result.conservativeAmount),
+            expected: currencyFormat.format(result.expectedAmount),
+            optimistic: currencyFormat.format(result.optimisticAmount),
           ),
         ],
       ),
@@ -1682,7 +1479,6 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final transactionsAsync = ref.watch(transactionsProvider);
-    final budgetsAsync = ref.watch(budgetsProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return transactionsAsync.when(
@@ -1697,8 +1493,6 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
         child: Text('Unable to load transaction analytics right now.'),
       ),
       data: (transactions) {
-        final budgets =
-            budgetsAsync.whenOrNull(data: (items) => items) ?? const <Budget>[];
         final categories =
             categoriesAsync.whenOrNull(data: (items) => items) ??
             const <Category>[];
@@ -1710,7 +1504,6 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
               context,
               kind: kind,
               transactions: transactions,
-              budgets: budgets,
               categories: categories,
             ),
           ),
@@ -1720,19 +1513,16 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
               context,
               kind: kind,
               transactions: transactions,
-              budgets: budgets,
               categories: categories,
             ),
           ),
           _AnalyticsWidgetKind.categoryBudgets => _CategoryBudgetCard(
             transactions: transactions,
-            budgets: budgets,
             categories: categories,
             onTap: () => _openAnalyticsDetail(
               context,
               kind: kind,
               transactions: transactions,
-              budgets: budgets,
               categories: categories,
             ),
           ),
@@ -1742,7 +1532,6 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
               context,
               kind: kind,
               transactions: transactions,
-              budgets: budgets,
               categories: categories,
             ),
           ),
@@ -1755,7 +1544,6 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
     BuildContext context, {
     required _AnalyticsWidgetKind kind,
     required List<FinanceTransaction> transactions,
-    required List<Budget> budgets,
     required List<Category> categories,
   }) {
     Navigator.of(context).push(
@@ -1763,7 +1551,6 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
         builder: (_) => _AnalyticsDetailScreen(
           kind: kind,
           transactions: transactions,
-          budgets: budgets,
           categories: categories,
         ),
       ),
@@ -2072,14 +1859,12 @@ class _MonthlyNetEarningsCard extends StatelessWidget {
 class _CategoryBudgetCard extends StatelessWidget {
   const _CategoryBudgetCard({
     required this.transactions,
-    required this.budgets,
     required this.categories,
     this.maxRows = 5,
     this.onTap,
   });
 
   final List<FinanceTransaction> transactions;
-  final List<Budget> budgets;
   final List<Category> categories;
   final int maxRows;
   final VoidCallback? onTap;
@@ -2106,13 +1891,9 @@ class _CategoryBudgetCard extends StatelessWidget {
       for (final category in categories) category.id: category,
     };
     final budgetByCategory = {
-      for (final budget in budgets.where(
-        (budget) =>
-            budget.status == BudgetStatus.active &&
-            !budget.periodEnd.isBefore(DateTime(now.year, now.month, 1)) &&
-            budget.periodStart.isBefore(DateTime(now.year, now.month + 1, 1)),
-      ))
-        budget.categoryId: budget,
+      for (final category in categories)
+        if (category.monthlyLimit != null)
+          category.id: category.monthlyLimit!.amount.toDouble(),
     };
     final rows =
         usageByCategory.entries
@@ -2121,8 +1902,7 @@ class _CategoryBudgetCard extends StatelessWidget {
                 categoryId: entry.key,
                 label: categoryById[entry.key]?.name ?? 'Uncategorized',
                 used: entry.value,
-                budget:
-                    budgetByCategory[entry.key]?.amount.amount.toDouble() ?? 0,
+                budget: budgetByCategory[entry.key] ?? 0,
                 color: _categoryColor(categoryById[entry.key], entry.key),
               ),
             )
@@ -2349,13 +2129,11 @@ class _AnalyticsDetailScreen extends StatefulWidget {
   const _AnalyticsDetailScreen({
     required this.kind,
     required this.transactions,
-    required this.budgets,
     required this.categories,
   });
 
   final _AnalyticsWidgetKind kind;
   final List<FinanceTransaction> transactions;
-  final List<Budget> budgets;
   final List<Category> categories;
 
   @override
@@ -2442,7 +2220,6 @@ class _AnalyticsDetailScreenState extends State<_AnalyticsDetailScreen> {
       ),
       _AnalyticsWidgetKind.categoryBudgets => _CategoryBudgetCard(
         transactions: widget.transactions,
-        budgets: widget.budgets,
         categories: widget.categories,
         maxRows: _categoryRows,
       ),
@@ -2493,7 +2270,7 @@ class _AnalyticsDetailScreenState extends State<_AnalyticsDetailScreen> {
         'Current month net: \$${(monthlyIncome - monthlyExpense).toStringAsFixed(0)}',
       ],
       _AnalyticsWidgetKind.categoryBudgets => [
-        'Active budgets: ${widget.budgets.where((budget) => budget.status == BudgetStatus.active).length}',
+        'Categories with a budget: ${widget.categories.where((c) => c.monthlyLimit != null).length}',
         'Tracked categories: ${widget.categories.length}',
         'Current month expense: \$${monthlyExpense.toStringAsFixed(0)}',
       ],

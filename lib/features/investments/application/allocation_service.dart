@@ -63,10 +63,10 @@ class AllocationService {
 
   CapitalGainsEstimate capitalGainsOnSale({
     required InvestmentHolding holding,
-    required double quantitySold,
+    required Decimal quantitySold,
     required Money salePrice,
   }) {
-    if (quantitySold <= 0 || quantitySold > holding.quantity) {
+    if (quantitySold <= Decimal.zero || quantitySold > holding.quantity) {
       throw ArgumentError('Quantity sold must be within the holding quantity.');
     }
     final quantity = Decimal.parse('$quantitySold');

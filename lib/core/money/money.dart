@@ -1,5 +1,6 @@
 import 'package:decimal/decimal.dart';
-import 'package:intl/intl.dart';
+
+export '../formatting/money_formatter.dart';
 
 class Money implements Comparable<Money> {
   Money({required this.amount, required this.currency})
@@ -40,16 +41,21 @@ class Money implements Comparable<Money> {
     );
   }
 
+  /// Splits the receiver's amount by [other] and returns the result as a
+  /// `double`. Use this for ratios (e.g. "this / total") rather than money
+  /// splits — use [dividedByInt] / `times` for money math so the result
+  /// stays in `Decimal`.
+  double ratio(Money other) {
+    _assertSameCurrency(other);
+    if (other.amount == Decimal.zero) {
+      return 0;
+    }
+    return (amount / other.amount).toDouble();
+  }
+
   bool get isNegative => amount < Decimal.zero;
   bool get isPositive => amount > Decimal.zero;
-
-  String format({String? locale}) {
-    final formatter = NumberFormat.simpleCurrency(
-      locale: locale,
-      name: currency,
-    );
-    return formatter.format(amount.toDouble());
-  }
+  bool get isZero => amount == Decimal.zero;
 
   Map<String, dynamic> toJson() => {
     'amount': amount.toString(),

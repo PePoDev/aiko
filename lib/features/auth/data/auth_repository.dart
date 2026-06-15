@@ -3,14 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../brick/models/category.model.dart';
-import '../../../brick/models/transaction.model.dart';
-import '../../../brick/repository.dart';
-import '../../../core/offline/offline_data_migrator.dart';
-import '../../../core/offline/offline_store.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../../../core/storage/secure_storage_service.dart';
-import '../../categories/domain/category_defaults.dart';
+import '../../../core/sync/post_signin_data_preparer.dart';
 
 class AuthSession {
   const AuthSession({required this.userId, required this.email});
@@ -120,93 +116,12 @@ class AuthRepository {
     return _session!;
   }
 
-  /// One-time local cleanup run on every sign-in/restore (idempotent once done):
-  /// 1. Remaps any transaction whose category_id is a legacy `default-*` slug
-  ///    to the corresponding fixed UUID from [CategoryDefaults.legacySlugToUuid].
-  /// 2. Deletes old `default-*` OfflineCategory rows that were never valid UUIDs
-  ///    and therefore could never sync to Supabase.
-  /// 3. Flushes the offline queue entries whose body contains the old slugs so
-  ///    those poisoned requests stop retrying.
-  /// 4. Reassigns data created while signed out (`local:` prefix) to [userId].
+  /// One-time local cleanup run on every sign-in/restore (idempotent once done).
+  /// See [PostSigninDataPreparer] for the full step list — this method just
+  /// delegates so the auth repository stays free of brick / migrator concerns
   ///
-  /// System categories now live as global rows (user_id = NULL) in Supabase,
-  /// inserted by the SQL migration. No per-user category seeding is needed.
-  Future<void> _prepareOfflineDataForSync(String userId) async {
-    try {
-      final store = OfflineStore();
-
-      // 1 — Remap transactions with legacy slug category_ids.
-      final transactions = await store.get<OfflineTransaction>(
-        query: Query(where: [Where.exact('userId', userId)]),
-        policy: OfflineFirstGetPolicy.localOnly,
-      );
-      for (final tx in transactions) {
-        final catId = tx.categoryId;
-        if (catId == null || !catId.startsWith('default-')) continue;
-        final newId = CategoryDefaults.legacySlugToUuid[catId];
-        if (newId == null) continue;
-        await store.upsert(
-          OfflineTransaction(
-            id: tx.id,
-            userId: tx.userId,
-            accountId: tx.accountId,
-            type: tx.type,
-            amount: tx.amount,
-            currency: tx.currency,
-            date: tx.date,
-            categoryId: newId,
-            merchant: tx.merchant,
-            note: tx.note,
-            tags: tx.tags,
-            status: tx.status,
-          ),
-        );
-        if (kDebugMode) {
-          debugPrint(
-            '[aiko-sync] remapped tx ${tx.id} category $catId → $newId',
-          );
-        }
-      }
-
-      // 2 — Delete stale default-* OfflineCategory rows (invalid UUIDs, never
-      //     synced). Local-only: these rows never existed in Supabase, so
-      //     queuing a remote DELETE would only poison the queue with a request
-      //     the server rejects (the id is a non-UUID slug) and retries forever.
-      final legacyCategories = await store.get<OfflineCategory>(
-        query: Query(where: [Where.exact('userId', userId)]),
-        policy: OfflineFirstGetPolicy.localOnly,
-      );
-      for (final cat in legacyCategories) {
-        if (!cat.id.startsWith('default-')) continue;
-        await store.delete(cat, localOnly: true);
-        if (kDebugMode) {
-          debugPrint('[aiko-sync] deleted stale local category ${cat.id}');
-        }
-      }
-
-      // 3 — Flush queue entries that still reference the old slugs. These can
-      //     never succeed (Postgres rejects the non-UUID id) so clearing them
-      //     is safe. DELETEs carry an empty body and put the id in the URL
-      //     (`?id=eq.default-...`), so we match the url column too — a
-      //     body-only match misses every poisoned delete. The re-upserted
-      //     transactions from step 1 are already queued with valid UUIDs.
-      final flushed = await AikoBrickRepository.flushQueueEntriesContaining(
-        '%"default-%',
-        urlPattern: '%default-%',
-      );
-      if (kDebugMode && flushed > 0) {
-        debugPrint(
-          '[aiko-sync] flushed $flushed stale queue entries with legacy category ids',
-        );
-      }
-
-      // 4 — Claim data created while signed out under a local: anonymous id.
-      await OfflineDataMigrator().claimAnonymousData(userId);
-    } catch (error) {
-      if (kDebugMode) {
-        debugPrint('[aiko-sync] offline data prepare skipped: $error');
-      }
-    }
+  Future<void> _prepareOfflineDataForSync(String userId) {
+    return const PostSigninDataPreparer().prepareForSync(userId);
   }
 
   Stream<AuthState> authStateChanges() {
@@ -316,8 +231,8 @@ class AuthRepository {
       'id': userId,
       'email': email,
       'display_name': email.contains('@') ? email.split('@').first : email,
-      'base_currency': 'THB',
-      'country': 'TH',
+      'base_currency': kDefaultBaseCurrency,
+      'country': kDefaultCountry,
       'timezone': 'Asia/Bangkok',
       'preferred_theme': 'system',
       'aiko_character_visibility': 'full',
@@ -332,7 +247,7 @@ class AuthRepository {
         'user_id': userId,
         'name': 'Cash Wallet',
         'type': 'cash',
-        'currency': 'THB',
+        'currency': kDefaultBaseCurrency,
         'current_balance': '0',
         'include_in_net_worth': true,
         'is_active': true,

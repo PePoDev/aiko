@@ -6,12 +6,10 @@ import '../features/accounts/presentation/account_form/account_form_screen.dart'
 import '../features/accounts/domain/account.dart';
 import '../features/aiko_assistant/presentation/aiko_assistant_screen.dart';
 import '../features/auth/presentation/auth_screens.dart';
-import '../features/budgets/presentation/budget_overview_screen.dart';
 import '../features/categories/presentation/category_management_screen.dart';
 import '../features/calculators/presentation/calculator_library_screen.dart';
 import '../features/dashboard/presentation/home_dashboard_screen.dart';
 import '../features/export/presentation/export_screen.dart';
-import '../features/goals/presentation/goals_overview_screen.dart';
 
 import '../features/learning_hub/presentation/learning_hub_screen.dart';
 import '../features/navigation/presentation/planning_screen.dart';
@@ -75,37 +73,32 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             path: '/categories',
             builder: (context, state) => const CategoryManagementScreen(),
           ),
+          // Budget and Goals sub-routes — flat Settings list, no dedicated
+          // top-level tabs (PR4 of the budgets -> categories / goals ->
+          // accounts merge plan). Each route delegates to the existing
+          // detail screen so the data wiring matches the rest of the app.
           GoRoute(
-            path: '/budget',
-            pageBuilder: (context, state) =>
-                _fadePage(context, state, const BudgetOverviewScreen()),
-          ),
-          GoRoute(
-            path: '/budget/pace',
+            path: '/settings/pace',
             builder: (context, state) => const PaceOverviewScreen(),
           ),
           GoRoute(
-            path: '/budget/safe-to-spend',
+            path: '/settings/safe-to-spend',
             builder: (context, state) => const SafeToSpendScreen(),
           ),
           GoRoute(
-            path: '/budget/cash-flow',
+            path: '/settings/cash-flow',
             builder: (context, state) => const CashFlowOverviewScreen(),
           ),
           GoRoute(
-            path: '/budget/cash-flow-sankey',
+            path: '/settings/cash-flow-sankey',
             builder: (context, state) => const CashFlowSankeyScreen(),
           ),
           GoRoute(
-            path: '/goals',
-            builder: (context, state) => const GoalsOverviewScreen(),
-          ),
-          GoRoute(
-            path: '/goals/saving-plan',
+            path: '/settings/saving-plan',
             builder: (context, state) => const SavingPlanScreen(),
           ),
           GoRoute(
-            path: '/goals/chance-of-success',
+            path: '/settings/chance-of-success',
             builder: (context, state) => const ChanceOfSuccessScreen(),
           ),
           GoRoute(

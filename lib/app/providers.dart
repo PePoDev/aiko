@@ -1,28 +1,26 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/transactions/data/transaction_repository.dart';
+import '../features/accounts/application/account_goal_forecast_service.dart';
 import '../features/accounts/application/shared_limit_resolver.dart';
 import '../features/accounts/data/account_repository.dart';
+import '../features/accounts/domain/account.dart';
+import '../features/categories/application/category_budget_progress_service.dart';
 import '../features/categories/application/category_service.dart';
-import '../features/budgets/data/budget_repository.dart';
 import '../features/categories/data/category_repository.dart';
 import '../features/categories/data/category_group_repository.dart';
+import '../features/categories/domain/category.dart';
+import '../features/categories/domain/category_defaults.dart';
 import '../features/dashboard/data/dashboard_due_item_repository.dart';
 import '../features/dashboard/data/dashboard_layout_repository.dart';
 import '../features/dashboard/data/dashboard_repository.dart';
 import '../features/dashboard/domain/dashboard_due_item.dart';
 import '../features/dashboard/domain/dashboard_summary.dart';
 import '../features/dashboard/domain/dashboard_widget_preference.dart';
-import '../features/goals/data/goal_repository.dart';
-import '../features/goals/domain/goal.dart';
 import '../features/insights/data/aiko_insight_repository.dart';
 import '../features/insights/domain/aiko_insight.dart';
 import '../features/settings/data/profile_repository.dart';
 import '../features/settings/domain/profile.dart';
 import '../features/transactions/domain/transaction.dart';
-import '../features/accounts/domain/account.dart';
-import '../features/budgets/domain/budget.dart';
-import '../features/categories/domain/category.dart';
-import '../features/categories/domain/category_defaults.dart';
 import '../features/investments/data/investment_holding_repository.dart';
 import '../core/money/money.dart';
 
@@ -42,14 +40,6 @@ final categoryGroupRepositoryProvider = Provider<CategoryGroupRepository>((
   ref,
 ) {
   return const CategoryGroupRepository();
-});
-
-final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
-  return BudgetRepository();
-});
-
-final goalRepositoryProvider = Provider<GoalRepository>((ref) {
-  return const GoalRepository();
 });
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
@@ -326,10 +316,19 @@ final accountsProvider =
 class CategoriesNotifier extends AsyncNotifier<List<Category>> {
   @override
   Future<List<Category>> build() async {
-    final repo = ref.watch(categoryRepositoryProvider);
-    final customCategories = await repo.list();
-    ref.keepAlive();
-    return _combineWithDefaults(customCategories);
+    try {
+      final repo = ref.watch(categoryRepositoryProvider);
+      final customCategories = await repo.list();
+      // Keep the merged category list cached across tab switches so the
+      // Overview / Categories screens render instantly on return; pull-to-
+      // refresh recomputes it on demand. A failed load is not cached.
+      ref.keepAlive();
+      return _combineWithDefaults(customCategories);
+    } catch (error, stackTrace) {
+      // Surface to `AikoScreenState.error`; a broken offline store must
+      // render a recoverable empty/error widget, not crash the provider tree.
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 
   List<Category> _combineWithDefaults(List<Category> customCategories) {
@@ -435,12 +434,18 @@ final categoriesProvider =
 class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
   @override
   Future<List<CategoryGroup>> build() async {
-    final repo = ref.watch(categoryGroupRepositoryProvider);
-    final userGroups = await repo.list();
-    // The 13 global default groups are injected in-memory (mirroring how
-    // CategoryDefaults are injected into the categories list) and always sort
-    // after the user's own groups, in deliberate internal order.
-    return [...userGroups, ...CategoryGroupDefaults.all];
+    try {
+      final repo = ref.watch(categoryGroupRepositoryProvider);
+      final userGroups = await repo.list();
+      // The 13 global default groups are injected in-memory (mirroring how
+      // CategoryDefaults are injected into the categories list) and always sort
+      // after the user's own groups, in deliberate internal order.
+      return [...userGroups, ...CategoryGroupDefaults.all];
+    } catch (error, stackTrace) {
+      // Surface to `AikoScreenState.error`; offline + secure-storage broken
+      // must render a recoverable error widget, not a provider-tree crash.
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 
   Future<void> saveGroup(CategoryGroup group) async {
@@ -487,107 +492,51 @@ final categoryGroupsProvider =
       return CategoryGroupsNotifier();
     });
 
-class BudgetsNotifier extends AsyncNotifier<List<Budget>> {
-  @override
-  Future<List<Budget>> build() async {
-    try {
-      final repo = ref.watch(budgetRepositoryProvider);
-      final budgets = await repo.list();
-      ref.keepAlive();
-      return budgets;
-    } catch (error, stackTrace) {
-      // Surface to `AikoScreenState.error`; offline + secure-storage broken
-      // must render a recoverable error widget, not a provider-tree crash.
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-  }
-
-  Future<void> addBudget(Budget budget) async {
-    await saveBudget(budget);
-  }
-
-  Future<void> saveBudget(Budget budget) async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final repo = ref.read(budgetRepositoryProvider);
-      await repo.save(budget);
-      return repo.list();
-    });
-    if (state.hasError) {
-      Error.throwWithStackTrace(state.error!, state.stackTrace!);
-    }
-  }
-
-  Future<void> deleteBudget(String id) async {
-    if (id == Budget.dailySpendingId) {
-      throw StateError('The Daily Spending budget cannot be deleted.');
-    }
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final repo = ref.read(budgetRepositoryProvider);
-      await repo.delete(id);
-      return repo.list();
-    });
-    if (state.hasError) {
-      Error.throwWithStackTrace(state.error!, state.stackTrace!);
-    }
-  }
-}
-
-final budgetsProvider =
-    AsyncNotifierProvider.autoDispose<BudgetsNotifier, List<Budget>>(() {
-      return BudgetsNotifier();
-    });
-
-class GoalsNotifier extends AsyncNotifier<List<Goal>> {
-  @override
-  Future<List<Goal>> build() async {
-    try {
-      final repo = ref.watch(goalRepositoryProvider);
-      final goals = await repo.list();
-      ref.keepAlive();
-      return goals;
-    } catch (error, stackTrace) {
-      // Surface to `AikoScreenState.error`; offline + secure-storage broken
-      // must render a recoverable error widget, not a provider-tree crash.
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-  }
-
-  Future<void> addGoal(Goal goal) async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final repo = ref.read(goalRepositoryProvider);
-      await repo.save(goal);
-      return repo.list();
-    });
-  }
-
-  Future<void> deleteGoal(String id) async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final repo = ref.read(goalRepositoryProvider);
-      await repo.delete(id);
-      return repo.list();
-    });
-  }
-}
-
-final goalsProvider =
-    AsyncNotifierProvider.autoDispose<GoalsNotifier, List<Goal>>(() {
-      return GoalsNotifier();
-    });
+// PR5 of the budgets -> categories / goals -> accounts merge: the
+// `BudgetsNotifier`, `GoalsNotifier`, `budgetsProvider`, and `goalsProvider`
+// are gone. Budgets are stored on `Category`; goals are accounts with
+// `type = AccountType.goal`. Use `categoriesProvider` / `accountsProvider`
+// (and the derived `categoryBudgetsDerivedProvider` /
+// `goalAccountsDerivedProvider` for the merge-friendly views).
 
 final profileProvider = FutureProvider.autoDispose<Profile>((ref) {
-  final repo = ref.watch(profileRepositoryProvider);
-  return repo.load();
+  try {
+    final repo = ref.watch(profileRepositoryProvider);
+    return repo.load();
+  } catch (error, stackTrace) {
+    // Surface to `AikoScreenState.error`; offline + secure-storage broken
+    // must render a recoverable error widget, not a provider-tree crash.
+    Error.throwWithStackTrace(error, stackTrace);
+  }
 });
 
 final aikoInsightsProvider = FutureProvider.autoDispose<List<AikoInsight>>((
   ref,
 ) async {
-  final repo = ref.watch(aikoInsightRepositoryProvider);
-  return repo.list();
+  try {
+    final repo = ref.watch(aikoInsightRepositoryProvider);
+    return repo.list();
+  } catch (error, stackTrace) {
+    // Surface to `AikoScreenState.error`; offline + secure-storage broken
+    // must render a recoverable error widget, not a provider-tree crash.
+    Error.throwWithStackTrace(error, stackTrace);
+  }
+});
+
+/// Single source of truth for the Supabase runtime configuration that the app
+/// compiled with. `AikoSupabase` (`lib/core/supabase/`) owns the
+/// *initialised* client; this provider only exposes the raw env values so
+/// callers (e.g. the chat engine) can decide between cloud and offline paths
+/// without re-reading `String.fromEnvironment` themselves.
+class AikoSupabaseConfig {
+  const AikoSupabaseConfig({required this.url});
+  final String url;
+  bool get isConfigured => url.isNotEmpty;
+}
+
+final aikoSupabaseConfigProvider = Provider<AikoSupabaseConfig>((ref) {
+  const url = String.fromEnvironment('SUPABASE_URL');
+  return AikoSupabaseConfig(url: url);
 });
 
 final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummary>((
@@ -624,8 +573,14 @@ final dashboardDueItemsProvider =
 class DashboardLayoutNotifier
     extends AsyncNotifier<List<DashboardWidgetPreference>> {
   @override
-  Future<List<DashboardWidgetPreference>> build() {
-    return ref.watch(dashboardLayoutRepositoryProvider).load();
+  Future<List<DashboardWidgetPreference>> build() async {
+    try {
+      return ref.watch(dashboardLayoutRepositoryProvider).load();
+    } catch (error, stackTrace) {
+      // Surface to `AikoScreenState.error`; offline + secure-storage broken
+      // must render a recoverable error widget, not a provider-tree crash.
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 
   Future<void> reorder(int oldIndex, int newIndex) async {
@@ -686,8 +641,55 @@ class DashboardLayoutNotifier
   }
 }
 
+/// Exposes the static default dashboard layout. Surfaces the same
+/// list as `DashboardWidgetPreference.defaultLayout` but as a Riverpod
+/// provider so screens can read it via `ref.watch` and the value can later
+/// be swapped out by tests (or a "reset to default" toggle) without having
+/// to track the static const across the codebase.
+final dashboardDefaultLayoutProvider =
+    Provider<List<DashboardWidgetPreference>>(
+      (_) => DashboardWidgetPreference.defaultLayout,
+    );
+
 final dashboardLayoutProvider =
     AsyncNotifierProvider<
       DashboardLayoutNotifier,
       List<DashboardWidgetPreference>
     >(DashboardLayoutNotifier.new);
+
+// ---------------------------------------------------------------------------
+// Budgets -> Categories and Goals -> Accounts merge (PR2)
+// ---------------------------------------------------------------------------
+//
+// The new derived providers below let the dashboard and detail screens read
+// budget / goal data from the `categories` and `accounts` providers without
+// touching the legacy `BudgetRepository` / `GoalRepository`. PR5 removes
+// those repositories entirely.
+
+final categoryBudgetProgressServiceProvider =
+    Provider<CategoryBudgetProgressService>(
+      (ref) => const CategoryBudgetProgressService(),
+    );
+
+final accountGoalForecastServiceProvider = Provider<AccountGoalForecastService>(
+  (ref) => const AccountGoalForecastService(),
+);
+
+/// All categories that have a budget configured. Source of truth for the
+/// dashboard's Category Budgets panel and the Budget detail screens.
+final categoryBudgetsDerivedProvider = Provider<AsyncValue<List<Category>>>((
+  ref,
+) {
+  return ref.watch(categoriesProvider);
+});
+
+/// All accounts with `type = goal`. Source of truth for the dashboard's
+/// Aiko Goal Simulator panel and the goal detail screens.
+final goalAccountsDerivedProvider = Provider<AsyncValue<List<Account>>>((ref) {
+  final accountsAsync = ref.watch(accountsProvider);
+  return accountsAsync.whenData(
+    (accounts) => accounts
+        .where((a) => a.type == AccountType.goal)
+        .toList(growable: false),
+  );
+});

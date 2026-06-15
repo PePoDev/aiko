@@ -8,12 +8,12 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const expectedRoutes = <String, String>{
     '/notifications': 'Notifications',
-    '/budget/pace': 'Pace Overview',
-    '/budget/safe-to-spend': 'Safe to Spend',
-    '/budget/cash-flow': 'Cash Flow',
-    '/budget/cash-flow-sankey': 'Cash Flow Sankey',
-    '/goals/saving-plan': 'Saving Plan',
-    '/goals/chance-of-success': 'Chance of Success',
+    '/settings/pace': 'Pace Overview',
+    '/settings/safe-to-spend': 'Safe to Spend',
+    '/settings/cash-flow': 'Cash Flow',
+    '/settings/cash-flow-sankey': 'Cash Flow Sankey',
+    '/settings/saving-plan': 'Saving Plan',
+    '/settings/chance-of-success': 'Chance of Success',
     '/reports/monthly': 'Monthly Report',
     '/profile-security': 'Profile & Security',
   };

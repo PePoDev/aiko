@@ -20,7 +20,7 @@ class InvestmentHolding {
   final String userId;
   final String symbol;
   final String assetClass;
-  final double quantity;
+  final Decimal quantity;
   final Money averageCost;
   final Money currentPrice;
   final double? targetAllocationPercent;
@@ -29,17 +29,16 @@ class InvestmentHolding {
 
   String get currency => currentPrice.currency;
 
-  Money get marketValue => currentPrice.times(Decimal.parse('$quantity'));
+  Money get marketValue => currentPrice.times(quantity);
 
-  Money get unrealizedGainLoss =>
-      marketValue - averageCost.times(Decimal.parse('$quantity'));
+  Money get unrealizedGainLoss => marketValue - averageCost.times(quantity);
 
   InvestmentHolding copyWith({
     String? id,
     String? userId,
     String? symbol,
     String? assetClass,
-    double? quantity,
+    Decimal? quantity,
     Money? averageCost,
     Money? currentPrice,
     double? targetAllocationPercent,

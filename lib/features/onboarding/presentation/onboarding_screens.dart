@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/money/money.dart';
 import '../../../shared/widgets/aiko_idea_widgets.dart';
 import '../../../theme/aiko_colors.dart';
@@ -28,8 +29,8 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
   var _isFinishing = false;
 
   static const _stepsCount = 2;
-  static const _selectedCurrency = 'USD';
-  static const _selectedCountry = 'US';
+  static const _selectedCurrency = kDefaultBaseCurrency;
+  static const _selectedCountry = kDefaultCountry;
 
   @override
   void dispose() {

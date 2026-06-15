@@ -40,12 +40,11 @@ class _ThrowingService extends AikoAssistantService {
   @override
   AikoResponse answerQuestion({
     required String question,
-    dynamic safeToSpendAmount,
-    dynamic insights = const [],
-    dynamic accounts = const [],
-    dynamic budgets = const [],
-    dynamic goals = const [],
-    dynamic transactions = const [],
+    Object? safeToSpendAmount,
+    Object? insights = const [],
+    Object? accounts = const [],
+    Object? categories = const [],
+    Object? transactions = const [],
   }) {
     throw StateError('boom');
   }

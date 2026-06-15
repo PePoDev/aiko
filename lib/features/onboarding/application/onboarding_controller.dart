@@ -1,3 +1,4 @@
+import '../../../core/config/app_config.dart';
 import '../../accounts/domain/account.dart';
 import '../../settings/domain/profile.dart';
 
@@ -14,8 +15,8 @@ class OnboardingState {
   const OnboardingState({
     this.step = OnboardingStepKey.meetAiko,
     this.focus = 'Track spending',
-    this.baseCurrency = 'USD',
-    this.country = 'US',
+    this.baseCurrency = kDefaultBaseCurrency,
+    this.country = kDefaultCountry,
     this.firstAccount,
   });
 

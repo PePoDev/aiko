@@ -3,7 +3,7 @@ import '../../../core/security/app_lock_service.dart';
 class AppLockController {
   AppLockController(this._service);
 
-  final AppLockService _service;
+  final InMemoryAppLockService _service;
 
   Future<AppLockStatus> currentStatus() => _service.currentStatus();
 

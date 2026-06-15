@@ -37,7 +37,12 @@ class AppLocaleController extends AsyncNotifier<AppLocaleState> {
     : _storage = storage ?? FlutterSecureStorageService();
 
   static const _languageKey = 'aiko_language_code';
-  static const fallbackLocale = Locale('th');
+
+  /// First entry of [AppLocalizations.supportedLocales] is the safe default
+  /// when neither the user's saved preference nor the device locale match a
+  /// supported code. Keeping the derivation in one place means a new
+  /// translation can be added without also touching this controller.
+  static Locale get fallbackLocale => AppLocalizations.supportedLocales.first;
 
   final SecureStorageService _storage;
 
@@ -58,7 +63,7 @@ class AppLocaleController extends AsyncNotifier<AppLocaleState> {
         followsSystem: true,
       );
     } catch (_) {
-      return const AppLocaleState(locale: fallbackLocale, followsSystem: false);
+      return AppLocaleState(locale: fallbackLocale, followsSystem: false);
     }
   }
 

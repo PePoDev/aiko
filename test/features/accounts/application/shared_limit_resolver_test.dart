@@ -2,11 +2,10 @@ import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/accounts/application/shared_limit_resolver.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/accounts/domain/account_details.dart';
-import 'package:aiko/features/accounts/domain/account_type.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Account _card(String id, {bool shares = false, String? ref}) => Account(
+  Account card(String id, {bool shares = false, String? ref}) => Account(
     id: id,
     userId: 'u',
     name: id,
@@ -22,7 +21,7 @@ void main() {
   );
 
   test('flips child to not sharing when parent missing', () {
-    final child = _card('child', shares: true, ref: 'gone');
+    final child = card('child', shares: true, ref: 'gone');
     final updated = SharedLimitResolver.resolve(
       accounts: [child],
       deletedId: 'gone',
@@ -34,7 +33,7 @@ void main() {
   });
 
   test('idempotent on second pass', () {
-    final child = _card('child', shares: false);
+    final child = card('child', shares: false);
     final updated = SharedLimitResolver.resolve(
       accounts: [child],
       deletedId: 'gone',
@@ -43,7 +42,7 @@ void main() {
   });
 
   test('does not touch non-referencing accounts', () {
-    final other = _card('other', shares: false);
+    final other = card('other', shares: false);
     final updated = SharedLimitResolver.resolve(
       accounts: [other],
       deletedId: 'gone',

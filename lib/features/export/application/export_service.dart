@@ -1,5 +1,6 @@
 import 'package:csv/csv.dart';
 
+import '../../../core/money/money.dart';
 import '../../transactions/domain/transaction.dart';
 
 class ExportService {

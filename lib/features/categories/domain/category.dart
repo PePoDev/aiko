@@ -99,7 +99,9 @@ class Category {
   /// True when this category has a usable budget configured (limit > 0 and
   /// [budgetEnabled]).
   bool get hasBudget =>
-      budgetEnabled && monthlyLimit != null && monthlyLimit!.amount > Decimal.zero;
+      budgetEnabled &&
+      monthlyLimit != null &&
+      monthlyLimit!.amount > Decimal.zero;
 
   Category copyWith({
     String? name,

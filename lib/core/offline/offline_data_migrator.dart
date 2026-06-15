@@ -2,13 +2,12 @@ import 'package:brick_offline_first_with_supabase/brick_offline_first_with_supab
 import 'package:flutter/foundation.dart';
 
 import '../../brick/models/account.model.dart';
-import '../../brick/models/budget.model.dart';
 import '../../brick/models/category.model.dart';
-import '../../brick/models/goal.model.dart';
 import '../../brick/models/transaction.model.dart';
 import '../../brick/offline_model_mappers.dart';
 import '../../brick/repository.dart' show OfflineFirstGetPolicy;
 import 'offline_store.dart';
+import 'offline_user_context.dart';
 
 /// Reassigns rows that were created while signed out (under an anonymous
 /// `local:<uuid>` user id) to the real Supabase user id after sign-in.
@@ -25,19 +24,19 @@ class OfflineDataMigrator {
 
   final OfflineStore _store;
 
-  static const _localPrefix = 'local:';
-
   /// Claims every locally-created row for [realUserId]. Returns the number of
   /// rows reassigned. Safe to call repeatedly: it is a no-op once nothing is
   /// orphaned, and it never throws (failures are logged in debug only).
   Future<int> claimAnonymousData(String realUserId) async {
-    if (realUserId.isEmpty || realUserId.startsWith(_localPrefix)) {
+    if (realUserId.isEmpty ||
+        realUserId.startsWith(OfflineUserContext.localUserIdPrefix)) {
       return 0;
     }
 
     // Order matters: parents (accounts, categories) are reassigned and queued
-    // to Supabase before the rows that reference them (transactions, budgets,
-    // goals) so foreign-key constraints are satisfied as the writes sync.
+    // to Supabase before the rows that reference them (transactions) so
+    // foreign-key constraints are satisfied as the writes sync. Budget and
+    // goal rows are gone (PR5 of the merge plan).
     var migrated = 0;
     migrated += await _claim<OfflineAccount>(
       realUserId,
@@ -50,16 +49,6 @@ class OfflineDataMigrator {
       (row) => row.toDomain().toOffline(userId: realUserId),
     );
     migrated += await _claim<OfflineTransaction>(
-      realUserId,
-      (row) => row.userId,
-      (row) => row.toDomain().toOffline(userId: realUserId),
-    );
-    migrated += await _claim<OfflineBudget>(
-      realUserId,
-      (row) => row.userId,
-      (row) => row.toDomain().toOffline(userId: realUserId),
-    );
-    migrated += await _claim<OfflineGoal>(
       realUserId,
       (row) => row.userId,
       (row) => row.toDomain().toOffline(userId: realUserId),
@@ -84,7 +73,10 @@ class OfflineDataMigrator {
         policy: OfflineFirstGetPolicy.localOnly,
       );
       final orphans = rows
-          .where((row) => userIdOf(row).startsWith(_localPrefix))
+          .where(
+            (row) =>
+                userIdOf(row).startsWith(OfflineUserContext.localUserIdPrefix),
+          )
           .toList(growable: false);
       for (final row in orphans) {
         await _store.upsert<TModel>(reassign(row));

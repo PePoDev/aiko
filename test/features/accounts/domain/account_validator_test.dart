@@ -1,7 +1,6 @@
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/accounts/domain/account_details.dart';
-import 'package:aiko/features/accounts/domain/account_type.dart';
 import 'package:aiko/features/accounts/domain/account_validator.dart';
 import 'package:flutter_test/flutter_test.dart';
 

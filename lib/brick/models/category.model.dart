@@ -24,7 +24,10 @@ class OfflineCategory extends OfflineFirstWithSupabaseModel {
     this.budgetPeriod = 'monthly',
     this.budgetRollover = false,
     this.alertThresholds = const [50, 75, 90, 100],
-  });
+    DateTime? updatedAt,
+    this.deletedAt,
+    this.version = 1,
+  }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
 
   @Sqlite(unique: true)
   @Supabase(unique: true)
@@ -59,7 +62,11 @@ class OfflineCategory extends OfflineFirstWithSupabaseModel {
   // a null currency) means the category has no budget. `budgetPeriod` is a
   // string discriminator (one of: daily, weekly, monthly, yearly).
   @Sqlite(name: 'budget_amount')
-  @Supabase(name: 'budget_amount', fromGenerator: 'data[\'budget_amount\'] == null ? null : data[\'budget_amount\'].toString()')
+  @Supabase(
+    name: 'budget_amount',
+    fromGenerator:
+        'data[\'budget_amount\'] == null ? null : data[\'budget_amount\'].toString()',
+  )
   final String? budgetAmount;
 
   @Sqlite(name: 'budget_currency')
@@ -77,4 +84,16 @@ class OfflineCategory extends OfflineFirstWithSupabaseModel {
   @Sqlite(name: 'alert_thresholds')
   @Supabase(name: 'alert_thresholds')
   final List<int> alertThresholds;
+
+  @Sqlite(name: 'updated_at')
+  @Supabase(name: 'updated_at')
+  final DateTime updatedAt;
+
+  @Sqlite(name: 'deleted_at', index: true)
+  @Supabase(name: 'deleted_at')
+  final DateTime? deletedAt;
+
+  @Sqlite(name: 'version')
+  @Supabase(name: 'version', defaultValue: '1')
+  final int version;
 }

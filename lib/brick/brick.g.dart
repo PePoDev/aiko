@@ -30,19 +30,15 @@ import 'package:brick_offline_first/brick_offline_first.dart'
 import 'package:sqflite_common/sqlite_api.dart' show DatabaseExecutor;
 
 import '../brick/models/account.model.dart';
-import '../brick/models/budget.model.dart';
 import '../brick/models/category.model.dart';
 import '../brick/models/category_group.model.dart';
-import '../brick/models/goal.model.dart';
 import '../brick/models/investment_holding.model.dart';
 import '../brick/models/profile.model.dart';
 import '../brick/models/transaction.model.dart';
 
 part 'adapters/offline_account_adapter.g.dart';
-part 'adapters/offline_budget_adapter.g.dart';
 part 'adapters/offline_category_adapter.g.dart';
 part 'adapters/offline_category_group_adapter.g.dart';
-part 'adapters/offline_goal_adapter.g.dart';
 part 'adapters/offline_investment_holding_adapter.g.dart';
 part 'adapters/offline_profile_adapter.g.dart';
 part 'adapters/offline_transaction_adapter.g.dart';
@@ -50,10 +46,8 @@ part 'adapters/offline_transaction_adapter.g.dart';
 /// Supabase mappings should only be used when initializing a [SupabaseProvider]
 final Map<Type, SupabaseAdapter<SupabaseModel>> supabaseMappings = {
   OfflineAccount: OfflineAccountAdapter(),
-  OfflineBudget: OfflineBudgetAdapter(),
   OfflineCategory: OfflineCategoryAdapter(),
   OfflineCategoryGroup: OfflineCategoryGroupAdapter(),
-  OfflineGoal: OfflineGoalAdapter(),
   OfflineInvestmentHolding: OfflineInvestmentHoldingAdapter(),
   OfflineProfile: OfflineProfileAdapter(),
   OfflineTransaction: OfflineTransactionAdapter(),
@@ -63,10 +57,8 @@ final supabaseModelDictionary = SupabaseModelDictionary(supabaseMappings);
 /// Sqlite mappings should only be used when initializing a [SqliteProvider]
 final Map<Type, SqliteAdapter<SqliteModel>> sqliteMappings = {
   OfflineAccount: OfflineAccountAdapter(),
-  OfflineBudget: OfflineBudgetAdapter(),
   OfflineCategory: OfflineCategoryAdapter(),
   OfflineCategoryGroup: OfflineCategoryGroupAdapter(),
-  OfflineGoal: OfflineGoalAdapter(),
   OfflineInvestmentHolding: OfflineInvestmentHoldingAdapter(),
   OfflineProfile: OfflineProfileAdapter(),
   OfflineTransaction: OfflineTransactionAdapter(),

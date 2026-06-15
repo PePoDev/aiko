@@ -3,15 +3,15 @@ import 'dart:math';
 class MonteCarloSimulationResult {
   const MonteCarloSimulationResult({
     required this.successProbabilityPercent,
-    required this.optimisticValue,
-    required this.expectedValue,
-    required this.conservativeValue,
+    required this.optimisticAmount,
+    required this.expectedAmount,
+    required this.conservativeAmount,
   });
 
   final double successProbabilityPercent;
-  final double optimisticValue;
-  final double expectedValue;
-  final double conservativeValue;
+  final double optimisticAmount;
+  final double expectedAmount;
+  final double conservativeAmount;
 }
 
 class MonteCarloEngine {
@@ -30,9 +30,9 @@ class MonteCarloEngine {
       final success = currentBalance >= targetAmount;
       return MonteCarloSimulationResult(
         successProbabilityPercent: success ? 100.0 : 0.0,
-        optimisticValue: currentBalance,
-        expectedValue: currentBalance,
-        conservativeValue: currentBalance,
+        optimisticAmount: currentBalance,
+        expectedAmount: currentBalance,
+        conservativeAmount: currentBalance,
       );
     }
 
@@ -71,9 +71,9 @@ class MonteCarloEngine {
 
     return MonteCarloSimulationResult(
       successProbabilityPercent: (successCount / iterations) * 100,
-      conservativeValue: finalBalances[idx10],
-      expectedValue: finalBalances[idx50],
-      optimisticValue: finalBalances[idx90],
+      conservativeAmount: finalBalances[idx10],
+      expectedAmount: finalBalances[idx50],
+      optimisticAmount: finalBalances[idx90],
     );
   }
 }

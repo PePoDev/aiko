@@ -98,6 +98,12 @@ void main() {
         'include_in_net_worth': 1,
         'is_active': 1,
         'details_json': null,
+        'goal_target_amount': null,
+        'goal_target_date': null,
+        'goal_priority': 'medium',
+        'updated_at': '1970-01-01T00:00:00.000Z',
+        'deleted_at': null,
+        'version': 1,
       }, provider: sqliteProvider);
       expect(account.detailsJson, '{}');
     });
@@ -114,6 +120,12 @@ void main() {
         'include_in_net_worth': true,
         'is_active': true,
         'details': null,
+        'goal_target_amount': null,
+        'goal_target_date': null,
+        'goal_priority': 'medium',
+        'updated_at': null,
+        'deleted_at': null,
+        'version': 1,
       }, provider: supabaseProvider);
       expect(account.detailsJson, '{}');
     });

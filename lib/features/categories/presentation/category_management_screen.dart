@@ -699,6 +699,8 @@ class _CategoryTotals {
       case TransactionType.interest:
         return true;
       case TransactionType.transfer:
+      case TransactionType.transferIn:
+      case TransactionType.transferOut:
       case TransactionType.investmentBuy:
       case TransactionType.investmentSell:
       case TransactionType.loanPayment:

@@ -645,7 +645,9 @@ class _TransactionMonthPage extends ConsumerWidget {
       _TransactionTypeFilter.expense =>
         transaction.type == TransactionType.expense,
       _TransactionTypeFilter.transfer =>
-        transaction.type == TransactionType.transfer,
+        transaction.type == TransactionType.transfer ||
+            transaction.type == TransactionType.transferIn ||
+            transaction.type == TransactionType.transferOut,
     };
   }
 

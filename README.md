@@ -5,6 +5,8 @@
 > Canonical source of truth for contributors and coding agents — product scope, design system, implementation rules. If code conflicts with this file, fix the code (or surface the conflict).
 >
 > **Agents: be brief.** Concise, high-signal responses; minimal, focused diffs; skip preamble.
+>
+> **Before you start a task:** read [`TASKS.md`](./TASKS.md). It is the prioritized work plan for this codebase — performance, UX, code style, dead code, architecture, test coverage. Pick from Phase 0 first. One task = one PR.
 
 ---
 
@@ -606,3 +608,9 @@ flutter test integration_test
 Follow [Architecture](#architecture) and [Design System](#design-system): use `Money` (never `double`); go through repositories (screens never touch Supabase/Brick/SQLite directly); add Brick models + regenerate adapters for offline storage; add RLS to every new table; consume shared widgets and tokens instead of one-off styles; write unit tests for new models and providers; run the QA checklist and all quality gates before submitting; keep Aiko's voice warm, supportive, non-judgmental.
 
 **License:** Private; not published to pub.dev. See `pubspec.yaml`.
+
+---
+
+## Task plan
+
+See [`TASKS.md`](./TASKS.md) for the prioritized, phased list of improvements. The plan is organized so a new contributor can pick up **Phase 0** (small, low-risk, data-loss / security) on day one and ship one task per PR. Phases 1–7 grow in scope (architecture, performance, UX, tests, style, polish). Do not skip phases.

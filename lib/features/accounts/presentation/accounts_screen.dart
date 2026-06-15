@@ -624,6 +624,8 @@ String _transactionTypeLabel(TransactionType type) {
     TransactionType.income => 'Income',
     TransactionType.expense => 'Expense',
     TransactionType.transfer => 'Transfer',
+    TransactionType.transferOut => 'Transfer out',
+    TransactionType.transferIn => 'Transfer in',
     TransactionType.refund => 'Refund',
     TransactionType.investmentBuy => 'Investment buy',
     TransactionType.investmentSell => 'Investment sell',

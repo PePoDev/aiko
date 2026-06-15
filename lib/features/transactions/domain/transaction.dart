@@ -4,6 +4,14 @@ enum TransactionType {
   income,
   expense,
   transfer,
+
+  /// Outbound leg of a transfer — money leaving the source account. Paired
+  /// with a [transferIn] row on the destination account.
+  transferOut,
+
+  /// Inbound leg of a transfer — money arriving in the destination account.
+  /// Treated like income for balance math. Paired with a [transferOut] row.
+  transferIn,
   refund,
   investmentBuy,
   investmentSell,
@@ -113,18 +121,17 @@ class FinanceTransaction {
 
   bool get isExpense => type == TransactionType.expense;
 
+  /// Whether this transaction adds to (rather than subtracts from) its
+  /// account balance: income and the inbound leg of a transfer.
+  bool get _isInflow =>
+      type == TransactionType.income || type == TransactionType.transferIn;
+
   Money applyToAccountBalance(Money balance) {
-    if (type == TransactionType.income) {
-      return balance + amount;
-    }
-    return balance - amount;
+    return _isInflow ? balance + amount : balance - amount;
   }
 
   Money reverseFromAccountBalance(Money balance) {
-    if (type == TransactionType.income) {
-      return balance - amount;
-    }
-    return balance + amount;
+    return _isInflow ? balance - amount : balance + amount;
   }
 
   FinanceTransaction copyWith({

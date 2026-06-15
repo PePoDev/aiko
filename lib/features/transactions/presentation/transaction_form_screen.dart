@@ -96,7 +96,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _noteController.text = transaction.note ?? '';
     _type = switch (transaction.type) {
       TransactionType.income => 'income',
-      TransactionType.transfer => 'transfer',
+      TransactionType.transfer ||
+      TransactionType.transferIn ||
+      TransactionType.transferOut => 'transfer',
       _ => 'expense',
     };
     _selectedDate = transaction.date;
@@ -1131,11 +1133,15 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
-    final txType = switch (_type) {
-      'income' => TransactionType.income,
-      'transfer' => TransactionType.transfer,
-      _ => TransactionType.expense,
-    };
+    // When editing a transfer leg, keep its original direction (transferIn /
+    // transferOut) rather than collapsing back to a plain transfer.
+    final txType = (_type == 'transfer' && widget.initialTransaction != null)
+        ? widget.initialTransaction!.type
+        : switch (_type) {
+            'income' => TransactionType.income,
+            'transfer' => TransactionType.transfer,
+            _ => TransactionType.expense,
+          };
 
     final existingTransaction = widget.initialTransaction;
     final txId = existingTransaction?.id ?? const Uuid().v4();
@@ -1152,6 +1158,20 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           const [],
       _selectedCategoryId,
     );
+
+    // A new transfer is recorded as a paired outflow/inflow: one leg leaves the
+    // source account, the other arrives in the destination. Editing an existing
+    // transfer leg falls through to the single-row path below.
+    if (_type == 'transfer' && existingTransaction == null) {
+      await _submitTransferPair(
+        amount: amount,
+        tags: tags,
+        note: _noteController.text.trim(),
+        itemName: itemName,
+      );
+      return;
+    }
+
     final savedTx = FinanceTransaction(
       id: txId,
       userId: existingTransaction?.userId ?? '',
@@ -1174,15 +1194,98 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         .read(transactionsProvider.notifier)
         .saveTransaction(savedTx);
 
-    // Save attachments if any exist
-    if (_attachments.isNotEmpty) {
-      try {
-        const attachmentRepo = TransactionAttachmentRepository();
-        for (final attachment in _attachments) {
-          final updatedAttachment = TransactionAttachment(
+    await _saveAttachmentsFor(txId);
+
+    if (!mounted) return;
+
+    if (ref.read(transactionsProvider).hasError) {
+      _showSaveError();
+      return;
+    }
+
+    _showSaveSuccess('Transaction saved successfully!');
+    Navigator.of(context).pop(saved);
+  }
+
+  /// Saves a new transfer as two linked rows: an outflow leaving the source
+  /// account and an inflow arriving in the destination. When the user leaves
+  /// the item name blank we default to a sensible `Transfer to/from <account>`
+  /// label so each leg reads clearly in the transaction list.
+  Future<void> _submitTransferPair({
+    required Decimal amount,
+    required List<String> tags,
+    required String note,
+    required String itemName,
+  }) async {
+    final accounts =
+        ref.read(accountsProvider).whenOrNull(data: (value) => value) ??
+        const <Account>[];
+    String nameFor(String? id) {
+      for (final account in accounts) {
+        if (account.id == id) return account.name;
+      }
+      return 'account';
+    }
+
+    final fromName = nameFor(_selectedAccountId);
+    final toName = nameFor(_selectedToAccountId);
+    final money = Money(amount: amount, currency: _selectedCurrency);
+
+    final outLeg = FinanceTransaction(
+      id: const Uuid().v4(),
+      userId: '',
+      accountId: _selectedAccountId!,
+      type: TransactionType.transferOut,
+      amount: money,
+      date: _selectedDate,
+      merchant: itemName.isEmpty ? 'Transfer to $toName' : itemName,
+      note: note,
+      tags: tags,
+    );
+    final inLeg = FinanceTransaction(
+      id: const Uuid().v4(),
+      userId: '',
+      accountId: _selectedToAccountId!,
+      type: TransactionType.transferIn,
+      amount: money,
+      date: _selectedDate,
+      merchant: itemName.isEmpty ? 'Transfer from $fromName' : itemName,
+      note: note,
+      tags: tags,
+    );
+
+    final notifier = ref.read(transactionsProvider.notifier);
+    await notifier.saveTransaction(outLeg);
+    if (!mounted) return;
+    if (ref.read(transactionsProvider).hasError) {
+      _showSaveError();
+      return;
+    }
+    final savedIn = await notifier.saveTransaction(inLeg);
+    if (!mounted) return;
+    if (ref.read(transactionsProvider).hasError) {
+      _showSaveError();
+      return;
+    }
+
+    // Receipts/docs attach to the outflow leg.
+    await _saveAttachmentsFor(outLeg.id);
+    if (!mounted) return;
+
+    _showSaveSuccess('Transfer saved — recorded on both accounts.');
+    Navigator.of(context).pop(savedIn);
+  }
+
+  Future<void> _saveAttachmentsFor(String txId) async {
+    if (_attachments.isEmpty) return;
+    try {
+      const attachmentRepo = TransactionAttachmentRepository();
+      for (final attachment in _attachments) {
+        await attachmentRepo.save(
+          TransactionAttachment(
             id: attachment.id,
             userId: attachment.userId,
-            transactionId: txId, // Link to the newly saved transaction ID
+            transactionId: txId,
             fileName: attachment.fileName,
             storagePath: attachment.storagePath,
             mimeType: attachment.mimeType,
@@ -1190,38 +1293,35 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             createdAt: attachment.createdAt,
             isSensitive: attachment.isSensitive,
             exportPolicy: attachment.exportPolicy,
-          );
-          await attachmentRepo.save(updatedAttachment);
-        }
-      } catch (e) {
-        debugPrint(
-          'Offline/local session faked: attachment metadata bypass cloud ($e)',
+          ),
         );
       }
-    }
-
-    if (!mounted) return;
-
-    final state = ref.read(transactionsProvider);
-    if (state.hasError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Unable to save this transaction right now.'),
-          backgroundColor: AikoColors.dangerRed,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
+    } catch (e) {
+      debugPrint(
+        'Offline/local session faked: attachment metadata bypass cloud ($e)',
       );
-      return;
     }
+  }
 
+  void _showSaveError() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Row(
+        content: const Text('Unable to save this transaction right now.'),
+        backgroundColor: AikoColors.dangerRed,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  void _showSaveSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
           children: [
-            Icon(Icons.check_circle_outline, color: Colors.white),
-            SizedBox(width: 8),
-            Text('Transaction saved successfully!'),
+            const Icon(Icons.check_circle_outline, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(message),
           ],
         ),
         backgroundColor: AikoColors.successGreen,
@@ -1229,8 +1329,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
-
-    Navigator.of(context).pop(saved);
   }
 
   /// Populates the per-cadence knobs with sensible defaults for the
@@ -1330,7 +1428,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           // Standard Entry Fields
           SegmentedButton<String>(
@@ -1386,7 +1484,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             ),
             onSelected: _applyItemSuggestion,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1429,7 +1527,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           // Category dropdown
           if (_type != 'transfer') ...[
@@ -1476,7 +1574,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 );
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
           ],
 
           // Account dropdown(s)
@@ -1492,22 +1590,31 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               }
 
               if (_type == 'transfer') {
-                return Column(
+                // Show the source and destination side by side with an arrow
+                // between them, so the money visibly moves left → right.
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    _AccountPicker(
-                      label: 'From Account',
-                      fieldKey: 'from-account',
-                      accounts: activeAccounts,
-                      selectedAccountId: _selectedAccountId,
-                      onSelected: _onTransferFromAccountSelected,
+                    Expanded(
+                      child: _AccountPicker(
+                        label: 'From Account',
+                        fieldKey: 'from-account',
+                        accounts: activeAccounts,
+                        selectedAccountId: _selectedAccountId,
+                        onSelected: _onTransferFromAccountSelected,
+                        compact: true,
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    _AccountPicker(
-                      label: 'To Account',
-                      fieldKey: 'to-account',
-                      accounts: activeAccounts,
-                      selectedAccountId: _selectedToAccountId,
-                      onSelected: _onTransferToAccountSelected,
+                    const _TransferFlowArrow(),
+                    Expanded(
+                      child: _AccountPicker(
+                        label: 'To Account',
+                        fieldKey: 'to-account',
+                        accounts: activeAccounts,
+                        selectedAccountId: _selectedToAccountId,
+                        onSelected: _onTransferToAccountSelected,
+                        compact: true,
+                      ),
                     ),
                   ],
                 );
@@ -1523,7 +1630,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               }
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           if (showCurrencyConversion) ...[
             _CurrencyConversionPrompt(
               selectedCurrency: _selectedCurrency,
@@ -1532,7 +1639,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               onConvert: () =>
                   _convertAmountToAccountCurrency(selectedAccountCurrency),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
           ],
 
           _TagInput(
@@ -1547,7 +1654,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             onAddTagsFromInput: _addTagsFromInput,
             onRemoveTag: _removeTag,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           TextField(
             key: const Key('transaction-note-field'),
@@ -1556,7 +1663,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             maxLines: 4,
             decoration: const InputDecoration(labelText: 'Note'),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           // Date and time selection tile
           ListTile(
@@ -1596,7 +1703,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               });
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           _RecurringSection(
             isRecurring: _isRecurring,
@@ -1633,13 +1740,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             onMonthOfYearChanged: (value) =>
                 setState(() => _recurringMonthOfYear = value),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           TransactionAttachmentSection(
             attachments: _attachments,
             onAddAttachment: _showAddAttachmentDialog,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: _submitForm,
             icon: const Icon(Icons.check),
@@ -1934,6 +2041,32 @@ class _CurrencyConversionPrompt extends StatelessWidget {
   }
 }
 
+/// The little arrow badge shown between the From and To pickers on a transfer,
+/// signalling that money flows from the left account into the right one.
+class _TransferFlowArrow extends StatelessWidget {
+  const _TransferFlowArrow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: const BoxDecoration(
+          color: AikoColors.primaryBlue,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.arrow_forward,
+          size: 18,
+          color: AikoColors.white,
+        ),
+      ),
+    );
+  }
+}
+
 class _AccountPicker extends StatelessWidget {
   const _AccountPicker({
     required this.label,
@@ -1941,6 +2074,7 @@ class _AccountPicker extends StatelessWidget {
     required this.accounts,
     required this.selectedAccountId,
     required this.onSelected,
+    this.compact = false,
   });
 
   final String label;
@@ -1949,6 +2083,10 @@ class _AccountPicker extends StatelessWidget {
   final String? selectedAccountId;
   final ValueChanged<String> onSelected;
 
+  /// Tighter layout for the side-by-side transfer row: stacks the account mark
+  /// above the name and drops the balance/subtitle line so two pickers fit.
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1956,6 +2094,21 @@ class _AccountPicker extends StatelessWidget {
     final accent = selectedAccount == null
         ? AikoColors.primaryBlue
         : _accountColorFor(selectedAccount.type);
+
+    final nameText = Text(
+      key: Key('transaction-$fieldKey-selected-account-name'),
+      selectedAccount?.name ?? 'Select account',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+    );
+    final labelText = Text(
+      label,
+      style: theme.textTheme.labelMedium?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w700,
+      ),
+    );
 
     return Material(
       color: theme.colorScheme.surface,
@@ -1968,66 +2121,71 @@ class _AccountPicker extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         onTap: () => _showAccountPickerSheet(context),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              _AccountMark(account: selectedAccount, fallbackColor: accent),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          padding: compact
+              ? const EdgeInsets.symmetric(horizontal: 10, vertical: 10)
+              : const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      label,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    labelText,
+                    const SizedBox(height: 6),
+                    _AccountMark(
+                      account: selectedAccount,
+                      fallbackColor: accent,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      key: Key('transaction-$fieldKey-selected-account-name'),
-                      selectedAccount?.name ?? 'Select account',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                    const SizedBox(height: 6),
+                    nameText,
+                  ],
+                )
+              : Row(
+                  children: [
+                    _AccountMark(
+                      account: selectedAccount,
+                      fallbackColor: accent,
                     ),
-                    if (selectedAccount != null) ...[
-                      const SizedBox(height: 2),
-                      Row(
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              _accountSubtitle(selectedAccount),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+                          labelText,
+                          const SizedBox(height: 2),
+                          nameText,
+                          if (selectedAccount != null) ...[
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _accountSubtitle(selectedAccount),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  selectedAccount.currentBalance.format(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            selectedAccount.currentBalance.format(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                          ],
                         ],
                       ),
-                    ],
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(Icons.keyboard_arrow_down, color: accent),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(Icons.keyboard_arrow_down, color: accent),
-            ],
-          ),
         ),
       ),
     );

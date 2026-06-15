@@ -24,6 +24,18 @@ class ChatMessage {
   final String? disclaimer;
 
   bool get isUser => role == 'user';
+
+  Map<String, Object?> toJson() => {
+    'role': role,
+    'content': content,
+    if (disclaimer != null) 'disclaimer': disclaimer,
+  };
+
+  static ChatMessage fromJson(Map<String, Object?> json) => ChatMessage(
+    role: (json['role'] as String?) ?? 'assistant',
+    content: (json['content'] as String?) ?? '',
+    disclaimer: json['disclaimer'] as String?,
+  );
 }
 
 sealed class ChatReplyEvent {

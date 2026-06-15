@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
+import '../data/chat_session_store.dart';
+import '../domain/chat_session.dart';
 import 'chat_engine.dart';
 import 'financial_context.dart';
 
@@ -24,6 +27,8 @@ class ChatState {
     this.isStreaming = false,
     this.lastError,
     this.offline = false,
+    this.sessions = const [],
+    this.activeSessionId = '',
   });
 
   final List<ChatMessage> messages;
@@ -34,9 +39,21 @@ class ChatState {
   /// rule-based engine instead of the cloud function.
   final bool offline;
 
+  /// Saved past conversations kept on-device. Includes the active session once
+  /// it has been persisted; the UI filters [activeSessionId] out of the
+  /// history list shown above the greeting.
+  final List<ChatSession> sessions;
+
+  /// Id of the conversation currently on screen.
+  final String activeSessionId;
+
   bool get isEmpty => messages.length <= 1 && !messages.any((m) => m.isUser);
 
   bool get showSuggestions => isEmpty;
+
+  /// Sessions to surface in the history list — everything except the live one.
+  List<ChatSession> get history =>
+      sessions.where((s) => s.id != activeSessionId).toList();
 
   ChatState copyWith({
     List<ChatMessage>? messages,
@@ -44,12 +61,16 @@ class ChatState {
     ChatError? lastError,
     bool clearError = false,
     bool? offline,
+    List<ChatSession>? sessions,
+    String? activeSessionId,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
       isStreaming: isStreaming ?? this.isStreaming,
       lastError: clearError ? null : (lastError ?? this.lastError),
       offline: offline ?? this.offline,
+      sessions: sessions ?? this.sessions,
+      activeSessionId: activeSessionId ?? this.activeSessionId,
     );
   }
 }
@@ -62,12 +83,19 @@ final aikoChatEngineProvider = Provider<ChatEngine>((ref) {
   return HttpChatEngine(functionUrl: '${config.url}/functions/v1/aiko-chat');
 });
 
+final chatSessionStoreProvider = Provider<ChatSessionStore>(
+  (ref) => ChatSessionStore(),
+);
+
 final aikoChatControllerProvider =
     NotifierProvider<AikoChatController, ChatState>(AikoChatController.new);
 
 class AikoChatController extends Notifier<ChatState> {
   StreamSubscription<ChatReplyEvent>? _subscription;
   String? _lastUserText;
+  static const _uuid = Uuid();
+
+  ChatSessionStore get _store => ref.read(chatSessionStoreProvider);
 
   @override
   ChatState build() {
@@ -75,12 +103,125 @@ class AikoChatController extends Notifier<ChatState> {
     ref.onDispose(() {
       _subscription?.cancel();
     });
+    unawaited(_loadSessions());
     return ChatState(
       offline: offline,
       messages: const [_greeting],
       isStreaming: false,
       lastError: null,
+      activeSessionId: _uuid.v4(),
     );
+  }
+
+  Future<void> _loadSessions() async {
+    final sessions = await _store.load();
+    if (!ref.mounted) return;
+    state = state.copyWith(sessions: sessions);
+  }
+
+  /// Upserts the current conversation into the saved-session list and persists
+  /// it (applying the rolling-window rotation). No-op until the conversation
+  /// has a user turn worth keeping.
+  Future<void> _persistActive() async {
+    if (!state.messages.any((m) => m.isUser)) return;
+    final now = DateTime.now();
+    final existing = _find(state.activeSessionId);
+    final title = (existing != null && existing.pinned)
+        ? existing.title // keep a user-pinned thread's established title
+        : ChatSession.titleFrom(state.messages);
+    final session =
+        existing?.copyWith(
+          title: title,
+          messages: state.messages,
+          updatedAt: now,
+        ) ??
+        ChatSession(
+          id: state.activeSessionId,
+          title: title,
+          createdAt: now,
+          updatedAt: now,
+          messages: state.messages,
+        );
+    final merged = [
+      session,
+      for (final s in state.sessions)
+        if (s.id != session.id) s,
+    ];
+    final pruned = await _store.save(merged, keep: {state.activeSessionId});
+    if (!ref.mounted) return;
+    state = state.copyWith(sessions: pruned);
+  }
+
+  /// Saves the current conversation and starts a fresh one.
+  Future<void> newChat() async {
+    await _persistActive();
+    _subscription?.cancel();
+    _lastUserText = null;
+    if (!ref.mounted) return;
+    state = state.copyWith(
+      messages: const [_greeting],
+      isStreaming: false,
+      clearError: true,
+      activeSessionId: _uuid.v4(),
+    );
+  }
+
+  /// Saves the current conversation, then loads [id] from history.
+  Future<void> loadSession(String id) async {
+    if (id == state.activeSessionId) return;
+    await _persistActive();
+    final target = _find(id);
+    if (target == null || !ref.mounted) return;
+    _subscription?.cancel();
+    _lastUserText = target.messages.lastWhere(
+      (m) => m.isUser,
+      orElse: () => const ChatMessage(role: 'user', content: ''),
+    ).content;
+    state = state.copyWith(
+      messages: target.messages,
+      activeSessionId: id,
+      isStreaming: false,
+      clearError: true,
+    );
+  }
+
+  Future<void> togglePin(String id) async {
+    final updated = [
+      for (final s in state.sessions)
+        if (s.id == id) s.copyWith(pinned: !s.pinned) else s,
+    ];
+    final pruned = await _store.save(updated, keep: {state.activeSessionId});
+    if (!ref.mounted) return;
+    state = state.copyWith(sessions: pruned);
+  }
+
+  Future<void> deleteSession(String id) async {
+    final remaining = [
+      for (final s in state.sessions)
+        if (s.id != id) s,
+    ];
+    final pruned = await _store.save(remaining, keep: {state.activeSessionId});
+    if (!ref.mounted) return;
+    var next = state.copyWith(sessions: pruned);
+    // Deleting the live thread drops you into a fresh chat.
+    if (id == state.activeSessionId) {
+      _subscription?.cancel();
+      _lastUserText = null;
+      next = next.copyWith(
+        messages: const [_greeting],
+        activeSessionId: _uuid.v4(),
+        isStreaming: false,
+        clearError: true,
+      );
+    }
+    state = next;
+  }
+
+  ChatSession? _find(String id) {
+    for (final s in state.sessions) {
+      if (s.id == id) return s;
+    }
+    return null;
   }
 
   void send(String text) {
@@ -172,6 +313,7 @@ class AikoChatController extends Notifier<ChatState> {
       isStreaming: false,
       clearError: true,
     );
+    unawaited(_persistActive());
   }
 
   String _humanize(Object error) {

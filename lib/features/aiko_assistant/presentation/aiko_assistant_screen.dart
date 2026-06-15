@@ -6,6 +6,7 @@ import '../../aiko_character/presentation/aiko_avatar.dart';
 import '../application/aiko_chat_controller.dart';
 import '../application/chat_engine.dart';
 import '../domain/aiko_prompt_suggestions.dart';
+import '../domain/chat_session.dart';
 import 'aiko_markdown.dart';
 
 class AikoAssistantScreen extends ConsumerStatefulWidget {
@@ -146,27 +147,65 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'New chat',
+            onPressed: () {
+              _textController.clear();
+              ref.read(aikoChatControllerProvider.notifier).newChat();
+            },
+            icon: const Icon(Icons.add_comment_outlined),
+          ),
+        ],
       ),
       body: Column(
         children: [
           Expanded(
             child: Stack(
               children: [
-                ListView.builder(
-                  controller: _scrollController,
-                  padding: EdgeInsets.fromLTRB(16, 8, 16, 12 + _suggestionsHeight),
-                  itemCount: state.messages.length,
-                  itemBuilder: (context, index) {
-                    final message = state.messages[index];
-                    final isLast = index == state.messages.length - 1;
-                    return _MessageBubble(
-                      message: message,
-                      streaming: isLast && state.isStreaming,
-                      error: isLast && !state.isStreaming
-                          ? state.lastError
-                          : null,
-                      onRetry: () =>
-                          ref.read(aikoChatControllerProvider.notifier).retry(),
+                Builder(
+                  builder: (context) {
+                    final history = state.history;
+                    final hasHeader = history.isNotEmpty;
+                    return ListView.builder(
+                      controller: _scrollController,
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        8,
+                        16,
+                        12 + _suggestionsHeight,
+                      ),
+                      itemCount: state.messages.length + (hasHeader ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (hasHeader && index == 0) {
+                          final notifier = ref.read(
+                            aikoChatControllerProvider.notifier,
+                          );
+                          return _ChatHistoryList(
+                            sessions: history,
+                            onOpen: (id) {
+                              notifier.loadSession(id);
+                              _scrollToBottom(animated: false);
+                            },
+                            onTogglePin: notifier.togglePin,
+                            onDelete: notifier.deleteSession,
+                          );
+                        }
+                        final messageIndex = hasHeader ? index - 1 : index;
+                        final message = state.messages[messageIndex];
+                        final isLast =
+                            messageIndex == state.messages.length - 1;
+                        return _MessageBubble(
+                          message: message,
+                          streaming: isLast && state.isStreaming,
+                          error: isLast && !state.isStreaming
+                              ? state.lastError
+                              : null,
+                          onRetry: () => ref
+                              .read(aikoChatControllerProvider.notifier)
+                              .retry(),
+                        );
+                      },
                     );
                   },
                 ),
@@ -192,6 +231,137 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
           ),
           if (state.offline) const _OfflineNotice(),
         ],
+      ),
+    );
+  }
+}
+
+/// The rolling list of saved conversations rendered above Aiko's greeting.
+///
+/// Each row opens the thread on tap; the trailing star pins it (exempting it
+/// from the 3-session rotation) and the trash icon removes it.
+class _ChatHistoryList extends StatelessWidget {
+  const _ChatHistoryList({
+    required this.sessions,
+    required this.onOpen,
+    required this.onTogglePin,
+    required this.onDelete,
+  });
+
+  final List<ChatSession> sessions;
+  final void Function(String id) onOpen;
+  final void Function(String id) onTogglePin;
+  final void Function(String id) onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.history,
+                  size: 16,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Recent chats',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          for (final session in sessions)
+            _ChatHistoryRow(
+              key: ValueKey(session.id),
+              session: session,
+              onOpen: () => onOpen(session.id),
+              onTogglePin: () => onTogglePin(session.id),
+              onDelete: () => onDelete(session.id),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatHistoryRow extends StatelessWidget {
+  const _ChatHistoryRow({
+    super.key,
+    required this.session,
+    required this.onOpen,
+    required this.onTogglePin,
+    required this.onDelete,
+  });
+
+  final ChatSession session;
+  final VoidCallback onOpen;
+  final VoidCallback onTogglePin;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onOpen,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 12, right: 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                session.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: session.pinned ? 'Unpin' : 'Pin',
+              visualDensity: VisualDensity.compact,
+              onPressed: onTogglePin,
+              icon: Icon(
+                session.pinned ? Icons.star : Icons.star_border,
+                size: 20,
+                color: session.pinned
+                    ? AikoColors.warningOrange
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            IconButton(
+              tooltip: 'Delete',
+              visualDensity: VisualDensity.compact,
+              onPressed: onDelete,
+              icon: Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -284,10 +454,7 @@ class _MessageBubble extends StatelessWidget {
               ),
               child: error != null
                   ? _ErrorBlock(message: error!.message, onRetry: onRetry)
-                  : _ContentBlock(
-                      content: message.content,
-                      streaming: streaming,
-                    ),
+                  : _ContentBlock(message: message, streaming: streaming),
             ),
           ),
         ],
@@ -297,17 +464,42 @@ class _MessageBubble extends StatelessWidget {
 }
 
 class _ContentBlock extends StatelessWidget {
-  const _ContentBlock({required this.content, required this.streaming});
+  const _ContentBlock({required this.message, required this.streaming});
 
-  final String content;
+  final ChatMessage message;
   final bool streaming;
 
   @override
   Widget build(BuildContext context) {
+    final content = message.content;
     if (content.isEmpty && streaming) {
       return const _ThinkingDots();
     }
-    return AikoMarkdownText(content: content, streaming: streaming);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AikoMarkdownText(content: content, streaming: streaming),
+        if (!streaming && message.disclaimer != null) ...[
+          const SizedBox(height: 10),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            message.disclaimer!,
+            style: TextStyle(
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ],
+    );
   }
 }
 

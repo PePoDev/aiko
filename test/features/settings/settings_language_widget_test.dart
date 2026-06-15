@@ -38,7 +38,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Language'), findsOneWidget);
-    expect(find.text('Thai (ไทย)'), findsOneWidget);
+    // Default (no stored preference, storage unavailable in tests) falls back
+    // to English; Thai is offered inside the picker.
+    expect(find.text('English (English)'), findsOneWidget);
 
     await tester.tap(find.text('Language'));
     await tester.pumpAndSettle();

@@ -29,7 +29,7 @@ Future<OfflineAccount> _$OfflineAccountFromSupabase(
         : data['goal_target_date'] == null
         ? null
         : DateTime.tryParse(data['goal_target_date'] as String),
-    goalPriority: data['goal_priority'] as String,
+    goalPriority: goalPriorityFromColumn(data['goal_priority']),
     updatedAt: data['updated_at'] == null
         ? null
         : DateTime.tryParse(data['updated_at'] as String),
@@ -93,7 +93,7 @@ Future<OfflineAccount> _$OfflineAccountFromSqlite(
         : data['goal_target_date'] == null
         ? null
         : DateTime.tryParse(data['goal_target_date'] as String),
-    goalPriority: data['goal_priority'] as String,
+    goalPriority: goalPriorityFromColumn(data['goal_priority']),
     updatedAt: DateTime.parse(data['updated_at'] as String),
     deletedAt: data['deleted_at'] == null
         ? null

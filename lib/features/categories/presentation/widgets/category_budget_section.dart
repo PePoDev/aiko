@@ -119,15 +119,20 @@ class CategoryBudgetSection extends StatelessWidget {
               },
             ),
             const SizedBox(height: 8),
-            SwitchListTile(
-              key: const Key('category-budget-rollover'),
-              contentPadding: EdgeInsets.zero,
-              value: rolloverUnused,
-              onChanged: onRolloverChanged,
-              title: const Text('Roll over unused budget'),
-              subtitle: Text(
-                'Carries leftover into the next period only.',
-                style: theme.textTheme.bodySmall,
+            // Own Material so the switch's ink/selection paints on a surface
+            // above the colored DecoratedBox (avoids the ListTile assertion).
+            Material(
+              type: MaterialType.transparency,
+              child: SwitchListTile(
+                key: const Key('category-budget-rollover'),
+                contentPadding: EdgeInsets.zero,
+                value: rolloverUnused,
+                onChanged: onRolloverChanged,
+                title: const Text('Roll over unused budget'),
+                subtitle: Text(
+                  'Carries leftover into the next period only.',
+                  style: theme.textTheme.bodySmall,
+                ),
               ),
             ),
           ],

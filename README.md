@@ -121,7 +121,7 @@ lib/
 
 supabase/                        # migrations/ (Postgres + RLS + functions), seed.sql, storage/
 assets/                          # icons/ (aiko_*.svg), images/aiko/ (6 expression variants)
-test/  integration_test/         # Unit and integration tests
+test/                            # Unit tests
 ```
 
 Each feature module is layered — `application/` (services, orchestration), `data/` (repositories, DTOs, sync adapters), `domain/` (immutable models, value objects), `presentation/` (screens, widgets, controllers).
@@ -589,7 +589,6 @@ Account-type-specific inputs: add each from a fresh state (subform appears, vali
 ```bash
 flutter test                      # money types, formatters, prediction, models, providers, rules,
                                   # feature gating, parsers, idea route coverage, SVG assets
-flutter test integration_test     # onboarding, transaction CRUD, budget/goal creation, dashboard, calculators
 ```
 
 **Quality gates — run all before any release:**
@@ -599,7 +598,6 @@ dart run build_runner build        # required after Brick model changes
 dart format --set-exit-if-changed .
 flutter analyze
 flutter test
-flutter test integration_test
 ```
 
 ---

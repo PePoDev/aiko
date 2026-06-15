@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:aiko/features/aiko_assistant/application/aiko_chat_controller.dart';
 import 'package:aiko/features/aiko_assistant/application/chat_engine.dart';
 import 'package:aiko/features/aiko_assistant/application/financial_context.dart';
+import 'package:aiko/features/aiko_assistant/domain/aiko_prompt_suggestions.dart';
 import 'package:aiko/features/aiko_assistant/presentation/aiko_assistant_screen.dart';
 import 'package:aiko/theme/aiko_theme.dart';
 import 'package:flutter/material.dart';
@@ -26,10 +27,11 @@ void main() {
 
     expect(find.text('Aiko'), findsOneWidget);
     expect(find.textContaining("I'm Aiko"), findsOneWidget);
-    expect(find.text('How much can I safely spend?'), findsOneWidget);
-    expect(find.text('Am I on track for my goals?'), findsOneWidget);
-    expect(find.text('Where can I cut back?'), findsOneWidget);
-    expect(find.text('Give me a quick money check-up.'), findsOneWidget);
+    // The empty state shows a random subset of the prompt pool, so assert the
+    // count and pool membership rather than specific prompts.
+    final shown = _shownSuggestions();
+    expect(shown, hasLength(AikoPromptSuggestions.count));
+    expect(shown.every(AikoPromptSuggestions.all.contains), isTrue);
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('Ask about your money...'), findsOneWidget);
   });
@@ -71,14 +73,23 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(find.text('Where can I cut back?'));
+    final prompt = _shownSuggestions().first;
+    // Chips sit in a horizontal scroll view, so the pick may be off-screen.
+    await tester.ensureVisible(find.text(prompt));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(prompt));
     await tester.pump();
 
     expect(fakeEngine.calls, hasLength(1));
-    expect(fakeEngine.calls.single.last.content, 'Where can I cut back?');
-    expect(find.text('Where can I cut back?'), findsWidgets);
+    expect(fakeEngine.calls.single.last.content, prompt);
+    expect(find.text(prompt), findsWidgets);
   });
 }
+
+/// The prompt pool members currently rendered as suggestion chips.
+List<String> _shownSuggestions() => AikoPromptSuggestions.all
+    .where((p) => find.text(p).evaluate().isNotEmpty)
+    .toList();
 
 void _useWideSurface(WidgetTester tester) {
   tester.view.physicalSize = const Size(1200, 900);

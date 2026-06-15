@@ -44,7 +44,7 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('transaction-type-selector')), findsOneWidget);
-    expect(find.byType(SegmentedButton<String>), findsOneWidget);
+    expect(find.byType(SegmentedButton<TransactionType>), findsOneWidget);
     expect(find.text('Expense'), findsOneWidget);
     expect(find.text('Income'), findsOneWidget);
     expect(find.text('Transfer'), findsOneWidget);
@@ -251,7 +251,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    final selector = tester.widget<SegmentedButton<String>>(
+    final selector = tester.widget<SegmentedButton<TransactionType>>(
       find.byKey(const Key('transaction-type-selector')),
     );
     expect(selector.showSelectedIcon, isFalse);
@@ -1888,7 +1888,7 @@ void main() {
 }
 
 Color? _selectedSelectorColor(WidgetTester tester) {
-  final selector = tester.widget<SegmentedButton<String>>(
+  final selector = tester.widget<SegmentedButton<TransactionType>>(
     find.byKey(const Key('transaction-type-selector')),
   );
   return selector.style?.backgroundColor?.resolve({WidgetState.selected});

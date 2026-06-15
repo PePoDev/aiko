@@ -75,8 +75,17 @@ class OfflineAccount extends OfflineFirstWithSupabaseModel {
   @Supabase(name: 'goal_target_date')
   final DateTime? goalTargetDate;
 
-  @Sqlite(name: 'goal_priority')
-  @Supabase(name: 'goal_priority')
+  // Tolerates legacy NULL rows: `goal_priority` was added after accounts
+  // already existed, and non-goal accounts never set it. A null coalesces to
+  // the default instead of throwing on the non-null cast.
+  @Sqlite(
+    name: 'goal_priority',
+    fromGenerator: 'goalPriorityFromColumn(%DATA_PROPERTY%)',
+  )
+  @Supabase(
+    name: 'goal_priority',
+    fromGenerator: 'goalPriorityFromColumn(%DATA_PROPERTY%)',
+  )
   final String goalPriority;
 
   // `updatedAt` is set to `now()` whenever a row is upserted.
@@ -116,3 +125,6 @@ Object accountDetailsToSupabase(String detailsJson) {
 
 /// Reads the local `details_json` column, tolerating legacy NULL rows.
 String accountDetailsFromSqlite(Object? raw) => raw is String ? raw : '{}';
+
+/// Reads `goal_priority`, defaulting legacy/non-goal NULL rows to 'medium'.
+String goalPriorityFromColumn(Object? raw) => raw is String ? raw : 'medium';

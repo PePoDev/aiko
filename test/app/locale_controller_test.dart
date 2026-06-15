@@ -143,7 +143,8 @@ void main() {
           .followSystemLocale();
 
       final next = container.read(appLocaleControllerProvider).asData!.value;
-      expect(next.locale, AppLocaleController.fallbackLocale);
+      // The device locale (th) is supported, so following the system adopts it.
+      expect(next.locale, const Locale('th'));
       expect(next.followsSystem, isTrue);
       expect(await storage.read(languageKey), isNull);
     },

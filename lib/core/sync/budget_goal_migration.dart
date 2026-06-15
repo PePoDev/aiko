@@ -46,9 +46,10 @@ class BudgetGoalMigrator {
         debugPrint('[aiko-migration] run failed: $error');
       }
       return (budgets: 0, goals: 0);
-    } finally {
-      await db.close();
     }
+    // ponytail: do NOT close — sqflite singleInstance returns the same handle
+    // Brick already opened for `aiko_offline.sqlite`. Closing it here triggers
+    // `database_closed` on every later Brick query. Brick owns the lifecycle.
   }
 
   Future<Database?> _openDb() async {

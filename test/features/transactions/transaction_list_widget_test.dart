@@ -376,14 +376,11 @@ void main() {
     expect(find.text(_monthLabel(currentMonth)), findsOneWidget);
     expect(find.text(_monthLabel(previousMonth)), findsOneWidget);
     expect(find.text(_monthLabel(nextMonth)), findsOneWidget);
+    // The current month is the initially selected tab: its transactions show
+    // while the previous month's are hidden until that tab is tapped. (The
+    // month TabBar is now scrollable/left-aligned, so the tab is not centered.)
     expect(find.text('Current Cafe'), findsOneWidget);
     expect(find.text('Previous Market'), findsNothing);
-
-    final currentTabCenter = tester.getCenter(
-      find.text(_monthLabel(currentMonth)),
-    );
-    final screenCenter = tester.getCenter(find.byType(TabBar)).dx;
-    expect((currentTabCenter.dx - screenCenter).abs(), lessThan(48));
 
     await tester.tap(find.text(_monthLabel(previousMonth)));
     await tester.pumpAndSettle();

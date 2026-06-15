@@ -91,6 +91,13 @@ void main() {
       lessThan(tester.getTopLeft(expenseHeader).dy),
     );
 
+    // Groups are collapsed by default; expand both "Other" groups (income
+    // first in the list, then expense) to reveal the seeded categories.
+    await tester.tap(find.text('Other').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Other').last);
+    await tester.pumpAndSettle();
+
     // All seeded categories are visible (no tab isolation).
     expect(find.text('Salary'), findsOneWidget);
     expect(find.text('Side Hustle'), findsOneWidget);
@@ -185,39 +192,34 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Single scroll: Income section first (Side Income → Freelance), then
-    // Expense section (Household → rent + utilities, then Other → pet care).
+    // Headers render collapsed: Income section first (Side Income), then the
+    // Expense section (Household, Other). Income sits above Expense.
     expect(find.text('Side Income'), findsOneWidget);
-    expect(find.text('Freelance'), findsOneWidget);
     expect(find.text('Household'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Side Income')).dy,
+      lessThan(tester.getTopLeft(find.text('Household')).dy),
+    );
+
+    // Expand each group to reveal its categories.
+    await tester.tap(find.text('Side Income'));
+    await tester.pumpAndSettle();
+    expect(find.text('Freelance'), findsOneWidget);
+
+    await tester.tap(find.text('Household'));
+    await tester.pumpAndSettle();
     expect(find.text('Rent'), findsOneWidget);
     expect(find.text('Utilities'), findsOneWidget);
-    // The 13 default groups are appended after the user's; "Other" sits below
-    // the test viewport in the unified scroll, so confirm it's in the tree
-    // and scroll to it.
-    expect(find.text('Other', skipOffstage: false), findsOneWidget);
+
+    // The 13 default groups are appended after the user's; "Other" holds the
+    // unfiled custom (Pet Care). Scroll it into view, then expand.
     await tester.scrollUntilVisible(find.text('Other'), 180);
+    await tester.tap(find.text('Other'));
+    await tester.pumpAndSettle();
     expect(find.text('Pet Care'), findsOneWidget);
-
-    // Within the Expense section, Household precedes Other.
-    final householdFinder = find.text('Household');
-    final otherFinder = find.text('Other');
-    expect(
-      tester.getTopLeft(householdFinder).dy,
-      lessThan(tester.getTopLeft(otherFinder).dy),
-    );
-
-    // Income section sits above the Expense section: Side Income (income
-    // group) is rendered above Household (expense group).
-    final sideIncomeFinder = find.text('Side Income');
-    final householdFinder2 = find.text('Household');
-    expect(
-      tester.getTopLeft(sideIncomeFinder).dy,
-      lessThan(tester.getTopLeft(householdFinder2).dy),
-    );
   });
 
-  testWidgets('groups expand by default and collapse on header tap', (
+  testWidgets('groups are collapsed by default and toggle on header tap', (
     tester,
   ) async {
     final groups = [
@@ -259,20 +261,20 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Expanded by default: the category row is visible on load.
+    // Collapsed by default: the category row is hidden on load.
+    expect(find.text('Rent'), findsNothing);
+
+    // Tapping the group header expands it, revealing the category rows.
+    await tester.tap(find.text('Household'));
+    await tester.pumpAndSettle();
     expect(find.text('Rent'), findsOneWidget);
 
-    // Tapping the group header collapses it, hiding the category rows.
+    // Tapping again collapses it.
     await tester.tap(find.text('Household'));
     await tester.pumpAndSettle();
     expect(find.text('Rent'), findsNothing);
 
-    // Tapping again expands it back.
-    await tester.tap(find.text('Household'));
-    await tester.pumpAndSettle();
-    expect(find.text('Rent'), findsOneWidget);
-
-    // Editing the group now happens via the tune action, not the header tap.
+    // Editing the group happens via the tune action, not the header tap.
     await tester.tap(find.byIcon(Icons.tune));
     await tester.pumpAndSettle();
     expect(find.text('Edit Group'), findsOneWidget);
@@ -308,7 +310,9 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    // No tabs anymore — Salary is visible directly in the Income section.
+    // Expand the (unfiled) "Other" group, then tap the default category.
+    await tester.tap(find.text('Other'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Salary'));
     await tester.pumpAndSettle();
 
@@ -345,6 +349,8 @@ void main() {
     );
 
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Other'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Coffee'));
     await tester.pumpAndSettle();
 
@@ -354,7 +360,8 @@ void main() {
     expect(find.text('Expense'), findsWidgets);
     expect(find.text('Wants'), findsNothing);
     expect(find.text('Category Group (50/30/20 Rule)'), findsNothing);
-    expect(find.text('Budget'), findsNothing);
+    // The category form owns the optional budget fields (CLAUDE.md).
+    expect(find.text('Budget'), findsWidgets);
     expect(find.text('Enabled'), findsNothing);
     expect(find.byIcon(Icons.coffee_outlined), findsWidgets);
     expect(find.byKey(const Key('category-group-picker')), findsOneWidget);
@@ -389,6 +396,8 @@ void main() {
       ),
     );
 
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Other'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Coffee'));
     await tester.pumpAndSettle();
@@ -441,6 +450,8 @@ void main() {
       ),
     );
 
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Other'));
     await tester.pumpAndSettle();
 
     final itemFinder = find.byKey(const ValueKey('category-row-coffee'));
@@ -495,7 +506,9 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    // No tabs anymore — both income cards are visible in the Income section.
+    // Both income cards live in the unfiled "Other" group; expand it.
+    await tester.tap(find.text('Other'));
+    await tester.pumpAndSettle();
 
     final defaultRowFinder = find.byKey(
       ValueKey('category-row-${CategoryDefaults.salaryId}'),
@@ -782,14 +795,16 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Always visible: no more expand/collapse; both built-in and unfiled
-      // custom render on the same flat list.
+      // The unfiled "Other" group holds both the built-in and the unfiled
+      // custom. The group is locked (no tune affordance for system groups).
       expect(find.text('Other'), findsOneWidget);
+      expect(find.byIcon(Icons.tune), findsNothing);
+
+      // Expand it to reveal both rows.
+      await tester.tap(find.text('Other'));
+      await tester.pumpAndSettle();
       expect(find.text('Groceries'), findsOneWidget);
       expect(find.text('Pet Care'), findsOneWidget);
-
-      // The group is locked (no edit/tune affordance for system groups).
-      expect(find.byIcon(Icons.tune), findsNothing);
 
       // The built-in keeps its lock; the unfiled custom does not.
       expect(
@@ -856,6 +871,9 @@ void main() {
     // The 'Other' match below would have to come from the picker.
     expect(find.text('Other'), findsNothing);
 
+    // Expand the group to reach the category, then open its editor.
+    await tester.tap(find.text('Household'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Coffee'));
     await tester.pumpAndSettle();
 

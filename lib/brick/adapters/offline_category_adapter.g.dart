@@ -31,9 +31,9 @@ Future<OfflineCategory> _$OfflineCategoryFromSupabase(
     budgetCurrency: data['budget_currency'] == null
         ? null
         : data['budget_currency'] as String?,
-    budgetPeriod: data['budget_period'] as String,
+    budgetPeriod: budgetPeriodFromColumn(data['budget_period']),
     budgetRollover: data['budget_rollover'] as bool,
-    alertThresholds: data['alert_thresholds'].toList().cast<int>(),
+    alertThresholds: alertThresholdsFromColumn(data['alert_thresholds']),
     updatedAt: data['updated_at'] == null
         ? null
         : DateTime.tryParse(data['updated_at'] as String),
@@ -103,9 +103,9 @@ Future<OfflineCategory> _$OfflineCategoryFromSqlite(
     budgetCurrency: data['budget_currency'] == null
         ? null
         : data['budget_currency'] as String?,
-    budgetPeriod: data['budget_period'] as String,
+    budgetPeriod: budgetPeriodFromColumn(data['budget_period']),
     budgetRollover: data['budget_rollover'] == 1,
-    alertThresholds: jsonDecode(data['alert_thresholds']).toList().cast<int>(),
+    alertThresholds: alertThresholdsFromColumn(data['alert_thresholds']),
     updatedAt: DateTime.parse(data['updated_at'] as String),
     deletedAt: data['deleted_at'] == null
         ? null

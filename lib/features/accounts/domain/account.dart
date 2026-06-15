@@ -15,6 +15,9 @@ class Account {
     this.includeInNetWorth = true,
     this.isActive = true,
     this.details,
+    this.targetAmount,
+    this.targetDate,
+    this.priority = GoalPriority.medium,
   });
 
   final String id;
@@ -27,6 +30,18 @@ class Account {
   final bool isActive;
   final AccountDetails? details;
 
+  /// Required when [type] is [AccountType.goal]. The savings target.
+  /// Null for non-goal accounts.
+  final Money? targetAmount;
+
+  /// Required when [type] is [AccountType.goal]. The date the user wants to
+  /// reach the target by. Null for non-goal accounts.
+  final DateTime? targetDate;
+
+  /// Priority for goal accounts. Defaults to [GoalPriority.medium]. Ignored
+  /// for non-goal accounts.
+  final GoalPriority priority;
+
   String get currency => currentBalance.currency;
 
   AccountDetails get resolvedDetails =>
@@ -34,6 +49,33 @@ class Account {
 
   static AccountDetails defaultDetailsFor(AccountType t) =>
       AccountDetails.defaultFor(t);
+
+  /// `true` for accounts that represent a SMART savings goal. Goal accounts
+  /// use [currentBalance] as the saved amount (per the merge plan; no linked
+  /// account required) and require [targetAmount] / [targetDate] to be set.
+  bool get isGoal => type == AccountType.goal;
+
+  /// Money still to save to reach [targetAmount]. Returns [Money.zero] for
+  /// non-goal accounts or when the target is null.
+  Money get goalRemaining {
+    if (targetAmount == null) return Money.zero(currentBalance.currency);
+    final diff = targetAmount!.amount - currentBalance.amount;
+    if (diff.amount <= _zeroFor(diff.currency).amount) {
+      return _zeroFor(diff.currency);
+    }
+    return diff;
+  }
+
+  double get goalProgress {
+    final target = targetAmount;
+    if (target == null || target.amount <= _zeroFor(target.currency).amount) {
+      return 0;
+    }
+    final ratio = currentBalance.amount.toDouble() /
+        target.amount.toDouble();
+    if (ratio.isNaN || ratio.isInfinite) return 0;
+    return ratio.clamp(0.0, 1.0).toDouble();
+  }
 
   Account copyWith({
     String? name,
@@ -44,6 +86,9 @@ class Account {
     bool? isActive,
     AccountDetails? details,
     bool resetDetails = false,
+    Object? targetAmount = _accountUnset,
+    Object? targetDate = _accountUnset,
+    GoalPriority? priority,
   }) {
     return Account(
       id: id,
@@ -57,6 +102,18 @@ class Account {
       details: resetDetails
           ? AccountDetails.defaultFor(type ?? this.type)
           : (details ?? this.details),
+      targetAmount: identical(targetAmount, _accountUnset)
+          ? this.targetAmount
+          : targetAmount as Money?,
+      targetDate: identical(targetDate, _accountUnset)
+          ? this.targetDate
+          : targetDate as DateTime?,
+      priority: priority ?? this.priority,
     );
   }
 }
+
+const Object _accountUnset = Object();
+
+Money _zeroFor(String currency) => Money.zero(currency);
+

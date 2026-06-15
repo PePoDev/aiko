@@ -19,6 +19,11 @@ class OfflineCategory extends OfflineFirstWithSupabaseModel {
     this.budgetEnabled = true,
     this.isActive = true,
     this.createdAt,
+    this.budgetAmount,
+    this.budgetCurrency,
+    this.budgetPeriod = 'monthly',
+    this.budgetRollover = false,
+    this.alertThresholds = const [50, 75, 90, 100],
   });
 
   @Sqlite(unique: true)
@@ -48,4 +53,28 @@ class OfflineCategory extends OfflineFirstWithSupabaseModel {
   @Sqlite(name: 'created_at')
   @Supabase(name: 'created_at')
   final DateTime? createdAt;
+
+  // --- Budget fields (merged from the old `budgets` table) -----------------
+  // `budgetAmount` and `budgetCurrency` form a Money pair: a null amount (or
+  // a null currency) means the category has no budget. `budgetPeriod` is a
+  // string discriminator (one of: daily, weekly, monthly, yearly).
+  @Sqlite(name: 'budget_amount')
+  @Supabase(name: 'budget_amount', fromGenerator: 'data[\'budget_amount\'] == null ? null : data[\'budget_amount\'].toString()')
+  final String? budgetAmount;
+
+  @Sqlite(name: 'budget_currency')
+  @Supabase(name: 'budget_currency')
+  final String? budgetCurrency;
+
+  @Sqlite(name: 'budget_period')
+  @Supabase(name: 'budget_period')
+  final String budgetPeriod;
+
+  @Sqlite(name: 'budget_rollover')
+  @Supabase(name: 'budget_rollover')
+  final bool budgetRollover;
+
+  @Sqlite(name: 'alert_thresholds')
+  @Supabase(name: 'alert_thresholds')
+  final List<int> alertThresholds;
 }

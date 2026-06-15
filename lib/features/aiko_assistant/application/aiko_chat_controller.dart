@@ -127,7 +127,8 @@ class AikoChatController extends Notifier<ChatState> {
     final now = DateTime.now();
     final existing = _find(state.activeSessionId);
     final title = (existing != null && existing.pinned)
-        ? existing.title // keep a user-pinned thread's established title
+        ? existing
+              .title // keep a user-pinned thread's established title
         : ChatSession.titleFrom(state.messages);
     final session =
         existing?.copyWith(
@@ -173,10 +174,12 @@ class AikoChatController extends Notifier<ChatState> {
     final target = _find(id);
     if (target == null || !ref.mounted) return;
     _subscription?.cancel();
-    _lastUserText = target.messages.lastWhere(
-      (m) => m.isUser,
-      orElse: () => const ChatMessage(role: 'user', content: ''),
-    ).content;
+    _lastUserText = target.messages
+        .lastWhere(
+          (m) => m.isUser,
+          orElse: () => const ChatMessage(role: 'user', content: ''),
+        )
+        .content;
     state = state.copyWith(
       messages: target.messages,
       activeSessionId: id,
@@ -352,6 +355,4 @@ final supabaseConfigProvider = Provider<_SupabaseConfig>((ref) {
   return (content: content, disclaimer: disclaimer);
 }
 
-final RegExp _trailingDisclaimerPattern = RegExp(
-  r'\n\n([_*])([^*_]+?)\1\s*$',
-);
+final RegExp _trailingDisclaimerPattern = RegExp(r'\n\n([_*])([^*_]+?)\1\s*$');

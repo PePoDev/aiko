@@ -1,23 +1,21 @@
 import 'package:aiko/core/monetization/feature_entitlement.dart';
-import 'package:aiko/features/learning_hub/application/lesson_recommendation_service.dart';
 import 'package:aiko/features/devices/application/device_session_service.dart';
 import 'package:aiko/features/devices/domain/device_session.dart';
+import 'package:aiko/features/learning_hub/application/lesson_recommendation_service.dart';
 import 'package:aiko/features/learning_hub/domain/course_lesson.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:integration_test/integration_test.dart';
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-
-  testWidgets('learning, device sync, and monetization flow', (tester) async {
+  test('learning, device, and monetization wiring', () {
     const lesson = CourseLesson(
       key: 'budgeting',
       title: 'Budgeting basics',
       category: 'budgeting',
     );
-    final recommendation = const LessonRecommendationService().recommend([
-      lesson,
-    ], 'budgeting');
+    final recommendation = const LessonRecommendationService().recommend(
+      [lesson],
+      'budgeting',
+    );
     final trusted = const DeviceSessionService().trust(
       const DeviceSession(deviceId: 'phone', deviceName: 'Phone'),
     );

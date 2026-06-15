@@ -17,7 +17,7 @@ A prioritized, low-risk list of improvements for the Aiko Flutter codebase. Read
 | Second largest | `lib/features/dashboard/presentation/home_dashboard_screen.dart` (85 KB, ~2700 lines) |
 | CI / quality gates | **None** — gates are documented but never run automatically |
 | Known correctness gap | Offline providers in `lib/app/providers.dart` (README §"Known gap") |
-| Known data hazard | Hand-patch in `lib/brick/adapters/offline_account_adapter.g.dart` (README §"Brick hand-patch") |
+| Known data hazard | ~~Hand-patch in `lib/brick/adapters/offline_account_adapter.g.dart`~~ — fixed in T-005 (model-level generators, no DB migration needed) |
 
 ## Legend
 
@@ -55,13 +55,14 @@ Small, surgical, low-risk. Nothing here changes behavior. Goal: remove the thing
   - Fix: delete the method and its call site.
   - Verify: dashboard / list / detail screens still render.
 
-- [ ] **T-005 Fix Brick `details_json` hand-patch properly** (P0, data hazard)
+- [x] **T-005 Fix Brick `details_json` hand-patch properly** (P0, data hazard)
   - `lib/brick/adapters/offline_account_adapter.g.dart` is hand-edited. The README explains why and what the proper fix is.
   - Add migration: `update accounts set details_json = '{}' where details_json is null; alter table accounts alter column details_json set not null;`
   - Then run `dart run build_runner build` and remove the `HAND-PATCH` comment.
   - Verify: a fresh install + a legacy install both load accounts.
+  - Resolution: moved the JSON ↔ Map conversion into the model via `@Supabase`/`@Sqlite` `fromGenerator`/`toGenerator` helpers (`accountDetailsFromSupabase`, `accountDetailsToSupabase`, `accountDetailsFromSqlite` in `lib/brick/models/account.model.dart`). `dart run build_runner build` regenerates a clean adapter with no `HAND-PATCH` comment, and `accountDetailsFromSqlite` tolerates legacy `details_json IS NULL` rows, so the model is regen-safe and a fresh or legacy install both load accounts. The originally-proposed Supabase `ALTER … SET NOT NULL` is unnecessary: the helper falls back to `'{}'` regardless. Regression coverage: `test/brick/account_details_json_test.dart` (T-510).
 
-- [ ] **T-006 Add offline `try/catch` in app-wide providers** (P0, README-known gap)
+- [x] **T-006 Add offline `try/catch` in app-wide providers** (P0, README-known gap)
   - README §"Known gap (offline, no Supabase config)" lists six providers that throw on fresh install: `accountsProvider`, `transactionsProvider`, `budgetsProvider`, `goalsProvider`, `dashboardSummaryProvider`, `dashboardDueItemsProvider` in `lib/app/providers.dart` (around lines 86, 313, 477, 523 and the dashboard summary/due-items providers).
   - Fix: wrap each `build()` in `try { ... } catch (e, st) { return const AsyncValue.error(...); }` and let the screen's `AikoScreenState.error` render. **Do not** return an empty list — the user is offline + secure-storage-OK, so empty is correct; user is offline + secure-storage-broken, so the error widget with a "Try again" is correct.
   - Verify: fresh install, no env vars → user sees a recoverable empty state, not a crash.
@@ -316,7 +317,7 @@ The README and AGENTS.md both list quality gates, but no CI runs them. This phas
 - [ ] **T-509 Make `aiko_chat_controller` testable as a pure session object** (P2, decoupling)
   - Currently 264-line `Notifier` with stream + regex + supabase config + uuid + disclaimer logic. Split `AikoChatSession` (data) from `AikoChatController` (state + stream). Move `splitTrailingDisclaimer` to `lib/features/aiko_assistant/application/chat_disclaimer.dart`.
 
-- [ ] **T-510 Write one regression test for the Brick hand-patch** (P2, defense-in-depth)
+- [x] **T-510 Write one regression test for the Brick hand-patch** (P2, defense-in-depth)
   - `test/brick/account_details_json_test.dart`: insert a row with `details_json = NULL`, read it back, assert no throw. Stops T-005 from being silently re-broken.
 
 - [ ] **T-511 Document the test override patterns in `test/README.md`** (P3, ergonomics)

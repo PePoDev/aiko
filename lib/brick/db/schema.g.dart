@@ -1,7 +1,6 @@
 // GENERATED CODE DO NOT EDIT
 // This file should be version controlled
 import 'package:brick_sqlite/db.dart';
-part '20260614145507.migration.dart';
 part '20260523055312.migration.dart';
 part '20260523183433.migration.dart';
 part '20260603133701.migration.dart';
@@ -10,10 +9,11 @@ part '20260613095807.migration.dart';
 part '20260613154239.migration.dart';
 part '20260613162843.migration.dart';
 part '20260614125205.migration.dart';
+part '20260614145507.migration.dart';
+part '20260615000000.migration.dart';
 
 /// All intelligently-generated migrations from all `@Migratable` classes on disk
 final migrations = <Migration>{
-  const Migration20260614145507(),
   const Migration20260523055312(),
   const Migration20260523183433(),
   const Migration20260603133701(),
@@ -22,11 +22,13 @@ final migrations = <Migration>{
   const Migration20260613154239(),
   const Migration20260613162843(),
   const Migration20260614125205(),
+  const Migration20260614145507(),
+  const Migration20260615000000(),
 };
 
 /// A consumable database structure including the latest generated migration.
 final schema = Schema(
-  20260614125205,
+  20260615000000,
   generatorVersion: 1,
   tables: <SchemaTable>{
     SchemaTable(
@@ -49,6 +51,9 @@ final schema = Schema(
         SchemaColumn('include_in_net_worth', Column.boolean),
         SchemaColumn('is_active', Column.boolean),
         SchemaColumn('details_json', Column.varchar),
+        SchemaColumn('goal_target_amount', Column.varchar),
+        SchemaColumn('goal_target_date', Column.datetime),
+        SchemaColumn('goal_priority', Column.varchar),
       },
       indices: <SchemaIndex>{
         SchemaIndex(columns: ['user_id'], unique: false),
@@ -104,6 +109,11 @@ final schema = Schema(
         SchemaColumn('budget_enabled', Column.boolean),
         SchemaColumn('is_active', Column.boolean),
         SchemaColumn('created_at', Column.datetime),
+        SchemaColumn('budget_amount', Column.varchar),
+        SchemaColumn('budget_currency', Column.varchar),
+        SchemaColumn('budget_period', Column.varchar),
+        SchemaColumn('budget_rollover', Column.boolean),
+        SchemaColumn('alert_thresholds', Column.varchar),
       },
       indices: <SchemaIndex>{
         SchemaIndex(columns: ['user_id'], unique: false),

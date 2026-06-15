@@ -1,3 +1,6 @@
+import 'package:decimal/decimal.dart';
+
+import '../../../core/money/money.dart';
 import 'category_defaults.dart';
 
 enum CategoryType {
@@ -23,6 +26,11 @@ enum CategoryBudgetGroup {
   custom,
 }
 
+/// Recurrence period used for a [Category]'s budget limit. Stored on the
+/// [Category] itself (the merge of Budgets → Categories moved these from the
+/// former `budgets` table). One budget per category is supported.
+enum CategoryBudgetPeriod { daily, weekly, monthly, yearly }
+
 /// Sentinel used so [Category.copyWith] can distinguish "leave unchanged" from
 /// "explicitly set to null" for nullable fields such as [Category.groupId].
 const Object _unset = Object();
@@ -41,7 +49,13 @@ class Category {
     this.budgetEnabled = true,
     this.isActive = true,
     this.createdAt,
+    this.monthlyLimit,
+    this.budgetPeriod = CategoryBudgetPeriod.monthly,
+    this.rolloverUnused = false,
+    this.alertThresholds = defaultAlertThresholds,
   });
+
+  static const defaultAlertThresholds = <int>[50, 75, 90, 100];
 
   final String id;
   final String userId;
@@ -61,7 +75,31 @@ class Category {
   final bool isActive;
   final DateTime? createdAt;
 
+  /// Base-currency spending limit for the period. Null means the category
+  /// has no budget. The amount is interpreted in [monthlyLimit]!.currency and
+  /// is converted to the user's base currency when displayed if needed.
+  final Money? monthlyLimit;
+
+  /// Period over which [monthlyLimit] applies. Always set, defaults to
+  /// monthly. The display name is intentionally `monthlyLimit` for backward
+  /// compatibility with the prior Budget field even when the period is
+  /// weekly / yearly.
+  final CategoryBudgetPeriod budgetPeriod;
+
+  /// When true, unused budget carries forward to the next period only
+  /// (one period rollover; the plan user chose). Default false.
+  final bool rolloverUnused;
+
+  /// Percent thresholds (0..100) at which to surface a budget alert. Default
+  /// 50, 75, 90, 100. Per category.
+  final List<int> alertThresholds;
+
   bool get isDefault => CategoryDefaults.allIds.contains(id);
+
+  /// True when this category has a usable budget configured (limit > 0 and
+  /// [budgetEnabled]).
+  bool get hasBudget =>
+      budgetEnabled && monthlyLimit != null && monthlyLimit!.amount > Decimal.zero;
 
   Category copyWith({
     String? name,
@@ -74,6 +112,10 @@ class Category {
     bool? budgetEnabled,
     bool? isActive,
     DateTime? createdAt,
+    Object? monthlyLimit = _unset,
+    CategoryBudgetPeriod? budgetPeriod,
+    bool? rolloverUnused,
+    List<int>? alertThresholds,
   }) {
     return Category(
       id: id,
@@ -88,6 +130,12 @@ class Category {
       budgetEnabled: budgetEnabled ?? this.budgetEnabled,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
+      monthlyLimit: identical(monthlyLimit, _unset)
+          ? this.monthlyLimit
+          : monthlyLimit as Money?,
+      budgetPeriod: budgetPeriod ?? this.budgetPeriod,
+      rolloverUnused: rolloverUnused ?? this.rolloverUnused,
+      alertThresholds: alertThresholds ?? this.alertThresholds,
     );
   }
 }

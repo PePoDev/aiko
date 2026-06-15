@@ -24,17 +24,17 @@ void main() {
 
     test('__bold__ renders as a bold span', () {
       final blocks = parseAikoMarkdownBlocks('a __b__ c', base);
-      final bold = blocks.first.spans.firstWhere(
-        (s) => s is TextSpan && s.text == 'b',
-      ) as TextSpan;
+      final bold =
+          blocks.first.spans.firstWhere((s) => s is TextSpan && s.text == 'b')
+              as TextSpan;
       expect(bold.style?.fontWeight, FontWeight.w700);
     });
 
     test('*italic* renders as an italic span', () {
       final blocks = parseAikoMarkdownBlocks('a *b* c', base);
-      final italic = blocks.first.spans.firstWhere(
-        (s) => s is TextSpan && s.text == 'b',
-      ) as TextSpan;
+      final italic =
+          blocks.first.spans.firstWhere((s) => s is TextSpan && s.text == 'b')
+              as TextSpan;
       expect(italic.style?.fontStyle, FontStyle.italic);
     });
 
@@ -51,17 +51,21 @@ void main() {
 
     test('_italic_ with boundary is italicised', () {
       final blocks = parseAikoMarkdownBlocks('an _italic_ word', base);
-      final italic = blocks.first.spans.firstWhere(
-        (s) => s is TextSpan && s.text == 'italic',
-      ) as TextSpan;
+      final italic =
+          blocks.first.spans.firstWhere(
+                (s) => s is TextSpan && s.text == 'italic',
+              )
+              as TextSpan;
       expect(italic.style?.fontStyle, FontStyle.italic);
     });
 
     test('inline code uses monospace + background', () {
       final blocks = parseAikoMarkdownBlocks('call `setState`', base);
-      final code = blocks.first.spans.firstWhere(
-        (s) => s is TextSpan && s.text == 'setState',
-      ) as TextSpan;
+      final code =
+          blocks.first.spans.firstWhere(
+                (s) => s is TextSpan && s.text == 'setState',
+              )
+              as TextSpan;
       expect(code.style?.fontFamily, 'monospace');
       expect(code.style?.backgroundColor, isNotNull);
     });
@@ -98,9 +102,11 @@ void main() {
 
     test('heading inline formatting preserved', () {
       final blocks = parseAikoMarkdownBlocks('# Hello **world**', base);
-      final bold = blocks.first.spans.firstWhere(
-        (s) => s is TextSpan && s.text == 'world',
-      ) as TextSpan;
+      final bold =
+          blocks.first.spans.firstWhere(
+                (s) => s is TextSpan && s.text == 'world',
+              )
+              as TextSpan;
       expect(bold.style?.fontWeight, FontWeight.w700);
     });
 
@@ -128,9 +134,9 @@ void main() {
 
     test('bullet body with **bold** keeps the bold inside the bullet', () {
       final blocks = parseAikoMarkdownBlocks('- **A**: 1', base);
-      final bold = blocks.first.spans.firstWhere(
-        (s) => s is TextSpan && s.text == 'A',
-      ) as TextSpan;
+      final bold =
+          blocks.first.spans.firstWhere((s) => s is TextSpan && s.text == 'A')
+              as TextSpan;
       expect(bold.style?.fontWeight, FontWeight.w700);
     });
 
@@ -140,8 +146,7 @@ void main() {
   });
 
   group('AikoMarkdownText widget', () {
-    testWidgets('renders markdown content without raw markers',
-        (tester) async {
+    testWidgets('renders markdown content without raw markers', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: AikoTheme.light(),

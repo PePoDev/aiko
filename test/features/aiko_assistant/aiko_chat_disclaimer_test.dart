@@ -48,9 +48,7 @@ void main() {
     });
 
     test('trims trailing whitespace from the content', () {
-      final result = splitTrailingDisclaimer(
-        'Body.   \n\n_Disclaimer._   ',
-      );
+      final result = splitTrailingDisclaimer('Body.   \n\n_Disclaimer._   ');
       expect(result.content, 'Body.');
       expect(result.disclaimer, 'Disclaimer.');
     });
@@ -86,10 +84,7 @@ void main() {
         );
         await tester.pump();
 
-        expect(
-          find.text('Estimates, not certified advice.'),
-          findsOneWidget,
-        );
+        expect(find.text('Estimates, not certified advice.'), findsOneWidget);
         final disclaimerText = tester.widget<Text>(
           find.text('Estimates, not certified advice.'),
         );
@@ -160,10 +155,7 @@ void main() {
         await tester.testTextInput.receiveAction(TextInputAction.send);
         await tester.pumpAndSettle();
 
-        expect(
-          find.text('Estimates, not certified advice.'),
-          findsOneWidget,
-        );
+        expect(find.text('Estimates, not certified advice.'), findsOneWidget);
         final disclaimerText = tester.widget<Text>(
           find.text('Estimates, not certified advice.'),
         );

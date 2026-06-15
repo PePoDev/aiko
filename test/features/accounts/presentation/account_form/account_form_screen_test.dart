@@ -70,9 +70,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          accountsProvider.overrideWith(
-            () => _StubAccountsNotifier(const []),
-          ),
+          accountsProvider.overrideWith(() => _StubAccountsNotifier(const [])),
         ],
         child: const MaterialApp(home: AccountFormScreen()),
       ),
@@ -83,9 +81,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          accountsProvider.overrideWith(
-            () => _StubAccountsNotifier(const []),
-          ),
+          accountsProvider.overrideWith(() => _StubAccountsNotifier(const [])),
         ],
         child: MaterialApp(
           home: AccountFormScreen(

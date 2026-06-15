@@ -27,6 +27,7 @@ sealed class AccountDetails {
       AccountType.investment => const InvestmentDetails(),
       AccountType.asset => const AssetDetails(assetClass: AssetClass.other),
       AccountType.liability => const LiabilityDetails(),
+      AccountType.goal => const OtherDetails(),
       AccountType.other => const OtherDetails(),
     };
   }

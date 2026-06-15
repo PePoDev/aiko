@@ -247,9 +247,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     final isEditing = widget.account != null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isEditing ? 'Edit account' : 'Add account'),
-      ),
+      appBar: AppBar(title: Text(isEditing ? 'Edit account' : 'Add account')),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -307,9 +305,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                     ),
                   )
                 : const Icon(Icons.check),
-            label: Text(
-              isEditing ? 'Save Changes' : 'Create Account',
-            ),
+            label: Text(isEditing ? 'Save Changes' : 'Create Account'),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
             ),

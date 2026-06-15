@@ -2,14 +2,15 @@ import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-FinanceTransaction _tx(TransactionType type, String amount) => FinanceTransaction(
-  id: 'tx',
-  userId: 'user',
-  accountId: 'acct',
-  type: type,
-  amount: Money.parse(amount, 'USD'),
-  date: DateTime(2026, 6, 15),
-);
+FinanceTransaction _tx(TransactionType type, String amount) =>
+    FinanceTransaction(
+      id: 'tx',
+      userId: 'user',
+      accountId: 'acct',
+      type: type,
+      amount: Money.parse(amount, 'USD'),
+      date: DateTime(2026, 6, 15),
+    );
 
 void main() {
   group('transfer leg balance math', () {

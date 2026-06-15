@@ -81,12 +81,15 @@ void main() {
     });
 
     test('keep ids survive even when unpinned and old', () {
-      final pruned = ChatSessionRotation.prune([
-        _session('active', updatedMinutesAgo: 100),
-        _session('a', updatedMinutesAgo: 40),
-        _session('b', updatedMinutesAgo: 30),
-        _session('c', updatedMinutesAgo: 20),
-      ], keep: {'active'});
+      final pruned = ChatSessionRotation.prune(
+        [
+          _session('active', updatedMinutesAgo: 100),
+          _session('a', updatedMinutesAgo: 40),
+          _session('b', updatedMinutesAgo: 30),
+          _session('c', updatedMinutesAgo: 20),
+        ],
+        keep: {'active'},
+      );
       expect(pruned.map((s) => s.id), contains('active'));
       expect(pruned, hasLength(4));
     });

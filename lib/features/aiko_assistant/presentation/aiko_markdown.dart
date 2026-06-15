@@ -17,7 +17,8 @@ class AikoMarkdownText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (content.isEmpty) return const SizedBox.shrink();
-    final style = baseStyle ??
+    final style =
+        baseStyle ??
         TextStyle(
           color: Theme.of(context).colorScheme.onSurface,
           fontSize: 15,
@@ -60,10 +61,7 @@ class AikoMarkdownBlock {
   final TextStyle? style;
 }
 
-List<AikoMarkdownBlock> parseAikoMarkdownBlocks(
-  String text,
-  TextStyle base,
-) {
+List<AikoMarkdownBlock> parseAikoMarkdownBlocks(String text, TextStyle base) {
   if (text.isEmpty) return const [];
   final lines = text.split('\n');
   final blocks = <AikoMarkdownBlock>[];
@@ -193,7 +191,8 @@ List<InlineSpan> _parseInline(String text, TextStyle base) {
             style: base.copyWith(
               fontFamily: 'monospace',
               fontFamilyFallback: const ['Menlo', 'Courier'],
-              backgroundColor: base.color?.withValues(alpha: 0.08) ??
+              backgroundColor:
+                  base.color?.withValues(alpha: 0.08) ??
                   Colors.black.withValues(alpha: 0.06),
               fontSize: (base.fontSize ?? 15) - 1,
             ),
@@ -229,7 +228,8 @@ List<InlineSpan> _parseInline(String text, TextStyle base) {
 bool _isItalicBoundary(String text, int start, int end, String marker) {
   if (marker == '*') return true;
   final leftOk = start == 0 || !_isWordChar(text.codeUnitAt(start - 1));
-  final rightOk = end == text.length - 1 || !_isWordChar(text.codeUnitAt(end + 1));
+  final rightOk =
+      end == text.length - 1 || !_isWordChar(text.codeUnitAt(end + 1));
   return leftOk && rightOk;
 }
 

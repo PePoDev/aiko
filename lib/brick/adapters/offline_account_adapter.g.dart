@@ -18,15 +18,8 @@ Future<OfflineAccount> _$OfflineAccountFromSupabase(
         : data['institution'] as String?,
     includeInNetWorth: data['include_in_net_worth'] as bool,
     isActive: data['is_active'] as bool,
-    detailsJson: _readDetailsJson(data['details']),
+    detailsJson: accountDetailsFromSupabase(data['details']),
   );
-}
-
-String _readDetailsJson(Object? raw) {
-  if (raw == null) return '{}';
-  if (raw is String) return raw.isEmpty ? '{}' : raw;
-  if (raw is Map) return jsonEncode(raw);
-  return '{}';
 }
 
 Future<Map<String, dynamic>> _$OfflineAccountToSupabase(
@@ -44,17 +37,8 @@ Future<Map<String, dynamic>> _$OfflineAccountToSupabase(
     'institution': instance.institution,
     'include_in_net_worth': instance.includeInNetWorth,
     'is_active': instance.isActive,
-    'details': _writeDetailsJson(instance.detailsJson),
+    'details': accountDetailsToSupabase(instance.detailsJson),
   };
-}
-
-Object _writeDetailsJson(String detailsJson) {
-  if (detailsJson.isEmpty) return <String, dynamic>{};
-  try {
-    final decoded = jsonDecode(detailsJson);
-    if (decoded is Map<String, dynamic>) return decoded;
-  } catch (_) {}
-  return <String, dynamic>{};
 }
 
 Future<OfflineAccount> _$OfflineAccountFromSqlite(
@@ -74,10 +58,7 @@ Future<OfflineAccount> _$OfflineAccountFromSqlite(
         : data['institution'] as String?,
     includeInNetWorth: data['include_in_net_worth'] == 1,
     isActive: data['is_active'] == 1,
-    // HAND-PATCH: see matching note in _$OfflineAccountFromSupabase. Existing
-    // SQLite rows added before the `details_json` column was backfilled are
-    // NULL here, so the generated `as String` cast would throw.
-    detailsJson: (data['details_json'] as String?) ?? '{}',
+    detailsJson: accountDetailsFromSqlite(data['details_json']),
   )..primaryKey = data['_brick_id'] as int;
 }
 

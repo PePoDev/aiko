@@ -210,9 +210,7 @@ void main() {
     final accountsIndicator = find.byKey(
       const ValueKey('AikoNavIndicator_/accounts'),
     );
-    final homeIndicator = find.byKey(
-      const ValueKey('AikoNavIndicator_/home'),
-    );
+    final homeIndicator = find.byKey(const ValueKey('AikoNavIndicator_/home'));
 
     expect(tester.getSize(accountsIndicator).width, 0);
     expect(tester.getSize(accountsIndicator).height, 3);

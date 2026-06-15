@@ -84,14 +84,21 @@ final investmentHoldingRepositoryProvider =
 class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
   @override
   Future<List<FinanceTransaction>> build() async {
-    final repo = ref.watch(transactionRepositoryProvider);
-    final transactions = await repo.list();
-    await _reconcileAccountBalances(transactions);
-    // Cache the loaded data so leaving and returning to a screen (e.g. the
-    // Overview tab) reuses it instead of showing a loading state again. A
-    // failed load is not cached, so it still retries on the next visit.
-    ref.keepAlive();
-    return transactions;
+    try {
+      final repo = ref.watch(transactionRepositoryProvider);
+      final transactions = await repo.list();
+      await _reconcileAccountBalances(transactions);
+      // Cache the loaded data so leaving and returning to a screen (e.g. the
+      // Overview tab) reuses it instead of showing a loading state again. A
+      // failed load is not cached, so it still retries on the next visit.
+      ref.keepAlive();
+      return transactions;
+    } catch (error, stackTrace) {
+      // Surface the failure to the screen's `AikoScreenState.error` so a
+      // broken offline store / secure-storage channel renders a recoverable
+      // empty/error widget instead of crashing the provider tree.
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 
   Future<FinanceTransaction> saveTransaction(
@@ -264,8 +271,14 @@ final transactionsProvider =
 class AccountsNotifier extends AsyncNotifier<List<Account>> {
   @override
   Future<List<Account>> build() async {
-    final repo = ref.watch(accountRepositoryProvider);
-    return repo.list();
+    try {
+      final repo = ref.watch(accountRepositoryProvider);
+      return repo.list();
+    } catch (error, stackTrace) {
+      // Surface to `AikoScreenState.error`; a recoverable empty state is
+      // acceptable for fresh installs even with no secure-storage backend.
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 
   Future<void> addAccount(Account account) async {
@@ -477,10 +490,16 @@ final categoryGroupsProvider =
 class BudgetsNotifier extends AsyncNotifier<List<Budget>> {
   @override
   Future<List<Budget>> build() async {
-    final repo = ref.watch(budgetRepositoryProvider);
-    final budgets = await repo.list();
-    ref.keepAlive();
-    return budgets;
+    try {
+      final repo = ref.watch(budgetRepositoryProvider);
+      final budgets = await repo.list();
+      ref.keepAlive();
+      return budgets;
+    } catch (error, stackTrace) {
+      // Surface to `AikoScreenState.error`; offline + secure-storage broken
+      // must render a recoverable error widget, not a provider-tree crash.
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 
   Future<void> addBudget(Budget budget) async {
@@ -523,10 +542,16 @@ final budgetsProvider =
 class GoalsNotifier extends AsyncNotifier<List<Goal>> {
   @override
   Future<List<Goal>> build() async {
-    final repo = ref.watch(goalRepositoryProvider);
-    final goals = await repo.list();
-    ref.keepAlive();
-    return goals;
+    try {
+      final repo = ref.watch(goalRepositoryProvider);
+      final goals = await repo.list();
+      ref.keepAlive();
+      return goals;
+    } catch (error, stackTrace) {
+      // Surface to `AikoScreenState.error`; offline + secure-storage broken
+      // must render a recoverable error widget, not a provider-tree crash.
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 
   Future<void> addGoal(Goal goal) async {
@@ -568,20 +593,32 @@ final aikoInsightsProvider = FutureProvider.autoDispose<List<AikoInsight>>((
 final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummary>((
   ref,
 ) async {
-  final repo = ref.watch(dashboardRepositoryProvider);
-  final summary = await repo.loadSummary();
-  // Keep the computed summary cached across tab switches so the Overview shows
-  // instantly on return; pull-to-refresh recomputes it on demand.
-  ref.keepAlive();
-  return summary;
+  try {
+    final repo = ref.watch(dashboardRepositoryProvider);
+    final summary = await repo.loadSummary();
+    // Keep the computed summary cached across tab switches so the Overview
+    // shows instantly on return; pull-to-refresh recomputes it on demand.
+    ref.keepAlive();
+    return summary;
+  } catch (error, stackTrace) {
+    // Surface to `AikoScreenState.error`; a broken offline store must render
+    // a recoverable error widget on the Overview, not crash the dashboard.
+    Error.throwWithStackTrace(error, stackTrace);
+  }
 });
 
 final dashboardDueItemsProvider =
     FutureProvider.autoDispose<List<DashboardDueItem>>((ref) async {
-      final repo = ref.watch(dashboardDueItemRepositoryProvider);
-      final items = await repo.loadUpcomingItems(DateTime.now());
-      ref.keepAlive();
-      return items;
+      try {
+        final repo = ref.watch(dashboardDueItemRepositoryProvider);
+        final items = await repo.loadUpcomingItems(DateTime.now());
+        ref.keepAlive();
+        return items;
+      } catch (error, stackTrace) {
+        // Surface to `AikoScreenState.error`; offline + secure-storage broken
+        // must render a recoverable error widget, not a provider-tree crash.
+        Error.throwWithStackTrace(error, stackTrace);
+      }
     });
 
 class DashboardLayoutNotifier

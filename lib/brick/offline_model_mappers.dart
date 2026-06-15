@@ -4,20 +4,26 @@ import '../core/money/money.dart';
 import '../features/accounts/data/account_details_dto.dart';
 import '../features/accounts/domain/account.dart';
 import '../features/accounts/domain/account_details.dart';
-import '../features/budgets/domain/budget.dart';
 import '../features/categories/domain/category.dart';
-import '../features/goals/domain/goal.dart';
 import '../features/investments/domain/investment_holding.dart';
 import '../features/settings/domain/profile.dart';
 import '../features/transactions/domain/transaction.dart';
 import 'models/account.model.dart';
-import 'models/budget.model.dart';
 import 'models/category.model.dart';
 import 'models/category_group.model.dart';
-import 'models/goal.model.dart';
 import 'models/investment_holding.model.dart';
 import 'models/profile.model.dart';
 import 'models/transaction.model.dart';
+
+// Budgets -> Categories and Goals -> Accounts merge:
+// - `Budget` / `Goal` domain models and their Brick models are gone. The
+//   budget shape now lives on `Category` (`monthlyLimit`, `budgetPeriod`,
+//   `rolloverUnused`, `alertThresholds`); the goal shape now lives on
+//   `Account` with `type == AccountType.goal` (`targetAmount`, `targetDate`,
+//   `priority`). Mappers only read the new shape; the one-time data migration
+//   in `lib/core/sync/budget_goal_migration.dart` is responsible for
+//   rewriting the legacy `budgets` / `goals` rows before the app reads from
+//   them.
 
 extension OfflineAccountMapper on OfflineAccount {
   Account toDomain() {
@@ -31,6 +37,13 @@ extension OfflineAccountMapper on OfflineAccount {
       includeInNetWorth: includeInNetWorth,
       isActive: isActive,
       details: _parseDetails(detailsJson),
+      targetAmount: _parseMoney(goalTargetAmount, currency),
+      targetDate: goalTargetDate,
+      priority: _enumByName(
+        GoalPriority.values,
+        goalPriority,
+        GoalPriority.medium,
+      ),
     );
   }
 }
@@ -48,51 +61,19 @@ extension AccountOfflineMapper on Account {
       includeInNetWorth: includeInNetWorth,
       isActive: isActive,
       detailsJson: _detailsToJson(resolvedDetails),
-    );
-  }
-}
-
-extension OfflineBudgetMapper on OfflineBudget {
-  Budget toDomain() {
-    return Budget(
-      id: id,
-      userId: userId,
-      name: name,
-      categoryId: categoryId,
-      amount: Money.parse(amount, currency),
-      periodStart: periodStart,
-      periodEnd: periodEnd,
-      period: _enumByName(BudgetPeriod.values, period, BudgetPeriod.monthly),
-      alertThresholds: alertThresholds,
-      status: _enumByName(BudgetStatus.values, status, BudgetStatus.active),
-      includedCategoryIds: includedCategoryIds,
-      isAppDefined: isAppDefined,
-    );
-  }
-}
-
-extension BudgetOfflineMapper on Budget {
-  OfflineBudget toOffline({required String userId}) {
-    return OfflineBudget(
-      id: id,
-      userId: userId,
-      name: name,
-      categoryId: categoryId,
-      amount: amount.amount.toString(),
-      currency: amount.currency,
-      periodStart: periodStart,
-      periodEnd: periodEnd,
-      period: period.name,
-      alertThresholds: alertThresholds,
-      status: status.name,
-      includedCategoryIds: includedCategoryIds,
-      isAppDefined: isAppDefined,
+      goalTargetAmount: targetAmount?.amount.toString(),
+      goalTargetDate: targetDate,
+      goalPriority: priority.name,
     );
   }
 }
 
 extension OfflineCategoryMapper on OfflineCategory {
   Category toDomain() {
+    final budget = _parseMoneyPair(
+      budgetAmount: budgetAmount,
+      budgetCurrency: budgetCurrency,
+    );
     return Category(
       id: id,
       userId: userId,
@@ -110,6 +91,16 @@ extension OfflineCategoryMapper on OfflineCategory {
       budgetEnabled: budgetEnabled,
       isActive: isActive,
       createdAt: createdAt,
+      monthlyLimit: budget,
+      budgetPeriod: _enumByName(
+        CategoryBudgetPeriod.values,
+        budgetPeriod,
+        CategoryBudgetPeriod.monthly,
+      ),
+      rolloverUnused: budgetRollover,
+      alertThresholds: alertThresholds.isEmpty
+          ? Category.defaultAlertThresholds
+          : alertThresholds,
     );
   }
 }
@@ -129,6 +120,11 @@ extension CategoryOfflineMapper on Category {
       budgetEnabled: budgetEnabled,
       isActive: isActive,
       createdAt: createdAt,
+      budgetAmount: monthlyLimit?.amount.toString(),
+      budgetCurrency: monthlyLimit?.currency,
+      budgetPeriod: budgetPeriod.name,
+      budgetRollover: rolloverUnused,
+      alertThresholds: alertThresholds,
     );
   }
 }
@@ -157,43 +153,6 @@ extension CategoryGroupOfflineMapper on CategoryGroup {
       color: color,
       sortOrder: sortOrder,
       createdAt: createdAt,
-    );
-  }
-}
-
-extension OfflineGoalMapper on OfflineGoal {
-  Goal toDomain() {
-    return Goal(
-      id: id,
-      userId: userId,
-      name: name,
-      purpose: _enumByName(GoalPurpose.values, purpose, GoalPurpose.custom),
-      targetAmount: Money.parse(targetAmount, currency),
-      currentAmount: Money.parse(currentAmount, currency),
-      targetDate: targetDate,
-      linkedAccountId: linkedAccountId,
-      priority: priority,
-      successProbability: successProbability,
-      status: _enumByName(GoalStatus.values, status, GoalStatus.active),
-    );
-  }
-}
-
-extension GoalOfflineMapper on Goal {
-  OfflineGoal toOffline({required String userId}) {
-    return OfflineGoal(
-      id: id,
-      userId: userId,
-      name: name,
-      purpose: purpose.name,
-      targetAmount: targetAmount.amount.toString(),
-      currentAmount: currentAmount.amount.toString(),
-      currency: targetAmount.currency,
-      targetDate: targetDate,
-      linkedAccountId: linkedAccountId,
-      priority: priority,
-      successProbability: successProbability,
-      status: status.name,
     );
   }
 }
@@ -362,6 +321,28 @@ T? _optionalEnumByName<T extends Enum>(Iterable<T> values, String? name) {
     }
   }
   return null;
+}
+
+Money? _parseMoney(String? amount, String fallbackCurrency) {
+  if (amount == null || amount.isEmpty) return null;
+  try {
+    return Money.parse(amount, fallbackCurrency);
+  } catch (_) {
+    return null;
+  }
+}
+
+Money? _parseMoneyPair({
+  required String? budgetAmount,
+  required String? budgetCurrency,
+}) {
+  if (budgetAmount == null || budgetAmount.isEmpty) return null;
+  if (budgetCurrency == null || budgetCurrency.isEmpty) return null;
+  try {
+    return Money.parse(budgetAmount, budgetCurrency);
+  } catch (_) {
+    return null;
+  }
 }
 
 AccountDetails? _parseDetails(String raw) {

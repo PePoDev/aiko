@@ -12,7 +12,7 @@
 
 ## What Is Aiko?
 
-Cross-platform (iOS + Android) personal finance app built with Flutter + Supabase Cloud. At its core, **Aiko** (calm, anime-style, blue hair) gives friendly, non-judgmental money guidance. A data-first financial OS: 13 transaction types, smart budgeting (envelope / zero-based / 50-30-20), SMART goals, cash flow + pace, credit/debt/loan payoff, portfolio + net worth, tax organization, ~60 calculators, AI insights, Ask Aiko chat, monthly Aiko Review, learning hub, multi-currency Travel Mode. See [Core Features](#core-features).
+Cross-platform (iOS + Android) personal finance app built with Flutter + Supabase Cloud. At its core, **Aiko** (calm, anime-style, blue hair) gives friendly, non-judgmental money guidance. A data-first financial OS: 13 transaction types, category-owned budget limits (envelope / zero-based / 50-30-20 templates, monthly/weekly/yearly/daily periods, rollover), goal accounts (SMART target, date, priority, Monte Carlo success probability), cash flow + pace, credit/debt/loan payoff, portfolio + net worth, tax organization, ~60 calculators, AI insights, Ask Aiko chat, monthly Aiko Review, learning hub, multi-currency Travel Mode. See [Core Features](#core-features).
 
 ---
 
@@ -22,7 +22,7 @@ Cross-platform (iOS + Android) personal finance app built with Flutter + Supabas
 - **Voice:** warm, clear, positive, solution-oriented — never shame-based. Use "Groceries are pacing high. Lower flexible spending by $18 this week to stay on track." Avoid "You overspent again."
 - **Color:** Primary blue `#3B82F6` (Deep `#1D4ED8` | Soft `#93C5FD` | Pale `#EFF6FF`). Semantic: Success Green (savings/income), Warning Orange (bills/limits), Danger Red (overspending), Purple (Premium/AI), Teal (analytics/portfolio).
 - **Principle — *Data first, Aiko enhanced*:** the character guides onboarding, greetings, reviews, and insights without obscuring data or charts.
-- **Product register:** product UI, not a marketing site. Familiar patterns, dense-but-readable hierarchy, consistent components, explanatory motion, AI warmth only when it clarifies a decision. Avoid decorative gradients, glassmorphism, ornamental/nested cards, oversized heroes, meaningless accents, and Aiko artwork over numbers/charts/forms/actions. Budget forms own budget inclusion — category forms do not.
+- **Product register:** product UI, not a marketing site. Familiar patterns, dense-but-readable hierarchy, consistent components, explanatory motion, AI warmth only when it clarifies a decision. Avoid decorative gradients, glassmorphism, ornamental/nested cards, oversized heroes, meaningless accents, and Aiko artwork over numbers/charts/forms/actions. Category forms own budget fields (limit / period / rollover / thresholds) for non-default categories — there is no separate Budgets form.
 
 **Design tenets:** (1) Data first, Aiko enhanced. (2) One primary action per screen region. (3) Every number needs context (period/account/category/target/status). (4) Lists compact by default; detail screens breathe. (5) Cards = real objects, metrics, or grouped tasks. (6) Forms disclose advanced controls only when the feature owns that choice. (7) Empty states teach the next action; errors explain recovery. (8) Dark mode is first-class. (9) 48px minimum touch target.
 
@@ -116,6 +116,7 @@ lib/
 │                                #   monetization, onboarding, overview, settings, tax_center,
 │                                #   transactions, travel_mode
 ├── shared/                      # Cross-feature widgets, state, test data
+├── l10n/                        # Generated AppLocalizations (en, th) + .arb sources
 └── theme/                       # Design system (colors, typography, spacing, themes)
 
 supabase/                        # migrations/ (Postgres + RLS + functions), seed.sql, storage/
@@ -191,6 +192,12 @@ Core finance data reads/writes locally first via [Brick](https://github.com/GetD
 - **Routing:** all routes in `lib/app/app_router.dart`. Kebab-case paths (`/credit-cards`, `/debt-loans`, `/tax-center`). Idea-inspired screens belong to the existing feature owner — add subroutes/menus/inline tools, never duplicate a main screen. Accounts and Categories are primary nav tabs — don't add them as Planning or Menu cards.
 - **Money:** never use `double`. Use `Money` (`lib/core/money/money.dart`, wraps `Decimal`); format via `lib/core/formatting/currency_formatter.dart` (locale-aware `intl`). Base currency lives in the profile; multi-currency supports travel and portfolio.
 - **Naming:** files `snake_case.dart`, classes `PascalCase`, vars/functions `camelCase`, routes `/kebab-case`, DB tables/columns `snake_case`, feature dirs `snake_case`.
+- **`super.key` convention (T-705):** every `StatelessWidget` / `StatefulWidget` constructor that takes a `Key?` parameter forwards it as `super.key`. One pattern, enforced; it lets the widget tree optimisation keys flow through every node without each call site spelling out `key: widget.key`.
+- **Notifier / Service / Controller convention (T-601):** three distinct roles, each named by suffix so the call site reads as a contract.
+  - `*Notifier` (e.g. `TransactionsNotifier extends AsyncNotifier<…>`) — reactive Riverpod state. Owns the in-memory snapshot, listens to repository events, calls `ref.keepAlive()` when appropriate. No business logic that doesn't need to update the UI.
+  - `*Service` (e.g. `PredictionService`, `OfflineDataMigrator`, `CategoryBudgetProgressService`) — pure or near-pure function object. Holds no Riverpod state, no widget refs. Stateless (`const` ctor) and side-effect-bounded so it's easy to unit-test in isolation.
+  - `*Controller` (e.g. `AikoChatController`, `DashboardLayoutNotifier` when it talks to widgets) — orchestrates a Notifier + Service + UI side effects. Owns the stream, retry, and user-facing message derivation, but doesn't compute the business result itself.
+  - Repositories (`*Repository`) sit in `data/` and own persistence — they wrap a Brick `OfflineStore` and never touch `ref` / `BuildContext`.
 
 ### Sync Fields & Conflict Resolution
 
@@ -220,8 +227,8 @@ Cost stays low: most reads come from local SQLite, dashboards read local summary
 
 - **🏠 Customizable Dashboard** — Aiko welcome card + separately managed Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, Aiko Goal Simulator panels; quick-add transaction; scrollable Edit layout action.
 - **💰 Money Tracking & Automation** — 13 transaction types (income, expense, transfer, refund, investment buy/sell, dividend, interest, loan payment, credit card payment, tax payment, fee, adjustment). Split transactions, receipt attachments, recurring entries (Once/Daily/Weekly/Monthly/Annually, each with its own end date), duplicate detection. Amount-first quick entry with receipt OCR and voice. Transaction rules auto-apply categories/tags/splits/names by merchant keyword, account, or amount.
-- **📊 Smart Budgeting** — Monthly/weekly/yearly/custom, category- and account-level, with envelope, zero-based, 50/30/20 templates and rollover. Aiko alerts at 50/75/90/100%. Safe-to-Spend: `Leftover = Income − Fixed Bills − Reserves − Debt − Goals − Current Spending`. Pace compares spending velocity against limits.
-- **🎯 Financial Goals** — SMART goals with priority ranking, auto-calculated monthly contributions, progress forecast, Monte Carlo success probability, saving plans with milestone alerts.
+- **📊 Smart Budgeting (merged into Categories)** — Each Category owns an optional budget: monthly/weekly/yearly/daily period, envelope / zero-based / 50-30-20 templates, one-period rollover, alert thresholds (default 50/75/90/100%). Safe-to-Spend: `Leftover = Income − Fixed Bills − Reserves − Debt − Goals − Current Spending`. Pace compares spending velocity against limits.
+- **🎯 Financial Goals (merged into Accounts)** — Goal accounts (`Account.type == goal`) carry a SMART target amount, target date, and priority. `currentBalance` is the saved amount; auto-calculated monthly contribution, Monte Carlo success probability, and the saving plan all read from the same row.
 - **📈 Insights & Predictions** — Spending trends, cash flow + Sankey, pace, leftover/safe-to-spend, end-of-month forecasts, budget-overrun prediction, net worth projection, retirement readiness.
 - **🤖 Aiko AI Assistant** — Natural-language chat, personalized insights, budget recommendations, debt payoff strategies, monthly reviews.
 - **💳 Credit & Debt** — Statement balances, APR, rewards, due dates, utilization; snowball/avalanche payoff with extra-payment and interest-savings simulation.
@@ -521,10 +528,10 @@ Six expression variants: `happy`, `thinking`, `encouraging`, `warning`, `celebra
 
 | Owner | Owns |
 | --- | --- |
-| Categories | Name, type, group, icon, color, active/archive state |
-| Budgets | Category inclusion, limits, periods, rollover, alerts |
+| Categories | Name, type, group, icon, color, active/archive state, and optional budget limit (amount, period, rollover, alert thresholds) |
+| Budgets | Budgets is dissolved. Limits live on the Category that owns them. |
 | Transactions | Account, category, amount, merchant, notes, tags, receipt, voice, split data |
-| Accounts | Balances, currency, account type, active state, net-worth inclusion |
+| Accounts | balances, currency, account type, active state, net-worth inclusion, and (when type=goal) target amount, target date, priority. |
 | Settings | App config, profile, privacy, security, sync, notification, route links |
 | Aiko | AI explanation, suggestions, review, optimization, chat |
 | Dashboard | In-page monthly overview, scrollable layout customization, notifications, cross-feature summaries |

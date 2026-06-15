@@ -34,7 +34,7 @@ Tasks are grouped into **phases** for ordered execution. Within a phase, P-level
 
 Small, surgical, low-risk. Nothing here changes behavior. Goal: remove the things that will silently corrupt data or make the codebase look bigger than it is.
 
-- [ ] **T-001 Remove `client.auth.admin.deleteUser` call** (P0, security)
+- [x] **T-001 Remove `client.auth.admin.deleteUser` call** (P0, security)
   - `lib/features/auth/data/auth_repository.dart:243` calls `client.auth.admin.deleteUser()` with the **anon** client — this will always fail at runtime. The fallback at line 245 only deletes the profile row, not the auth user.
   - Fix: drop the call; mark the profile `deleted_at` and sign out, or call a server-side function.
   - Verify: `flutter test` still passes; manual sign-in / sign-out still works.
@@ -45,12 +45,12 @@ Small, surgical, low-risk. Nothing here changes behavior. Goal: remove the thing
   - Also delete `test/features/accounts/data/account_dto_test.dart` and `account_details_dto_test.dart`.
   - Verify: `flutter analyze` and `flutter test` clean.
 
-- [ ] **T-003 Delete `core/sync/multi_device_sync_service.dart`** (P0, dead code)
+- [x] **T-003 Delete `core/sync/multi_device_sync_service.dart`** (P0, dead code)
   - Whole file is a stub: 1500 ms `Future.delayed`, fake devices upsert, no callers. `syncNow`, `subscribeToChanges`, `resolveConflictLWW` are referenced by nothing.
   - `lib/core/sync/sync_state.dart` is also unreferenced — delete with it.
   - Verify: `flutter analyze` and `flutter test` clean.
 
-- [ ] **T-004 Remove `_debugDumpSyncState` from `transaction_repository`** (P0, hot path)
+- [x] **T-004 Remove `_debugDumpSyncState` from `transaction_repository`** (P0, hot path)
   - `lib/features/transactions/data/transaction_repository.dart:37-75`. Comment says *"TEMPORARY diagnostic … Remove once the sync issue is resolved."* The sync issue is resolved (offline path works). It runs an 8-row `debugPrint` and a Supabase query on every `list()` call.
   - Fix: delete the method and its call site.
   - Verify: dashboard / list / detail screens still render.

@@ -89,6 +89,7 @@ class AuthRepository {
 
     if (client.auth.currentSession != null) {
       await _ensureProfileAndDefaultsExist(user.id, user.email ?? email);
+      await _cancelPendingDeletion(user.id);
       await _prepareOfflineDataForSync(user.id);
     }
     await _markKnownAccount();
@@ -112,6 +113,7 @@ class AuthRepository {
     }
 
     await _ensureProfileAndDefaultsExist(user.id, user.email ?? email);
+    await _cancelPendingDeletion(user.id);
     await _prepareOfflineDataForSync(user.id);
     await _markKnownAccount();
     _session = AuthSession(userId: user.id, email: user.email ?? email);
@@ -232,17 +234,44 @@ class AuthRepository {
     await client.auth.resetPasswordForEmail(email);
   }
 
+  /// Requests account deletion. The server (`delete-account` Edge Function)
+  /// schedules a hard delete after a 3-day grace period and emails the user;
+  /// the actual purge — which needs the secret key the app never holds — is done
+  /// later by the `purge-deleted-accounts` job. We sign out so the next sign-in
+  /// is what cancels the deletion (see [_cancelPendingDeletion]). Local data is
+  /// intentionally left in place: it re-syncs on a cancel-login, and is removed
+  /// server-side if the grace period elapses.
   Future<void> deleteAccount() async {
     final client = AikoSupabase.requireClient();
     final session = client.auth.currentSession;
     if (session == null) {
       throw AuthException('No active session found.');
     }
+    final response = await client.functions.invoke('delete-account');
+    if (response.status != 200) {
+      final data = response.data;
+      final message = data is Map && data['error'] is String
+          ? data['error'] as String
+          : 'Failed to delete account. Please try again.';
+      throw AuthException(message);
+    }
+    await client.auth.signOut();
+  }
+
+  /// Cancels a pending account deletion by clearing `deletion_scheduled_at`.
+  /// Called on every successful sign-in/restore: logging back in within the
+  /// 3-day grace period undoes the deletion. Best-effort and idempotent — a
+  /// no-op when nothing is scheduled.
+  Future<void> _cancelPendingDeletion(String userId) async {
     try {
-      final userId = session.user.id;
-      await client.auth.admin.deleteUser(userId);
-    } on AuthException {
-      await client.from('profiles').delete().eq('id', session.user.id);
+      final gateway =
+          _bootstrapGateway ??
+          SupabaseAuthBootstrapGateway(AikoSupabase.requireClient());
+      await gateway.clearDeletionSchedule(userId);
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('[aiko-auth] cancel pending deletion skipped: $error');
+      }
     }
   }
 
@@ -261,6 +290,9 @@ class AuthRepository {
       // A cached Supabase session is enough to continue offline. Local data
       // will be read from Brick and queued writes will sync when online.
     }
+    // Restoring a session counts as logging in — cancel any pending deletion so
+    // a user who returns within the grace period keeps their account.
+    await _cancelPendingDeletion(session.userId);
     // Seed default categories and reclaim any data still orphaned under an
     // anonymous `local:` id from a session where the user used the app before
     // signing in, so both reach Supabase.
@@ -359,6 +391,10 @@ abstract interface class AuthBootstrapGateway {
   });
 
   Future<void> insert(String table, Object values);
+
+  /// Clears `profiles.deletion_scheduled_at` for [userId], cancelling a pending
+  /// account deletion. No-op if nothing is scheduled.
+  Future<void> clearDeletionSchedule(String userId);
 }
 
 class SupabaseAuthBootstrapGateway implements AuthBootstrapGateway {
@@ -382,5 +418,13 @@ class SupabaseAuthBootstrapGateway implements AuthBootstrapGateway {
   @override
   Future<void> insert(String table, Object values) {
     return _client.from(table).insert(values);
+  }
+
+  @override
+  Future<void> clearDeletionSchedule(String userId) {
+    return _client
+        .from('profiles')
+        .update({'deletion_scheduled_at': null})
+        .eq('id', userId);
   }
 }

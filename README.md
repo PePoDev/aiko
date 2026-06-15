@@ -300,6 +300,49 @@ supabase functions serve aiko-chat --env-file ./supabase/functions/.env.local  #
 
 ---
 
+## Account Deletion (3-day grace period)
+
+"Delete account" (Profile) does **not** delete immediately — it schedules a hard delete 3 days out, emails the user, and signs them out. Logging back in within those 3 days cancels it. This protects against a misclick or a compromised session. Deletion runs server-side because removing the `auth.users` login needs a **secret (RLS-bypassing) key**, which never ships in the app.
+
+**Flow:**
+
+1. **Request** — `AuthRepository.deleteAccount` calls `functions.invoke('delete-account')`, then signs out. `supabase/functions/delete-account/` validates the caller's JWT (user id from the *token*, never the body), sets `profiles.deletion_scheduled_at = now() + 3 days`, and sends the heads-up email over SMTP (`_shared/email.ts`; best-effort — a mail outage never blocks the schedule). Local Brick data is intentionally left in place so a cancel-login is seamless.
+2. **Cancel** — every successful sign-in/restore (`signIn`, `signUp`, `_restoreSessionDefaults`) calls `_cancelPendingDeletion`, which clears `deletion_scheduled_at` via the user's RLS-scoped client. Idempotent no-op when nothing is scheduled.
+3. **Purge** — an hourly `pg_cron` job (migration `…_purge_deleted_accounts_cron.sql`) calls `purge-deleted-accounts` over `pg_net`. That function (guarded by `PURGE_CRON_SECRET`, not a user JWT) **deletes the `profiles` row** (cascades all finance data via `on delete cascade`) and then the **auth user** for every row past its grace period. Note the schema quirk: `profiles.id` is *not* FK'd to `auth.users`, so the auth user alone wouldn't cascade — the profile row must be deleted explicitly.
+
+Never delete the auth user from the app with the publishable/anon client — `auth.admin.*` always fails there.
+
+**Keys** are read from the new **JWT Signing Keys** env vars, with a fallback to the deprecated legacy keys during migration:
+
+| Purpose | New (preferred) | Legacy (deprecated) |
+| --- | --- | --- |
+| Verify caller JWT | `SUPABASE_PUBLISHABLE_KEYS['default']` (`sb_publishable_…`) | `SUPABASE_ANON_KEY` |
+| Admin / purge | `SUPABASE_SECRET_KEYS['default']` (`sb_secret_…`) | `SUPABASE_SERVICE_ROLE_KEY` |
+
+`SUPABASE_*_KEYS` are JSON maps keyed by name (e.g. `{"default":"sb_secret_…"}`), injected by the runtime — never expose the secret map to client code.
+
+**Deploy & configure:**
+
+```sh
+supabase functions deploy delete-account
+supabase functions deploy purge-deleted-accounts
+
+# SMTP for the heads-up email (reuse the Auth SMTP server):
+supabase secrets set SMTP_HOST=smtp.example.com SMTP_PORT=465 \
+  SMTP_USERNAME=apikey SMTP_PASSWORD=... SMTP_FROM="Aiko <noreply@yourdomain.com>"
+
+# Shared secret the cron job presents to purge-deleted-accounts:
+supabase secrets set PURGE_CRON_SECRET=<random-long-string>
+
+# pg_cron reads the function URL + that secret from Vault (keeps them out of git):
+#   select vault.create_secret('https://<ref>.supabase.co/functions/v1', 'edge_base_url');
+#   select vault.create_secret('<same-random-long-string>', 'purge_cron_secret');
+```
+
+The runtime injects the key env vars for deployed functions; for local dev add `SUPABASE_SECRET_KEYS` / `SUPABASE_PUBLISHABLE_KEYS` (or the legacy keys) and the SMTP/cron secrets to `.env.local`.
+
+---
+
 ## Database Schema
 
 15 core tables, all protected by Row Level Security:

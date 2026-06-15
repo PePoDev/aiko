@@ -1,5 +1,4 @@
 import 'package:aiko/core/monetization/feature_entitlement.dart';
-import 'package:aiko/core/sync/sync_state.dart';
 import 'package:aiko/features/learning_hub/application/lesson_recommendation_service.dart';
 import 'package:aiko/features/devices/application/device_session_service.dart';
 import 'package:aiko/features/devices/domain/device_session.dart';
@@ -26,11 +25,9 @@ void main() {
       featureKey: 'advancedReports',
       requiredTier: PlanTier.premium,
     );
-    const sync = DeviceSyncState(deviceId: 'phone', status: SyncStatus.synced);
 
     expect(recommendation.key, 'budgeting');
     expect(trusted.canSync, isTrue);
     expect(entitlement.allows(PlanTier.free), isFalse);
-    expect(sync.needsUserAttention, isFalse);
   });
 }

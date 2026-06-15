@@ -77,17 +77,17 @@ class AuthenticatedShell extends StatelessWidget {
         _isSecondaryRoute(location)) {
       return 0;
     }
-    if (location.startsWith('/accounts') ||
-        location.startsWith('/credit-cards')) {
+    if (location.startsWith('/transactions')) {
       return 1;
     }
-    if (location.startsWith('/aiko')) {
+    if (location.startsWith('/accounts') ||
+        location.startsWith('/credit-cards')) {
       return 2;
     }
     if (location.startsWith('/categories')) {
       return 3;
     }
-    if (location.startsWith('/transactions')) {
+    if (location.startsWith('/aiko')) {
       return 4;
     }
     return 0;

@@ -74,33 +74,28 @@ class OfflineChatEngine implements ChatEngine {
   Stream<ChatReplyEvent> streamReply({
     required List<ChatMessage> history,
     AikoFinancialContext? context,
-  }) {
+  }) async* {
     // The on-device engine answers from its own rule-based service; the
     // snapshot is only used by the cloud engine.
-    final controller = StreamController<ChatReplyEvent>();
-    scheduleMicrotask(() {
-      final lastUser = history.lastWhere(
-        (m) => m.isUser,
-        orElse: () => const ChatMessage(role: 'user', content: ''),
-      );
-      AikoResponse response;
-      try {
-        response = service.answerQuestion(question: lastUser.content);
-      } catch (e) {
-        controller.add(ChatReplyError(e));
-        controller.close();
-        return;
-      }
-      final text = response.answer.trim();
-      if (response.disclaimer != null && response.disclaimer!.isNotEmpty) {
-        controller.add(ChatReplyDelta('$text\n\n_${response.disclaimer}_'));
-      } else {
-        controller.add(ChatReplyDelta(text));
-      }
-      controller.add(ChatReplyDone(text));
-      controller.close();
-    });
-    return controller.stream;
+    final lastUser = history.lastWhere(
+      (m) => m.isUser,
+      orElse: () => const ChatMessage(role: 'user', content: ''),
+    );
+    final AikoResponse response;
+    try {
+      response = service.answerQuestion(question: lastUser.content);
+    } catch (e) {
+      yield ChatReplyError(e);
+      return;
+    }
+    final text = response.answer.trim();
+    final disclaimer = response.disclaimer;
+    yield ChatReplyDelta(
+      disclaimer != null && disclaimer.isNotEmpty
+          ? '$text\n\n_${disclaimer}_'
+          : text,
+    );
+    yield ChatReplyDone(text);
   }
 }
 

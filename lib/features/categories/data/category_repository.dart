@@ -22,9 +22,17 @@ class CategoryRepository {
 
   Future<Category> save(Category category) async {
     final currentList = await list();
-    if (category.isDefault &&
-        currentList.any((item) => item.id == category.id)) {
-      throw StateError('Default categories cannot be edited.');
+    // Default categories stay read-only for identity, but a stored row that
+    // carries a default's id acts as a per-user *budget overlay* — the
+    // provider merges only its budget fields onto the canonical default
+    // (see `_combineWithDefaults`). Duplicate/identity checks below are
+    // skipped for overlays since their name/type mirror the default.
+    if (category.isDefault) {
+      final userId = await OfflineUserContext().resolveUserId();
+      final saved = await OfflineStore().upsert(
+        category.toOffline(userId: userId),
+      );
+      return saved.toDomain();
     }
 
     final duplicate = currentList.any(

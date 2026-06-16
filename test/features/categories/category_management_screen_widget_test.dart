@@ -1,4 +1,5 @@
 import 'package:aiko/app/providers.dart';
+import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/categories/domain/category_defaults.dart';
 import 'package:aiko/features/categories/presentation/category_management_screen.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   _defaultsInvariantsTests();
+  _budgetPillTests();
 
   testWidgets('shows Income and Expense sections together with Income first', (
     tester,
@@ -891,6 +893,70 @@ void main() {
     // the long dropdown list scrolls items off the test viewport.
     expect(find.text('Household'), findsWidgets);
     expect(find.text('Other', skipOffstage: false), findsWidgets);
+  });
+}
+
+void _budgetPillTests() {
+  testWidgets('row shows spent/limit when budgeted, + Budget chip when not', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              Category(
+                id: 'cat-budgeted',
+                userId: 'user',
+                name: 'Dining',
+                type: CategoryType.expense,
+                group: CategoryBudgetGroup.wants,
+                icon: 'food',
+                color: '#F97316',
+                budgetEnabled: true,
+                monthlyLimit: Money.parse('1000', 'USD'),
+              ),
+              const Category(
+                id: 'cat-nobudget',
+                userId: 'user',
+                name: 'Misc',
+                type: CategoryType.expense,
+                group: CategoryBudgetGroup.wants,
+                icon: 'category',
+                color: '#8B5CF6',
+                budgetEnabled: true,
+              ),
+            ]),
+          ),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(const [])),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const CategoryManagementScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Both categories are unfiled, so they land in the "Other" group. Expand it.
+    await tester.tap(find.text('Other'));
+    await tester.pumpAndSettle();
+
+    // Budgeted row: trailing total carries a slash (spent/limit), no add chip.
+    final budgeted = tester.widget<Text>(
+      find.byKey(const ValueKey('category-cat-budgeted-total')),
+    );
+    expect(budgeted.data, contains('/'));
+    expect(
+      find.byKey(const ValueKey('category-cat-budgeted-add-budget')),
+      findsNothing,
+    );
+
+    // No-budget row exposes the + Budget affordance.
+    expect(
+      find.byKey(const ValueKey('category-cat-nobudget-add-budget')),
+      findsOneWidget,
+    );
   });
 }
 

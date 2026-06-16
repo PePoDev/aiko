@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
-import '../../../core/formatting/formatters.dart';
 import '../../../core/money/money.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
@@ -10,6 +9,7 @@ import '../../../theme/aiko_colors.dart';
 import '../../transactions/domain/transaction.dart';
 import '../domain/category.dart';
 import '../domain/category_defaults.dart';
+import 'category_budget_sheet.dart';
 import 'category_editor_sheet.dart';
 import 'category_group_editor_sheet.dart';
 import 'category_visual.dart';
@@ -224,8 +224,7 @@ class _CategorySectionState extends State<_CategorySection> {
         // currencies (Money addition requires a shared currency).
         final limit = category.hasBudget ? category.monthlyLimit : null;
         if (limit != null &&
-            (groupBudget == null ||
-                groupBudget.currency == limit.currency)) {
+            (groupBudget == null || groupBudget.currency == limit.currency)) {
           groupBudget = groupBudget == null ? limit : groupBudget + limit;
         }
         groupCount += widget.totals.countForCategory(category.id);
@@ -312,9 +311,9 @@ class _CategorySectionState extends State<_CategorySection> {
 /// Trailing money string for a row/header: `-฿240/฿1000` when a budget
 /// [limit] is set, otherwise just the spent amount (or `—` when neither).
 String _spentOverLimit(Money? spent, Money? limit) {
-  if (limit == null) return spent == null ? '—' : AikoFormatters.money(spent);
+  if (limit == null) return spent == null ? '—' : spent.format();
   final spentMoney = spent ?? Money.zero(limit.currency);
-  return '${AikoFormatters.money(spentMoney)}/${AikoFormatters.money(limit)}';
+  return '${spentMoney.format()}/${limit.format()}';
 }
 
 bool _belongsToGroup(Category category, CategoryGroup group) {
@@ -385,7 +384,7 @@ class _SectionHeader extends StatelessWidget {
           ),
           const Spacer(),
           Text(
-            total == null ? '—' : AikoFormatters.money(total!),
+            total == null ? '—' : total!.format(),
             key: const ValueKey('section-total-amount'),
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700,
@@ -463,6 +462,10 @@ class _GroupAccordion extends StatelessWidget {
                             onTap: category.isDefault
                                 ? null
                                 : () => onCategoryTap(category),
+                            onBudgetTap: () => showCategoryBudgetSheet(
+                              context,
+                              category: category,
+                            ),
                           ),
                       ],
                     ),
@@ -588,12 +591,14 @@ class _CategoryRow extends StatelessWidget {
     required this.amount,
     required this.count,
     required this.onTap,
+    required this.onBudgetTap,
   });
 
   final Category category;
   final Money? amount;
   final int count;
   final VoidCallback? onTap;
+  final VoidCallback onBudgetTap;
 
   @override
   Widget build(BuildContext context) {
@@ -660,23 +665,84 @@ class _CategoryRow extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                _spentOverLimit(
-                  amount,
-                  category.hasBudget ? category.monthlyLimit : null,
-                ),
-                textAlign: TextAlign.right,
-                key: ValueKey('category-${category.id}-total'),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: theme.colorScheme.onSurface,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
+              const SizedBox(width: 8),
+              _BudgetTrailing(
+                amount: amount,
+                limit: category.hasBudget ? category.monthlyLimit : null,
+                categoryId: category.id,
+                onTap: onBudgetTap,
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Tappable trailing slot on a category row. With a budget it shows
+/// `spent/limit` and edits it; without one it shows the spent amount plus a
+/// quiet `+ Budget` chip so adding a limit is always one tap away.
+class _BudgetTrailing extends StatelessWidget {
+  const _BudgetTrailing({
+    required this.amount,
+    required this.limit,
+    required this.categoryId,
+    required this.onTap,
+  });
+
+  final Money? amount;
+  final Money? limit;
+  final String categoryId;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final amountText = Text(
+      _spentOverLimit(amount, limit),
+      textAlign: TextAlign.right,
+      key: ValueKey('category-$categoryId-total'),
+      style: theme.textTheme.bodyMedium?.copyWith(
+        fontWeight: FontWeight.w700,
+        color: theme.colorScheme.onSurface,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+    );
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        child: limit != null
+            ? amountText
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (amount != null) ...[amountText, const SizedBox(width: 8)],
+                  Container(
+                    key: ValueKey('category-$categoryId-add-budget'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AikoColors.warningOrange.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Text(
+                      '+ Budget',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: AikoColors.warningOrange,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

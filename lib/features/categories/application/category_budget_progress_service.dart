@@ -63,7 +63,7 @@ class CategoryBudgetProgressService {
   }) {
     final start = periodStart ?? _defaultStart(category);
     final end = periodEnd ?? _defaultEnd(category);
-    final used = _sumExpenses(transactions, category.id, start, end);
+    final used = _sumExpenses(transactions, category, start, end);
     return CategoryBudgetProgress(category: category, used: used);
   }
 
@@ -121,19 +121,25 @@ class CategoryBudgetProgressService {
 
   Money _sumExpenses(
     List<FinanceTransaction> transactions,
-    String categoryId,
+    Category category,
     DateTime start,
     DateTime end,
   ) {
-    Money? running;
+    final categoryId = category.id;
+    // ponytail: sum only the budget's currency; no FX rates here to convert.
+    // Add currency conversion when Travel Mode rates reach this path.
+    final target = category.monthlyLimit?.currency ??
+        _defaultCurrency(transactions, categoryId);
+    Money running = Money.zero(target);
     for (final t in transactions) {
       if (t.type != TransactionType.expense) continue;
       if (t.categoryId != categoryId) continue;
       if (t.status != TransactionStatus.posted) continue;
+      if (t.amount.currency != target) continue;
       if (t.date.isBefore(start) || t.date.isAfter(end)) continue;
-      running = running == null ? t.amount : (running + t.amount);
+      running += t.amount;
     }
-    return running ?? Money.zero(_defaultCurrency(transactions, categoryId));
+    return running;
   }
 
   String _defaultCurrency(

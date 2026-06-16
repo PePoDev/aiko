@@ -5,7 +5,7 @@ import 'package:aiko/core/storage/secure_storage_service.dart';
 import 'package:aiko/features/aiko_assistant/application/aiko_chat_controller.dart';
 import 'package:aiko/features/aiko_assistant/application/chat_engine.dart';
 import 'package:aiko/features/aiko_assistant/application/financial_context.dart';
-import 'package:aiko/features/aiko_assistant/data/chat_session_store.dart';
+import 'package:aiko/features/aiko_assistant/data/chat_store.dart';
 import 'package:aiko/features/aiko_assistant/domain/aiko_prompt_suggestions.dart';
 import 'package:aiko/features/aiko_assistant/presentation/aiko_assistant_screen.dart';
 import 'package:aiko/theme/aiko_theme.dart';
@@ -88,54 +88,67 @@ void main() {
     expect(find.text(prompt), findsWidgets);
   });
 
-  testWidgets(
-    'renders saved chat history under the greeting on the empty state',
-    (tester) async {
-      // Regression: when the empty state had saved history, the list builder
-      // hardcoded the history row at index 1 but offset the message index by
-      // -1, indexing `state.messages[-1]` on the greeting row and crashing
-      // with `RangeError (length): Invalid value: Only valid value is 0: -1`.
-      _useWideSurface(tester);
-      final store = ChatSessionStore(storage: _seededStorage());
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [chatSessionStoreProvider.overrideWithValue(store)],
-          child: MaterialApp(
-            theme: AikoTheme.light(),
-            home: const AikoAssistantScreen(),
-          ),
+  testWidgets('restores the saved conversation on build', (tester) async {
+    _useWideSurface(tester);
+    final store = ChatStore(storage: _seededStorage());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [chatStoreProvider.overrideWithValue(store)],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const AikoAssistantScreen(),
         ),
-      );
-      // First pump builds the screen, second flushes the async session load.
-      await tester.pump();
-      await tester.pump();
+      ),
+    );
+    // First pump builds the screen, second flushes the async load.
+    await tester.pump();
+    await tester.pump();
 
-      expect(tester.takeException(), isNull);
-      expect(find.textContaining("I'm Aiko"), findsOneWidget);
-      expect(find.text('Recent chats'), findsOneWidget);
-      expect(find.text('Past chat'), findsOneWidget);
-    },
-  );
+    expect(tester.takeException(), isNull);
+    expect(find.text('hi'), findsOneWidget);
+    expect(find.text('hello'), findsOneWidget);
+    // A non-empty chat shows the clear action.
+    expect(find.byTooltip('Clear chat'), findsOneWidget);
+  });
+
+  testWidgets('clear chat asks for confirmation and wipes the conversation', (
+    tester,
+  ) async {
+    _useWideSurface(tester);
+    final store = ChatStore(storage: _seededStorage());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [chatStoreProvider.overrideWithValue(store)],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const AikoAssistantScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Clear chat'));
+    await tester.pumpAndSettle();
+    expect(find.text('Clear chat?'), findsOneWidget);
+    expect(find.textContaining('cannot be undone'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Clear'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('hi'), findsNothing);
+    expect(await store.load(), isEmpty);
+  });
 }
 
-/// In-memory secure storage pre-seeded with a single saved chat session so the
-/// session store reports a non-empty history.
+/// In-memory secure storage pre-seeded with a saved conversation.
 SecureStorageService _seededStorage() {
   final storage = MemorySecureStorageService();
   storage.write(
-    'aiko_chat_sessions',
+    'aiko_chat',
     jsonEncode([
-      {
-        'id': 'past-1',
-        'title': 'Past chat',
-        'createdAt': '2026-01-01T00:00:00.000Z',
-        'updatedAt': '2026-01-02T00:00:00.000Z',
-        'pinned': false,
-        'messages': [
-          {'role': 'user', 'content': 'hi'},
-          {'role': 'assistant', 'content': 'hello'},
-        ],
-      },
+      {'role': 'user', 'content': 'hi'},
+      {'role': 'assistant', 'content': 'hello'},
     ]),
   );
   return storage;

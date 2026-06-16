@@ -352,10 +352,29 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
         .map((cat) => '${cat.name.toLowerCase()}-${cat.type.name}')
         .toSet();
 
+    // Stored rows carrying a default's id are budget overlays: the default
+    // stays read-only, but the user's limit/period/rollover ride on top.
+    final overlays = <String, Category>{
+      for (final cat in customCategories)
+        if (cat.isDefault) cat.id: cat,
+    };
+
     final uniqueDefaults = defaults
         .where((cat) {
           final key = '${cat.name.toLowerCase()}-${cat.type.name}';
           return !customKeys.contains(key);
+        })
+        .map((cat) {
+          final overlay = overlays[cat.id];
+          return overlay == null
+              ? cat
+              : cat.copyWith(
+                  monthlyLimit: overlay.monthlyLimit,
+                  budgetPeriod: overlay.budgetPeriod,
+                  rolloverUnused: overlay.rolloverUnused,
+                  budgetEnabled: overlay.budgetEnabled,
+                  alertThresholds: overlay.alertThresholds,
+                );
         })
         .toList(growable: false);
 

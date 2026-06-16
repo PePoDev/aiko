@@ -4,13 +4,7 @@ enum OnboardingStatus { notStarted, inProgress, completed }
 
 enum SecurityStatus { notConfigured, pinEnabled, biometricEnabled, lockedOut }
 
-enum Gender {
-  preferNotToSay,
-  female,
-  male,
-  nonBinary,
-  other,
-}
+enum Gender { preferNotToSay, female, male, nonBinary, other }
 
 class Profile {
   const Profile({
@@ -54,10 +48,12 @@ class Profile {
   /// not yet succeeded. Other devices rely on this URL to render the avatar.
   final String? avatarUrl;
 
-  bool get hasAvatar => (avatarPath != null && avatarPath!.isNotEmpty) ||
+  bool get hasAvatar =>
+      (avatarPath != null && avatarPath!.isNotEmpty) ||
       (avatarUrl != null && avatarUrl!.isNotEmpty);
 
   Profile copyWith({
+    String? id,
     String? displayName,
     String? email,
     String? baseCurrency,
@@ -73,7 +69,7 @@ class Profile {
     String? avatarUrl,
   }) {
     return Profile(
-      id: id,
+      id: id ?? this.id,
       displayName: displayName ?? this.displayName,
       email: email ?? this.email,
       baseCurrency: baseCurrency ?? this.baseCurrency,

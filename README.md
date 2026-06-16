@@ -261,27 +261,55 @@ Saved calculations store as `SavedCalculatorScenario`, compare side-by-side, and
 
 ## Ask Aiko Chat Backend (`aiko-chat` Edge Function)
 
-The one feature needing server logic runs as a Supabase Edge Function (`supabase/functions/aiko-chat/`) — an SSE proxy that streams Chat Completions from any **OpenAI-compatible provider**. The provider key stays server-side.
+The one feature needing server logic runs as a Supabase Edge Function (`supabase/functions/aiko-chat/`) — an SSE proxy that streams Chat Completions from any **OpenAI-compatible provider**, with **automatic fallback across an ordered chain of (provider, model) entries**. Provider keys stay server-side.
 
-**Request flow:** (1) validates the caller's Supabase JWT (`Authorization: Bearer <jwt>`); (2) enforces a per-user in-memory rate limit (default `20`/min, else `429 RATE_LIMITED`); (3) builds the message list (last 20) behind a fixed system prompt defining Aiko's persona, forcing the disclaimer on any numeric/recommendation answer, injecting the user's `baseCurrency`; (4) streams to the provider with `stream: true`, re-emitting each token as `data: {"delta":"..."}\n\n`, closing with `data: {"done":true}\n\n`. Client: `HttpChatEngine` in `lib/features/aiko_assistant/application/chat_engine.dart` calls `${SUPABASE_URL}/functions/v1/aiko-chat`.
+**Request flow:** (1) validates the caller's Supabase JWT (`Authorization: Bearer <jwt>`); (2) enforces a per-user in-memory rate limit (default `20`/min, else `429 RATE_LIMITED`); (3) builds the message list (last 20) behind a fixed system prompt defining Aiko's persona, forcing the disclaimer on any numeric/recommendation answer, injecting the user's `baseCurrency`; (4) optionally runs Layer 2 tool calls (off by default); (5) streams the final answer to the provider with `stream: true`, re-emitting each token as `data: {"delta":"..."}\n\n`, closing with `data: {"done":true}\n\n`. Client: `HttpChatEngine` in `lib/features/aiko_assistant/application/chat_engine.dart` calls `${SUPABASE_URL}/functions/v1/aiko-chat`.
+
+**Auto-fallback:** the runtime walks an ordered chain of `(provider, model)` entries. On a network error, non-2xx, 60s timeout, or a stream that dies before any token has been sent, it silently moves to the next entry. Once tokens have flowed to the client, a mid-stream error is surfaced as a final `error` event (we can't safely restart a stream the client has already started reading). When every entry fails, the stream ends with `data: {"error":"...","code":"PROVIDER_DOWN"}\n\n` summarising each attempt.
 
 **How Aiko reads your data** (model only ever sees RLS-scoped data; key never leaves the server):
 
 - **Layer 1 — on-device snapshot (always on).** The client assembles a compact `AikoFinancialContext` (net worth, accounts, this-month income/spending, budget pace, goals, recent transactions) from local Brick and sends it in the body; the function folds it into the system prompt, so most "how am I doing" questions resolve in one round-trip. Aggregates only, capped, never the full ledger.
-- **Layer 2 — server-side tools (off by default, `AI_TOOLS_ENABLED`).** When on, the model may first call a fixed allow-list of **read-only** Postgres RPCs (`supabase/migrations/*_aiko_assistant_read_functions.sql`), each `SECURITY INVOKER` under the caller's JWT (RLS scopes results). The function never runs model-supplied SQL and never uses the service-role key.
+- **Layer 2 — server-side tools (off by default, `AI_TOOLS_ENABLED`).** When on, the model may first call a fixed allow-list of **read-only** Postgres RPCs (`supabase/migrations/*_aiko_assistant_read_functions.sql`), each `SECURITY INVOKER` under the caller's JWT (RLS scopes results). The function never runs model-supplied SQL and never uses the service-role key. Tool resolution itself falls back across the chain — if provider 1 can't service tools, the runtime tries provider 2.
 
-**Configuration** (Supabase secrets — never in the app or `.env`; any OpenAI-compatible provider, point `AI_BASE_URL` at its `/v1`):
+**Configuration** (Supabase secrets — never in the app or `.env`). The function ships with three code-defined providers and three chain presets; pick the active preset with `AI_PRESET`:
 
 ```sh
-supabase secrets set AI_API_KEY=sk-...
-# Optional overrides:
-supabase secrets set AI_MODEL=gpt-4o-mini                    # default: gpt-4o-mini
-supabase secrets set AI_BASE_URL=https://api.openai.com/v1   # default: OpenAI
+# 1. Pick the active chain (default: "default" preset)
+supabase secrets set AI_PRESET=default
+
+# 2. Set a key for every provider in your active chain.
+#    A missing AI_KEY_<id> silently drops that entry from the chain.
+supabase secrets set AI_KEY_DEEPSEEK=sk-...
+supabase secrets set AI_KEY_GEMINI=AIzaSy...
+supabase secrets set AI_KEY_OPENAI=sk-...
+
+# 3. Rate limit and Layer 2:
 supabase secrets set AIKO_RATE_PER_MIN=20                    # default: 20
 supabase secrets set AI_TOOLS_ENABLED=false                  # default: false (Layer 2 tools)
 ```
 
 `SUPABASE_URL` / `SUPABASE_ANON_KEY` are injected by the runtime.
+
+**Provider presets (code-defined, edit `supabase/functions/aiko-chat/index.ts` to add or change):**
+
+| `id` | Base URL | Env key | Default models |
+| --- | --- | --- | --- |
+| `deepseek` | `https://api.deepseek.com/v1` | `AI_KEY_DEEPSEEK` | `deepseek-v4-flash`, `deepseek-chat`, `deepseek-reasoner` |
+| `gemini` | `https://generativelanguage.googleapis.com/v1beta/openai` | `AI_KEY_GEMINI` | `gemini-flash`, `gemini-2.0-flash`, `gemini-1.5-pro` |
+| `openai` | `https://api.openai.com/v1` | `AI_KEY_OPENAI` | `gpt-oss-120b`, `gpt-4o-mini`, `gpt-4o` |
+
+**Chain presets (set `AI_PRESET` to the id):**
+
+| `id` | Order |
+| --- | --- |
+| `default` | DeepSeek `deepseek-v4-flash` → Gemini `gemini-flash` → OpenAI `gpt-oss-120b` |
+| `quality` | OpenAI `gpt-oss-120b` → Gemini `gemini-1.5-pro` → DeepSeek `deepseek-reasoner` |
+| `cheap` | DeepSeek `deepseek-v4-flash` → OpenAI `gpt-4o-mini` |
+
+To add a provider: declare a new `PROVIDER_*` entry, register it in the `PROVIDERS` map, and reference it from one or more chain presets. To add a chain: add a new `CHAIN_PRESETS[…]` entry.
+
+**Legacy single-provider path:** if `AI_PRESET` is unset and `AI_API_KEY` is set, the function falls back to the old `AI_API_KEY` + `AI_MODEL` + `AI_BASE_URL` config (no fallback, just the one provider) so existing deployments keep working without changes.
 
 **Deploy & local dev** (the function validates the JWT itself — keep gateway verification on; do **not** pass `--no-verify-jwt`):
 
@@ -301,9 +329,9 @@ supabase functions serve aiko-chat --env-file ./supabase/functions/.env.local  #
 | 405 | `METHOD_NOT_ALLOWED` | Non-POST request |
 | 429 | `RATE_LIMITED` | Per-user rate limit exceeded |
 | 500 | `MISCONFIGURED` | Function missing Supabase env |
-| 500 | `MISSING_PROVIDER_KEY` | `AI_API_KEY` not set |
-| 502 | `PROVIDER_DOWN` | Provider unreachable |
-| 502 | `PROVIDER_ERROR` | Provider returned non-OK |
+| 500 | `MISSING_PROVIDER_KEY` | No provider available — active `AI_PRESET` has no configured `AI_KEY_*` and `AI_API_KEY` is unset |
+| 502 | `PROVIDER_DOWN` | Every chain entry failed; the stream's final `error` event summarises each attempt |
+| 502 | `PROVIDER_ERROR` | (Legacy single-provider path) Upstream returned non-OK before the stream started |
 
 ---
 

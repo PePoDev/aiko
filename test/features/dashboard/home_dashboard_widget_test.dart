@@ -3,7 +3,6 @@ import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/dashboard/domain/dashboard_summary.dart';
-import 'package:aiko/features/dashboard/domain/dashboard_widget_preference.dart';
 import 'package:aiko/features/dashboard/presentation/home_dashboard_screen.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
 import 'package:aiko/l10n/app_localizations.dart';
@@ -44,7 +43,7 @@ void main() {
     },
   );
 
-  testWidgets('overview uses scroll edit control and primary app bar icons', (
+  testWidgets('overview has no edit control and uses primary app bar icons', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -73,21 +72,9 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    // The dashboard is static now: no layout editing anywhere.
     expect(find.text('Edit layout'), findsNothing);
-    expect(
-      find.descendant(
-        of: find.byType(AppBar),
-        matching: find.text('Edit layout'),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.descendant(
-        of: find.byType(AppBar),
-        matching: find.byIcon(Icons.calendar_month_outlined),
-      ),
-      findsNothing,
-    );
+    expect(find.byTooltip('Remove Daily spending'), findsNothing);
 
     final notificationIcon = tester.widget<Icon>(
       find.descendant(
@@ -96,13 +83,6 @@ void main() {
       ),
     );
     expect(notificationIcon.color, theme.colorScheme.primary);
-
-    await tester.scrollUntilVisible(
-      find.text('Edit layout'),
-      400,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('Edit layout'), findsOneWidget);
   });
 
   testWidgets('overview shows this month summary after upcoming due dates', (
@@ -180,112 +160,6 @@ void main() {
       await tester.pump();
     }
     expect(cashFlow, findsOneWidget);
-  });
-
-  testWidgets('overview editor manages each overview panel separately', (
-    tester,
-  ) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(800, 1400);
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(
-      _dashboardScope(
-        child: MaterialApp(
-          locale: const Locale('en'),
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          theme: AikoTheme.light(),
-          home: const HomeDashboardScreen(),
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Edit layout'),
-      400,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Edit layout'));
-    await tester.pumpAndSettle();
-
-    for (final tooltip in const [
-      'Remove Daily spending',
-      'Remove Safe this week',
-      'Remove Daily summary',
-      'Remove Net earnings',
-      'Remove Category budgets',
-      'Remove Spending calendar',
-      'Remove This Month Overview',
-      'Remove Cash flow mapping',
-      'Remove Aiko Goal Simulator',
-    ]) {
-      final finder = find.byTooltip(tooltip);
-      for (
-        var attempt = 0;
-        attempt < 20 && finder.evaluate().isEmpty;
-        attempt++
-      ) {
-        await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
-        await tester.pumpAndSettle();
-      }
-      expect(find.byTooltip(tooltip), findsOneWidget);
-    }
-  });
-
-  testWidgets('edit mode pairs the two default half widgets on one row', (
-    tester,
-  ) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(800, 1400);
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(
-      _dashboardScope(
-        child: MaterialApp(
-          locale: const Locale('en'),
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          theme: AikoTheme.light(),
-          home: const HomeDashboardScreen(),
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Edit layout'),
-      400,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Edit layout'));
-    await tester.pumpAndSettle();
-
-    // Both halves stay side by side in edit mode (same top, left then right),
-    // each an independent cell with its own remove control.
-    expect(
-      tester.getTopLeft(find.text('Daily spending')).dy,
-      tester.getTopLeft(find.text('Safe this week')).dy,
-    );
-    expect(
-      tester.getTopLeft(find.text('Daily spending')).dx,
-      lessThan(tester.getTopLeft(find.text('Safe this week')).dx),
-    );
-    expect(find.byTooltip('Remove Daily spending'), findsOneWidget);
-    expect(find.byTooltip('Remove Safe this week'), findsOneWidget);
   });
 
   testWidgets(
@@ -591,7 +465,6 @@ Widget _dashboardScope({
         ),
       ),
       dashboardDueItemsProvider.overrideWith((ref) async => const []),
-      dashboardLayoutProvider.overrideWith(_DashboardLayoutNotifier.new),
       transactionsProvider.overrideWith(
         () => _TransactionsNotifier(transactions),
       ),
@@ -600,13 +473,6 @@ Widget _dashboardScope({
     ],
     child: child,
   );
-}
-
-class _DashboardLayoutNotifier extends DashboardLayoutNotifier {
-  @override
-  Future<List<DashboardWidgetPreference>> build() async {
-    return DashboardWidgetPreference.defaultLayout;
-  }
 }
 
 class _TransactionsNotifier extends TransactionsNotifier {

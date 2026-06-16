@@ -1,15 +1,26 @@
 // Aiko Chat — Supabase Edge Function
-// Streams chat completions from any OpenAI-compatible provider as Server-Sent
-// Events to the Aiko mobile assistant. Validates the caller's Supabase JWT,
-// applies a per-user rate limit, folds the client's on-device financial
-// snapshot (Layer 1) into the system prompt, and — when AI_TOOLS_ENABLED — lets
-// the model pull deeper data through read-only Postgres RPCs (Layer 2). Emits
-// `data: {"delta":"..."}\n\n` chunks (and a final `{"done":true}`).
+// Multi-provider streaming chat backend with automatic fallback.
 //
-// Security model: the provider key lives only here (never on the client). All
-// data access runs through the *caller's* JWT, so Postgres RLS scopes every read
-// to that user. The function never uses the service-role key, never executes
-// model-supplied SQL, and only calls a fixed allow-list of read-only RPCs.
+// Streams Chat Completions from any OpenAI-compatible provider as Server-Sent
+// Events to the Aiko mobile assistant. Multiple providers are defined in
+// code as presets (see PROVIDER_* below); each has its own base URL and API
+// key env var. A "chain preset" is an ordered list of (provider, model)
+// entries — the runtime tries them in order and falls back to the next on
+// failure (network error, non-2xx, or a stream that dies before any token
+// is emitted). The active chain is selected at deploy time by the AI_PRESET
+// env var (default: "default").
+//
+// The function validates the caller's Supabase JWT, applies a per-user
+// rate limit, folds the client's on-device financial snapshot (Layer 1)
+// into the system prompt, and — when AI_TOOLS_ENABLED — lets the model
+// pull deeper data through read-only Postgres RPCs (Layer 2). Each SSE
+// chunk is `data: {"delta":"..."}\n\n` with a final `data: {"done":true}`.
+//
+// Security model: provider keys live only here (never on the client). All
+// data access runs through the caller's JWT, so Postgres RLS scopes every
+// read to that user. The function never uses the service-role key, never
+// executes model-supplied SQL, and only calls a fixed allow-list of
+// read-only RPCs.
 
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
@@ -25,17 +36,166 @@ const SYSTEM_PROMPT = [
   "If the user asks something unrelated to personal finance, gently steer back: 'I'm best with money questions — want to ask me about your spending, budgets, or goals?'",
 ].join(" ");
 
-// Any OpenAI-compatible Chat Completions provider (OpenAI, OpenRouter, Together,
-// Groq, a local server, etc.). Point AI_BASE_URL at the provider's v1 endpoint.
-const AI_API_KEY = Deno.env.get("AI_API_KEY") ?? "";
-const AI_MODEL = Deno.env.get("AI_MODEL") ?? "gpt-4o-mini";
-const AI_BASE_URL = (Deno.env.get("AI_BASE_URL") ?? "https://api.openai.com/v1").replace(/\/+$/, "");
-const RATE_LIMIT_PER_MIN = Number(Deno.env.get("AIKO_RATE_PER_MIN") ?? "20");
+// ============================================================
+// PROVIDER PRESETS — code-defined, swappable via AI_PRESET env
+// ============================================================
+//
+// Each provider is an OpenAI-compatible Chat Completions endpoint. To add a
+// provider: (1) declare a PROVIDER_* entry below, (2) register it in
+// PROVIDERS, (3) set the matching AI_KEY_<id> secret, (4) reference it from
+// one or more chain presets. Per-provider timeouts live in REQUEST_TIMEOUT_MS.
 
-// Layer 2 (server-side tool calling) is OFF until reviewed. When false the
-// function behaves exactly like Layer 1: one streamed completion, no tools.
+interface ProviderPreset {
+  readonly id: string;            // kebab-case id used in chains and env keys
+  readonly label: string;         // human-readable name
+  readonly baseUrl: string;       // provider's /v1 endpoint, no trailing slash
+  readonly apiKeyEnv: string;     // env var that holds the provider's API key
+  readonly supportsTools: boolean; // can the provider handle tool/function calling?
+  readonly models: readonly string[]; // canonical models (documentation only)
+}
+
+interface ChainEntry {
+  readonly providerId: string;
+  readonly model: string;
+}
+
+interface ChainPreset {
+  readonly id: string;
+  readonly label: string;
+  readonly chain: readonly ChainEntry[];
+}
+
+// ----- DEFINE PROVIDER 1: DeepSeek -----
+const PROVIDER_DEEPSEEK: ProviderPreset = {
+  id: "deepseek",
+  label: "DeepSeek",
+  baseUrl: "https://api.deepseek.com/v1",
+  apiKeyEnv: "AI_KEY_DEEPSEEK",
+  supportsTools: true,
+  models: ["deepseek-v4-flash", "deepseek-chat", "deepseek-reasoner"],
+};
+
+// ----- DEFINE PROVIDER 2: Google Gemini (OpenAI-compatible) -----
+const PROVIDER_GEMINI: ProviderPreset = {
+  id: "gemini",
+  label: "Google Gemini (OpenAI-compatible)",
+  baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+  apiKeyEnv: "AI_KEY_GEMINI",
+  supportsTools: true,
+  models: ["gemini-flash", "gemini-2.0-flash", "gemini-1.5-pro"],
+};
+
+// ----- DEFINE PROVIDER 3: OpenAI -----
+const PROVIDER_OPENAI: ProviderPreset = {
+  id: "openai",
+  label: "OpenAI",
+  baseUrl: "https://api.openai.com/v1",
+  apiKeyEnv: "AI_KEY_OPENAI",
+  supportsTools: true,
+  models: ["gpt-oss-120b", "gpt-4o-mini", "gpt-4o"],
+};
+
+const PROVIDERS: Record<string, ProviderPreset> = {
+  [PROVIDER_DEEPSEEK.id]: PROVIDER_DEEPSEEK,
+  [PROVIDER_GEMINI.id]: PROVIDER_GEMINI,
+  [PROVIDER_OPENAI.id]: PROVIDER_OPENAI,
+};
+
+// ----- CHAIN PRESETS — picked by AI_PRESET at deploy time -----
+//
+// Each chain is an ordered fallback list. The runtime tries entries in
+// order; on a failure (network error, non-2xx, or a stream that dies
+// before any token), it moves to the next entry. The chain stops at the
+// first successful response.
+
+const CHAIN_PRESETS: Record<string, ChainPreset> = {
+  // Default — cheap fast model first, two solid backups.
+  default: {
+    id: "default",
+    label: "Default — DeepSeek → Gemini → OpenAI",
+    chain: [
+      { providerId: "deepseek", model: "deepseek-v4-flash" },
+      { providerId: "gemini", model: "gemini-flash" },
+      { providerId: "openai", model: "gpt-oss-120b" },
+    ],
+  },
+  // Quality — strongest first, with reasoning models as backup.
+  quality: {
+    id: "quality",
+    label: "Quality — OpenAI → Gemini → DeepSeek",
+    chain: [
+      { providerId: "openai", model: "gpt-oss-120b" },
+      { providerId: "gemini", model: "gemini-1.5-pro" },
+      { providerId: "deepseek", model: "deepseek-reasoner" },
+    ],
+  },
+  // Cheap — two low-cost models.
+  cheap: {
+    id: "cheap",
+    label: "Cheap — DeepSeek → OpenAI mini",
+    chain: [
+      { providerId: "deepseek", model: "deepseek-v4-flash" },
+      { providerId: "openai", model: "gpt-4o-mini" },
+    ],
+  },
+};
+
+// Legacy single-provider path (for deployments that haven't migrated). If
+// AI_PRESET isn't set but AI_API_KEY is, fall back to the old config so
+// older deployments keep working without changes.
+const LEGACY_PROVIDER: ProviderPreset = {
+  id: "legacy",
+  label: "Legacy single-provider",
+  baseUrl: (Deno.env.get("AI_BASE_URL") ?? "https://api.openai.com/v1").replace(/\/+$/, ""),
+  apiKeyEnv: "AI_API_KEY",
+  supportsTools: true,
+  models: [],
+};
+PROVIDERS[LEGACY_PROVIDER.id] = LEGACY_PROVIDER;
+
+interface ActiveModel {
+  readonly provider: ProviderPreset;
+  readonly model: string;
+  readonly apiKey: string;
+}
+
+// Build the active chain at request time so deploys can swap presets by
+// env var without code changes. Skip chain entries whose provider or key
+// isn't configured (a missing AI_KEY_* silently drops that entry — the
+// runtime just moves to the next one).
+function buildActiveChain(): ActiveModel[] {
+  const presetId = Deno.env.get("AI_PRESET") ?? "default";
+  const preset = CHAIN_PRESETS[presetId];
+
+  if (preset) {
+    const out: ActiveModel[] = [];
+    for (const entry of preset.chain) {
+      const provider = PROVIDERS[entry.providerId];
+      if (!provider) continue;
+      const key = Deno.env.get(provider.apiKeyEnv);
+      if (!key) continue;
+      out.push({ provider, model: entry.model, apiKey: key });
+    }
+    if (out.length > 0) return out;
+  }
+
+  // Legacy single-provider fallback.
+  const legacyKey = Deno.env.get("AI_API_KEY");
+  if (legacyKey) {
+    const model = Deno.env.get("AI_MODEL") ?? "gpt-4o-mini";
+    return [{ provider: LEGACY_PROVIDER, model, apiKey: legacyKey }];
+  }
+  return [];
+}
+
+// ============================================================
+// Rate limit, Layer 2 tool toggle, request timeout
+// ============================================================
+
+const RATE_LIMIT_PER_MIN = Number(Deno.env.get("AIKO_RATE_PER_MIN") ?? "20");
 const AI_TOOLS_ENABLED = (Deno.env.get("AI_TOOLS_ENABLED") ?? "false").toLowerCase() === "true";
 const MAX_TOOL_ROUNDS = 4;
+const REQUEST_TIMEOUT_MS = 60_000;
 
 const rateBuckets = new Map<string, { tokens: number; updatedAt: number }>();
 
@@ -72,8 +232,7 @@ interface IncomingMessage {
   content: string;
 }
 
-// deno-lint-ignore no-explicit-any
-type ChatMessage = Record<string, any>;
+type ChatMessage = Record<string, unknown>;
 
 interface RequestBody {
   messages: IncomingMessage[];
@@ -222,45 +381,61 @@ interface ProviderPayload {
   messages: ChatMessage[];
   stream: boolean;
   temperature: number;
-  // deno-lint-ignore no-explicit-any
-  tools?: any[];
+  tools?: unknown[];
 }
 
-function providerFetch(payload: ProviderPayload): Promise<Response> {
-  return fetch(`${AI_BASE_URL}/chat/completions`, {
+function withTimeout(ms: number): { signal: AbortSignal; cancel: () => void } {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(new Error(`Request timed out after ${ms}ms`)), ms);
+  return { signal: c.signal, cancel: () => clearTimeout(t) };
+}
+
+function providerFetch(
+  entry: ActiveModel,
+  payload: ProviderPayload,
+  signal?: AbortSignal,
+): Promise<Response> {
+  return fetch(`${entry.provider.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${AI_API_KEY}`,
+      Authorization: `Bearer ${entry.apiKey}`,
     },
     body: JSON.stringify(payload),
+    signal,
   });
 }
 
-// Layer 2 resolution loop: non-streamed completions that may request tools,
-// executed and fed back until the model is ready to answer (or we hit the
-// round cap). Mutates and returns the message list. Best-effort: any provider
-// hiccup just stops tool resolution and lets the final streamed answer proceed.
-async function resolveTools(supabase: SupabaseClient, messages: ChatMessage[]): Promise<void> {
+// Layer 2 resolution: run a single provider through MAX_TOOL_ROUNDS. Returns
+// true if the provider successfully completed (even with zero tool calls),
+// false on any failure so the caller can try the next entry in the chain.
+async function tryResolveTools(
+  supabase: SupabaseClient,
+  messages: ChatMessage[],
+  entry: ActiveModel,
+): Promise<boolean> {
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const { signal, cancel } = withTimeout(REQUEST_TIMEOUT_MS);
     let resp: Response;
     try {
-      resp = await providerFetch({
-        model: AI_MODEL,
+      resp = await providerFetch(entry, {
+        model: entry.model,
         messages,
         stream: false,
         temperature: 0.4,
         tools: TOOLS,
-      });
+      }, signal);
     } catch {
-      return;
+      cancel();
+      return false;
     }
-    if (!resp.ok) return;
+    cancel();
+    if (!resp.ok) return false;
 
     const json = await resp.json().catch(() => null);
     const message = json?.choices?.[0]?.message;
     const toolCalls = message?.tool_calls;
-    if (!message || !Array.isArray(toolCalls) || toolCalls.length === 0) return;
+    if (!message || !Array.isArray(toolCalls) || toolCalls.length === 0) return true;
 
     messages.push({
       role: "assistant",
@@ -273,6 +448,122 @@ async function resolveTools(supabase: SupabaseClient, messages: ChatMessage[]): 
       messages.push({ role: "tool", tool_call_id: call.id, content: result });
     }
   }
+  return true;
+}
+
+// Try each provider in the chain in order; the first one that successfully
+// completes a tool round wins. Mid-loop errors abandon tool resolution
+// silently and let the streamed final answer proceed (existing behavior).
+async function resolveToolsWithChain(
+  supabase: SupabaseClient,
+  messages: ChatMessage[],
+  chain: ActiveModel[],
+): Promise<void> {
+  for (const entry of chain) {
+    if (!entry.provider.supportsTools) continue;
+    if (await tryResolveTools(supabase, messages, entry)) return;
+  }
+}
+
+// Stream the final answer with automatic fallback. For each entry in the
+// chain we attempt the request and stream its tokens. If the upstream
+// fails before sending any token (network error, non-2xx, or stream break),
+// we silently move to the next entry. Once tokens have flowed to the
+// client we can't safely restart, so a mid-stream error is surfaced as a
+// final `error` event.
+async function streamWithFallback(
+  chain: ActiveModel[],
+  buildPayload: (entry: ActiveModel) => ProviderPayload,
+  controller: ReadableStreamDefaultController<Uint8Array>,
+): Promise<void> {
+  const decoder = new TextDecoder();
+  const attempts: { provider: string; model: string; error: string }[] = [];
+
+  for (let i = 0; i < chain.length; i++) {
+    const entry = chain[i];
+    const { signal, cancel } = withTimeout(REQUEST_TIMEOUT_MS);
+    let upstream: Response;
+    try {
+      upstream = await providerFetch(entry, buildPayload(entry), signal);
+    } catch (e) {
+      cancel();
+      attempts.push({ provider: entry.provider.label, model: entry.model, error: (e as Error).message });
+      continue;
+    }
+    cancel();
+
+    if (!upstream.ok || !upstream.body) {
+      const text = await upstream.text().catch(() => "");
+      attempts.push({
+        provider: entry.provider.label,
+        model: entry.model,
+        error: `${upstream.status} ${text.slice(0, 200)}`,
+      });
+      continue;
+    }
+
+    const reader = upstream.body.getReader();
+    let sentAny = false;
+    let buffer = "";
+    let failError: string | null = null;
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith("data:")) continue;
+          const payload = trimmed.slice(5).trim();
+          if (payload === "[DONE]") {
+            controller.enqueue(sseEvent({ done: true }));
+            controller.close();
+            try { reader.releaseLock(); } catch { /* noop */ }
+            return;
+          }
+          try {
+            const json = JSON.parse(payload);
+            const delta = json?.choices?.[0]?.delta?.content;
+            if (typeof delta === "string" && delta.length > 0) {
+              controller.enqueue(sseEvent({ delta }));
+              sentAny = true;
+            }
+          } catch {
+            continue;
+          }
+        }
+      }
+      controller.enqueue(sseEvent({ done: true }));
+      controller.close();
+      try { reader.releaseLock(); } catch { /* noop */ }
+      return;
+    } catch (e) {
+      failError = (e as Error).message;
+    } finally {
+      try { reader.releaseLock(); } catch { /* noop */ }
+    }
+
+    attempts.push({
+      provider: entry.provider.label,
+      model: entry.model,
+      error: `stream broke: ${failError ?? "unknown"}`,
+    });
+    if (!sentAny) continue; // no token sent yet — safe to fall back
+
+    // Tokens already flowed; can't restart cleanly. Surface the error.
+    controller.enqueue(sseEvent({ error: `Stream failed: ${failError ?? "unknown"}` }));
+    try { controller.close(); } catch { /* noop */ }
+    return;
+  }
+
+  const summary = attempts.map((a) => `${a.provider}/${a.model}: ${a.error}`).join(" | ");
+  controller.enqueue(sseEvent({
+    error: `All providers failed — ${summary}`,
+    code: "PROVIDER_DOWN",
+  }));
+  try { controller.close(); } catch { /* noop */ }
 }
 
 serve(async (req) => {
@@ -329,8 +620,12 @@ serve(async (req) => {
     return jsonResponse(400, { error: "messages array is required", code: "BAD_REQUEST" });
   }
 
-  if (!AI_API_KEY) {
-    return jsonResponse(500, { error: "Server is missing AI_API_KEY", code: "MISSING_PROVIDER_KEY" });
+  const chain = buildActiveChain();
+  if (chain.length === 0) {
+    return jsonResponse(500, {
+      error: "Server is missing AI provider configuration. Set AI_PRESET and the matching AI_KEY_* secrets, or set AI_API_KEY for the legacy path.",
+      code: "MISSING_PROVIDER_KEY",
+    });
   }
 
   const baseCurrency = body.systemContext?.baseCurrency ??
@@ -348,68 +643,20 @@ serve(async (req) => {
 
   // Layer 2: let the model pull deeper data first (off by default).
   if (AI_TOOLS_ENABLED) {
-    await resolveTools(supabase, messages);
+    await resolveToolsWithChain(supabase, messages, chain);
   }
 
   // Final answer: always streamed, no tools — forces a prose reply over the
-  // (possibly tool-enriched) message list.
-  let upstream: Response;
-  try {
-    upstream = await providerFetch({
-      model: AI_MODEL,
-      messages,
-      stream: true,
-      temperature: 0.4,
-    });
-  } catch (e) {
-    return jsonResponse(502, { error: `Provider unreachable: ${(e as Error).message}`, code: "PROVIDER_DOWN" });
-  }
-
-  if (!upstream.ok || !upstream.body) {
-    const text = await upstream.text().catch(() => "");
-    return jsonResponse(502, { error: `Provider error: ${upstream.status} ${text.slice(0, 200)}`, code: "PROVIDER_ERROR" });
-  }
-
-  const reader = upstream.body.getReader();
-  const decoder = new TextDecoder();
+  // (possibly tool-enriched) message list. Provider/model is selected per
+  // chain entry by the fallback loop.
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      let buffer = "";
-      try {
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || !trimmed.startsWith("data:")) continue;
-            const payload = trimmed.slice(5).trim();
-            if (payload === "[DONE]") {
-              controller.enqueue(sseEvent({ done: true }));
-              controller.close();
-              return;
-            }
-            try {
-              const json = JSON.parse(payload);
-              const delta = json?.choices?.[0]?.delta?.content;
-              if (typeof delta === "string" && delta.length > 0) {
-                controller.enqueue(sseEvent({ delta }));
-              }
-            } catch {
-              continue;
-            }
-          }
-        }
-        controller.enqueue(sseEvent({ done: true }));
-        controller.close();
-      } catch (e) {
-        controller.enqueue(sseEvent({ error: `Stream failed: ${(e as Error).message}` }));
-        try { controller.close(); } catch { /* noop */ }
-      } finally {
-        try { reader.releaseLock(); } catch { /* noop */ }
-      }
+      await streamWithFallback(chain, (entry) => ({
+        model: entry.model,
+        messages,
+        stream: true,
+        temperature: 0.4,
+      }), controller);
     },
   });
 

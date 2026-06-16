@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -32,8 +30,6 @@ class HomeDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
-  var _isEditing = false;
-
   Future<void> _refresh() async {
     await Future.wait([
       ref.refresh(dashboardSummaryProvider.future),
@@ -48,7 +44,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   Widget build(BuildContext context) {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
     final dueItemsAsync = ref.watch(dashboardDueItemsProvider);
-    final layoutAsync = ref.watch(dashboardLayoutProvider);
     final l10n = AppLocalizations.of(context);
     final actionColor = Theme.of(context).colorScheme.primary;
 
@@ -86,40 +81,16 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               ),
             ],
           ),
-          data: (summary) => layoutAsync.when(
-            loading: () => ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-              children: [AikoScreenState.loading()],
-            ),
-            error: (_, _) => _DashboardGrid(
-              layout: DashboardWidgetPreference.defaultLayout,
-              summary: summary,
-              dueItemsAsync: dueItemsAsync,
-              isEditing: _isEditing,
-              onToggleEditing: () => setState(() => _isEditing = !_isEditing),
-              itemBuilder: (type, size) => _buildWidget(
-                context,
-                type,
-                summary,
-                dueItemsAsync,
-                size: size,
-              ),
-            ),
-            data: (layout) => _DashboardGrid(
-              layout: layout,
-              summary: summary,
-              dueItemsAsync: dueItemsAsync,
-              isEditing: _isEditing,
-              onToggleEditing: () => setState(() => _isEditing = !_isEditing),
-              itemBuilder: (type, size) => _buildWidget(
-                context,
-                type,
-                summary,
-                dueItemsAsync,
-                size: size,
-              ),
-            ),
+          data: (summary) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+            children: [
+              for (var i = 0; i < _homeRows.length; i++)
+                Padding(
+                  padding: EdgeInsets.only(top: i == 0 ? 0 : 16),
+                  child: _row(context, _homeRows[i], summary, dueItemsAsync),
+                ),
+            ],
           ),
         ),
       ),
@@ -127,13 +98,47 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     );
   }
 
+  /// Lays out a grid row: two half widgets side by side, otherwise full width.
+  Widget _row(
+    BuildContext context,
+    List<DashboardWidgetType> group,
+    DashboardSummary summary,
+    AsyncValue<List<DashboardDueItem>> dueItemsAsync,
+  ) {
+    if (group.length == 2) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: _buildWidget(context, group[0], summary, dueItemsAsync),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: _buildWidget(context, group[1], summary, dueItemsAsync),
+          ),
+        ],
+      );
+    }
+    final only = group.first;
+    if (only.defaultSize == DashboardWidgetSize.half) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: _buildWidget(context, only, summary, dueItemsAsync)),
+          const SizedBox(width: 16),
+          const Expanded(child: SizedBox.shrink()),
+        ],
+      );
+    }
+    return _buildWidget(context, only, summary, dueItemsAsync);
+  }
+
   Widget _buildWidget(
     BuildContext context,
     DashboardWidgetType type,
     DashboardSummary summary,
-    AsyncValue<List<DashboardDueItem>> dueItemsAsync, {
-    DashboardWidgetSize size = DashboardWidgetSize.full,
-  }) {
+    AsyncValue<List<DashboardDueItem>> dueItemsAsync,
+  ) {
     final l10n = AppLocalizations.of(context);
     return switch (type) {
       DashboardWidgetType.aikoWelcome => FinanceCard(
@@ -182,434 +187,45 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       DashboardWidgetType.netWorthTrend => const _NetWorthTrendPanel(),
       DashboardWidgetType.assetsLiabilities => const _AssetsLiabilitiesPanel(),
       DashboardWidgetType.topAssets => const _TopAssetsPanel(),
-      // The five "tax / debt / deductions" panels were mock-data placeholders
-      // The enum entries are kept so existing user-stored layouts
-      // continue to deserialize, but the widgets render nothing. The Add
-      // Widgets panel hides them too (see the picker filter below).
-      DashboardWidgetType.totalDebt ||
-      DashboardWidgetType.debtBreakdown ||
-      DashboardWidgetType.taxLiability ||
-      DashboardWidgetType.taxBreakdown ||
-      DashboardWidgetType.topDeductions => const SizedBox.shrink(),
     };
   }
 }
 
-class _EditableDashboardList extends ConsumerStatefulWidget {
-  const _EditableDashboardList({
-    required this.layout,
-    required this.isEditing,
-    required this.onToggleEditing,
-    required this.itemBuilder,
-  });
+/// The fixed set of widgets shown on the home dashboard, in display order.
+const _homeWidgets = <DashboardWidgetType>[
+  DashboardWidgetType.aikoWelcome,
+  DashboardWidgetType.dailySpending,
+  DashboardWidgetType.safeThisWeek,
+  DashboardWidgetType.dailySummary,
+  DashboardWidgetType.netEarnings,
+  DashboardWidgetType.categoryBudgets,
+  DashboardWidgetType.spendingCalendar,
+  DashboardWidgetType.dueItems,
+  DashboardWidgetType.totalBalance,
+  DashboardWidgetType.thisMonthOverview,
+  DashboardWidgetType.leftToSave,
+  DashboardWidgetType.cashFlow,
+  DashboardWidgetType.cashFlowMapping,
+  DashboardWidgetType.aikoGoalSimulator,
+  DashboardWidgetType.netWorth,
+  DashboardWidgetType.netWorthTrend,
+  DashboardWidgetType.assetsLiabilities,
+  DashboardWidgetType.topAssets,
+];
 
-  final List<DashboardWidgetPreference> layout;
-  final bool isEditing;
-  final VoidCallback onToggleEditing;
-  final Widget Function(DashboardWidgetType type, DashboardWidgetSize size)
-  itemBuilder;
+/// Rows: two consecutive half widgets share a row, everything else is full.
+final _homeRows = _groupHomeRows(_homeWidgets);
 
-  @override
-  ConsumerState<_EditableDashboardList> createState() =>
-      _EditableDashboardListState();
-}
-
-class _EditableDashboardListState
-    extends ConsumerState<_EditableDashboardList> {
-  final _scrollController = ScrollController();
-  Timer? _autoScrollTimer;
-  double _autoScrollVelocity = 0;
-
-  @override
-  void dispose() {
-    _autoScrollTimer?.cancel();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  // While dragging near the top/bottom edge, scroll so the whole (off-screen)
-  // list stays reachable. Raw Draggable doesn't auto-scroll its scrollable.
-  void _onDragUpdate(Offset globalPosition) {
-    final box = context.findRenderObject() as RenderBox?;
-    if (box == null) return;
-    final dy = box.globalToLocal(globalPosition).dy;
-    const edge = 90.0;
-    const maxSpeed = 16.0;
-    if (dy < edge) {
-      _autoScrollVelocity = -maxSpeed * (1 - (dy / edge).clamp(0.0, 1.0));
-    } else if (dy > box.size.height - edge) {
-      _autoScrollVelocity =
-          maxSpeed * (1 - ((box.size.height - dy) / edge).clamp(0.0, 1.0));
-    } else {
-      _autoScrollVelocity = 0;
-    }
-
-    if (_autoScrollVelocity == 0) {
-      _stopAutoScroll();
-    } else {
-      _autoScrollTimer ??= Timer.periodic(
-        const Duration(milliseconds: 16),
-        (_) => _tickAutoScroll(),
-      );
-    }
-  }
-
-  void _tickAutoScroll() {
-    if (!_scrollController.hasClients) return;
-    final position = _scrollController.position;
-    final next = (_scrollController.offset + _autoScrollVelocity).clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
-    if (next != _scrollController.offset) {
-      _scrollController.jumpTo(next);
-    }
-  }
-
-  void _stopAutoScroll() {
-    _autoScrollTimer?.cancel();
-    _autoScrollTimer = null;
-    _autoScrollVelocity = 0;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final visible = widget.layout
-        .where((item) => item.isVisible && item.type.isRenderable)
-        .toList();
-    final hidden = widget.layout
-        .where((item) => !item.isVisible && item.type.isRenderable)
-        .toList();
-    final notifier = ref.read(dashboardLayoutProvider.notifier);
-    final order = [for (final item in visible) item.type];
-
-    // Drag-and-drop reorders the flat order; the grid reflows automatically.
-    void moveBefore(DashboardWidgetType dragged, DashboardWidgetType target) {
-      if (dragged == target) return;
-      final next = [...order]..remove(dragged);
-      next.insert(next.indexOf(target), dragged);
-      notifier.setVisibleOrder(next);
-    }
-
-    void moveToEnd(DashboardWidgetType dragged) {
-      notifier.setVisibleOrder(
-        [...order]
-          ..remove(dragged)
-          ..add(dragged),
-      );
-    }
-
-    Widget cell(DashboardWidgetPreference item) {
-      return _EditGridCell(
-        dataType: item.type,
-        label: item.type.label,
-        onReorder: (dragged) => moveBefore(dragged, item.type),
-        onRemove: () => notifier.removeWidget(item.type),
-        onDragUpdate: _onDragUpdate,
-        onDragEnd: _stopAutoScroll,
-        child: widget.itemBuilder(item.type, item.size),
-      );
-    }
-
-    return ListView(
-      controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-      children: [
-        for (final group in groupDashboardRows(visible))
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: switch (group) {
-              [final left, final right] => Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: cell(left)),
-                  const SizedBox(width: 16),
-                  Expanded(child: cell(right)),
-                ],
-              ),
-              [final only] when only.size == DashboardWidgetSize.half => Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: cell(only)),
-                  const SizedBox(width: 16),
-                  const Expanded(child: SizedBox.shrink()),
-                ],
-              ),
-              _ => cell(group.first),
-            },
-          ),
-        _EndDropZone(onDrop: moveToEnd),
-        _AddWidgetsPanel(hidden: hidden),
-        const SizedBox(height: 16),
-        _DashboardLayoutAction(
-          isEditing: widget.isEditing,
-          onPressed: widget.onToggleEditing,
-        ),
-      ],
-    );
-  }
-}
-
-/// One draggable widget cell in the edit grid. Long-press to drag it; drop it
-/// onto another cell to place it just before that cell. The whole cell is the
-/// drop target.
-class _EditGridCell extends StatelessWidget {
-  const _EditGridCell({
-    required this.dataType,
-    required this.label,
-    required this.onReorder,
-    required this.onRemove,
-    required this.onDragUpdate,
-    required this.onDragEnd,
-    required this.child,
-  });
-
-  final DashboardWidgetType dataType;
-  final String label;
-  final ValueChanged<DashboardWidgetType> onReorder;
-  final VoidCallback onRemove;
-  final ValueChanged<Offset> onDragUpdate;
-  final VoidCallback onDragEnd;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return DragTarget<DashboardWidgetType>(
-      onWillAcceptWithDetails: (details) => details.data != dataType,
-      onAcceptWithDetails: (details) => onReorder(details.data),
-      builder: (context, candidate, rejected) {
-        return LongPressDraggable<DashboardWidgetType>(
-          data: dataType,
-          feedback: _DragFeedback(label: label),
-          onDragUpdate: (details) => onDragUpdate(details.globalPosition),
-          onDragEnd: (_) => onDragEnd(),
-          onDraggableCanceled: (_, _) => onDragEnd(),
-          childWhenDragging: Opacity(
-            opacity: 0.35,
-            child: _decorated(highlighted: false),
-          ),
-          child: _decorated(highlighted: candidate.isNotEmpty),
-        );
-      },
-    );
-  }
-
-  Widget _decorated({required bool highlighted}) {
-    return Stack(
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: AikoColors.primaryBlue,
-              width: highlighted ? 3 : 1,
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Padding(padding: const EdgeInsets.all(3), child: child),
-        ),
-        const Positioned(
-          top: 10,
-          left: 10,
-          child: IgnorePointer(
-            child: Icon(Icons.drag_indicator, color: AikoColors.primaryBlue),
-          ),
-        ),
-        Positioned(
-          top: 8,
-          right: 8,
-          child: IconButton.filledTonal(
-            tooltip: 'Remove $label',
-            onPressed: onRemove,
-            icon: const Icon(Icons.delete_outline),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// The ghost shown under the finger while dragging a widget.
-class _DragFeedback extends StatelessWidget {
-  const _DragFeedback({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: AikoColors.primaryBlue,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 8,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.drag_indicator, color: Colors.white, size: 18),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Drop a dragged widget here to move it to the end of the dashboard.
-class _EndDropZone extends StatelessWidget {
-  const _EndDropZone({required this.onDrop});
-
-  final ValueChanged<DashboardWidgetType> onDrop;
-
-  @override
-  Widget build(BuildContext context) {
-    return DragTarget<DashboardWidgetType>(
-      onWillAcceptWithDetails: (_) => true,
-      onAcceptWithDetails: (details) => onDrop(details.data),
-      builder: (context, candidate, rejected) {
-        final active = candidate.isNotEmpty;
-        final theme = Theme.of(context);
-        return Container(
-          height: 56,
-          margin: const EdgeInsets.only(bottom: 16),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: active
-                ? AikoColors.primaryBlue.withValues(alpha: 0.08)
-                : null,
-            border: Border.all(
-              color: active
-                  ? AikoColors.primaryBlue
-                  : theme.colorScheme.outlineVariant,
-              width: active ? 2 : 1,
-            ),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            'Drop here to move to the end',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// Two-column responsive grid that lets widgets opt into half width so two of
-/// them share a row. Full-width widgets take the whole row. Drag-and-drop
-/// reordering happens in the embedded edit list (single column by design,
-/// so the order is unambiguous and the user owns it).
-class _DashboardGrid extends StatelessWidget {
-  const _DashboardGrid({
-    required this.layout,
-    required this.summary,
-    required this.dueItemsAsync,
-    required this.isEditing,
-    required this.onToggleEditing,
-    required this.itemBuilder,
-  });
-
-  final List<DashboardWidgetPreference> layout;
-  final DashboardSummary summary;
-  final AsyncValue<List<DashboardDueItem>> dueItemsAsync;
-  final bool isEditing;
-  final VoidCallback onToggleEditing;
-  final Widget Function(DashboardWidgetType type, DashboardWidgetSize size)
-  itemBuilder;
-
-  static const double _rowGap = 16;
-
-  @override
-  Widget build(BuildContext context) {
-    final visible = layout
-        .where((item) => item.isVisible && item.type.isRenderable)
-        .toList();
-    if (isEditing) {
-      return _EditableDashboardList(
-        layout: layout,
-        isEditing: isEditing,
-        onToggleEditing: onToggleEditing,
-        itemBuilder: itemBuilder,
-      );
-    }
-    final rows = _buildRows(visible);
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-      children: [
-        for (var index = 0; index < rows.length; index++)
-          Padding(
-            padding: EdgeInsets.only(top: index == 0 ? 0 : _rowGap),
-            child: rows[index],
-          ),
-        const SizedBox(height: 16),
-        _DashboardLayoutAction(
-          isEditing: isEditing,
-          onPressed: onToggleEditing,
-        ),
-      ],
-    );
-  }
-
-  /// Folds consecutive half-width widgets into a two-column [Row]. A standalone
-  /// or trailing half widget sits on the left and leaves the right cell empty.
-  List<Widget> _buildRows(List<DashboardWidgetPreference> visible) {
-    return [
-      for (final group in groupDashboardRows(visible))
-        if (group.length == 2)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: itemBuilder(group[0].type, group[0].size)),
-              const SizedBox(width: _rowGap),
-              Expanded(child: itemBuilder(group[1].type, group[1].size)),
-            ],
-          )
-        else if (group.first.size == DashboardWidgetSize.half)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: itemBuilder(group.first.type, group.first.size)),
-              const SizedBox(width: _rowGap),
-              const Expanded(child: SizedBox.shrink()),
-            ],
-          )
-        else
-          itemBuilder(group.first.type, group.first.size),
-    ];
-  }
-}
-
-/// Groups visible widgets into rows: two consecutive half widgets share a row,
-/// everything else is its own row. Shared by the view grid and the edit list so
-/// both pair widgets identically.
-List<List<DashboardWidgetPreference>> groupDashboardRows(
-  List<DashboardWidgetPreference> visible,
+List<List<DashboardWidgetType>> _groupHomeRows(
+  List<DashboardWidgetType> types,
 ) {
-  final rows = <List<DashboardWidgetPreference>>[];
-  for (var i = 0; i < visible.length;) {
-    final current = visible[i];
-    if (current.size == DashboardWidgetSize.half &&
-        i + 1 < visible.length &&
-        visible[i + 1].size == DashboardWidgetSize.half) {
-      rows.add([current, visible[i + 1]]);
+  final rows = <List<DashboardWidgetType>>[];
+  for (var i = 0; i < types.length;) {
+    final current = types[i];
+    if (current.defaultSize == DashboardWidgetSize.half &&
+        i + 1 < types.length &&
+        types[i + 1].defaultSize == DashboardWidgetSize.half) {
+      rows.add([current, types[i + 1]]);
       i += 2;
     } else {
       rows.add([current]);
@@ -1012,76 +628,6 @@ class _AssetRow extends StatelessWidget {
           ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
       ],
-    );
-  }
-}
-
-class _DashboardLayoutAction extends StatelessWidget {
-  const _DashboardLayoutAction({
-    required this.isEditing,
-    required this.onPressed,
-  });
-
-  final bool isEditing;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final actionColor = Theme.of(context).colorScheme.primary;
-
-    return TextButton.icon(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        foregroundColor: actionColor,
-        minimumSize: const Size.fromHeight(48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      icon: Icon(isEditing ? Icons.check : Icons.edit_outlined),
-      label: Text(isEditing ? 'Done' : 'Edit layout'),
-    );
-  }
-}
-
-class _AddWidgetsPanel extends ConsumerWidget {
-  const _AddWidgetsPanel({required this.hidden});
-
-  final List<DashboardWidgetPreference> hidden;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(dashboardLayoutProvider.notifier);
-    return FinanceCard(
-      title: 'Add widgets',
-      icon: Icons.add_chart_outlined,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (hidden.isEmpty)
-            Text(
-              'All overview widgets are visible.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            )
-          else
-            for (final item in hidden)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(item.type.label),
-                trailing: IconButton(
-                  tooltip: 'Add ${item.type.label}',
-                  onPressed: () => notifier.addWidget(item.type),
-                  icon: const Icon(Icons.add_circle_outline),
-                ),
-              ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: notifier.resetToDefault,
-              icon: const Icon(Icons.restart_alt),
-              label: const Text('Reset to default'),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

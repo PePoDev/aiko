@@ -5,8 +5,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/offline/offline_user_context.dart';
-import '../../core/supabase/supabase_client_provider.dart';
+import '../../../core/offline/offline_user_context.dart';
+import '../../../core/supabase/supabase_client_provider.dart';
 
 /// Result of picking a new avatar: the local cache path is always populated
 /// so the UI can render instantly, and the cloud URL is populated when the
@@ -19,7 +19,7 @@ class ProfileAvatar {
 }
 
 class ProfileAvatarService {
-  const ProfileAvatarService();
+  ProfileAvatarService();
 
   static const _bucket = 'avatars';
 
@@ -100,14 +100,13 @@ class ProfileAvatarService {
       _ => 'image/jpeg',
     };
     try {
-      await client.storage.from(_bucket).uploadBinary(
-        objectPath,
-        bytes,
-        fileOptions: FileOptions(
-          contentType: contentType,
-          upsert: true,
-        ),
-      );
+      await client.storage
+          .from(_bucket)
+          .uploadBinary(
+            objectPath,
+            Uint8List.fromList(bytes),
+            fileOptions: FileOptions(contentType: contentType, upsert: true),
+          );
       return client.storage.from(_bucket).getPublicUrl(objectPath);
     } catch (error) {
       if (kDebugMode) {

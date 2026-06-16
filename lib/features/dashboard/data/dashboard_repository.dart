@@ -1,14 +1,12 @@
 import 'package:decimal/decimal.dart';
 
 import '../../../core/money/money.dart';
-import '../../../core/supabase/supabase_client_provider.dart';
 import '../../accounts/data/account_repository.dart';
 import '../../accounts/domain/account.dart';
 import '../../categories/data/category_repository.dart';
 import '../../transactions/data/transaction_repository.dart';
 import '../../transactions/domain/transaction.dart';
 import '../domain/dashboard_summary.dart';
-import '../domain/dashboard_widget_preference.dart';
 
 class DashboardRepository {
   const DashboardRepository();
@@ -91,56 +89,6 @@ class DashboardRepository {
     );
   }
 
-  Future<List<DashboardWidgetPreference>> loadPreferences() async {
-    final session = AikoSupabase.tryClient()?.auth.currentUser;
-    final client = AikoSupabase.tryClient();
-    if (client == null || session == null) {
-      return _defaultPreferences();
-    }
-
-    try {
-      final response = await client
-          .from('dashboard_widget_preferences')
-          .select()
-          .eq('user_id', session.id)
-          .eq('dashboard_mode', 'personal')
-          .order('position');
-
-      return response
-          .map((row) => _preferenceFromRow(Map<String, dynamic>.from(row)))
-          .toList(growable: false);
-    } catch (_) {
-      return _defaultPreferences();
-    }
-  }
-
-  static DashboardWidgetPreference _preferenceFromRow(
-    Map<String, dynamic> row,
-  ) {
-    final type = switch (row['widget_key'] as String? ?? '') {
-      'summary' => DashboardWidgetType.aikoWelcome,
-      'pace' => DashboardWidgetType.dailySpending,
-      'analytics' => DashboardWidgetType.dailySummary,
-      'due_items' => DashboardWidgetType.dueItems,
-      'this_month_overview' => DashboardWidgetType.thisMonthOverview,
-      'daily_spending' => DashboardWidgetType.dailySpending,
-      'safe_this_week' => DashboardWidgetType.safeThisWeek,
-      'daily_summary' => DashboardWidgetType.dailySummary,
-      'net_earnings' => DashboardWidgetType.netEarnings,
-      'category_budgets' => DashboardWidgetType.categoryBudgets,
-      'spending_calendar' => DashboardWidgetType.spendingCalendar,
-      'cash_flow_mapping' => DashboardWidgetType.cashFlowMapping,
-      'aiko_goal_simulator' => DashboardWidgetType.aikoGoalSimulator,
-      _ => DashboardWidgetType.aikoWelcome,
-    };
-
-    return DashboardWidgetPreference(
-      type: type,
-      isVisible: row['is_visible'] as bool? ?? true,
-      position: row['position'] as int? ?? 0,
-    );
-  }
-
   static String _firstCurrency(
     Iterable<Account> accounts,
     Iterable<FinanceTransaction> transactions,
@@ -157,9 +105,5 @@ class DashboardRepository {
       }
     }
     return 'USD';
-  }
-
-  static List<DashboardWidgetPreference> _defaultPreferences() {
-    return DashboardWidgetPreference.defaultLayout;
   }
 }

@@ -24,7 +24,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _authRepository = AuthRepository();
-  final _avatarService = const ProfileAvatarService();
+  final _avatarService = ProfileAvatarService();
 
   final _displayNameController = TextEditingController();
   final _fullNameController = TextEditingController();
@@ -697,7 +697,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ],
                 ),
               ),
-              if (trailing != null) trailing,
+              ?trailing,
               const Icon(Icons.chevron_right),
             ],
           ),
@@ -787,7 +787,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           width: 112,
           height: 112,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _initialsAvatar(displayName),
+          errorBuilder: (_, _, _) => _initialsAvatar(displayName),
         );
       } else {
         child = _networkOrInitials(fallbackUrl, displayName);
@@ -819,7 +819,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         width: 112,
         height: 112,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _initialsAvatar(displayName),
+        errorBuilder: (_, _, _) => _initialsAvatar(displayName),
         loadingBuilder: (context, child, progress) {
           if (progress == null) return child;
           return _initialsAvatar(displayName);

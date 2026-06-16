@@ -8,11 +8,9 @@ import '../features/categories/data/category_group_repository.dart';
 import '../features/categories/domain/category.dart';
 import '../features/categories/domain/category_defaults.dart';
 import '../features/dashboard/data/dashboard_due_item_repository.dart';
-import '../features/dashboard/data/dashboard_layout_repository.dart';
 import '../features/dashboard/data/dashboard_repository.dart';
 import '../features/dashboard/domain/dashboard_due_item.dart';
 import '../features/dashboard/domain/dashboard_summary.dart';
-import '../features/dashboard/domain/dashboard_widget_preference.dart';
 import '../features/insights/data/aiko_insight_repository.dart';
 import '../features/insights/domain/aiko_insight.dart';
 import '../features/settings/data/profile_repository.dart';
@@ -56,12 +54,6 @@ final dashboardDueItemRepositoryProvider = Provider<DashboardDueItemRepository>(
     return const DashboardDueItemRepository();
   },
 );
-
-final dashboardLayoutRepositoryProvider = Provider<DashboardLayoutRepository>((
-  ref,
-) {
-  return DashboardLayoutRepository();
-});
 
 final investmentHoldingRepositoryProvider =
     Provider<InvestmentHoldingRepository>((ref) {
@@ -597,78 +589,6 @@ final dashboardDueItemsProvider =
         Error.throwWithStackTrace(error, stackTrace);
       }
     });
-
-class DashboardLayoutNotifier
-    extends AsyncNotifier<List<DashboardWidgetPreference>> {
-  @override
-  Future<List<DashboardWidgetPreference>> build() async {
-    try {
-      return ref.watch(dashboardLayoutRepositoryProvider).load();
-    } catch (error, stackTrace) {
-      // Surface to `AikoScreenState.error`; offline + secure-storage broken
-      // must render a recoverable error widget, not a provider-tree crash.
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-  }
-
-  /// Reorders the visible widgets to match [orderedTypes]. Any rows not in the
-  /// list (hidden or placeholder widgets) keep their relative order at the end.
-  /// Used by the home grid edit list, where two half widgets share one row.
-  Future<void> setVisibleOrder(List<DashboardWidgetType> orderedTypes) async {
-    final current = [...?state.value];
-    if (current.isEmpty) {
-      return;
-    }
-    final byType = {for (final item in current) item.type: item};
-    final reordered = <DashboardWidgetPreference>[
-      for (final type in orderedTypes)
-        if (byType[type] != null) byType[type]!,
-      for (final item in current)
-        if (!orderedTypes.contains(item.type)) item,
-    ];
-    await _save(_withPositions(reordered));
-  }
-
-  Future<void> removeWidget(DashboardWidgetType type) async {
-    await _setVisibility(type, false);
-  }
-
-  Future<void> addWidget(DashboardWidgetType type) async {
-    await _setVisibility(type, true);
-  }
-
-  Future<void> resetToDefault() async {
-    await _save(DashboardWidgetPreference.defaultLayout);
-  }
-
-  Future<void> _setVisibility(DashboardWidgetType type, bool isVisible) async {
-    final layout = [
-      for (final item in [...?state.value])
-        item.type == type ? item.copyWith(isVisible: isVisible) : item,
-    ];
-    await _save(_withPositions(layout));
-  }
-
-  Future<void> _save(List<DashboardWidgetPreference> layout) async {
-    state = AsyncData(layout);
-    await ref.read(dashboardLayoutRepositoryProvider).save(layout);
-  }
-
-  List<DashboardWidgetPreference> _withPositions(
-    List<DashboardWidgetPreference> layout,
-  ) {
-    return [
-      for (var index = 0; index < layout.length; index++)
-        layout[index].copyWith(position: index),
-    ];
-  }
-}
-
-final dashboardLayoutProvider =
-    AsyncNotifierProvider<
-      DashboardLayoutNotifier,
-      List<DashboardWidgetPreference>
-    >(DashboardLayoutNotifier.new);
 
 // ---------------------------------------------------------------------------
 // Budgets -> Categories and Goals -> Accounts merge (PR2)

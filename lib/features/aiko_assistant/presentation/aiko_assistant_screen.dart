@@ -562,80 +562,93 @@ class _InputBar extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
-                enabled: !disabled,
-                onChanged: onChanged,
-                minLines: 1,
-                maxLines: 4,
-                textInputAction: TextInputAction.send,
-                onSubmitted: onSubmit,
-                decoration: InputDecoration(
-                  hintText: disabled
-                      ? 'Aiko is busy...'
-                      : 'Ask about your money...',
-                  hintStyle: TextStyle(
-                    color: theme.colorScheme.onSurfaceVariant
-                        .withValues(alpha: 0.6),
-                  ),
-                  filled: true,
-                  fillColor: theme.inputDecorationTheme.fillColor,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(
-                      color: theme.colorScheme.outline.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(
-                      color: theme.colorScheme.outline.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: const BorderSide(
-                      color: AikoColors.primaryBlue,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
+        child: TextField(
+          controller: controller,
+          enabled: !disabled,
+          onChanged: onChanged,
+          minLines: 1,
+          maxLines: 4,
+          // Cap prompt length so the chat stays a question box, not a
+          // paste target for huge/abusive input.
+          maxLength: 300,
+          textInputAction: TextInputAction.send,
+          onSubmitted: onSubmit,
+          decoration: InputDecoration(
+            counterText: '', // hide the counter; the cap is silent
+            hintText: disabled ? 'Aiko is busy...' : 'Ask about your money...',
+            hintStyle: TextStyle(
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+            filled: true,
+            fillColor: theme.inputDecorationTheme.fillColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(24),
+              borderSide: BorderSide(
+                color: theme.colorScheme.outline.withValues(alpha: 0.4),
               ),
             ),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 48,
-              height: 48,
-              child: Material(
-                color: (disabled || !hasText)
-                    ? theme.colorScheme.outline.withValues(alpha: 0.3)
-                    : AikoColors.primaryBlue,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: (disabled || !hasText)
-                      ? null
-                      : () => onSubmit(controller.text),
-                  child: Center(
-                    child: Icon(
-                      Icons.arrow_upward_rounded,
-                      color: (disabled || !hasText)
-                          ? theme.colorScheme.onSurfaceVariant
-                          : AikoColors.white,
-                      size: 22,
-                    ),
-                  ),
-                ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(24),
+              borderSide: BorderSide(
+                color: theme.colorScheme.outline.withValues(alpha: 0.4),
               ),
             ),
-          ],
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(24),
+              borderSide: const BorderSide(color: AikoColors.primaryBlue),
+            ),
+            contentPadding: const EdgeInsets.fromLTRB(20, 14, 8, 14),
+            // The send button lives inside the field so the whole control
+            // reads as one pill, not a field plus a detached button.
+            suffixIcon: Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: _SendButton(
+                enabled: !disabled && hasText,
+                onTap: () => onSubmit(controller.text),
+              ),
+            ),
+            // Reserve exactly the button footprint (40 + 6 inset) so it sits
+            // snug against the right edge and stays vertically centered.
+            suffixIconConstraints: const BoxConstraints.tightFor(
+              width: 46,
+              height: 40,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SendButton extends StatelessWidget {
+  const _SendButton({required this.enabled, required this.onTap});
+
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: Material(
+        color: enabled
+            ? AikoColors.primaryBlue
+            : theme.colorScheme.outline.withValues(alpha: 0.3),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: enabled ? onTap : null,
+          child: Center(
+            child: Icon(
+              Icons.arrow_upward_rounded,
+              color: enabled
+                  ? AikoColors.white
+                  : theme.colorScheme.onSurfaceVariant,
+              size: 20,
+            ),
+          ),
         ),
       ),
     );

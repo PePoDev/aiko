@@ -14,6 +14,8 @@ class OfflineCategoryGroup extends OfflineFirstWithSupabaseModel {
     this.color = '#3B82F6',
     this.sortOrder = 0,
     this.createdAt,
+    this.budgetAmount,
+    this.budgetCurrency,
     DateTime? updatedAt,
     this.version = 1,
   }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
@@ -39,6 +41,21 @@ class OfflineCategoryGroup extends OfflineFirstWithSupabaseModel {
   @Sqlite(name: 'created_at')
   @Supabase(name: 'created_at')
   final DateTime? createdAt;
+
+  // Optional group-level budget. `budgetAmount`/`budgetCurrency` form a Money
+  // pair (null amount or currency == no budget), mirroring OfflineCategory.
+  // Tolerates legacy NULL rows (columns added after the table existed).
+  @Sqlite(name: 'budget_amount')
+  @Supabase(
+    name: 'budget_amount',
+    fromGenerator:
+        'data[\'budget_amount\'] == null ? null : data[\'budget_amount\'].toString()',
+  )
+  final String? budgetAmount;
+
+  @Sqlite(name: 'budget_currency')
+  @Supabase(name: 'budget_currency')
+  final String? budgetCurrency;
 
   @Sqlite(name: 'updated_at')
   @Supabase(name: 'updated_at')

@@ -11,6 +11,7 @@ import '../domain/category.dart';
 import '../domain/category_defaults.dart';
 import 'category_budget_sheet.dart';
 import 'category_editor_sheet.dart';
+import 'category_group_budget_sheet.dart';
 import 'category_group_editor_sheet.dart';
 import 'category_visual.dart';
 
@@ -112,20 +113,6 @@ class CategoryManagementScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             children: [
               _CategorySection(
-                key: const ValueKey('section-income'),
-                title: 'Income',
-                accent: AikoColors.successGreen,
-                icon: Icons.arrow_downward_outlined,
-                categories: incomeCategories,
-                groups: groups,
-                totals: totals,
-                onCategoryTap: (category) =>
-                    showCategoryEditorSheet(context, initialCategory: category),
-                onGroupEdit: (group) =>
-                    showCategoryGroupEditorSheet(context, initial: group),
-              ),
-              const SizedBox(height: 16),
-              _CategorySection(
                 key: const ValueKey('section-expense'),
                 title: 'Expense',
                 accent: AikoColors.dangerRed,
@@ -137,6 +124,24 @@ class CategoryManagementScreen extends ConsumerWidget {
                     showCategoryEditorSheet(context, initialCategory: category),
                 onGroupEdit: (group) =>
                     showCategoryGroupEditorSheet(context, initial: group),
+                onGroupBudgetTap: (group) =>
+                    showCategoryGroupBudgetSheet(context, group: group),
+              ),
+              const SizedBox(height: 16),
+              _CategorySection(
+                key: const ValueKey('section-income'),
+                title: 'Income',
+                accent: AikoColors.successGreen,
+                icon: Icons.arrow_downward_outlined,
+                categories: incomeCategories,
+                groups: groups,
+                totals: totals,
+                onCategoryTap: (category) =>
+                    showCategoryEditorSheet(context, initialCategory: category),
+                onGroupEdit: (group) =>
+                    showCategoryGroupEditorSheet(context, initial: group),
+                onGroupBudgetTap: (group) =>
+                    showCategoryGroupBudgetSheet(context, group: group),
               ),
             ],
           );

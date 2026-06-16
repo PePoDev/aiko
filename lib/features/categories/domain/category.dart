@@ -157,6 +157,7 @@ class CategoryGroup {
     this.color = '#3B82F6',
     this.sortOrder = 0,
     this.createdAt,
+    this.budgetLimit,
   });
 
   final String id;
@@ -166,6 +167,16 @@ class CategoryGroup {
   final String color;
   final int sortOrder;
   final DateTime? createdAt;
+
+  /// Optional monthly spending limit for the whole group (an envelope across
+  /// its categories), independent of the categories' own limits. Null means
+  /// the group has no budget. For the 13 read-only default groups this rides
+  /// on a per-user overlay row (see CategoryGroupsNotifier).
+  final Money? budgetLimit;
+
+  /// True when this group has a usable group-level budget (limit > 0).
+  bool get hasBudget =>
+      budgetLimit != null && budgetLimit!.amount > Decimal.zero;
 
   /// Whether this is one of the global, read-only default groups (Food &
   /// Drink, Transport, …, Other). System groups cannot be edited, deleted, or
@@ -178,6 +189,7 @@ class CategoryGroup {
     String? color,
     int? sortOrder,
     DateTime? createdAt,
+    Object? budgetLimit = _unset,
   }) {
     return CategoryGroup(
       id: id,
@@ -187,6 +199,9 @@ class CategoryGroup {
       color: color ?? this.color,
       sortOrder: sortOrder ?? this.sortOrder,
       createdAt: createdAt ?? this.createdAt,
+      budgetLimit: identical(budgetLimit, _unset)
+          ? this.budgetLimit
+          : budgetLimit as Money?,
     );
   }
 }

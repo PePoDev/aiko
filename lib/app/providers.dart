@@ -1,10 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/transactions/data/transaction_repository.dart';
-import '../features/accounts/application/account_goal_forecast_service.dart';
 import '../features/accounts/application/shared_limit_resolver.dart';
 import '../features/accounts/data/account_repository.dart';
 import '../features/accounts/domain/account.dart';
-import '../features/categories/application/category_budget_progress_service.dart';
 import '../features/categories/application/category_service.dart';
 import '../features/categories/data/category_repository.dart';
 import '../features/categories/data/category_group_repository.dart';
@@ -455,11 +453,7 @@ class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
   Future<List<CategoryGroup>> build() async {
     try {
       final repo = ref.watch(categoryGroupRepositoryProvider);
-      final userGroups = await repo.list();
-      // The 13 global default groups are injected in-memory (mirroring how
-      // CategoryDefaults are injected into the categories list) and always sort
-      // after the user's own groups, in deliberate internal order.
-      return [...userGroups, ...CategoryGroupDefaults.all];
+      return _merge(await repo.list());
     } catch (error, stackTrace) {
       // Surface to `AikoScreenState.error`; offline + secure-storage broken
       // must render a recoverable error widget, not a provider-tree crash.
@@ -467,12 +461,33 @@ class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
     }
   }
 
+  /// Combines stored groups with the 13 in-memory defaults. A stored row whose
+  /// id matches a default group is a per-user *budget overlay*: the default
+  /// stays read-only but its [CategoryGroup.budgetLimit] rides on top. The 13
+  /// defaults always sort after the user's own groups, in declared order.
+  List<CategoryGroup> _merge(List<CategoryGroup> storedGroups) {
+    final overlays = <String, CategoryGroup>{
+      for (final group in storedGroups)
+        if (group.isSystem) group.id: group,
+    };
+    final userGroups = storedGroups
+        .where((group) => !group.isSystem)
+        .toList(growable: false);
+    final defaults = CategoryGroupDefaults.all.map((group) {
+      final overlay = overlays[group.id];
+      return overlay == null
+          ? group
+          : group.copyWith(budgetLimit: overlay.budgetLimit);
+    });
+    return [...userGroups, ...defaults];
+  }
+
   Future<void> saveGroup(CategoryGroup group) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(categoryGroupRepositoryProvider);
       await repo.save(group);
-      return repo.list();
+      return _merge(await repo.list());
     });
     if (state.hasError) {
       Error.throwWithStackTrace(state.error!, state.stackTrace!);
@@ -494,7 +509,7 @@ class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
 
       final groupRepo = ref.read(categoryGroupRepositoryProvider);
       await groupRepo.delete(id);
-      return groupRepo.list();
+      return _merge(await groupRepo.list());
     });
     if (state.hasError) {
       Error.throwWithStackTrace(state.error!, state.stackTrace!);
@@ -515,8 +530,7 @@ final categoryGroupsProvider =
 // `BudgetsNotifier`, `GoalsNotifier`, `budgetsProvider`, and `goalsProvider`
 // are gone. Budgets are stored on `Category`; goals are accounts with
 // `type = AccountType.goal`. Use `categoriesProvider` / `accountsProvider`
-// (and the derived `categoryBudgetsDerivedProvider` /
-// `goalAccountsDerivedProvider` for the merge-friendly views).
+// (and the derived `goalAccountsDerivedProvider` for the merge-friendly views).
 
 final profileProvider = FutureProvider.autoDispose<Profile>((ref) {
   try {
@@ -602,19 +616,6 @@ class DashboardLayoutNotifier
     }
   }
 
-  Future<void> reorder(int oldIndex, int newIndex) async {
-    final layout = [...?state.value];
-    if (layout.isEmpty) {
-      return;
-    }
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
-    }
-    final item = layout.removeAt(oldIndex);
-    layout.insert(newIndex, item);
-    await _save(_withPositions(layout));
-  }
-
   Future<void> reorderItem(int oldIndex, int newIndex) async {
     final layout = [...?state.value];
     if (layout.isEmpty) {
@@ -660,16 +661,6 @@ class DashboardLayoutNotifier
   }
 }
 
-/// Exposes the static default dashboard layout. Surfaces the same
-/// list as `DashboardWidgetPreference.defaultLayout` but as a Riverpod
-/// provider so screens can read it via `ref.watch` and the value can later
-/// be swapped out by tests (or a "reset to default" toggle) without having
-/// to track the static const across the codebase.
-final dashboardDefaultLayoutProvider =
-    Provider<List<DashboardWidgetPreference>>(
-      (_) => DashboardWidgetPreference.defaultLayout,
-    );
-
 final dashboardLayoutProvider =
     AsyncNotifierProvider<
       DashboardLayoutNotifier,
@@ -684,23 +675,6 @@ final dashboardLayoutProvider =
 // budget / goal data from the `categories` and `accounts` providers without
 // touching the legacy `BudgetRepository` / `GoalRepository`. PR5 removes
 // those repositories entirely.
-
-final categoryBudgetProgressServiceProvider =
-    Provider<CategoryBudgetProgressService>(
-      (ref) => const CategoryBudgetProgressService(),
-    );
-
-final accountGoalForecastServiceProvider = Provider<AccountGoalForecastService>(
-  (ref) => const AccountGoalForecastService(),
-);
-
-/// All categories that have a budget configured. Source of truth for the
-/// dashboard's Category Budgets panel and the Budget detail screens.
-final categoryBudgetsDerivedProvider = Provider<AsyncValue<List<Category>>>((
-  ref,
-) {
-  return ref.watch(categoriesProvider);
-});
 
 /// All accounts with `type = goal`. Source of truth for the dashboard's
 /// Aiko Goal Simulator panel and the goal detail screens.

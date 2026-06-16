@@ -20,14 +20,20 @@ class CategoryGroupRepository {
   }
 
   Future<CategoryGroup> save(CategoryGroup group) async {
-    final currentList = await list();
-    final duplicate = currentList.any(
-      (item) =>
-          item.id != group.id &&
-          item.name.toLowerCase() == group.name.toLowerCase(),
-    );
-    if (duplicate) {
-      throw ArgumentError('A group with this name already exists.');
+    // A stored row carrying a system (default) group's id is a per-user budget
+    // overlay — the group stays read-only for identity, only its limit rides on
+    // top (mirrors the category budget overlay). Skip the duplicate-name check,
+    // since its name mirrors the default's.
+    if (!group.isSystem) {
+      final currentList = await list();
+      final duplicate = currentList.any(
+        (item) =>
+            item.id != group.id &&
+            item.name.toLowerCase() == group.name.toLowerCase(),
+      );
+      if (duplicate) {
+        throw ArgumentError('A group with this name already exists.');
+      }
     }
 
     final userId = await OfflineUserContext().resolveUserId();

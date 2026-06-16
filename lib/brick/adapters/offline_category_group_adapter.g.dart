@@ -18,6 +18,14 @@ Future<OfflineCategoryGroup> _$OfflineCategoryGroupFromSupabase(
         : data['created_at'] == null
         ? null
         : DateTime.tryParse(data['created_at'] as String),
+    budgetAmount: data['budget_amount'] == null
+        ? null
+        : data['budget_amount'] == null
+        ? null
+        : data['budget_amount'].toString(),
+    budgetCurrency: data['budget_currency'] == null
+        ? null
+        : data['budget_currency'] as String?,
     updatedAt: data['updated_at'] == null
         ? null
         : DateTime.tryParse(data['updated_at'] as String),
@@ -38,6 +46,8 @@ Future<Map<String, dynamic>> _$OfflineCategoryGroupToSupabase(
     'color': instance.color,
     'sort_order': instance.sortOrder,
     'created_at': instance.createdAt?.toIso8601String(),
+    'budget_amount': instance.budgetAmount,
+    'budget_currency': instance.budgetCurrency,
     'updated_at': instance.updatedAt.toIso8601String(),
     'version': instance.version,
   };
@@ -60,6 +70,12 @@ Future<OfflineCategoryGroup> _$OfflineCategoryGroupFromSqlite(
         : data['created_at'] == null
         ? null
         : DateTime.tryParse(data['created_at'] as String),
+    budgetAmount: data['budget_amount'] == null
+        ? null
+        : data['budget_amount'] as String?,
+    budgetCurrency: data['budget_currency'] == null
+        ? null
+        : data['budget_currency'] as String?,
     updatedAt: DateTime.parse(data['updated_at'] as String),
     version: data['version'] as int,
   )..primaryKey = data['_brick_id'] as int;
@@ -78,6 +94,8 @@ Future<Map<String, dynamic>> _$OfflineCategoryGroupToSqlite(
     'color': instance.color,
     'sort_order': instance.sortOrder,
     'created_at': instance.createdAt?.toIso8601String(),
+    'budget_amount': instance.budgetAmount,
+    'budget_currency': instance.budgetCurrency,
     'updated_at': instance.updatedAt.toIso8601String(),
     'version': instance.version,
   };
@@ -121,6 +139,14 @@ class OfflineCategoryGroupAdapter
     'createdAt': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'created_at',
+    ),
+    'budgetAmount': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'budget_amount',
+    ),
+    'budgetCurrency': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'budget_currency',
     ),
     'updatedAt': const RuntimeSupabaseColumnDefinition(
       association: false,
@@ -184,6 +210,18 @@ class OfflineCategoryGroupAdapter
       columnName: 'created_at',
       iterable: false,
       type: DateTime,
+    ),
+    'budgetAmount': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'budget_amount',
+      iterable: false,
+      type: String,
+    ),
+    'budgetCurrency': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'budget_currency',
+      iterable: false,
+      type: String,
     ),
     'updatedAt': const RuntimeSqliteColumnDefinition(
       association: false,

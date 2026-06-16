@@ -3,17 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../../domain/account_type.dart';
 
-typedef CommonFieldsCallbacks =
-    void Function({
-      String? name,
-      AccountType? type,
-      String? currency,
-      String? balance,
-      String? institution,
-      bool? includeInNetWorth,
-      bool? isActive,
-    });
-
 class AccountCommonFields extends StatelessWidget {
   const AccountCommonFields({
     super.key,
@@ -36,7 +25,15 @@ class AccountCommonFields extends StatelessWidget {
   final TextEditingController nameController;
   final TextEditingController balanceController;
   final TextEditingController institutionController;
-  final CommonFieldsCallbacks onChanged;
+  final void Function({
+    String? name,
+    AccountType? type,
+    String? currency,
+    String? balance,
+    String? institution,
+    bool? includeInNetWorth,
+    bool? isActive,
+  }) onChanged;
 
   @override
   Widget build(BuildContext context) {

@@ -141,6 +141,10 @@ extension OfflineCategoryGroupMapper on OfflineCategoryGroup {
       color: color,
       sortOrder: sortOrder,
       createdAt: createdAt,
+      budgetLimit: _parseMoneyPair(
+        budgetAmount: budgetAmount,
+        budgetCurrency: budgetCurrency,
+      ),
     );
   }
 }
@@ -155,6 +159,8 @@ extension CategoryGroupOfflineMapper on CategoryGroup {
       color: color,
       sortOrder: sortOrder,
       createdAt: createdAt,
+      budgetAmount: budgetLimit?.amount.toString(),
+      budgetCurrency: budgetLimit?.currency,
     );
   }
 }

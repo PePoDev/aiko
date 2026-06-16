@@ -68,28 +68,34 @@ class AccountsScreen extends ConsumerWidget {
                   type: section.type,
                   accountCount: section.accounts.length,
                 ),
-                for (
-                  var accountIndex = 0;
-                  accountIndex < section.accounts.length;
-                  accountIndex++
-                ) ...[
-                  _AccountListItem(
-                    account: section.accounts[accountIndex],
-                    currentBalance: _currentBalanceForAccount(
-                      section.accounts[accountIndex],
-                      transactions,
-                    ),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => AccountDetailScreen(
-                          account: section.accounts[accountIndex],
+                if (section.accounts.isEmpty)
+                  _AddAccountPlaceholder(
+                    type: section.type,
+                    onTap: () => _showAccountForm(context),
+                  )
+                else
+                  for (
+                    var accountIndex = 0;
+                    accountIndex < section.accounts.length;
+                    accountIndex++
+                  ) ...[
+                    _AccountListItem(
+                      account: section.accounts[accountIndex],
+                      currentBalance: _currentBalanceForAccount(
+                        section.accounts[accountIndex],
+                        transactions,
+                      ),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => AccountDetailScreen(
+                            account: section.accounts[accountIndex],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  if (accountIndex != section.accounts.length - 1)
-                    const SizedBox(height: 8),
-                ],
+                    if (accountIndex != section.accounts.length - 1)
+                      const SizedBox(height: 8),
+                  ],
                 const SizedBox(height: 16),
               ],
             ],
@@ -110,14 +116,13 @@ class _AccountTypeSection {
 List<_AccountTypeSection> _groupAccountsByType(List<Account> accounts) {
   return [
     for (final type in AccountType.values)
-      if (accounts.any((account) => account.type == type))
-        _AccountTypeSection(
-          type: type,
-          accounts: [
-            for (final account in accounts)
-              if (account.type == type) account,
-          ],
-        ),
+      _AccountTypeSection(
+        type: type,
+        accounts: [
+          for (final account in accounts)
+            if (account.type == type) account,
+        ],
+      ),
   ];
 }
 
@@ -242,6 +247,51 @@ class _AccountListItem extends StatelessWidget {
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right, size: 18),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AddAccountPlaceholder extends StatelessWidget {
+  const _AddAccountPlaceholder({required this.type, required this.onTap});
+
+  final AccountType type;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = _colorForAccount(type);
+
+    return Card(
+      child: ListTile(
+        onTap: onTap,
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        minLeadingWidth: 0,
+        horizontalTitleGap: 12,
+        leading: Container(
+          width: 34,
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.06),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.add, color: accent.withValues(alpha: 0.5), size: 19),
+        ),
+        title: Text(
+          'Add ${_accountTypeLabel(type).toLowerCase()}',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        trailing: Icon(
+          Icons.chevron_right,
+          size: 18,
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
         ),
       ),
     );

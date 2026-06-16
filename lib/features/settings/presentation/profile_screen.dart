@@ -1,12 +1,17 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../application/profile_avatar_service.dart';
 import '../domain/profile.dart';
 import '../../auth/data/auth_repository.dart';
 
@@ -19,17 +24,26 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _authRepository = AuthRepository();
+  final _avatarService = const ProfileAvatarService();
+
   final _displayNameController = TextEditingController();
+  final _fullNameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
+
+  late Profile _draft;
   bool _initialised = false;
   bool _saving = false;
   bool _isSigningOut = false;
   bool _isDeleting = false;
+  bool _avatarBusy = false;
 
   @override
   void initState() {
     super.initState();
     _displayNameController.addListener(_onTextChanged);
+    _fullNameController.addListener(_onTextChanged);
+    _phoneController.addListener(_onTextChanged);
   }
 
   void _onTextChanged() {
@@ -40,29 +54,43 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   void _populateFrom(Profile profile) {
     if (_initialised) return;
+    _draft = profile;
     _displayNameController.text = profile.displayName;
+    _fullNameController.text = profile.fullName ?? '';
+    _phoneController.text = profile.phoneNumber ?? '';
     _emailController.text = profile.email;
     _initialised = true;
   }
 
   bool _isDirty(Profile profile) {
-    return _initialised &&
-        _displayNameController.text.trim() != profile.displayName;
+    if (!_initialised) return false;
+    if (_displayNameController.text.trim() != profile.displayName) return true;
+    if (_fullNameController.text.trim() != (profile.fullName ?? '')) return true;
+    if (_phoneController.text.trim() != (profile.phoneNumber ?? '')) return true;
+    if (_draft.gender != profile.gender) return true;
+    if (_draft.dateOfBirth != profile.dateOfBirth) return true;
+    if (_draft.avatarPath != profile.avatarPath) return true;
+    if (_draft.avatarUrl != profile.avatarUrl) return true;
+    return false;
   }
 
   Future<void> _save(Profile current) async {
     setState(() => _saving = true);
     try {
       final repo = ref.read(profileRepositoryProvider);
-      await repo.save(
-        current.copyWith(
-          displayName: _displayNameController.text.trim(),
-          email: current.email,
-        ),
+      final next = current.copyWith(
+        displayName: _displayNameController.text.trim(),
+        fullName: _nullIfBlank(_fullNameController.text),
+        phoneNumber: _nullIfBlank(_phoneController.text),
+        gender: _draft.gender,
+        dateOfBirth: _draft.dateOfBirth,
+        avatarPath: _draft.avatarPath,
+        avatarUrl: _draft.avatarUrl,
       );
-      // Invalidate the profile provider to propagate changes
+      await repo.save(next);
       ref.invalidate(profileProvider);
       if (!mounted) return;
+      setState(() => _draft = next);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Profile updated!'),
@@ -80,6 +108,142 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  String? _nullIfBlank(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  Future<void> _onAvatarTap() async {
+    final source = await showModalBottomSheet<AvatarAction>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take photo'),
+              onTap: () => Navigator.pop(sheetContext, AvatarAction.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(sheetContext, AvatarAction.gallery),
+            ),
+            if (_draft.hasAvatar)
+              ListTile(
+                leading: const Icon(
+                  Icons.delete_outline,
+                  color: AikoColors.dangerRed,
+                ),
+                title: const Text(
+                  'Remove photo',
+                  style: TextStyle(color: AikoColors.dangerRed),
+                ),
+                onTap: () => Navigator.pop(sheetContext, AvatarAction.remove),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
+    if (source == AvatarAction.remove) {
+      final previousPath = _draft.avatarPath;
+      setState(() {
+        _draft = _draft.copyWith(avatarPath: null, avatarUrl: null);
+      });
+      await _avatarService.removeFromCache(previousPath);
+      return;
+    }
+
+    setState(() => _avatarBusy = true);
+    try {
+      final imageSource = source == AvatarAction.camera
+          ? ImageSource.camera
+          : ImageSource.gallery;
+      final picked = await _avatarService.pickAndUpload(source: imageSource);
+      if (picked == null) {
+        return;
+      }
+      setState(() {
+        _draft = _draft.copyWith(
+          avatarPath: picked.localPath,
+          avatarUrl: picked.cloudUrl,
+        );
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to update photo right now.'),
+          backgroundColor: AikoColors.dangerRed,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _avatarBusy = false);
+    }
+  }
+
+  Future<void> _pickDateOfBirth() async {
+    final now = DateTime.now();
+    final initial = _draft.dateOfBirth ?? DateTime(now.year - 18, 1, 1);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(1900),
+      lastDate: now,
+    );
+    if (picked == null) return;
+    setState(() => _draft = _draft.copyWith(dateOfBirth: picked));
+  }
+
+  Future<void> _pickGender() async {
+    final picked = await showModalBottomSheet<Gender>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final option in Gender.values)
+              ListTile(
+                title: Text(_genderLabel(option)),
+                trailing: _draft.gender == option
+                    ? const Icon(Icons.check, color: AikoColors.primaryBlue)
+                    : null,
+                onTap: () => Navigator.pop(sheetContext, option),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _draft = _draft.copyWith(gender: picked));
+  }
+
+  String _genderLabel(Gender gender) {
+    switch (gender) {
+      case Gender.preferNotToSay:
+        return 'Prefer not to say';
+      case Gender.female:
+        return 'Female';
+      case Gender.male:
+        return 'Male';
+      case Gender.nonBinary:
+        return 'Non-binary';
+      case Gender.other:
+        return 'Other';
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return DateFormat.yMMMMd().format(date);
   }
 
   Future<void> _handleLogout() async {
@@ -159,7 +323,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void dispose() {
     _displayNameController.removeListener(_onTextChanged);
+    _fullNameController.removeListener(_onTextChanged);
+    _phoneController.removeListener(_onTextChanged);
     _displayNameController.dispose();
+    _fullNameController.dispose();
+    _phoneController.dispose();
     _emailController.dispose();
     super.dispose();
   }
@@ -245,23 +413,52 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   icon: Icons.person_outline,
                   child: Column(
                     children: [
-                      TextField(
+                      _buildField(
                         controller: _displayNameController,
-                        decoration: InputDecoration(
-                          labelText: 'Display name',
-                          prefixIcon: const Icon(Icons.badge_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          filled: true,
-                          fillColor: AikoColors.primaryBlue.withValues(
-                            alpha: 0.05,
-                          ),
-                        ),
-                        textCapitalization: TextCapitalization.words,
+                        label: 'Display name',
+                        icon: Icons.badge_outlined,
                       ),
                       const SizedBox(height: 16),
+                      _buildField(
+                        controller: _fullNameController,
+                        label: 'Full name',
+                        icon: Icons.person_outline,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildField(
+                        controller: _phoneController,
+                        label: 'Phone number',
+                        icon: Icons.phone_outlined,
+                        keyboardType: TextInputType.phone,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildChoiceRow(
+                        label: 'Gender',
+                        value: _genderLabel(_draft.gender),
+                        icon: Icons.wc_outlined,
+                        onTap: _pickGender,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildChoiceRow(
+                        label: 'Date of birth',
+                        value: _draft.dateOfBirth != null
+                            ? _formatDate(_draft.dateOfBirth!)
+                            : 'Not set',
+                        icon: Icons.cake_outlined,
+                        onTap: _pickDateOfBirth,
+                        trailing: _draft.dateOfBirth != null
+                            ? IconButton(
+                                tooltip: 'Clear',
+                                icon: const Icon(Icons.close, size: 18),
+                                onPressed: () => setState(
+                                  () => _draft = _draft.copyWith(
+                                    dateOfBirth: null,
+                                  ),
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(height: 8),
                       ListTile(
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 4,
@@ -440,7 +637,79 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType? keyboardType,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        filled: true,
+        fillColor: AikoColors.primaryBlue.withValues(alpha: 0.05),
+      ),
+      textCapitalization: label == 'Phone number'
+          ? TextCapitalization.none
+          : TextCapitalization.words,
+    );
+  }
+
+  Widget _buildChoiceRow({
+    required String label,
+    required String value,
+    required IconData icon,
+    required VoidCallback onTap,
+    Widget? trailing,
+  }) {
+    final theme = Theme.of(context);
+    return Material(
+      color: AikoColors.primaryBlue.withValues(alpha: 0.05),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          child: Row(
+            children: [
+              Icon(icon, color: theme.colorScheme.onSurfaceVariant),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(value, style: theme.textTheme.bodyLarge),
+                  ],
+                ),
+              ),
+              if (trailing != null) trailing,
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeader(Profile profile) {
+    final displayName = _displayNameController.text.isEmpty
+        ? profile.displayName
+        : _displayNameController.text;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.only(top: 32, bottom: 24, left: 16, right: 16),
@@ -456,63 +725,122 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
       child: Column(
         children: [
-          Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AikoColors.primaryBlue.withValues(alpha: 0.2),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: CircleAvatar(
-                  radius: 56,
-                  backgroundColor: AikoColors.primaryBlue,
-                  child: Text(
-                    _initials(
-                      _displayNameController.text.isEmpty
-                          ? profile.displayName
-                          : _displayNameController.text,
-                    ),
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  shape: BoxShape.circle,
-                ),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: AikoColors.primaryBlue,
+          GestureDetector(
+            onTap: _avatarBusy ? null : _onAvatarTap,
+            child: Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                _buildAvatar(profile, displayName),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).scaffoldBackgroundColor,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.edit, size: 18, color: Colors.white),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: AikoColors.primaryBlue,
+                      shape: BoxShape.circle,
+                    ),
+                    child: _avatarBusy
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.edit,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 20),
           Text(
-            _displayNameController.text.isEmpty
-                ? profile.displayName
-                : _displayNameController.text,
+            displayName,
             style: Theme.of(
               context,
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAvatar(Profile profile, String displayName) {
+    final localPath = _draft.avatarPath;
+    final cloudUrl = _draft.avatarUrl;
+    final fallbackUrl =
+        localPath == null || localPath.isEmpty ? cloudUrl : null;
+    Widget child;
+    if (localPath != null && localPath.isNotEmpty) {
+      final file = File(localPath);
+      if (file.existsSync()) {
+        child = Image.file(
+          file,
+          width: 112,
+          height: 112,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _initialsAvatar(displayName),
+        );
+      } else {
+        child = _networkOrInitials(fallbackUrl, displayName);
+      }
+    } else {
+      child = _networkOrInitials(fallbackUrl, displayName);
+    }
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: AikoColors.primaryBlue.withValues(alpha: 0.2),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: SizedBox(width: 112, height: 112, child: child),
+      ),
+    );
+  }
+
+  Widget _networkOrInitials(String? url, String displayName) {
+    if (url != null && url.isNotEmpty) {
+      return Image.network(
+        url,
+        width: 112,
+        height: 112,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _initialsAvatar(displayName),
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return _initialsAvatar(displayName);
+        },
+      );
+    }
+    return _initialsAvatar(displayName);
+  }
+
+  Widget _initialsAvatar(String displayName) {
+    return Container(
+      width: 112,
+      height: 112,
+      color: AikoColors.primaryBlue,
+      alignment: Alignment.center,
+      child: Text(
+        _initials(displayName),
+        style: Theme.of(context).textTheme.displaySmall?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -524,3 +852,5 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 }
+
+enum AvatarAction { camera, gallery, remove }

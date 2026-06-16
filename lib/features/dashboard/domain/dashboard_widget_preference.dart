@@ -38,6 +38,15 @@ enum DashboardWidgetType {
 
   bool get isRenderable => !_deadTypes.contains(this);
 
+  /// Intrinsic width on the dashboard grid. A couple of compact summaries are
+  /// half-width so two share a row; everything else is full. This is a property
+  /// of the widget, not a user setting.
+  DashboardWidgetSize get defaultSize => switch (this) {
+    DashboardWidgetType.dailySpending ||
+    DashboardWidgetType.safeThisWeek => DashboardWidgetSize.half,
+    _ => DashboardWidgetSize.full,
+  };
+
   String get label {
     return switch (this) {
       DashboardWidgetType.aikoWelcome => 'Aiko welcome',
@@ -91,44 +100,21 @@ enum DashboardWidgetType {
 /// - [half] spans one of two columns; two consecutive half widgets share a
 ///   row. An unpaired trailing half widget sits on the left and leaves the
 ///   right cell empty.
-enum DashboardWidgetSize {
-  full,
-  half;
-
-  String get storageKey => name;
-
-  String get label => switch (this) {
-    DashboardWidgetSize.full => 'Full width',
-    DashboardWidgetSize.half => 'Half width',
-  };
-
-  String get shortLabel => switch (this) {
-    DashboardWidgetSize.full => 'Full',
-    DashboardWidgetSize.half => 'Half',
-  };
-
-  static DashboardWidgetSize? fromStorageKey(String value) {
-    for (final size in values) {
-      if (size.storageKey == value) {
-        return size;
-      }
-    }
-    return null;
-  }
-}
+enum DashboardWidgetSize { full, half }
 
 class DashboardWidgetPreference {
   const DashboardWidgetPreference({
     required this.type,
     required this.isVisible,
     required this.position,
-    this.size = DashboardWidgetSize.full,
   });
 
   final DashboardWidgetType type;
   final bool isVisible;
   final int position;
-  final DashboardWidgetSize size;
+
+  /// Intrinsic to the widget type, not a stored user setting.
+  DashboardWidgetSize get size => type.defaultSize;
 
   static const defaultLayout = [
     DashboardWidgetPreference(
@@ -140,13 +126,11 @@ class DashboardWidgetPreference {
       type: DashboardWidgetType.dailySpending,
       isVisible: true,
       position: 1,
-      size: DashboardWidgetSize.half,
     ),
     DashboardWidgetPreference(
       type: DashboardWidgetType.safeThisWeek,
       isVisible: true,
       position: 2,
-      size: DashboardWidgetSize.half,
     ),
     DashboardWidgetPreference(
       type: DashboardWidgetType.dailySummary,
@@ -257,29 +241,18 @@ class DashboardWidgetPreference {
     if (type == null) {
       throw const FormatException('Unknown dashboard widget type.');
     }
-    final sizeString = json['size'] as String?;
-    final size = sizeString == null
-        ? DashboardWidgetSize.full
-        : DashboardWidgetSize.fromStorageKey(sizeString) ??
-              DashboardWidgetSize.full;
     return DashboardWidgetPreference(
       type: type,
       isVisible: json['isVisible'] as bool? ?? true,
       position: json['position'] as int? ?? type.index,
-      size: size,
     );
   }
 
-  DashboardWidgetPreference copyWith({
-    bool? isVisible,
-    int? position,
-    DashboardWidgetSize? size,
-  }) {
+  DashboardWidgetPreference copyWith({bool? isVisible, int? position}) {
     return DashboardWidgetPreference(
       type: type,
       isVisible: isVisible ?? this.isVisible,
       position: position ?? this.position,
-      size: size ?? this.size,
     );
   }
 
@@ -288,7 +261,6 @@ class DashboardWidgetPreference {
       'type': type.storageKey,
       'isVisible': isVisible,
       'position': position,
-      'size': size.storageKey,
     };
   }
 }

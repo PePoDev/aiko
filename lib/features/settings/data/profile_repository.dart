@@ -41,16 +41,7 @@ class ProfileRepository {
 
   Future<Profile> save(Profile profile) async {
     final userId = await OfflineUserContext().resolveUserId();
-    final profileWithUser = Profile(
-      id: userId,
-      displayName: profile.displayName,
-      email: profile.email,
-      baseCurrency: profile.baseCurrency,
-      country: profile.country,
-      onboardingStatus: profile.onboardingStatus,
-      securityStatus: profile.securityStatus,
-      preferredTheme: profile.preferredTheme,
-    );
+    final profileWithUser = profile.copyWith(id: userId);
     final saved = await OfflineStore().upsert(profileWithUser.toOffline());
     return saved.toDomain();
   }

@@ -240,6 +240,54 @@ void main() {
     }
   });
 
+  testWidgets('edit mode pairs the two default half widgets on one row', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 1400);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _dashboardScope(
+        child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AikoTheme.light(),
+          home: const HomeDashboardScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Edit layout'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Edit layout'));
+    await tester.pumpAndSettle();
+
+    // Both halves stay side by side in edit mode (same top, left then right),
+    // each an independent cell with its own remove control.
+    expect(
+      tester.getTopLeft(find.text('Daily spending')).dy,
+      tester.getTopLeft(find.text('Safe this week')).dy,
+    );
+    expect(
+      tester.getTopLeft(find.text('Daily spending')).dx,
+      lessThan(tester.getTopLeft(find.text('Safe this week')).dx),
+    );
+    expect(find.byTooltip('Remove Daily spending'), findsOneWidget);
+    expect(find.byTooltip('Remove Safe this week'), findsOneWidget);
+  });
+
   testWidgets(
     'home dashboard shows daily spending total derived from transactions',
     (tester) async {

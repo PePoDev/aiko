@@ -188,6 +188,12 @@ extension OfflineProfileMapper on OfflineProfile {
         preferredTheme,
         PreferredTheme.system,
       ),
+      fullName: fullName,
+      gender: _enumByName(Gender.values, gender, Gender.preferNotToSay),
+      dateOfBirth: dateOfBirth,
+      phoneNumber: phoneNumber,
+      avatarPath: avatarPath,
+      avatarUrl: avatarUrl,
     );
   }
 }
@@ -203,6 +209,12 @@ extension ProfileOfflineMapper on Profile {
       preferredTheme: preferredTheme.name,
       onboardingStatus: onboardingStatus.name,
       securityStatus: securityStatus.name,
+      fullName: fullName,
+      gender: gender.name,
+      dateOfBirth: dateOfBirth,
+      phoneNumber: phoneNumber,
+      avatarPath: avatarPath,
+      avatarUrl: avatarUrl,
     );
   }
 }

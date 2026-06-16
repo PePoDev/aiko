@@ -183,20 +183,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         children: [
           FinanceCard(
-            title: 'Profile and privacy',
-            icon: Icons.privacy_tip_outlined,
-            child: Column(
-              children: [
-                _SettingsRow(
-                  icon: Icons.person_outline,
-                  title: 'Profile',
-                  onTap: () => context.push('/profile'),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          FinanceCard(
             title: 'App preferences',
             icon: Icons.tune_outlined,
             accentColor: AikoColors.premiumPurple,

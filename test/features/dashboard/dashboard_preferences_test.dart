@@ -29,18 +29,15 @@ void main() {
     expect(safe.size, DashboardWidgetSize.half);
   });
 
-  test('copyWith supports changing size', () {
-    const preference = DashboardWidgetPreference(
-      type: DashboardWidgetType.dailySpending,
-      isVisible: true,
-      position: 0,
-      size: DashboardWidgetSize.half,
+  test('size is intrinsic to the widget type', () {
+    expect(
+      DashboardWidgetType.dailySpending.defaultSize,
+      DashboardWidgetSize.half,
     );
-    final changed = preference.copyWith(size: DashboardWidgetSize.full);
-    expect(changed.size, DashboardWidgetSize.full);
-    // copyWith should preserve other fields.
-    expect(changed.type, DashboardWidgetType.dailySpending);
-    expect(changed.isVisible, isTrue);
+    expect(
+      DashboardWidgetType.dailySummary.defaultSize,
+      DashboardWidgetSize.full,
+    );
   });
 
   test('default layout exposes overview panels as separate widgets', () {

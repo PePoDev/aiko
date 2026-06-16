@@ -611,14 +611,22 @@ class DashboardLayoutNotifier
     }
   }
 
-  Future<void> reorderItem(int oldIndex, int newIndex) async {
-    final layout = [...?state.value];
-    if (layout.isEmpty) {
+  /// Reorders the visible widgets to match [orderedTypes]. Any rows not in the
+  /// list (hidden or placeholder widgets) keep their relative order at the end.
+  /// Used by the home grid edit list, where two half widgets share one row.
+  Future<void> setVisibleOrder(List<DashboardWidgetType> orderedTypes) async {
+    final current = [...?state.value];
+    if (current.isEmpty) {
       return;
     }
-    final item = layout.removeAt(oldIndex);
-    layout.insert(newIndex, item);
-    await _save(_withPositions(layout));
+    final byType = {for (final item in current) item.type: item};
+    final reordered = <DashboardWidgetPreference>[
+      for (final type in orderedTypes)
+        if (byType[type] != null) byType[type]!,
+      for (final item in current)
+        if (!orderedTypes.contains(item.type)) item,
+    ];
+    await _save(_withPositions(reordered));
   }
 
   Future<void> removeWidget(DashboardWidgetType type) async {
@@ -627,19 +635,6 @@ class DashboardLayoutNotifier
 
   Future<void> addWidget(DashboardWidgetType type) async {
     await _setVisibility(type, true);
-  }
-
-  /// Toggle a widget between full-width and half-width so the home grid can
-  /// show two of them on the same row.
-  Future<void> setSize(
-    DashboardWidgetType type,
-    DashboardWidgetSize size,
-  ) async {
-    final layout = [
-      for (final item in [...?state.value])
-        item.type == type ? item.copyWith(size: size) : item,
-    ];
-    await _save(_withPositions(layout));
   }
 
   Future<void> resetToDefault() async {

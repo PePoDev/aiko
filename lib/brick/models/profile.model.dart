@@ -18,6 +18,12 @@ class OfflineProfile extends OfflineFirstWithSupabaseModel {
     this.aikoPersonalitySetting = 'supportive',
     this.onboardingStatus = 'notStarted',
     this.securityStatus = 'notConfigured',
+    this.fullName,
+    this.gender = 'preferNotToSay',
+    this.dateOfBirth,
+    this.phoneNumber,
+    this.avatarPath,
+    this.avatarUrl,
     DateTime? updatedAt,
     this.version = 1,
   }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
@@ -36,6 +42,23 @@ class OfflineProfile extends OfflineFirstWithSupabaseModel {
   final String aikoPersonalitySetting;
   final String onboardingStatus;
   final String securityStatus;
+
+  final String? fullName;
+  final String gender;
+
+  @Sqlite(name: 'date_of_birth')
+  @Supabase(name: 'date_of_birth')
+  final DateTime? dateOfBirth;
+
+  final String? phoneNumber;
+
+  @Sqlite(name: 'avatar_path')
+  @Supabase(name: 'avatar_path')
+  final String? avatarPath;
+
+  @Sqlite(name: 'avatar_url')
+  @Supabase(name: 'avatar_url')
+  final String? avatarUrl;
 
   @Sqlite(name: 'updated_at')
   @Supabase(name: 'updated_at')

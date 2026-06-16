@@ -1,8 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/providers.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../aiko_character/presentation/aiko_avatar.dart';
+import '../../settings/domain/profile.dart';
 import '../application/aiko_chat_controller.dart';
 import '../application/chat_engine.dart';
 import '../domain/aiko_prompt_suggestions.dart';
@@ -137,6 +142,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
 
     final suggestions = _suggestionsFor(state);
     _scheduleSuggestionsMeasure(shown: suggestions != null);
+    final profile = ref.watch(profileProvider).asData?.value;
 
     return Scaffold(
       appBar: AppBar(
@@ -174,6 +180,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
           ],
         ),
         actions: [
+          if (profile != null) _UserProfileChip(profile: profile),
           if (!state.isEmpty)
             IconButton(
               tooltip: 'Clear chat',
@@ -681,5 +688,98 @@ class _OfflineNotice extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Tappable user profile shown in the chat AppBar. Renders the user's initials
+/// as a circular avatar (matching the Profile screen) and their display name.
+/// Tapping opens `/profile`. Hidden when the profile is still loading or
+/// unavailable so the screen never flashes a broken avatar.
+class _UserProfileChip extends StatelessWidget {
+  const _UserProfileChip({required this.profile});
+
+  final Profile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      child: Material(
+        color: theme.colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        child: InkWell(
+          key: const ValueKey('chat-user-profile-chip'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => context.push('/profile'),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: AikoColors.primaryBlue,
+                  backgroundImage: _avatarImage(profile),
+                  child: _avatarImage(profile) != null
+                      ? null
+                      : Text(
+                          _initials(profile.displayName),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    profile.displayName,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Icon(
+                  Icons.expand_more,
+                  size: 18,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) return '?';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
+  ImageProvider? _avatarImage(Profile profile) {
+    final localPath = profile.avatarPath;
+    if (localPath != null && localPath.isNotEmpty) {
+      final file = File(localPath);
+      if (file.existsSync()) {
+        return FileImage(file);
+      }
+    }
+    final cloudUrl = profile.avatarUrl;
+    if (cloudUrl != null && cloudUrl.isNotEmpty) {
+      return NetworkImage(cloudUrl);
+    }
+    return null;
   }
 }

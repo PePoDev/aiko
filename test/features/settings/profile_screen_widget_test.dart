@@ -23,13 +23,11 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Email is displayed as a non-editable subtitle text in the profile
-    // header. There is exactly one place (the dedicated "Email address"
-    // row) now that the redundant header copy was removed.
     expect(find.text('person@example.com'), findsOneWidget);
   });
 
-  testWidgets('saving profile preserves account email', (tester) async {
+  testWidgets('saving profile preserves account email and new fields',
+      (tester) async {
     final repository = _FakeProfileRepository(_profile);
 
     await tester.pumpWidget(
@@ -50,6 +48,13 @@ void main() {
       ),
       'Updated Name',
     );
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && (widget.controller?.text ?? '').isEmpty,
+      ).first,
+      '+66 81 234 5678',
+    );
     await tester.pumpAndSettle();
     final saveButton = find.text('Save');
     await tester.tap(saveButton);
@@ -57,6 +62,7 @@ void main() {
 
     expect(repository.savedProfile?.displayName, 'Updated Name');
     expect(repository.savedProfile?.email, 'person@example.com');
+    expect(repository.savedProfile?.phoneNumber, '+66 81 234 5678');
   });
 }
 

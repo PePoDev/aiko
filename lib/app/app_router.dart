@@ -16,6 +16,7 @@ import '../features/navigation/presentation/planning_screen.dart';
 import '../features/onboarding/presentation/onboarding_screens.dart';
 import '../features/overview/presentation/finance_detail_screens.dart';
 import '../features/investments/presentation/investments_screen.dart';
+import '../features/settings/presentation/connect_line_screen.dart';
 import '../features/settings/presentation/profile_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/settings/presentation/notification_settings_screen.dart';
@@ -148,6 +149,10 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
           GoRoute(
             path: '/profile-security',
             builder: (context, state) => const ProfileSecurityScreen(),
+          ),
+          GoRoute(
+            path: '/connect-line',
+            builder: (context, state) => const ConnectLineScreen(),
           ),
           GoRoute(
             path: '/notification-settings',

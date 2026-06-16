@@ -161,7 +161,10 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(28, 10, 28, 20),
-        child: Center(
+        // ponytail: heightFactor:1 so the bar shrink-wraps; a plain Center
+        // expands to fill the whole screen and starves the body.
+        child: Align(
+          heightFactor: 1,
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: clampIdeaWidth(context)),
             child: Column(

@@ -22,17 +22,18 @@ supabase db push        # creates public.line_links + public.line_pairings (+ RL
 
 https://developers.line.biz → your provider →
 
-- [x] Create a **Messaging API** channel.
-- [x] Copy the **Channel secret** (Basic settings).
-- [x] Issue a long-lived **Channel access token** (Messaging API tab).
-- [x] Disable the default **auto-reply** and **greeting** messages so the bot
+- [ ] Create a **Messaging API** channel.
+- [ ] Copy the **Channel secret** (Basic settings).
+- [ ] Issue a long-lived **Channel access token** (Messaging API tab).
+- [ ] Disable the default **auto-reply** and **greeting** messages so the bot
       controls its own replies (Messaging API tab → "Auto-reply messages" off).
 
-## 3. (No LIFF needed)
+## 3. (No LIFF, no web page)
 
-Linking uses a **pairing code**, not LIFF — the bot DMs a one-time code, and the
-function's own GET page lets the user sign in and enter it. No LINE Login
-channel, no LIFF app, no extra scopes.
+Linking happens **in the Aiko app**: the bot DMs a one-time pairing code, and the
+user enters it under Profile → Connect LINE. Because they're already signed in,
+the app writes the link itself — no LINE Login channel, no LIFF, no hosted web
+page, and the password never leaves the app.
 
 ## 4. Point the webhook at the function
 
@@ -70,9 +71,8 @@ supabase functions deploy line-webhook --no-verify-jwt
 ## 7. Smoke test
 
 - [ ] Add the bot as a friend (QR code in the Messaging API tab).
-- [ ] Send any message → bot replies with a **6-char pairing code** + connect link.
-- [ ] Open the link (any browser), sign in with your **Aiko email + password**,
-      enter the code → "Connected!".
+- [ ] Send any message → bot replies with a **6-char pairing code**.
+- [ ] In the Aiko app: **Profile → Connect LINE**, enter the code → "Connected!".
 - [ ] Back in LINE, ask: *"How much can I safely spend?"* → Aiko answers from
       your data, ending with the standard estimates disclaimer.
 
@@ -86,8 +86,9 @@ LINE message ─▶ line-webhook (POST)
                  ├─ refresh user access token        (stored refresh_token)
                  ├─ POST aiko-chat (Bearer user JWT) ← reuses the same function
                  └─ reply via LINE Messaging API
-line-webhook (GET) ─▶ connect page: sign in + enter code → resolve
-                       line_pairings(code) → write line_links (under user's JWT)
+
+Aiko app (Profile → Connect LINE) ─▶ read line_pairings(code) + upsert
+                                       line_links (under the user's own JWT)
 ```
 
 ## Troubleshooting

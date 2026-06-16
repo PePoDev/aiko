@@ -174,7 +174,12 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Left to save'), findsOneWidget);
-    expect(find.text('Cash flow'), findsOneWidget);
+    final cashFlow = find.text('Cash flow');
+    for (var i = 0; i < 20 && cashFlow.evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -120));
+      await tester.pump();
+    }
+    expect(cashFlow, findsOneWidget);
   });
 
   testWidgets('overview editor manages each overview panel separately', (
@@ -284,6 +289,16 @@ void main() {
       expect(find.text('Today'), findsOneWidget);
       expect(find.text('Safe this week'), findsOneWidget);
       expect(find.text('Estimate'), findsOneWidget);
+
+      // Both default half-width panels share one row: same top, side by side.
+      expect(
+        tester.getTopLeft(find.text('Daily spending')).dy,
+        tester.getTopLeft(find.text('Safe this week')).dy,
+      );
+      expect(
+        tester.getTopLeft(find.text('Daily spending')).dx,
+        lessThan(tester.getTopLeft(find.text('Safe this week')).dx),
+      );
 
       final miniCard = tester.widget<Card>(
         find

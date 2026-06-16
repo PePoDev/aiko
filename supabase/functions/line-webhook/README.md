@@ -1,11 +1,11 @@
 # Aiko × LINE bot (`line-webhook`)
 
 Lets users chat with Aiko from LINE using their **own** financial data. The bot
-hands out a short pairing code; the user opens the function's connect page
-(plain web — no LIFF), signs in once with their normal Aiko email/password and
-enters the code. After that, every LINE message is answered by the existing
-**`aiko-chat`** function called with that user's JWT (so Postgres RLS scopes the
-data).
+hands out a short pairing code; the user enters it in the **Aiko app** (Profile
+→ Connect LINE), which — already signed in — writes the `line_links` row itself
+(no web page, the password never leaves the app). After that, every LINE message
+is answered by the existing **`aiko-chat`** function called with that user's JWT
+(so Postgres RLS scopes the data).
 
 ```
 LINE message ─▶ line-webhook (POST)
@@ -15,7 +15,9 @@ LINE message ─▶ line-webhook (POST)
                  ├─ refresh the user's access token        (anon + stored refresh_token)
                  ├─ POST aiko-chat  (Bearer <user jwt>)    ← reuses the same function
                  └─ reply via LINE Messaging API
-line-webhook (GET) ─▶ connect page: sign in + enter code → write line_links (user's JWT)
+
+Aiko app (Profile → Connect LINE) ─▶ read line_pairings(code) + upsert
+                                       line_links (user's JWT, RLS-scoped)
 ```
 
 ## One-time setup
@@ -23,7 +25,7 @@ line-webhook (GET) ─▶ connect page: sign in + enter code → write line_link
 ### 1. Database
 
 ```bash
-supabase db push   # applies 20260615020000_line_links.sql + 20260617010000_line_pairings.sql
+supabase db push   # line_links + line_pairings + redeem_line_pairing (RPC) migrations
 ```
 
 ### 2. LINE Developers console (https://developers.line.biz)
@@ -58,9 +60,9 @@ supabase functions deploy line-webhook --no-verify-jwt
 ## Using it
 
 1. Add the bot as a LINE friend (QR from the console).
-2. Send any message → the bot replies with a 6-char pairing code + connect link.
-3. Open the link (any browser), sign in with your Aiko email/password, enter the
-   code → "Connected!".
+2. Send any message → the bot replies with a 6-char pairing code.
+3. In the Aiko app, go to **Profile → Connect LINE**, enter the code →
+   "Connected!".
 4. Ask Aiko about your money in LINE — e.g. "How much can I safely spend?".
 
 ## Notes & limits
@@ -69,7 +71,9 @@ supabase functions deploy line-webhook --no-verify-jwt
   and sends one LINE text message (capped at ~4800 chars).
 - The disclaimer rule in `aiko-chat`'s system prompt still applies — numeric
   answers end with "Aiko provides estimates, not certified financial advice."
-- Pairing codes are 6 chars, single active per LINE user, ~10 min TTL; redeemed
-  on the connect page under the user's JWT. Re-linking just means messaging the
-  bot again for a fresh code; `line_links` is upserted on `line_user_id`.
+- Pairing codes are 6 chars, single active per LINE user, ~10 min TTL. The app
+  redeems them via the `redeem_line_pairing` SECURITY DEFINER RPC, so
+  `line_pairings` is never client-readable (no enumeration) and the code is
+  consumed on use. Re-linking just means messaging the bot again for a fresh
+  code; `line_links` is upserted on `line_user_id`.
 - The provider/AI key lives only in `aiko-chat`; this function never sees it.

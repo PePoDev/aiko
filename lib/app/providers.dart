@@ -629,6 +629,19 @@ class DashboardLayoutNotifier
     await _setVisibility(type, true);
   }
 
+  /// Toggle a widget between full-width and half-width so the home grid can
+  /// show two of them on the same row.
+  Future<void> setSize(
+    DashboardWidgetType type,
+    DashboardWidgetSize size,
+  ) async {
+    final layout = [
+      for (final item in [...?state.value])
+        item.type == type ? item.copyWith(size: size) : item,
+    ];
+    await _save(_withPositions(layout));
+  }
+
   Future<void> resetToDefault() async {
     await _save(DashboardWidgetPreference.defaultLayout);
   }

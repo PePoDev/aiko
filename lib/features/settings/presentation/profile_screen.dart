@@ -336,6 +336,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 32),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: FinanceCard(
+                  title: 'Connected apps',
+                  icon: Icons.hub_outlined,
+                  child: Column(
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(
+                          Icons.chat_bubble_outline,
+                          color: AikoColors.primaryBlue,
+                        ),
+                        title: const Text('Connect LINE'),
+                        subtitle: const Text('Chat with Aiko from LINE'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => context.push('/connect-line'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 32),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),

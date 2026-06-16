@@ -3,11 +3,11 @@
 // Bridges the LINE Messaging API to Aiko's existing `aiko-chat` function so a
 // LINE user can chat with Aiko using their own RLS-scoped financial data.
 //
-// Two entry points on one function:
-//   GET  →  serves the connect page (plain web, no LIFF). The user signs in with
-//           their normal Aiko email/password (Supabase Auth) and enters the
-//           pairing code the bot gave them; the page writes a `line_links` row
-//           (LINE id → user id + refresh token) under their own JWT.
+// Linking: an unlinked LINE user gets a short pairing code from the bot. They
+// enter it in the Aiko app (Profile → Connect LINE), which — signed in — writes
+// the `line_links` row (LINE id → user id + refresh token) under their own JWT.
+// This function never sees the user's password.
+//
 //   POST →  the LINE webhook. Verifies LINE's signature, looks up the linked
 //           user, refreshes a short-lived access token for them, calls the
 //           existing `aiko-chat` function with that token (so the model only
@@ -28,7 +28,6 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const LINE_CHANNEL_SECRET = Deno.env.get("LINE_CHANNEL_SECRET") ?? "";
 const LINE_CHANNEL_ACCESS_TOKEN = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN") ?? "";
 
-const CONNECT_URL = `${SUPABASE_URL}/functions/v1/line-webhook`; // GET serves the page
 const PAIRING_TTL_MIN = 10;
 const LINE_REPLY_ENDPOINT = "https://api.line.me/v2/bot/message/reply";
 const AIKO_CHAT_URL = `${SUPABASE_URL}/functions/v1/aiko-chat`;
@@ -77,8 +76,10 @@ async function replyToLine(replyToken: string, text: string): Promise<void> {
 // ---- Pairing code ----
 
 // 6 chars from an unambiguous alphabet (~8.8e8 combinations). Single active
-// code per LINE user, ~10 min TTL.
-// ponytail: no rate limit on redemption; add one (or 8 chars) if brute force matters.
+// code per LINE user, ~10 min TTL. Redemption goes through the
+// redeem_line_pairing RPC (line_pairings isn't client-readable), so codes can't
+// be enumerated — only guessed, which the entropy + TTL + single-use cover.
+// ponytail: no rate limit on guessing; add one if it ever looks worth it.
 function newPairingCode(): string {
   const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   const bytes = crypto.getRandomValues(new Uint8Array(6));
@@ -99,7 +100,7 @@ async function startPairing(
     code,
     expires_at: new Date(Date.now() + PAIRING_TTL_MIN * 60_000).toISOString(),
   }, { onConflict: "line_user_id" });
-  return `Hi! I'm Aiko 💙 To connect your account, open this page, sign in, and enter code ${code}:\n${CONNECT_URL}\n\nThe code expires in ${PAIRING_TTL_MIN} minutes.`;
+  return `Hi! I'm Aiko 💙 To connect your account, open the Aiko app → Profile → Connect LINE and enter this code:\n\n${code}\n\nThe code expires in ${PAIRING_TTL_MIN} minutes.`;
 }
 
 // ---- Aiko: refresh the linked user's token, then call aiko-chat ----
@@ -203,7 +204,7 @@ async function handleTextMessage(
   if (!token) {
     await replyToLine(
       replyToken,
-      `Your Aiko sign-in expired. Reconnect: ${await startPairing(admin, lineUserId)}`,
+      `Your Aiko sign-in expired — let's reconnect.\n\n${await startPairing(admin, lineUserId)}`,
     );
     return;
   }
@@ -241,99 +242,14 @@ async function handleWebhook(rawBody: string): Promise<void> {
   }
 }
 
-// ---- Connect page (served on GET) ----
-
-function loginPage(): string {
-  // Plain web page (works in any browser — no LIFF). The user signs in with
-  // their normal Supabase email/password and enters the pairing code the bot
-  // sent them; the page resolves the code to a LINE user id and writes the
-  // line_links row, all under the user's own JWT (so RLS applies). The anon key
-  // is public by design.
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Connect Aiko</title>
-<style>
-  :root { font-family: -apple-system, system-ui, sans-serif; }
-  body { margin: 0; background: #EFF6FF; color: #0F172A; }
-  .card { max-width: 380px; margin: 0 auto; padding: 24px; }
-  h1 { font-size: 20px; }
-  p { color: #293348; font-size: 14px; }
-  input { width: 100%; box-sizing: border-box; padding: 12px; margin: 6px 0;
-    border: 1px solid #BAC3D6; border-radius: 8px; font-size: 15px; }
-  #code { text-transform: uppercase; letter-spacing: 2px; font-weight: 700; }
-  button { width: 100%; padding: 14px; margin-top: 12px; border: 0;
-    border-radius: 8px; background: #3B82F6; color: #fff; font-size: 15px;
-    font-weight: 700; }
-  button:disabled { opacity: .5; }
-  .status { margin-top: 12px; font-size: 14px; min-height: 20px; }
-  .ok { color: #16A34A; } .err { color: #DC2626; }
-</style>
-</head>
-<body>
-  <div class="card">
-    <h1>Connect Aiko to LINE</h1>
-    <p>Send any message to the Aiko bot on LINE to get a pairing code, then sign in below with your Aiko email and password and enter that code.</p>
-    <input id="email" type="email" placeholder="Email" autocomplete="username" />
-    <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
-    <input id="code" type="text" placeholder="Pairing code" autocomplete="off" />
-    <button id="submit">Log in &amp; connect</button>
-    <div id="status" class="status"></div>
-  </div>
-  <script type="module">
-    import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-    const supabase = createClient("${SUPABASE_URL}", "${SUPABASE_ANON_KEY}");
-    const statusEl = document.getElementById("status");
-    const set = (msg, cls) => { statusEl.textContent = msg; statusEl.className = "status " + (cls || ""); };
-
-    document.getElementById("submit").addEventListener("click", async () => {
-      const btn = document.getElementById("submit");
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value;
-      const code = document.getElementById("code").value.trim().toUpperCase();
-      if (!code) { set("Enter the pairing code from the LINE bot.", "err"); return; }
-      btn.disabled = true; set("Signing in…");
-
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error || !data.session) {
-        set("Sign-in failed. Check your email and password.", "err"); btn.disabled = false; return;
-      }
-
-      const { data: pairing } = await supabase
-        .from("line_pairings")
-        .select("line_user_id")
-        .eq("code", code)
-        .gt("expires_at", new Date().toISOString())
-        .maybeSingle();
-      if (!pairing) {
-        set("That code is invalid or expired. Message the bot again for a new one.", "err");
-        btn.disabled = false; return;
-      }
-
-      const { error: upsertErr } = await supabase.from("line_links").upsert({
-        line_user_id: pairing.line_user_id,
-        user_id: data.session.user.id,
-        refresh_token: data.session.refresh_token,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "line_user_id" });
-      if (upsertErr) {
-        set("Could not save the link. Please try again.", "err"); btn.disabled = false; return;
-      }
-      set("Connected! Return to LINE and chat with Aiko.", "ok");
-    });
-  </script>
-</body>
-</html>`;
-}
-
 // ---- Entry point ----
 
 serve(async (req) => {
+  // Linking happens in the Aiko app (Profile → Connect LINE), not here. This
+  // function only handles the LINE webhook (POST).
   if (req.method === "GET") {
-    return new Response(loginPage(), {
-      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+    return new Response("Aiko LINE webhook. Connect from the Aiko app.", {
+      headers: { "Content-Type": "text/plain" },
     });
   }
 

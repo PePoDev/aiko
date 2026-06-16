@@ -90,50 +90,34 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
               children: [AikoScreenState.loading()],
             ),
-            error: (_, _) => ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-              children: [
-                ..._layoutChildren(
-                  context,
-                  DashboardWidgetPreference.defaultLayout,
-                  summary,
-                  dueItemsAsync,
-                ),
-                const SizedBox(height: 16),
-                _DashboardLayoutAction(
-                  isEditing: _isEditing,
-                  onPressed: () => setState(() => _isEditing = !_isEditing),
-                ),
-              ],
+            error: (_, _) => _DashboardGrid(
+              layout: DashboardWidgetPreference.defaultLayout,
+              summary: summary,
+              dueItemsAsync: dueItemsAsync,
+              isEditing: _isEditing,
+              onToggleEditing: () => setState(() => _isEditing = !_isEditing),
+              itemBuilder: (type, size) => _buildWidget(
+                context,
+                type,
+                summary,
+                dueItemsAsync,
+                size: size,
+              ),
             ),
-            data: (layout) => _isEditing
-                ? _EditableDashboardList(
-                    layout: layout,
-                    isEditing: _isEditing,
-                    onToggleEditing: () =>
-                        setState(() => _isEditing = !_isEditing),
-                    itemBuilder: (type) =>
-                        _buildWidget(context, type, summary, dueItemsAsync),
-                  )
-                : ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-                    children: [
-                      ..._layoutChildren(
-                        context,
-                        layout,
-                        summary,
-                        dueItemsAsync,
-                      ),
-                      const SizedBox(height: 16),
-                      _DashboardLayoutAction(
-                        isEditing: _isEditing,
-                        onPressed: () =>
-                            setState(() => _isEditing = !_isEditing),
-                      ),
-                    ],
-                  ),
+            data: (layout) => _DashboardGrid(
+              layout: layout,
+              summary: summary,
+              dueItemsAsync: dueItemsAsync,
+              isEditing: _isEditing,
+              onToggleEditing: () => setState(() => _isEditing = !_isEditing),
+              itemBuilder: (type, size) => _buildWidget(
+                context,
+                type,
+                summary,
+                dueItemsAsync,
+                size: size,
+              ),
+            ),
           ),
         ),
       ),
@@ -141,32 +125,13 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     );
   }
 
-  List<Widget> _layoutChildren(
-    BuildContext context,
-    List<DashboardWidgetPreference> layout,
-    DashboardSummary summary,
-    AsyncValue<List<DashboardDueItem>> dueItemsAsync,
-  ) {
-    final visible = layout.where((item) => item.isVisible).toList();
-    final children = <Widget>[];
-
-    for (var index = 0; index < visible.length; index++) {
-      if (children.isNotEmpty) {
-        children.add(const SizedBox(height: 16));
-      }
-      final type = visible[index].type;
-      children.add(_buildWidget(context, type, summary, dueItemsAsync));
-    }
-
-    return children;
-  }
-
   Widget _buildWidget(
     BuildContext context,
     DashboardWidgetType type,
     DashboardSummary summary,
-    AsyncValue<List<DashboardDueItem>> dueItemsAsync,
-  ) {
+    AsyncValue<List<DashboardDueItem>> dueItemsAsync, {
+    DashboardWidgetSize size = DashboardWidgetSize.full,
+  }) {
     final l10n = AppLocalizations.of(context);
     return switch (type) {
       DashboardWidgetType.aikoWelcome => FinanceCard(
@@ -239,7 +204,8 @@ class _EditableDashboardList extends ConsumerWidget {
   final List<DashboardWidgetPreference> layout;
   final bool isEditing;
   final VoidCallback onToggleEditing;
-  final Widget Function(DashboardWidgetType type) itemBuilder;
+  final Widget Function(DashboardWidgetType type, DashboardWidgetSize size)
+  itemBuilder;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -285,7 +251,7 @@ class _EditableDashboardList extends ConsumerWidget {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(3),
-                    child: itemBuilder(item.type),
+                    child: itemBuilder(item.type, item.size),
                   ),
                 ),
               ),
@@ -294,6 +260,16 @@ class _EditableDashboardList extends ConsumerWidget {
                 right: 8,
                 child: Row(
                   children: [
+                    _SizeToggleButton(
+                      size: item.size,
+                      onToggle: () => notifier.setSize(
+                        item.type,
+                        item.size == DashboardWidgetSize.half
+                            ? DashboardWidgetSize.full
+                            : DashboardWidgetSize.half,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     IconButton.filledTonal(
                       tooltip: 'Remove ${item.type.label}',
                       onPressed: () => notifier.removeWidget(item.type),
@@ -316,6 +292,118 @@ class _EditableDashboardList extends ConsumerWidget {
         );
       },
     );
+  }
+}
+
+class _SizeToggleButton extends StatelessWidget {
+  const _SizeToggleButton({required this.size, required this.onToggle});
+
+  final DashboardWidgetSize size;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final nextSize = size == DashboardWidgetSize.half
+        ? DashboardWidgetSize.full
+        : DashboardWidgetSize.half;
+    return IconButton.filledTonal(
+      tooltip: 'Set to ${nextSize.label}',
+      onPressed: onToggle,
+      icon: Icon(
+        size == DashboardWidgetSize.half
+            ? Icons.view_agenda_outlined
+            : Icons.view_column_outlined,
+      ),
+    );
+  }
+}
+
+/// Two-column responsive grid that lets widgets opt into half width so two of
+/// them share a row. Full-width widgets take the whole row. Drag-and-drop
+/// reordering happens in the embedded edit list (single column by design,
+/// so the order is unambiguous and the user owns it).
+class _DashboardGrid extends StatelessWidget {
+  const _DashboardGrid({
+    required this.layout,
+    required this.summary,
+    required this.dueItemsAsync,
+    required this.isEditing,
+    required this.onToggleEditing,
+    required this.itemBuilder,
+  });
+
+  final List<DashboardWidgetPreference> layout;
+  final DashboardSummary summary;
+  final AsyncValue<List<DashboardDueItem>> dueItemsAsync;
+  final bool isEditing;
+  final VoidCallback onToggleEditing;
+  final Widget Function(DashboardWidgetType type, DashboardWidgetSize size)
+  itemBuilder;
+
+  static const double _rowGap = 16;
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = layout.where((item) => item.isVisible).toList();
+    if (isEditing) {
+      return _EditableDashboardList(
+        layout: layout,
+        isEditing: isEditing,
+        onToggleEditing: onToggleEditing,
+        itemBuilder: itemBuilder,
+      );
+    }
+    final rows = _buildRows(visible);
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+      children: [
+        for (var index = 0; index < rows.length; index++)
+          Padding(
+            padding: EdgeInsets.only(top: index == 0 ? 0 : _rowGap),
+            child: rows[index],
+          ),
+        const SizedBox(height: 16),
+        _DashboardLayoutAction(
+          isEditing: isEditing,
+          onPressed: onToggleEditing,
+        ),
+      ],
+    );
+  }
+
+  /// Folds consecutive half-width widgets into a two-column [Row]. A standalone
+  /// or trailing half widget sits on the left and leaves the right cell empty.
+  List<Widget> _buildRows(List<DashboardWidgetPreference> visible) {
+    final rows = <Widget>[];
+    for (var i = 0; i < visible.length;) {
+      final current = visible[i];
+      if (current.size == DashboardWidgetSize.half) {
+        final next = i + 1 < visible.length ? visible[i + 1] : null;
+        final right = (next != null && next.size == DashboardWidgetSize.half)
+            ? next
+            : null;
+        rows.add(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: itemBuilder(current.type, current.size)),
+              const SizedBox(width: _rowGap),
+              Expanded(
+                child: right == null
+                    ? const SizedBox.shrink()
+                    : itemBuilder(right.type, right.size),
+              ),
+            ],
+          ),
+        );
+        i += right == null ? 1 : 2;
+      } else {
+        rows.add(itemBuilder(current.type, current.size));
+        i += 1;
+      }
+    }
+    return rows;
   }
 }
 

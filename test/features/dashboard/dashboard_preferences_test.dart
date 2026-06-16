@@ -14,6 +14,33 @@ void main() {
     expect(restored.type, DashboardWidgetType.dueItems);
     expect(restored.isVisible, isFalse);
     expect(restored.position, 3);
+    expect(restored.size, DashboardWidgetSize.full);
+  });
+
+  test('half-size default for daily spending and safe this week', () {
+    final layout = DashboardWidgetPreference.defaultLayout;
+    final daily = layout.firstWhere(
+      (item) => item.type == DashboardWidgetType.dailySpending,
+    );
+    final safe = layout.firstWhere(
+      (item) => item.type == DashboardWidgetType.safeThisWeek,
+    );
+    expect(daily.size, DashboardWidgetSize.half);
+    expect(safe.size, DashboardWidgetSize.half);
+  });
+
+  test('copyWith supports changing size', () {
+    const preference = DashboardWidgetPreference(
+      type: DashboardWidgetType.dailySpending,
+      isVisible: true,
+      position: 0,
+      size: DashboardWidgetSize.half,
+    );
+    final changed = preference.copyWith(size: DashboardWidgetSize.full);
+    expect(changed.size, DashboardWidgetSize.full);
+    // copyWith should preserve other fields.
+    expect(changed.type, DashboardWidgetType.dailySpending);
+    expect(changed.isVisible, isTrue);
   });
 
   test('default layout exposes overview panels as separate widgets', () {

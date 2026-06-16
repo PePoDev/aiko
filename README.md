@@ -6,7 +6,7 @@
 >
 > **Agents: be brief.** Concise, high-signal responses; minimal, focused diffs; skip preamble.
 >
-> **Before you start a task:** read [`TASKS.md`](./TASKS.md). It is the prioritized work plan for this codebase — performance, UX, code style, dead code, architecture, test coverage. Pick from Phase 0 first. One task = one PR.
+> **Keep this file current.** When a change alters architecture, design system tokens, conventions referenced from here, or the scope/ownership of a feature, update `AGENTS.md` in the same change so it stays the source of truth.
 
 ---
 

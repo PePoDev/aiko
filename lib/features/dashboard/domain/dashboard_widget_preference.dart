@@ -25,6 +25,19 @@ enum DashboardWidgetType {
 
   String get storageKey => name;
 
+  /// Placeholder types kept only so legacy stored layouts still deserialize.
+  /// They render nothing, so they must not appear in the dashboard or the
+  /// "Add widgets" picker.
+  static const _deadTypes = {
+    totalDebt,
+    debtBreakdown,
+    taxLiability,
+    taxBreakdown,
+    topDeductions,
+  };
+
+  bool get isRenderable => !_deadTypes.contains(this);
+
   String get label {
     return switch (this) {
       DashboardWidgetType.aikoWelcome => 'Aiko welcome',

@@ -209,8 +209,12 @@ class _EditableDashboardList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final visible = layout.where((item) => item.isVisible).toList();
-    final hidden = layout.where((item) => !item.isVisible).toList();
+    final visible = layout
+        .where((item) => item.isVisible && item.type.isRenderable)
+        .toList();
+    final hidden = layout
+        .where((item) => !item.isVisible && item.type.isRenderable)
+        .toList();
     final notifier = ref.read(dashboardLayoutProvider.notifier);
 
     return ReorderableListView.builder(
@@ -344,7 +348,9 @@ class _DashboardGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visible = layout.where((item) => item.isVisible).toList();
+    final visible = layout
+        .where((item) => item.isVisible && item.type.isRenderable)
+        .toList();
     if (isEditing) {
       return _EditableDashboardList(
         layout: layout,

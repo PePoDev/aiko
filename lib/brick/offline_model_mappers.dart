@@ -429,14 +429,21 @@ AccountDetails accountDetailsFromJson(Map<String, dynamic>? json) {
       statementDay: (json['statementDay'] as int?) ?? 1,
       dueDay: (json['dueDay'] as int?) ?? 1,
       aprPercent: (json['aprPercent'] as num?)?.toDouble(),
-      rewardsType: _rewardsTypeFromName(json['rewardsType'] as String?),
+      rewardsType: _optionalEnumByName(
+        RewardsType.values,
+        json['rewardsType'] as String?,
+      ),
       annualFee: _moneyFromJson(json['annualFee']),
       minimumPayment: _moneyFromJson(json['minimumPayment']),
       sharesLimit: (json['sharesLimit'] as bool?) ?? false,
       sharedLimitAccountId: json['sharedLimitAccountId'] as String?,
     ),
     'loan' => LoanDetails(
-      loanType: _loanTypeFromName(json['loanType'] as String?),
+      loanType: _enumByName(
+        LoanType.values,
+        json['loanType'] as String? ?? '',
+        LoanType.other,
+      ),
       principal: _moneyFromJson(json['principal'], 'USD') ?? Money.zero('USD'),
       interestRatePercent:
           (json['interestRatePercent'] as num?)?.toDouble() ?? 0,
@@ -451,7 +458,11 @@ AccountDetails accountDetailsFromJson(Map<String, dynamic>? json) {
       accountNumberLast4: json['accountNumberLast4'] as String?,
     ),
     'asset' => AssetDetails(
-      assetClass: _assetClassFromName(json['assetClass'] as String?),
+      assetClass: _enumByName(
+        AssetClass.values,
+        json['assetClass'] as String? ?? '',
+        AssetClass.other,
+      ),
       purchasePrice: _moneyFromJson(json['purchasePrice']),
       purchaseDate: json['purchaseDate'] is String
           ? DateTime.parse(json['purchaseDate'] as String)
@@ -477,28 +488,4 @@ Money? _moneyFromJson(Object? raw, [String fallback = 'USD']) {
   final parsed = Decimal.tryParse(amt);
   if (parsed == null) return null;
   return Money(amount: parsed, currency: cur);
-}
-
-RewardsType? _rewardsTypeFromName(String? name) {
-  if (name == null) return null;
-  for (final v in RewardsType.values) {
-    if (v.name == name) return v;
-  }
-  return null;
-}
-
-LoanType _loanTypeFromName(String? name) {
-  if (name == null) return LoanType.other;
-  for (final v in LoanType.values) {
-    if (v.name == name) return v;
-  }
-  return LoanType.other;
-}
-
-AssetClass _assetClassFromName(String? name) {
-  if (name == null) return AssetClass.other;
-  for (final v in AssetClass.values) {
-    if (v.name == name) return v;
-  }
-  return AssetClass.other;
 }

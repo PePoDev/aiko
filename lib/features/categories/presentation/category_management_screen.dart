@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -174,6 +175,7 @@ class _CategorySection extends StatefulWidget {
     required this.totals,
     required this.onCategoryTap,
     required this.onGroupEdit,
+    required this.onGroupBudgetTap,
   });
 
   final String title;
@@ -184,6 +186,7 @@ class _CategorySection extends StatefulWidget {
   final _CategoryTotals totals;
   final ValueChanged<Category> onCategoryTap;
   final ValueChanged<CategoryGroup> onGroupEdit;
+  final ValueChanged<CategoryGroup> onGroupBudgetTap;
 
   @override
   State<_CategorySection> createState() => _CategorySectionState();
@@ -218,19 +221,11 @@ class _CategorySectionState extends State<_CategorySection> {
           .toList(growable: false);
       if (groupCategories.isEmpty) continue;
       Money? groupTotal;
-      Money? groupBudget;
       int groupCount = 0;
       for (final category in groupCategories) {
         final amount = widget.totals.amountForCategory(category.id);
         if (amount != null) {
           groupTotal = groupTotal == null ? amount : groupTotal + amount;
-        }
-        // Group budget = sum of its categories' limits. Skip mismatched
-        // currencies (Money addition requires a shared currency).
-        final limit = category.hasBudget ? category.monthlyLimit : null;
-        if (limit != null &&
-            (groupBudget == null || groupBudget.currency == limit.currency)) {
-          groupBudget = groupBudget == null ? limit : groupBudget + limit;
         }
         groupCount += widget.totals.countForCategory(category.id);
       }
@@ -239,7 +234,6 @@ class _CategorySectionState extends State<_CategorySection> {
           group: group,
           categories: groupCategories,
           total: groupTotal,
-          budget: groupBudget,
           count: groupCount,
         ),
       );
@@ -297,6 +291,7 @@ class _CategorySectionState extends State<_CategorySection> {
               onToggle: () => _toggle(groupEntries[i].group.id),
               onCategoryTap: widget.onCategoryTap,
               onGroupEdit: widget.onGroupEdit,
+              onGroupBudgetTap: widget.onGroupBudgetTap,
             ),
           ],
         ],
@@ -335,14 +330,12 @@ class _GroupEntry {
     required this.group,
     required this.categories,
     required this.total,
-    required this.budget,
     required this.count,
   });
 
   final CategoryGroup group;
   final List<Category> categories;
   final Money? total;
-  final Money? budget;
   final int count;
 }
 
@@ -413,6 +406,7 @@ class _GroupAccordion extends StatelessWidget {
     required this.onToggle,
     required this.onCategoryTap,
     required this.onGroupEdit,
+    required this.onGroupBudgetTap,
   });
 
   final _GroupEntry entry;
@@ -421,6 +415,7 @@ class _GroupAccordion extends StatelessWidget {
   final VoidCallback onToggle;
   final ValueChanged<Category> onCategoryTap;
   final ValueChanged<CategoryGroup> onGroupEdit;
+  final ValueChanged<CategoryGroup> onGroupBudgetTap;
 
   @override
   Widget build(BuildContext context) {
@@ -431,7 +426,7 @@ class _GroupAccordion extends StatelessWidget {
         _GroupHeader(
           title: entry.group.name,
           total: entry.total,
-          budget: entry.budget,
+          budget: entry.group.budgetLimit,
           count: entry.count,
           categoryCount: entry.categories.length,
           color: color,
@@ -439,6 +434,7 @@ class _GroupAccordion extends StatelessWidget {
           expanded: expanded,
           onToggle: onToggle,
           onEdit: entry.group.isSystem ? null : () => onGroupEdit(entry.group),
+          onBudgetTap: () => onGroupBudgetTap(entry.group),
         ),
         AnimatedSize(
           duration: const Duration(milliseconds: 200),
@@ -494,6 +490,7 @@ class _GroupHeader extends StatelessWidget {
     required this.icon,
     required this.expanded,
     required this.onToggle,
+    required this.onBudgetTap,
     this.onEdit,
   });
 
@@ -506,6 +503,7 @@ class _GroupHeader extends StatelessWidget {
   final IconData icon;
   final bool expanded;
   final VoidCallback onToggle;
+  final VoidCallback onBudgetTap;
   final VoidCallback? onEdit;
 
   @override
@@ -520,41 +518,117 @@ class _GroupHeader extends StatelessWidget {
         color: color.withValues(alpha: 0.08),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 38,
-                height: 38,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                child: Icon(icon, color: Colors.white, size: 20),
+              Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          subtitle,
+                          key: ValueKey('group-${title.toLowerCase()}-count'),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _GroupBudgetTrailing(
+                    total: total,
+                    budget: budget,
+                    color: color,
+                    onTap: onBudgetTap,
+                  ),
+                  if (onEdit != null)
+                    IconButton(
+                      icon: const Icon(Icons.tune, size: 18),
+                      tooltip: 'Edit group',
+                      visualDensity: VisualDensity.compact,
+                      color: theme.colorScheme.onSurfaceVariant,
+                      onPressed: onEdit,
+                    )
+                  else
+                    const SizedBox(width: 8),
+                  AnimatedRotation(
+                    turns: expanded ? 0.5 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.expand_more,
+                      size: 22,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      subtitle,
-                      key: ValueKey('group-${title.toLowerCase()}-count'),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+              if (budget != null) ...[
+                const SizedBox(height: 8),
+                _GroupBudgetProgress(
+                  spent: total ?? Money.zero(budget!.currency),
+                  limit: budget!,
+                  color: color,
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Trailing budget slot on a group header. With a group limit it shows
+/// `spent/limit` and edits it; without one it shows a quiet `+ Budget` chip so
+/// setting a group envelope is one tap away. Owns its tap so it doesn't toggle
+/// the accordion.
+class _GroupBudgetTrailing extends StatelessWidget {
+  const _GroupBudgetTrailing({
+    required this.total,
+    required this.budget,
+    required this.color,
+    required this.onTap,
+  });
+
+  final Money? total;
+  final Money? budget;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        child: budget != null
+            ? Text(
                 _spentOverLimit(total, budget),
                 key: const ValueKey('group-total-amount'),
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -562,28 +636,61 @@ class _GroupHeader extends StatelessWidget {
                   color: color,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
-              ),
-              if (onEdit != null)
-                IconButton(
-                  icon: const Icon(Icons.tune, size: 18),
-                  tooltip: 'Edit group',
-                  visualDensity: VisualDensity.compact,
-                  color: theme.colorScheme.onSurfaceVariant,
-                  onPressed: onEdit,
-                )
-              else
-                const SizedBox(width: 8),
-              AnimatedRotation(
-                turns: expanded ? 0.5 : 0.0,
-                duration: const Duration(milliseconds: 200),
-                child: Icon(
-                  Icons.expand_more,
-                  size: 22,
-                  color: theme.colorScheme.onSurfaceVariant,
+              )
+            : Container(
+                key: const ValueKey('group-add-budget'),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AikoColors.warningOrange.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Text(
+                  '+ Budget',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AikoColors.warningOrange,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            ],
-          ),
+      ),
+    );
+  }
+}
+
+/// Animated progress bar of group spending against its group-level limit.
+/// Fills from 0 on first paint and re-tweens when spent/limit changes; turns
+/// danger-red once the limit is exceeded.
+class _GroupBudgetProgress extends StatelessWidget {
+  const _GroupBudgetProgress({
+    required this.spent,
+    required this.limit,
+    required this.color,
+  });
+
+  final Money spent;
+  final Money limit;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = limit.amount <= Decimal.zero
+        ? 0.0
+        : (spent.amount / limit.amount).toDouble();
+    final barColor = ratio > 1.0 ? AikoColors.dangerRed : color;
+    return TweenAnimationBuilder<double>(
+      key: const ValueKey('group-budget-progress'),
+      tween: Tween(begin: 0, end: ratio.clamp(0.0, 1.0)),
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOut,
+      builder: (context, value, _) => ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: LinearProgressIndicator(
+          value: value,
+          minHeight: 6,
+          color: barColor,
+          backgroundColor: Theme.of(context).colorScheme.outlineVariant,
         ),
       ),
     );

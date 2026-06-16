@@ -120,14 +120,4 @@ class AikoTypography {
       ),
     );
   }
-
-  static TextStyle mutedLabel(Color foreground) {
-    return GoogleFonts.manrope(
-      color: foreground,
-      fontSize: 12,
-      fontWeight: FontWeight.w700,
-      height: 1.2,
-      letterSpacing: 0,
-    ).copyWith(fontFamilyFallback: _thaiFallback);
-  }
 }

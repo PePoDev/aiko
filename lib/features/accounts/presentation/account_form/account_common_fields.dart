@@ -33,7 +33,8 @@ class AccountCommonFields extends StatelessWidget {
     String? institution,
     bool? includeInNetWorth,
     bool? isActive,
-  }) onChanged;
+  })
+  onChanged;
 
   @override
   Widget build(BuildContext context) {

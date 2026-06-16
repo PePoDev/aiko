@@ -12,7 +12,7 @@ void main() {
   _defaultsInvariantsTests();
   _budgetPillTests();
 
-  testWidgets('shows Income and Expense sections together with Income first', (
+  testWidgets('shows Income and Expense sections together with Expense first', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -77,7 +77,7 @@ void main() {
     expect(find.byType(TabBar), findsNothing);
     expect(find.byType(TabBarView), findsNothing);
 
-    // Income appears before Expense on the same scroll.
+    // Expense appears before Income on the same scroll.
     final incomeHeader = find.descendant(
       of: find.byKey(const ValueKey('section-income')),
       matching: find.text('Income'),
@@ -89,12 +89,12 @@ void main() {
     expect(incomeHeader, findsOneWidget);
     expect(expenseHeader, findsOneWidget);
     expect(
-      tester.getTopLeft(incomeHeader).dy,
-      lessThan(tester.getTopLeft(expenseHeader).dy),
+      tester.getTopLeft(expenseHeader).dy,
+      lessThan(tester.getTopLeft(incomeHeader).dy),
     );
 
-    // Groups are collapsed by default; expand both "Other" groups (income
-    // first in the list, then expense) to reveal the seeded categories.
+    // Groups are collapsed by default; expand both "Other" groups (expense
+    // first in the list, then income) to reveal the seeded categories.
     await tester.tap(find.text('Other').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Other').last);
@@ -194,13 +194,13 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Headers render collapsed: Income section first (Side Income), then the
-    // Expense section (Household, Other). Income sits above Expense.
+    // Headers render collapsed: Expense section first (Household, Other), then
+    // the Income section (Side Income). Expense sits above Income.
     expect(find.text('Side Income'), findsOneWidget);
     expect(find.text('Household'), findsOneWidget);
     expect(
-      tester.getTopLeft(find.text('Side Income')).dy,
-      lessThan(tester.getTopLeft(find.text('Household')).dy),
+      tester.getTopLeft(find.text('Household')).dy,
+      lessThan(tester.getTopLeft(find.text('Side Income')).dy),
     );
 
     // Expand each group to reveal its categories.
@@ -958,6 +958,70 @@ void _budgetPillTests() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'group header shows + Budget chip without a limit and a progress bar with one',
+    (tester) async {
+      // A custom expense group with a group-level limit, plus the unfiled
+      // built-in "Other" group which has none.
+      final groups = [
+        CategoryGroup(
+          id: 'group-food',
+          userId: 'user',
+          name: 'Food',
+          icon: 'food',
+          color: '#F97316',
+          budgetLimit: Money.parse('600', 'USD'),
+        ),
+      ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            categoriesProvider.overrideWith(
+              () => _CategoriesNotifier([
+                const Category(
+                  id: 'cat-groceries',
+                  userId: 'user',
+                  name: 'Groceries',
+                  type: CategoryType.expense,
+                  group: CategoryBudgetGroup.needs,
+                  groupId: 'group-food',
+                  icon: 'food',
+                  color: '#F97316',
+                  budgetEnabled: true,
+                ),
+                const Category(
+                  id: 'cat-loose',
+                  userId: 'user',
+                  name: 'Misc',
+                  type: CategoryType.expense,
+                  group: CategoryBudgetGroup.custom,
+                  icon: 'category',
+                  color: '#8B5CF6',
+                  budgetEnabled: true,
+                ),
+              ]),
+            ),
+            categoryGroupsProvider.overrideWith(() => _GroupsNotifier(groups)),
+          ],
+          child: MaterialApp(
+            theme: AikoTheme.light(),
+            home: const CategoryManagementScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The budgeted group renders an animated progress bar, no + Budget chip.
+      expect(
+        find.byKey(const ValueKey('group-budget-progress')),
+        findsOneWidget,
+      );
+      // The unfiled "Other" group has no group limit: it offers + Budget.
+      expect(find.byKey(const ValueKey('group-add-budget')), findsOneWidget);
+    },
+  );
 }
 
 class _CategoriesNotifier extends CategoriesNotifier {

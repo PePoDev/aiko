@@ -6,7 +6,6 @@ import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/trip.dart';
 import '../application/travel_mode_provider.dart';
-import '../application/travel_mode_service.dart';
 
 class TravelModeScreen extends ConsumerStatefulWidget {
   const TravelModeScreen({super.key});
@@ -16,8 +15,6 @@ class TravelModeScreen extends ConsumerStatefulWidget {
 }
 
 class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
-  static const _service = TravelModeService();
-
   void _showAddTripBottomSheet() {
     showModalBottomSheet<void>(
       context: context,
@@ -194,8 +191,6 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
     }
 
     // Active trip dashboard
-    _service.totalForeignFees(trip);
-
     // Converted math using live slider exchange rate
     // Spent total = Sum of all logged foreign fees
     final double totalSpentLocal = trip.foreignFees

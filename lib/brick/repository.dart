@@ -94,15 +94,6 @@ class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
     await _singleton!.initialize();
   }
 
-  /// Detach the singleton so the next test (or re-init) starts from a clean
-  /// state. `resetLocalData` already wipes the on-disk tables; this
-  /// additionally drops the in-memory reference so a follow-up call to
-  /// [AikoBrickRepository] throws "not initialized" until [configure] runs
-  /// again. No-op when the repository was never initialised.
-  static void resetForTesting() {
-    _singleton = null;
-  }
-
   static Future<void> resetLocalData() async {
     final repository = _singleton;
     if (repository == null) {

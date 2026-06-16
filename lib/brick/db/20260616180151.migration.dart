@@ -10,25 +10,21 @@ part of 'schema.g.dart';
 // The migration version must **always** mirror the file name
 
 const List<MigrationCommand> _migration_20260616180151_up = [
-  InsertColumn('budget_amount', Column.varchar, onTable: 'OfflineCategoryGroup'),
-  InsertColumn('budget_currency', Column.varchar, onTable: 'OfflineCategoryGroup'),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineAccount', unique: false),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineCategory', unique: false),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineProfile', unique: false),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineTransaction', unique: false),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineInvestmentHolding', unique: false),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineCategoryGroup', unique: false)
+  InsertColumn(
+    'budget_amount',
+    Column.varchar,
+    onTable: 'OfflineCategoryGroup',
+  ),
+  InsertColumn(
+    'budget_currency',
+    Column.varchar,
+    onTable: 'OfflineCategoryGroup',
+  ),
 ];
 
 const List<MigrationCommand> _migration_20260616180151_down = [
   DropColumn('budget_amount', onTable: 'OfflineCategoryGroup'),
   DropColumn('budget_currency', onTable: 'OfflineCategoryGroup'),
-  DropIndex('index_OfflineAccount_on_deleted_at'),
-  DropIndex('index_OfflineCategory_on_deleted_at'),
-  DropIndex('index_OfflineProfile_on_deleted_at'),
-  DropIndex('index_OfflineTransaction_on_deleted_at'),
-  DropIndex('index_OfflineInvestmentHolding_on_deleted_at'),
-  DropIndex('index_OfflineCategoryGroup_on_deleted_at')
 ];
 
 //

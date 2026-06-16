@@ -29,12 +29,5 @@ void main() {
 
       expect(first, second);
     });
-
-    test('isLocalOnlyUser is true for a freshly-minted id', () async {
-      final context = OfflineUserContext(storage: MemorySecureStorageService());
-      // ignore: unused_local_variable
-      final id = await context.resolveUserId();
-      expect(await context.isLocalOnlyUser, isTrue);
-    });
   });
 }

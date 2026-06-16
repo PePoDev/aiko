@@ -32,9 +32,4 @@ class OfflineUserContext {
     await _storage.write(_knownUserIdKey, localUserId);
     return localUserId;
   }
-
-  Future<bool> get isLocalOnlyUser async {
-    final userId = await resolveUserId();
-    return userId.startsWith(localUserIdPrefix);
-  }
 }

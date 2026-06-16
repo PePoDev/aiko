@@ -1,4 +1,3 @@
-import '../../../core/prediction/advice_safety.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../domain/aiko_insight.dart';
 
@@ -74,9 +73,7 @@ class AikoInsightRepository {
       title: row['title'] as String,
       description: row['description'] as String,
       recommendation: row['recommendation'] as String,
-      confidenceScore:
-          (row['confidence_score'] as num?)?.toDouble() ??
-          kDefaultConfidenceScore,
+      confidenceScore: (row['confidence_score'] as num?)?.toDouble() ?? 0.7,
       sourceDataSummary: sourceDataSummary,
       status: status,
     );

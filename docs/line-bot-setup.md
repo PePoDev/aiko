@@ -6,33 +6,33 @@ tested until you provision a LINE channel and set the secrets below**.
 
 Work top to bottom — each step unblocks the next.
 
+> **Progress:** Channel created; `LINE_CHANNEL_SECRET` and
+> `LINE_CHANNEL_ACCESS_TOKEN` issued and set as Supabase secrets.
+> **Next:** point the webhook (step 4) and deploy (step 6).
+
 ---
 
-## 1. Apply the database migration
+## 1. Apply the database migration ✅
 
 ```bash
-supabase db push        # creates public.line_links (+ RLS)
+supabase db push        # creates public.line_links + public.line_pairings (+ RLS)
 ```
 
 ## 2. Create the LINE channel (LINE Developers console)
 
 https://developers.line.biz → your provider →
 
-- [ ] Create a **Messaging API** channel.
-- [ ] Copy the **Channel secret** (Basic settings).
-- [ ] Issue a long-lived **Channel access token** (Messaging API tab).
-- [ ] Disable the default **auto-reply** and **greeting** messages so the bot
+- [x] Create a **Messaging API** channel.
+- [x] Copy the **Channel secret** (Basic settings).
+- [x] Issue a long-lived **Channel access token** (Messaging API tab).
+- [x] Disable the default **auto-reply** and **greeting** messages so the bot
       controls its own replies (Messaging API tab → "Auto-reply messages" off).
 
-## 3. Create the LIFF app (same channel)
+## 3. (No LIFF needed)
 
-LINE console → your channel → **LIFF** tab → Add:
-
-- [ ] Size: **Tall** (or Full).
-- [ ] Endpoint URL: the **GET** URL of the function —
-      `https://<project-ref>.functions.supabase.co/line-webhook`
-- [ ] Scopes: **profile**, **openid**.
-- [ ] Copy the **LIFF ID** (looks like `1234567890-abcdEFGh`).
+Linking uses a **pairing code**, not LIFF — the bot DMs a one-time code, and the
+function's own GET page lets the user sign in and enter it. No LINE Login
+channel, no LIFF app, no extra scopes.
 
 ## 4. Point the webhook at the function
 
@@ -44,11 +44,12 @@ LINE console → Messaging API tab →
 ## 5. Set the Supabase secrets
 
 ```bash
-supabase secrets set LINE_CHANNEL_SECRET=...
-supabase secrets set LINE_CHANNEL_ACCESS_TOKEN=...
-supabase secrets set LINE_LIFF_ID=...
+supabase secrets set LINE_CHANNEL_SECRET=...          # ✅ done
+supabase secrets set LINE_CHANNEL_ACCESS_TOKEN=...     # ✅ done
 ```
 
+> No `LINE_LIFF_ID` — the pairing-code flow replaced it.
+>
 > `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are
 > injected by the runtime — do not set them. The service-role key is read
 > **only** inside this server-side function (to look up / rotate the LINE link);
@@ -69,10 +70,11 @@ supabase functions deploy line-webhook --no-verify-jwt
 ## 7. Smoke test
 
 - [ ] Add the bot as a friend (QR code in the Messaging API tab).
-- [ ] Send any message → bot replies with a **login link** (the LIFF page).
-- [ ] Open it, sign in with your **Aiko email + password** → "Connected!".
-- [ ] Ask: *"How much can I safely spend?"* → Aiko answers from your data,
-      ending with the standard estimates disclaimer.
+- [ ] Send any message → bot replies with a **6-char pairing code** + connect link.
+- [ ] Open the link (any browser), sign in with your **Aiko email + password**,
+      enter the code → "Connected!".
+- [ ] Back in LINE, ask: *"How much can I safely spend?"* → Aiko answers from
+      your data, ending with the standard estimates disclaimer.
 
 ## How it fits together
 
@@ -80,10 +82,12 @@ supabase functions deploy line-webhook --no-verify-jwt
 LINE message ─▶ line-webhook (POST)
                  ├─ verify x-line-signature
                  ├─ line_links[line_user_id]        (service-role lookup)
+                 │    └─ if unlinked: upsert line_pairings(code) + reply the code
                  ├─ refresh user access token        (stored refresh_token)
                  ├─ POST aiko-chat (Bearer user JWT) ← reuses the same function
                  └─ reply via LINE Messaging API
-line-webhook (GET) ─▶ LIFF login page (writes line_links under the user's JWT)
+line-webhook (GET) ─▶ connect page: sign in + enter code → resolve
+                       line_pairings(code) → write line_links (under user's JWT)
 ```
 
 ## Troubleshooting
@@ -91,7 +95,7 @@ line-webhook (GET) ─▶ LIFF login page (writes line_links under the user's JW
 | Symptom | Likely cause |
 | --- | --- |
 | Bot never replies | Webhook URL wrong, or "Use webhook" off, or `--no-verify-jwt` omitted |
-| "Open this page from inside LINE" | LIFF endpoint URL / LIFF ID mismatch; open via the bot's link, not a browser |
+| "Code is invalid or expired" | Code older than 10 min, or already replaced by a newer one — message the bot again |
 | Always asks you to log in again | `line_links` write blocked (check RLS / that you signed in with a real Aiko account), or refresh token rotated/expired |
 | "Aiko is having trouble" | `aiko-chat` not deployed or its `AI_API_KEY` not set |
 

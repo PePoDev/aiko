@@ -3,15 +3,6 @@ import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
 
-class SupabaseSession {
-  const SupabaseSession({required this.client, required this.user});
-
-  final SupabaseClient client;
-  final User user;
-
-  String get userId => user.id;
-}
-
 class AikoSupabase {
   const AikoSupabase._();
 
@@ -52,14 +43,5 @@ class AikoSupabase {
       );
     }
     return client;
-  }
-
-  static SupabaseSession requireSession() {
-    final client = requireClient();
-    final user = client.auth.currentUser;
-    if (user == null) {
-      throw StateError('Sign in before accessing your financial data.');
-    }
-    return SupabaseSession(client: client, user: user);
   }
 }

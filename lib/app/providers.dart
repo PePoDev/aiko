@@ -3,7 +3,6 @@ import '../features/transactions/data/transaction_repository.dart';
 import '../features/accounts/application/shared_limit_resolver.dart';
 import '../features/accounts/data/account_repository.dart';
 import '../features/accounts/domain/account.dart';
-import '../features/categories/application/category_service.dart';
 import '../features/categories/data/category_repository.dart';
 import '../features/categories/data/category_group_repository.dart';
 import '../features/categories/domain/category.dart';
@@ -338,11 +337,7 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
         .toList(growable: false);
     activeCustomCategories.sort(_compareCustomCategories);
 
-    final userId = nonDefaultCategories.isNotEmpty
-        ? nonDefaultCategories.first.userId
-        : 'local-user';
-
-    final defaults = const CategoryService().defaultCategoriesFor(userId);
+    final defaults = CategoryDefaults.all;
 
     // Inactive custom rows act as tombstones so deleted custom categories do not
     // reappear as generated defaults with the same name/type.
@@ -427,7 +422,7 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
       if (category == null || category.isDefault) {
         await repo.delete(id);
       } else {
-        await repo.save(const CategoryService().archive(category));
+        await repo.save(category.copyWith(isActive: false));
       }
       if (previousCategories != null) {
         return previousCategories

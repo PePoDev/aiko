@@ -29,9 +29,3 @@ class PaceStatus {
 
   bool get isFast => percentOfBudgetUsed > daysElapsedRatio * 100;
 }
-
-class LeftoverSummary {
-  const LeftoverSummary({required this.safeToSpend});
-
-  final Money safeToSpend;
-}

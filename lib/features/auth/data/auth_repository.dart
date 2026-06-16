@@ -213,8 +213,10 @@ class AuthRepository {
       'security_status': 'notConfigured',
     });
 
-    final List<Map<String, dynamic>> accounts =
-        await client.from('accounts').select('id').eq('user_id', userId);
+    final List<Map<String, dynamic>> accounts = await client
+        .from('accounts')
+        .select('id')
+        .eq('user_id', userId);
     if (accounts.isEmpty) {
       await client.from('accounts').insert({
         'user_id': userId,

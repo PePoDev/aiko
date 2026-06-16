@@ -222,48 +222,6 @@ class AikoProgressBar extends StatelessWidget {
   }
 }
 
-class AikoProgressRow extends StatelessWidget {
-  const AikoProgressRow({
-    required this.label,
-    required this.valueLabel,
-    required this.value,
-    this.color = AikoColors.primaryBlue,
-    super.key,
-  });
-
-  final String label;
-  final String valueLabel;
-  final double value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
-              Text(
-                valueLabel,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          AikoProgressBar(value: value, color: color),
-        ],
-      ),
-    );
-  }
-}
-
 class AikoDataListCard extends StatelessWidget {
   const AikoDataListCard({
     required this.title,

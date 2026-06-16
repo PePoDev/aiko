@@ -1,15 +1,10 @@
 import '../../../core/money/money.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../../credit_cards/domain/credit_card_detail.dart';
-import '../application/dashboard_due_item_service.dart';
 import '../domain/dashboard_due_item.dart';
 
 class DashboardDueItemRepository {
-  const DashboardDueItemRepository({
-    DashboardDueItemService service = const DashboardDueItemService(),
-  }) : _service = service;
-
-  final DashboardDueItemService _service;
+  const DashboardDueItemRepository();
 
   Future<List<DashboardDueItem>> loadUpcomingItems(DateTime asOf) async {
     final client = AikoSupabase.tryClient();
@@ -28,14 +23,28 @@ class DashboardDueItemRepository {
       return const [];
     }
 
-    return _service.upcomingItems(
-      creditCards: cardsResponse
-          .map(
-            (row) => _creditCardFromRow(Map<String, dynamic>.from(row), asOf),
-          )
-          .toList(growable: false),
-      asOf: asOf,
-    );
+    final creditCards = cardsResponse
+        .map((row) => _creditCardFromRow(Map<String, dynamic>.from(row), asOf))
+        .toList(growable: false);
+
+    final cutoff = asOf.add(const Duration(days: 30));
+    final items = <DashboardDueItem>[];
+    for (final card in creditCards) {
+      if (card.statementBalance.isZero) continue;
+      final due = card.paymentDueDate;
+      if (due.isBefore(asOf) || due.isAfter(cutoff)) continue;
+      items.add(
+        DashboardDueItem(
+          id: card.id,
+          kind: DashboardDueItemKind.creditCard,
+          title: 'Credit card payment',
+          amount: card.statementBalance,
+          dueDate: due,
+        ),
+      );
+    }
+    items.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+    return items;
   }
 
   static CreditCardDetail _creditCardFromRow(

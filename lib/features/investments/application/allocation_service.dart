@@ -7,22 +7,18 @@ import '../domain/investment_holding.dart';
 class AllocationService {
   const AllocationService();
 
-  Money marketValue(InvestmentHolding holding) {
-    return holding.currentPrice.times(Decimal.parse('${holding.quantity}'));
-  }
-
   double allocationPercent(
     InvestmentHolding holding,
     List<InvestmentHolding> portfolio,
   ) {
     final total = portfolio.fold<double>(
       0,
-      (sum, item) => sum + marketValue(item).amount.toDouble(),
+      (sum, item) => sum + item.marketValue.amount.toDouble(),
     );
     if (total == 0) {
       return 0;
     }
-    return marketValue(holding).amount.toDouble() / total * 100;
+    return holding.marketValue.amount.toDouble() / total * 100;
   }
 
   bool isDrifted({
@@ -86,14 +82,14 @@ class AllocationService {
   ) {
     final total = portfolio.fold<double>(
       0,
-      (sum, item) => sum + marketValue(item).amount.toDouble(),
+      (sum, item) => sum + item.marketValue.amount.toDouble(),
     );
     if (total == 0) {
       return 0;
     }
     final classTotal = holdings.fold<double>(
       0,
-      (sum, item) => sum + marketValue(item).amount.toDouble(),
+      (sum, item) => sum + item.marketValue.amount.toDouble(),
     );
     return classTotal / total * 100;
   }

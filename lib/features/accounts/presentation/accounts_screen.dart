@@ -280,7 +280,11 @@ class _AddAccountPlaceholder extends StatelessWidget {
             color: accent.withValues(alpha: 0.06),
             shape: BoxShape.circle,
           ),
-          child: Icon(Icons.add, color: accent.withValues(alpha: 0.5), size: 19),
+          child: Icon(
+            Icons.add,
+            color: accent.withValues(alpha: 0.5),
+            size: 19,
+          ),
         ),
         title: Text(
           'Add ${_accountTypeLabel(type).toLowerCase()}',

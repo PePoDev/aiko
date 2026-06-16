@@ -47,9 +47,6 @@ class Account {
   AccountDetails get resolvedDetails =>
       details ?? AccountDetails.defaultFor(type);
 
-  static AccountDetails defaultDetailsFor(AccountType t) =>
-      AccountDetails.defaultFor(t);
-
   /// `true` for accounts that represent a SMART savings goal. Goal accounts
   /// use [currentBalance] as the saved amount (per the merge plan; no linked
   /// account required) and require [targetAmount] / [targetDate] to be set.

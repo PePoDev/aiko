@@ -128,7 +128,8 @@ class CategoryBudgetProgressService {
     final categoryId = category.id;
     // ponytail: sum only the budget's currency; no FX rates here to convert.
     // Add currency conversion when Travel Mode rates reach this path.
-    final target = category.monthlyLimit?.currency ??
+    final target =
+        category.monthlyLimit?.currency ??
         _defaultCurrency(transactions, categoryId);
     Money running = Money.zero(target);
     for (final t in transactions) {

@@ -6,7 +6,6 @@ class ExchangeRate {
     required this.toCurrency,
     required this.rate,
     required this.effectiveAt,
-    this.source = 'manual',
   }) : assert(fromCurrency.length == 3),
        assert(toCurrency.length == 3);
 
@@ -28,7 +27,6 @@ class ExchangeRate {
   final String toCurrency;
   final Decimal rate;
   final DateTime effectiveAt;
-  final String source;
 
   bool matches(String from, String to) {
     return fromCurrency == from.toUpperCase() && toCurrency == to.toUpperCase();

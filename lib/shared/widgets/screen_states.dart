@@ -34,24 +34,6 @@ class AikoScreenState extends StatelessWidget {
     super.key,
   }) : icon = Icons.error_outline;
 
-  const AikoScreenState.offline({super.key})
-    : title = 'You are offline',
-      message = 'Aiko will reconnect when the network is available.',
-      icon = Icons.wifi_off,
-      action = null;
-
-  const AikoScreenState.locked({super.key})
-    : title = 'Aiko is locked',
-      message = 'Unlock to view your financial data.',
-      icon = Icons.lock_outline,
-      action = null;
-
-  const AikoScreenState.permissionDenied({super.key})
-    : title = 'Permission needed',
-      message = 'Aiko needs permission before showing this information.',
-      icon = Icons.privacy_tip_outlined,
-      action = null;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);

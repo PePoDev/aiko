@@ -5,20 +5,13 @@ import '../../brick/repository.dart';
 import '../supabase/supabase_client_provider.dart';
 
 class OfflineStore {
-  OfflineStore({AikoBrickRepository? repository})
-    : _repository = repository ?? AikoBrickRepository();
+  OfflineStore() : _repository = AikoBrickRepository();
 
   final AikoBrickRepository _repository;
 
-  bool get _canSyncRemote =>
+  bool get canSyncRemote =>
       _repository.remoteSyncEnabled &&
       AikoSupabase.tryClient()?.auth.currentUser != null;
-
-  bool get canSyncRemote => _canSyncRemote;
-
-  OfflineFirstGetPolicy get readPolicy => _canSyncRemote
-      ? OfflineFirstGetPolicy.awaitRemoteWhenNoneExist
-      : OfflineFirstGetPolicy.localOnly;
 
   Future<List<TModel>> get<TModel extends OfflineFirstWithSupabaseModel>({
     Query? query,
@@ -26,7 +19,7 @@ class OfflineStore {
   }) async {
     // Honor an explicit policy, and stay local-only when there is no signed-in
     // Supabase session to sync against.
-    if (policy != null || !_canSyncRemote) {
+    if (policy != null || !canSyncRemote) {
       return _repository.get<TModel>(
         query: query,
         policy: policy ?? OfflineFirstGetPolicy.localOnly,
@@ -58,7 +51,7 @@ class OfflineStore {
     TModel model, {
     Query? query,
   }) async {
-    if (_canSyncRemote) {
+    if (canSyncRemote) {
       try {
         final saved = await _repository.upsert<TModel>(
           model,
@@ -109,7 +102,7 @@ class OfflineStore {
     Query? query,
     bool localOnly = false,
   }) async {
-    if (localOnly || !_canSyncRemote) {
+    if (localOnly || !canSyncRemote) {
       final rowsDeleted = await _repository.sqliteProvider.delete<TModel>(
         model,
         query: query,

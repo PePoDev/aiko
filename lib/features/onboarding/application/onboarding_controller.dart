@@ -61,32 +61,3 @@ class OnboardingState {
     );
   }
 }
-
-class OnboardingController {
-  OnboardingState _state = const OnboardingState();
-
-  OnboardingState get state => _state;
-
-  void chooseFocus(String focus) {
-    _state = _state.copyWith(focus: focus, step: OnboardingStepKey.currency);
-  }
-
-  void chooseCurrency(String currency, String country) {
-    _state = _state.copyWith(
-      baseCurrency: currency,
-      country: country,
-      step: OnboardingStepKey.account,
-    );
-  }
-
-  void addFirstAccount(Account account) {
-    _state = _state.copyWith(
-      firstAccount: account,
-      step: OnboardingStepKey.security,
-    );
-  }
-
-  void completeSecurity() {
-    _state = _state.copyWith(step: OnboardingStepKey.completed);
-  }
-}

@@ -28,11 +28,4 @@ class CurrencyConversionService {
 
     return Money(amount: money.amount * rate.rate, currency: normalizedTarget);
   }
-
-  Money sumAs(Iterable<Money> values, String targetCurrency) {
-    return values.fold(
-      Money.zero(targetCurrency),
-      (total, item) => total + convert(item, targetCurrency),
-    );
-  }
 }

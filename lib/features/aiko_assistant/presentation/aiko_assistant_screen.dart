@@ -205,9 +205,8 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
                       error: isLast && !state.isStreaming
                           ? state.lastError
                           : null,
-                      onRetry: () => ref
-                          .read(aikoChatControllerProvider.notifier)
-                          .retry(),
+                      onRetry: () =>
+                          ref.read(aikoChatControllerProvider.notifier).retry(),
                     );
                   },
                 ),

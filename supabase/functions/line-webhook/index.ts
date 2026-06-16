@@ -4,9 +4,10 @@
 // LINE user can chat with Aiko using their own RLS-scoped financial data.
 //
 // Two entry points on one function:
-//   GET  →  serves the LIFF login page. The user signs in with their normal
-//           Aiko email/password (Supabase Auth) *inside LINE*; the page writes a
-//           `line_links` row (LINE id → user id + refresh token) under their JWT.
+//   GET  →  serves the connect page (plain web, no LIFF). The user signs in with
+//           their normal Aiko email/password (Supabase Auth) and enters the
+//           pairing code the bot gave them; the page writes a `line_links` row
+//           (LINE id → user id + refresh token) under their own JWT.
 //   POST →  the LINE webhook. Verifies LINE's signature, looks up the linked
 //           user, refreshes a short-lived access token for them, calls the
 //           existing `aiko-chat` function with that token (so the model only
@@ -26,9 +27,9 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const LINE_CHANNEL_SECRET = Deno.env.get("LINE_CHANNEL_SECRET") ?? "";
 const LINE_CHANNEL_ACCESS_TOKEN = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN") ?? "";
-const LINE_LIFF_ID = Deno.env.get("LINE_LIFF_ID") ?? "";
 
-const LIFF_URL = LINE_LIFF_ID ? `https://liff.line.me/${LINE_LIFF_ID}` : "";
+const CONNECT_URL = `${SUPABASE_URL}/functions/v1/line-webhook`; // GET serves the page
+const PAIRING_TTL_MIN = 10;
 const LINE_REPLY_ENDPOINT = "https://api.line.me/v2/bot/message/reply";
 const AIKO_CHAT_URL = `${SUPABASE_URL}/functions/v1/aiko-chat`;
 const MAX_LINE_TEXT = 4800; // LINE caps a text message at 5000 chars.
@@ -71,6 +72,34 @@ async function replyToLine(replyToken: string, text: string): Promise<void> {
       messages: [{ type: "text", text: text.slice(0, MAX_LINE_TEXT) }],
     }),
   }).catch(() => {/* best-effort: LINE reply tokens are short-lived */});
+}
+
+// ---- Pairing code ----
+
+// 6 chars from an unambiguous alphabet (~8.8e8 combinations). Single active
+// code per LINE user, ~10 min TTL.
+// ponytail: no rate limit on redemption; add one (or 8 chars) if brute force matters.
+function newPairingCode(): string {
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  let code = "";
+  for (const b of bytes) code += alphabet[b % alphabet.length];
+  return code;
+}
+
+// Issues (or replaces) the pending pairing code for this LINE user and returns
+// the message to send them. The connect page redeems it under the user's JWT.
+async function startPairing(
+  admin: ReturnType<typeof createClient>,
+  lineUserId: string,
+): Promise<string> {
+  const code = newPairingCode();
+  await admin.from("line_pairings").upsert({
+    line_user_id: lineUserId,
+    code,
+    expires_at: new Date(Date.now() + PAIRING_TTL_MIN * 60_000).toISOString(),
+  }, { onConflict: "line_user_id" });
+  return `Hi! I'm Aiko 💙 To connect your account, open this page, sign in, and enter code ${code}:\n${CONNECT_URL}\n\nThe code expires in ${PAIRING_TTL_MIN} minutes.`;
 }
 
 // ---- Aiko: refresh the linked user's token, then call aiko-chat ----
@@ -166,10 +195,7 @@ async function handleTextMessage(
     .maybeSingle();
 
   if (!link) {
-    await replyToLine(
-      replyToken,
-      `Hi! I'm Aiko 💙 To answer questions about your money, please log in to your Aiko account first:\n${LIFF_URL}`,
-    );
+    await replyToLine(replyToken, await startPairing(admin, lineUserId));
     return;
   }
 
@@ -177,7 +203,7 @@ async function handleTextMessage(
   if (!token) {
     await replyToLine(
       replyToken,
-      `Your Aiko sign-in expired. Please log in again to reconnect:\n${LIFF_URL}`,
+      `Your Aiko sign-in expired. Reconnect: ${await startPairing(admin, lineUserId)}`,
     );
     return;
   }
@@ -206,10 +232,7 @@ async function handleWebhook(rawBody: string): Promise<void> {
     if (!lineUserId || !replyToken) continue;
 
     if (event.type === "follow") {
-      await replyToLine(
-        replyToken,
-        `Welcome! I'm Aiko 💙 Log in to your Aiko account and I'll help with your spending, budgets, and goals:\n${LIFF_URL}`,
-      );
+      await replyToLine(replyToken, await startPairing(admin, lineUserId));
       continue;
     }
     if (event.type === "message" && event.message?.type === "text") {
@@ -218,12 +241,14 @@ async function handleWebhook(rawBody: string): Promise<void> {
   }
 }
 
-// ---- LIFF login page (served on GET) ----
+// ---- Connect page (served on GET) ----
 
 function loginPage(): string {
-  // The page runs inside LINE (LIFF). After a normal Supabase email/password
-  // sign-in it writes the line_links row under the user's own JWT, so RLS
-  // applies. The anon key is public by design.
+  // Plain web page (works in any browser — no LIFF). The user signs in with
+  // their normal Supabase email/password and enters the pairing code the bot
+  // sent them; the page resolves the code to a LINE user id and writes the
+  // line_links row, all under the user's own JWT (so RLS applies). The anon key
+  // is public by design.
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -238,6 +263,7 @@ function loginPage(): string {
   p { color: #293348; font-size: 14px; }
   input { width: 100%; box-sizing: border-box; padding: 12px; margin: 6px 0;
     border: 1px solid #BAC3D6; border-radius: 8px; font-size: 15px; }
+  #code { text-transform: uppercase; letter-spacing: 2px; font-weight: 700; }
   button { width: 100%; padding: 14px; margin-top: 12px; border: 0;
     border-radius: 8px; background: #3B82F6; color: #fff; font-size: 15px;
     font-weight: 700; }
@@ -249,58 +275,53 @@ function loginPage(): string {
 <body>
   <div class="card">
     <h1>Connect Aiko to LINE</h1>
-    <p>Sign in with the same email and password you use in the Aiko app. This links your LINE chat to your account so Aiko can answer about your money.</p>
+    <p>Send any message to the Aiko bot on LINE to get a pairing code, then sign in below with your Aiko email and password and enter that code.</p>
     <input id="email" type="email" placeholder="Email" autocomplete="username" />
     <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
+    <input id="code" type="text" placeholder="Pairing code" autocomplete="off" />
     <button id="submit">Log in &amp; connect</button>
     <div id="status" class="status"></div>
   </div>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="https://esm.sh/@supabase/supabase-js@2.45.0"></script>
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
     const supabase = createClient("${SUPABASE_URL}", "${SUPABASE_ANON_KEY}");
     const statusEl = document.getElementById("status");
-    let lineUserId = null, displayName = null;
-
-    async function boot() {
-      try {
-        await liff.init({ liffId: "${LINE_LIFF_ID}" });
-        if (!liff.isLoggedIn()) { liff.login(); return; }
-        const profile = await liff.getProfile();
-        lineUserId = profile.userId;
-        displayName = profile.displayName;
-      } catch (e) {
-        statusEl.textContent = "Open this page from inside LINE to connect.";
-        statusEl.className = "status err";
-      }
-    }
-    boot();
+    const set = (msg, cls) => { statusEl.textContent = msg; statusEl.className = "status " + (cls || ""); };
 
     document.getElementById("submit").addEventListener("click", async () => {
       const btn = document.getElementById("submit");
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
-      if (!lineUserId) { statusEl.textContent = "LINE profile not ready yet."; statusEl.className = "status err"; return; }
-      btn.disabled = true; statusEl.textContent = "Signing in…"; statusEl.className = "status";
+      const code = document.getElementById("code").value.trim().toUpperCase();
+      if (!code) { set("Enter the pairing code from the LINE bot.", "err"); return; }
+      btn.disabled = true; set("Signing in…");
+
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error || !data.session) {
-        statusEl.textContent = "Sign-in failed. Check your email and password."; statusEl.className = "status err";
+        set("Sign-in failed. Check your email and password.", "err"); btn.disabled = false; return;
+      }
+
+      const { data: pairing } = await supabase
+        .from("line_pairings")
+        .select("line_user_id")
+        .eq("code", code)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+      if (!pairing) {
+        set("That code is invalid or expired. Message the bot again for a new one.", "err");
         btn.disabled = false; return;
       }
+
       const { error: upsertErr } = await supabase.from("line_links").upsert({
-        line_user_id: lineUserId,
+        line_user_id: pairing.line_user_id,
         user_id: data.session.user.id,
         refresh_token: data.session.refresh_token,
-        display_name: displayName,
         updated_at: new Date().toISOString(),
       }, { onConflict: "line_user_id" });
       if (upsertErr) {
-        statusEl.textContent = "Could not save the link. Please try again."; statusEl.className = "status err";
-        btn.disabled = false; return;
+        set("Could not save the link. Please try again.", "err"); btn.disabled = false; return;
       }
-      statusEl.textContent = "Connected! You can return to LINE and chat with Aiko."; statusEl.className = "status ok";
-      setTimeout(() => { if (window.liff && liff.isInClient()) liff.closeWindow(); }, 1500);
+      set("Connected! Return to LINE and chat with Aiko.", "ok");
     });
   </script>
 </body>

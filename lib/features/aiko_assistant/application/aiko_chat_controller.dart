@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
-import '../data/chat_store.dart';
 import 'chat_engine.dart';
 import 'financial_context.dart';
 
@@ -64,8 +63,6 @@ final aikoChatEngineProvider = Provider<ChatEngine>((ref) {
   return HttpChatEngine(functionUrl: '${config.url}/functions/v1/aiko-chat');
 });
 
-final chatStoreProvider = Provider<ChatStore>((ref) => ChatStore());
-
 final aikoChatControllerProvider =
     NotifierProvider<AikoChatController, ChatState>(AikoChatController.new);
 
@@ -73,43 +70,13 @@ class AikoChatController extends Notifier<ChatState> {
   StreamSubscription<ChatReplyEvent>? _subscription;
   String? _lastUserText;
 
-  ChatStore get _store => ref.read(chatStoreProvider);
-
   @override
   ChatState build() {
     final offline = !ref.watch(supabaseConfigProvider).isConfigured;
     ref.onDispose(() {
       _subscription?.cancel();
     });
-    unawaited(_loadSaved());
     return ChatState(offline: offline, messages: const [_greeting]);
-  }
-
-  /// Restores the single saved conversation from on-device storage.
-  Future<void> _loadSaved() async {
-    final messages = await _store.load();
-    if (!ref.mounted || messages.isEmpty) return;
-    _lastUserText = messages
-        .lastWhere(
-          (m) => m.isUser,
-          orElse: () => const ChatMessage(role: 'user', content: ''),
-        )
-        .content;
-    state = state.copyWith(messages: messages);
-  }
-
-  /// Clears the conversation permanently — this cannot be undone — and resets
-  /// to a fresh greeting.
-  Future<void> clearChat() async {
-    _subscription?.cancel();
-    _lastUserText = null;
-    await _store.clear();
-    if (!ref.mounted) return;
-    state = state.copyWith(
-      messages: const [_greeting],
-      isStreaming: false,
-      clearError: true,
-    );
   }
 
   void send(String text) {
@@ -201,7 +168,6 @@ class AikoChatController extends Notifier<ChatState> {
       isStreaming: false,
       clearError: true,
     );
-    unawaited(_store.save(state.messages));
   }
 
   String _humanize(Object error) {

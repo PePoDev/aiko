@@ -19,7 +19,7 @@ Future<OfflineProfile> _$OfflineProfileFromSupabase(
     onboardingStatus: data['onboarding_status'] as String,
     securityStatus: data['security_status'] as String,
     fullName: data['full_name'] == null ? null : data['full_name'] as String?,
-    gender: data['gender'] as String,
+    gender: genderFromColumn(data['gender']),
     dateOfBirth: data['date_of_birth'] == null
         ? null
         : data['date_of_birth'] == null
@@ -87,7 +87,7 @@ Future<OfflineProfile> _$OfflineProfileFromSqlite(
     onboardingStatus: data['onboarding_status'] as String,
     securityStatus: data['security_status'] as String,
     fullName: data['full_name'] == null ? null : data['full_name'] as String?,
-    gender: data['gender'] as String,
+    gender: genderFromColumn(data['gender']),
     dateOfBirth: data['date_of_birth'] == null
         ? null
         : data['date_of_birth'] == null

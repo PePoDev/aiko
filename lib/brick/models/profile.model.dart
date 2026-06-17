@@ -44,6 +44,12 @@ class OfflineProfile extends OfflineFirstWithSupabaseModel {
   final String securityStatus;
 
   final String? fullName;
+
+  // Tolerates legacy NULL rows: `gender` was added after profiles already
+  // existed, so an upgraded local row has it NULL. A null coalesces to the
+  // default instead of throwing on the non-null cast.
+  @Sqlite(fromGenerator: 'genderFromColumn(%DATA_PROPERTY%)')
+  @Supabase(fromGenerator: 'genderFromColumn(%DATA_PROPERTY%)')
   final String gender;
 
   @Sqlite(name: 'date_of_birth')
@@ -68,3 +74,6 @@ class OfflineProfile extends OfflineFirstWithSupabaseModel {
   @Supabase(name: 'version', defaultValue: '1')
   final int version;
 }
+
+/// Reads `gender`, defaulting legacy NULL rows to 'preferNotToSay'.
+String genderFromColumn(Object? raw) => raw is String ? raw : 'preferNotToSay';

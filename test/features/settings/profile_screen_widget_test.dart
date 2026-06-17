@@ -26,8 +26,9 @@ void main() {
     expect(find.text('person@example.com'), findsOneWidget);
   });
 
-  testWidgets('saving profile preserves account email and new fields',
-      (tester) async {
+  testWidgets('saving profile preserves account email and new fields', (
+    tester,
+  ) async {
     final repository = _FakeProfileRepository(_profile);
 
     await tester.pumpWidget(
@@ -41,20 +42,8 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is TextField && widget.controller?.text == 'Person Name',
-      ),
-      'Updated Name',
-    );
-    await tester.enterText(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is TextField && (widget.controller?.text ?? '').isEmpty,
-      ).first,
-      '+66 81 234 5678',
-    );
+    await tester.enterText(_fieldByLabel('Display name'), 'Updated Name');
+    await tester.enterText(_fieldByLabel('Phone number'), '+66 81 234 5678');
     await tester.pumpAndSettle();
     final saveButton = find.text('Save');
     await tester.tap(saveButton);
@@ -65,6 +54,12 @@ void main() {
     expect(repository.savedProfile?.phoneNumber, '+66 81 234 5678');
   });
 }
+
+/// Targets a profile [TextField] by its `labelText` instead of by content,
+/// so the matcher doesn't depend on which fields happen to be empty.
+Finder _fieldByLabel(String label) => find.byWidgetPredicate(
+  (widget) => widget is TextField && widget.decoration?.labelText == label,
+);
 
 const _profile = Profile(
   id: 'profile-1',

@@ -134,11 +134,11 @@ GoRouter around a bottom-nav shell with 5 primary tabs:
 
 1. **Accounts (`/accounts`)** — Bank/Cash/Wallet accounts, including credit cards.
 2. **Categories (`/categories`)** — Hierarchical management with the 13 default groups + custom categories.
-3. **Overview (`/home`)** — Static dashboard with a fixed set and order of panels (Aiko greeting, Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, Aiko Goal Simulator, plus balance / net-worth / asset summaries), primary-color action icons, and an app-bar Menu action. The widget set and order are defined by `_homeWidgets` in `home_dashboard_screen.dart` and are **not** user-customizable.
+3. **Overview (`/home`)** — Static dashboard with a fixed set and order of panels (Aiko greeting, Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, Aiko Goal Simulator, plus balance / net-worth / asset summaries) and a primary-color notifications action. The widget set and order are defined by `_homeWidgets` in `home_dashboard_screen.dart` and are **not** user-customizable.
 4. **Transactions (`/transactions`)** — Unified search, filters, recurring entries, auto-categorization rules.
 5. **Aiko (`/aiko`)** — Chat (`/aiko-assistant`), optimization (`/aiko-optimize`), course hub.
 
-**Menu (`/settings`)** opens from the Overview app-bar action. Groups: **Planning** (Budget, Goals, Investments, Asset Allocation, Holding Detail, Assets and Net Worth, Travel Mode), **Insights and AI** (Learning Hub), **Tools and Data** (Calculators, Monthly Report, Export), **Settings and Security** (Notifications, Notifications Center, Profile & Security). Also exposes Profile, Appearance, Language toggles.
+**Settings (`/settings`)** — opens via the Aiko tab (`/aiko`) settings icon. Groups: **Planning** (Budget, Goals, Investments, Asset Allocation, Holding Detail, Assets and Net Worth, Travel Mode), **Insights and AI** (Learning Hub), **Tools and Data** (Calculators, Monthly Report, Export), **Settings and Security** (Notifications, Notifications Center, Profile & Security). Also exposes Profile, Appearance, Language toggles.
 
 ### Secondary Routes
 
@@ -263,7 +263,7 @@ Saved calculations store as `SavedCalculatorScenario`, compare side-by-side, and
 
 The one feature needing server logic runs as a Supabase Edge Function (`supabase/functions/aiko-chat/`) — an SSE proxy that streams Chat Completions from any **OpenAI-compatible provider**, with **automatic fallback across an ordered chain of (provider, model) entries**. Provider keys stay server-side.
 
-**Request flow:** (1) validates the caller's Supabase JWT (`Authorization: Bearer <jwt>`); (2) enforces a per-user in-memory rate limit (default `20`/min, else `429 RATE_LIMITED`); (3) builds the message list (last 20) behind a fixed system prompt defining Aiko's persona, forcing the disclaimer on any numeric/recommendation answer, injecting the user's `baseCurrency`; (4) runs Layer 2 tool calls; (5) streams the final answer to the provider with `stream: true`, re-emitting each token as `data: {"delta":"..."}\n\n`, closing with `data: {"done":true}\n\n`. Client: `HttpChatEngine` in `lib/features/aiko_assistant/application/chat_engine.dart` calls `${SUPABASE_URL}/functions/v1/aiko-chat`.
+**Request flow:** (1) validates the caller's Supabase JWT (`Authorization: Bearer <jwt>`); (2) builds the message list (last 20) behind a fixed system prompt defining Aiko's persona, forcing the disclaimer on any numeric/recommendation answer, injecting the user's `baseCurrency`; (3) runs Layer 2 tool calls; (4) streams the final answer to the provider with `stream: true`, re-emitting each token as `data: {"delta":"..."}\n\n`, closing with `data: {"done":true}\n\n`. Client: `HttpChatEngine` in `lib/features/aiko_assistant/application/chat_engine.dart` calls `${SUPABASE_URL}/functions/v1/aiko-chat`.
 
 **Auto-fallback:** the runtime walks an ordered chain of `(provider, model)` entries. On a network error, non-2xx, 60s timeout, or a stream that dies before any token has been sent, it silently moves to the next entry. Once tokens have flowed to the client, a mid-stream error is surfaced as a final `error` event (we can't safely restart a stream the client has already started reading). When every entry fails, the stream ends with `data: {"error":"...","code":"PROVIDER_DOWN"}\n\n` summarising each attempt.
 
@@ -283,9 +283,6 @@ supabase secrets set AI_PRESET=default
 supabase secrets set AI_KEY_DEEPSEEK=sk-...
 supabase secrets set AI_KEY_GEMINI=AIzaSy...
 supabase secrets set AI_KEY_OPENAI=sk-...
-
-# 3. Rate limit (Layer 2 tools are always on — no toggle):
-supabase secrets set AIKO_RATE_PER_MIN=20                    # default: 20
 ```
 
 `SUPABASE_URL` / `SUPABASE_ANON_KEY` are injected by the runtime.
@@ -328,7 +325,6 @@ supabase functions serve aiko-chat --env-file ./supabase/functions/.env.local  #
 | 401 | `NO_TOKEN` | Missing `Authorization` header |
 | 401 | `BAD_TOKEN` | JWT rejected by Supabase Auth |
 | 405 | `METHOD_NOT_ALLOWED` | Non-POST request |
-| 429 | `RATE_LIMITED` | Per-user rate limit exceeded |
 | 500 | `MISCONFIGURED` | Function missing Supabase env |
 | 500 | `MISSING_PROVIDER_KEY` | No provider available — active `AI_PRESET` has no configured `AI_KEY_*` and `AI_API_KEY` is unset |
 | 502 | `PROVIDER_DOWN` | Every chain entry failed; the stream's final `error` event summarises each attempt |
@@ -517,7 +513,7 @@ Shape: cards/rows/inputs/chips/segmented controls 8px radius; bottom sheets 20px
 - **Inputs/pickers:** visible labels, 54px min height, 8px radius, pale-blue fill, thin blue-gray border, leading search icon, primary focus border, danger error border, muted placeholder. Helper/validation copy below the field. Custom pickers show selected value + context (category group, account balance); bottom-sheet pickers use compact rows with selected checkmarks.
 - **Lists:** compact `ListTile` rows, 48px tap target, single-line titles, aligned trailing amounts/statuses, dividers/card borders instead of nested containers.
 - **Chips/badges:** short labels; status color matches semantic meaning and includes text.
-- **Navigation:** shell tabs Accounts/Categories/Overview/Transactions/Aiko; bottom nav is a flush, compact 60dp bar (1px top border, surface background, no pill, no shadow); active = a 3dp indicator bar at the top of the tab in primary blue (premium purple for Aiko) with icon + label on-surface; Aiko's unselected label uses muted purple for a subtle AI hint; Menu (Overview app-bar action) holds Planning, Insights and AI, Tools and Data, Settings and Security.
+- **Navigation:** shell tabs Accounts/Categories/Overview/Transactions/Aiko; bottom nav is a flush, compact 60dp bar (1px top border, surface background, no pill, no shadow); active = a 3dp indicator bar at the top of the tab in primary blue (premium purple for Aiko) with icon + label on-surface; Aiko's unselected label uses muted purple for a subtle AI hint. The Aiko tab opens the Settings hub (Planning, Insights and AI, Tools and Data, Settings and Security).
 - **Sheets/dialogs:** bottom sheets for mobile create/edit (drag handle, safe area, scrollable, 20px top radius); dialogs for destructive confirmation (name the object + effect).
 - **Charts/progress:** every chart needs a text summary; every progress bar shows current, target, period with semantic color + label (8px compact, 10–12px on dashboards).
 
@@ -604,7 +600,7 @@ Apply the design system in batches: (1) shared foundation — `FinanceCard`, `Ai
 
 Route rules: don't duplicate an existing feature screen to match a board; sticky bottom actions for filter/save/confirm/calculator-result screens; sample data realistic and scoped to preview/offline states; real repositories remain the source of persisted data; Aiko guidance appears after the primary number/decision (except onboarding and chat); every supplemental route must render without a Supabase session.
 
-Entry points — **Home:** app-bar Menu + notifications, in-page This Month Overview. **Transactions:** app-bar search with inline type/amount/date filters, split + receipt-review tools. **Budget:** tools menu (pace, safe-to-spend, cash flow, Sankey). **Goals:** tools menu (saving plan, chance of success, detail). **Reports:** monthly report from the list. **Calculators:** hub → focused calculators + result states. **Menu (from Overview):** Planning, Insights and AI, Tools and Data, Settings and Security.
+Entry points — **Home:** in-page This Month Overview. **Transactions:** app-bar search with inline type/amount/date filters, split + receipt-review tools. **Budget:** tools menu (pace, safe-to-spend, cash flow, Sankey). **Goals:** tools menu (saving plan, chance of success, detail). **Reports:** monthly report from the list. **Calculators:** hub → focused calculators + result states. **Menu (from Aiko tab):** Planning, Insights and AI, Tools and Data, Settings and Security.
 
 ### QA Checklist
 

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
@@ -45,24 +44,9 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
     final dueItemsAsync = ref.watch(dashboardDueItemsProvider);
     final l10n = AppLocalizations.of(context);
-    final actionColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.overview),
-        actions: [
-          IconButton(
-            tooltip: l10n.settingsTitle,
-            onPressed: () => context.push('/settings'),
-            icon: Icon(Icons.menu_rounded, color: actionColor),
-          ),
-          IconButton(
-            tooltip: 'Notifications',
-            onPressed: () => context.push('/notifications'),
-            icon: Icon(Icons.notifications_none, color: actionColor),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: Text(l10n.overview)),
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: summaryAsync.when(
@@ -193,7 +177,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
 
 /// The fixed set of widgets shown on the home dashboard, in display order.
 const _homeWidgets = <DashboardWidgetType>[
-  DashboardWidgetType.aikoWelcome,
   DashboardWidgetType.dailySpending,
   DashboardWidgetType.safeThisWeek,
   DashboardWidgetType.dailySummary,

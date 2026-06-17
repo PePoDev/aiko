@@ -65,8 +65,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isDirty(Profile profile) {
     if (!_initialised) return false;
     if (_displayNameController.text.trim() != profile.displayName) return true;
-    if (_fullNameController.text.trim() != (profile.fullName ?? '')) return true;
-    if (_phoneController.text.trim() != (profile.phoneNumber ?? '')) return true;
+    if (_fullNameController.text.trim() != (profile.fullName ?? ''))
+      return true;
+    if (_phoneController.text.trim() != (profile.phoneNumber ?? ''))
+      return true;
     if (_draft.gender != profile.gender) return true;
     if (_draft.dateOfBirth != profile.dateOfBirth) return true;
     if (_draft.avatarPath != profile.avatarPath) return true;
@@ -335,12 +337,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(profileProvider);
+    final actionColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
         centerTitle: true,
         actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: () => context.push('/notifications'),
+            icon: Icon(Icons.notifications_none, color: actionColor),
+          ),
           profileAsync.maybeWhen(
             data: (profile) {
               if (_isDirty(profile)) {
@@ -751,11 +759,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Icon(
-                            Icons.edit,
-                            size: 18,
-                            color: Colors.white,
-                          ),
+                        : const Icon(Icons.edit, size: 18, color: Colors.white),
                   ),
                 ),
               ],
@@ -776,8 +780,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget _buildAvatar(Profile profile, String displayName) {
     final localPath = _draft.avatarPath;
     final cloudUrl = _draft.avatarUrl;
-    final fallbackUrl =
-        localPath == null || localPath.isEmpty ? cloudUrl : null;
+    final fallbackUrl = localPath == null || localPath.isEmpty
+        ? cloudUrl
+        : null;
     Widget child;
     if (localPath != null && localPath.isNotEmpty) {
       final file = File(localPath);
@@ -806,9 +811,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ],
       ),
-      child: ClipOval(
-        child: SizedBox(width: 112, height: 112, child: child),
-      ),
+      child: ClipOval(child: SizedBox(width: 112, height: 112, child: child)),
     );
   }
 

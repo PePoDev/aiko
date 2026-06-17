@@ -311,8 +311,6 @@ parent screen.
   answer — chat or insight — must end with the standard line. The chat
   controller splits that line out of the message body and renders it
   compactly below a divider.
-- **Rate limit:** `AIKO_RATE_PER_MIN` (default 20) per user, enforced
-  before the model is called.
 - **Personality** lives on the profile (`aiko_personality_setting`,
   default `supportive`) and is preserved on Brick and Supabase. The
   Edge Function can fold it into the system prompt to steer tone
@@ -354,7 +352,6 @@ other user's data.
 | `AI_KEY_GEMINI` | Edge Function | — | Provider 2 key (skipped if unset) |
 | `AI_KEY_OPENAI` | Edge Function | — | Provider 3 key (skipped if unset) |
 | `AI_API_KEY` + `AI_MODEL` + `AI_BASE_URL` | Edge Function | — | Legacy single-provider path |
-| `AIKO_RATE_PER_MIN` | Edge Function | `20` | Per-user stream completions / min |
 | `aiko_personality_setting` | `profiles` row | `supportive` | Tone knob the system prompt can read |
 | Supabase config (`SUPABASE_URL` + anon key) | Flutter app | — | Switches between `HttpChatEngine` and `OfflineChatEngine` |
 

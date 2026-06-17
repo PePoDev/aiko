@@ -36,22 +36,21 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Hi, I am Aiko'), findsOneWidget);
+      // The Aiko welcome card moved to the Aiko chat screen.
+      expect(find.text('Hi, I am Aiko'), findsNothing);
       expect(find.text('Pace'), findsNothing);
       expect(find.text('Weekly leftover estimate'), findsNothing);
       expect(find.text('Safe this week'), findsOneWidget);
     },
   );
 
-  testWidgets('overview has no edit control and uses primary app bar icons', (
+  testWidgets('overview has no edit control and no app bar actions', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(800, 1400);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-
-    final theme = AikoTheme.light();
 
     await tester.pumpWidget(
       _dashboardScope(
@@ -64,7 +63,7 @@ void main() {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
-          theme: theme,
+          theme: AikoTheme.light(),
           home: const HomeDashboardScreen(),
         ),
       ),
@@ -76,13 +75,15 @@ void main() {
     expect(find.text('Edit layout'), findsNothing);
     expect(find.byTooltip('Remove Daily spending'), findsNothing);
 
-    final notificationIcon = tester.widget<Icon>(
+    // The notifications icon lives on the Profile app bar; the Home
+    // app bar has no actions.
+    expect(
       find.descendant(
         of: find.byType(AppBar),
         matching: find.byIcon(Icons.notifications_none),
       ),
+      findsNothing,
     );
-    expect(notificationIcon.color, theme.colorScheme.primary);
   });
 
   testWidgets('overview shows this month summary after upcoming due dates', (

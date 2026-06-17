@@ -1,11 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:aiko/core/storage/secure_storage_service.dart';
 import 'package:aiko/features/aiko_assistant/application/aiko_chat_controller.dart';
 import 'package:aiko/features/aiko_assistant/application/chat_engine.dart';
 import 'package:aiko/features/aiko_assistant/application/financial_context.dart';
-import 'package:aiko/features/aiko_assistant/data/chat_store.dart';
 import 'package:aiko/features/aiko_assistant/domain/aiko_prompt_suggestions.dart';
 import 'package:aiko/features/aiko_assistant/presentation/aiko_assistant_screen.dart';
 import 'package:aiko/theme/aiko_theme.dart';
@@ -14,7 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('shows greeting, suggestion chips, and input on first build', (
+  testWidgets('shows greeting bubble, suggestion chips, and input on build', (
     tester,
   ) async {
     _useWideSurface(tester);
@@ -28,8 +25,10 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Aiko'), findsOneWidget);
+    // The empty state shows the greeting as a thinking bubble above the
+    // large Aiko character.
     expect(find.textContaining("I'm Aiko"), findsOneWidget);
+    expect(find.byKey(const ValueKey('aiko-stage-character')), findsOneWidget);
     // The empty state shows a random subset of the prompt pool, so assert the
     // count and pool membership rather than specific prompts.
     final shown = _shownSuggestions();
@@ -37,8 +36,6 @@ void main() {
     expect(shown.every(AikoPromptSuggestions.all.contains), isTrue);
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('Ask about your money...'), findsOneWidget);
-    // Nothing to clear on a fresh chat, so the clear chip stays hidden.
-    expect(find.byTooltip('Clear chat'), findsNothing);
   });
 
   testWidgets(
@@ -80,8 +77,10 @@ void main() {
 
     final prompt = _shownSuggestions().first;
     // Chips sit in a horizontal scroll view, so the pick may be off-screen.
+    // The stage character floats continuously, so pumpAndSettle would hang;
+    // a single pump is enough to lay the chips out before tapping.
     await tester.ensureVisible(find.text(prompt));
-    await tester.pumpAndSettle();
+    await tester.pump();
     await tester.tap(find.text(prompt));
     await tester.pump();
 
@@ -90,37 +89,14 @@ void main() {
     expect(find.text(prompt), findsWidgets);
   });
 
-  testWidgets('restores the saved conversation on build', (tester) async {
-    _useWideSurface(tester);
-    final store = ChatStore(storage: _seededStorage());
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [chatStoreProvider.overrideWithValue(store)],
-        child: MaterialApp(
-          theme: AikoTheme.light(),
-          home: const AikoAssistantScreen(),
-        ),
-      ),
-    );
-    // First pump builds the screen, second flushes the async load.
-    await tester.pump();
-    await tester.pump();
-
-    expect(tester.takeException(), isNull);
-    expect(find.text('hi'), findsOneWidget);
-    expect(find.text('hello'), findsOneWidget);
-    // A non-empty chat shows the clear action.
-    expect(find.byTooltip('Clear chat'), findsOneWidget);
-  });
-
-  testWidgets('clear chat asks for confirmation and wipes the conversation', (
+  testWidgets('hides the Aiko character once a message is sent', (
     tester,
   ) async {
     _useWideSurface(tester);
-    final store = ChatStore(storage: _seededStorage());
+    final fakeEngine = _RecordingEngine();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [chatStoreProvider.overrideWithValue(store)],
+        overrides: [aikoChatEngineProvider.overrideWithValue(fakeEngine)],
         child: MaterialApp(
           theme: AikoTheme.light(),
           home: const AikoAssistantScreen(),
@@ -128,62 +104,23 @@ void main() {
       ),
     );
     await tester.pump();
+
+    // The stage character is visible before any user turn.
+    expect(find.byKey(const ValueKey('aiko-stage-character')), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'How much can I spend?');
+    await tester.testTextInput.receiveAction(TextInputAction.send);
     await tester.pump();
 
-    // The clear icon lives inside the suggestion strip, not the app bar, and
-    // uses `Icons.cleaning_services` (a broom) to signal "clean this chat".
-    final clearIcon = find.byTooltip('Clear chat');
-    expect(clearIcon, findsOneWidget);
-    expect(
-      find.descendant(
-        of: clearIcon,
-        matching: find.byIcon(Icons.cleaning_services),
-      ),
-      findsOneWidget,
-    );
-
-    await tester.tap(clearIcon);
-    await tester.pumpAndSettle();
-    expect(find.text('Clear chat?'), findsOneWidget);
-    expect(find.textContaining('cannot be undone'), findsOneWidget);
-
-    await tester.tap(find.widgetWithText(TextButton, 'Clear'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('hi'), findsNothing);
-    expect(await store.load(), isEmpty);
+    // After sending, the stage is replaced by the chat transcript.
+    expect(find.byKey(const ValueKey('aiko-stage-character')), findsNothing);
+    expect(find.text('How much can I spend?'), findsOneWidget);
   });
 
-  testWidgets('clear chat icon is the first item in the suggestion strip', (
+  testWidgets('app bar exposes profile title and settings action', (
     tester,
   ) async {
     _useWideSurface(tester);
-    final store = ChatStore(storage: _seededStorage());
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [chatStoreProvider.overrideWithValue(store)],
-        child: MaterialApp(
-          theme: AikoTheme.light(),
-          home: const AikoAssistantScreen(),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    // The strip is a horizontal Row — the clear chip should sit to the left
-    // of the first prompt chip in reading order.
-    final clearChip = find.byKey(const ValueKey('chat-clear-chip'));
-    final firstPrompt = find.text(_shownSuggestions().first);
-    expect(clearChip, findsOneWidget);
-    expect(firstPrompt, findsOneWidget);
-    final clearCenter = tester.getCenter(clearChip);
-    final promptCenter = tester.getCenter(firstPrompt);
-    expect(clearCenter.dx, lessThan(promptCenter.dx));
-  });
-
-  testWidgets('app bar profile icon opens the profile screen', (tester) async {
-    _useWideSurface(tester);
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
@@ -195,25 +132,11 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    // The profile icon is hidden until the profile provider resolves. Without
-    // a real profile in the test environment, we just confirm the icon isn't
-    // shown and there's no broken link in the app bar.
-    final profileIcon = find.byTooltip('Profile');
-    expect(profileIcon, findsNothing);
+    expect(find.byTooltip('Profile'), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-settings-icon')), findsOneWidget);
+    // The clear action is gone — chat sessions are no longer saved.
+    expect(find.byTooltip('Clear chat'), findsNothing);
   });
-}
-
-/// In-memory secure storage pre-seeded with a saved conversation.
-SecureStorageService _seededStorage() {
-  final storage = MemorySecureStorageService();
-  storage.write(
-    'aiko_chat',
-    jsonEncode([
-      {'role': 'user', 'content': 'hi'},
-      {'role': 'assistant', 'content': 'hello'},
-    ]),
-  );
-  return storage;
 }
 
 /// The prompt pool members currently rendered as suggestion chips.

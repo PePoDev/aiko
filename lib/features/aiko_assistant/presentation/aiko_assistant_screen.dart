@@ -64,33 +64,6 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
     _scrollToBottom(animated: false);
   }
 
-  Future<void> _confirmClear() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear chat?'),
-        content: const Text(
-          'This permanently deletes this conversation from this device. '
-          'This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AikoColors.dangerRed),
-            child: const Text('Clear'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    _textController.clear();
-    await ref.read(aikoChatControllerProvider.notifier).clearChat();
-  }
-
   /// Which suggestion chips to show, or null when none apply.
   ///
   /// On the empty state we show the randomized [_initialSuggestions]. Once Aiko
@@ -148,39 +121,14 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
       appBar: AppBar(
         elevation: 0,
         titleSpacing: 12,
-        title: Row(
-          children: [
-            const AikoAvatar(size: 36),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Aiko',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                  Text(
-                    state.offline ? 'On-device mode' : 'Online',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: state.offline
-                          ? AikoColors.warningOrange
-                          : AikoColors.successGreen,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+        title: _UserProfileIcon(profile: profile),
         actions: [
-          if (profile != null) _UserProfileIcon(profile: profile),
+          IconButton(
+            key: const ValueKey('chat-settings-icon'),
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => context.push('/settings'),
+          ),
         ],
       ),
       body: Column(
@@ -188,29 +136,33 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
           Expanded(
             child: Stack(
               children: [
-                ListView.builder(
-                  controller: _scrollController,
-                  padding: EdgeInsets.fromLTRB(
-                    16,
-                    8,
-                    16,
-                    12 + _suggestionsHeight,
+                if (state.isEmpty)
+                  _AikoStage(greeting: state.messages.first.content)
+                else
+                  ListView.builder(
+                    controller: _scrollController,
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      8,
+                      16,
+                      12 + _suggestionsHeight,
+                    ),
+                    itemCount: state.messages.length,
+                    itemBuilder: (context, index) {
+                      final message = state.messages[index];
+                      final isLast = index == state.messages.length - 1;
+                      return _MessageBubble(
+                        message: message,
+                        streaming: isLast && state.isStreaming,
+                        error: isLast && !state.isStreaming
+                            ? state.lastError
+                            : null,
+                        onRetry: () => ref
+                            .read(aikoChatControllerProvider.notifier)
+                            .retry(),
+                      );
+                    },
                   ),
-                  itemCount: state.messages.length,
-                  itemBuilder: (context, index) {
-                    final message = state.messages[index];
-                    final isLast = index == state.messages.length - 1;
-                    return _MessageBubble(
-                      message: message,
-                      streaming: isLast && state.isStreaming,
-                      error: isLast && !state.isStreaming
-                          ? state.lastError
-                          : null,
-                      onRetry: () =>
-                          ref.read(aikoChatControllerProvider.notifier).retry(),
-                    );
-                  },
-                ),
                 if (suggestions != null)
                   Positioned(
                     left: 0,
@@ -220,7 +172,6 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
                       key: _suggestionsKey,
                       suggestions: suggestions,
                       onSelected: _submit,
-                      onClear: state.isEmpty ? null : _confirmClear,
                     ),
                   ),
               ],
@@ -473,16 +424,10 @@ class _SuggestionStrip extends StatelessWidget {
     super.key,
     required this.suggestions,
     required this.onSelected,
-    this.onClear,
   });
 
   final List<String> suggestions;
   final void Function(String) onSelected;
-
-  /// When non-null, a clear-chat icon is rendered as the first item in the
-  /// strip. The owning screen passes a confirmation callback here so the
-  /// destructive action still asks before wiping the conversation.
-  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -496,55 +441,11 @@ class _SuggestionStrip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            if (onClear != null) ...[
-              _ClearChatIcon(
-                key: const ValueKey('chat-clear-chip'),
-                onTap: onClear!,
-              ),
-              const SizedBox(width: 8),
-            ],
             for (var i = 0; i < suggestions.length; i++) ...[
               if (i > 0) const SizedBox(width: 8),
               _SuggestionChip(title: suggestions[i], onSelected: onSelected),
             ],
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Pill-shaped icon button rendered as the first item in the suggestion strip
-/// when the chat has content. Uses `Icons.cleaning_services` (a broom) to
-/// signal "clean up this conversation" without implying per-message deletion.
-class _ClearChatIcon extends StatelessWidget {
-  const _ClearChatIcon({super.key, required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: 'Clear chat',
-      child: Material(
-        color: AikoColors.softBlue.withValues(alpha: 0.35),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: BorderSide(
-            color: AikoColors.primaryBlue.withValues(alpha: 0.2),
-          ),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onTap,
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            child: Icon(
-              Icons.cleaning_services,
-              color: AikoColors.deepBlue,
-              size: 18,
-            ),
-          ),
         ),
       ),
     );
@@ -736,19 +637,113 @@ class _OfflineNotice extends StatelessWidget {
   }
 }
 
-/// Tappable user profile icon shown in the chat AppBar. Renders the user's
-/// avatar (matching the Profile screen) when available, otherwise a generic
-/// person glyph on the primary blue. Tapping opens `/profile`. Hidden when the
-/// profile is still loading or unavailable so the screen never flashes a
-/// broken avatar.
-class _UserProfileIcon extends StatelessWidget {
-  const _UserProfileIcon({required this.profile});
+/// Game-like empty state: Aiko's greeting shown as a thinking bubble above a
+/// large, gently floating character. Replaced by the chat transcript as soon
+/// as the user sends their first message.
+class _AikoStage extends StatefulWidget {
+  const _AikoStage({required this.greeting});
 
-  final Profile profile;
+  final String greeting;
+
+  @override
+  State<_AikoStage> createState() => _AikoStageState();
+}
+
+class _AikoStageState extends State<_AikoStage>
+    with SingleTickerProviderStateMixin {
+  static const _expressions = ['aiko_welcome', 'aiko_thinking', 'aiko_happy'];
+
+  /// Randomized once per screen open so Aiko greets with a varied pose.
+  late final String _asset =
+      'assets/images/aiko/${(List.of(_expressions)..shuffle()).first}.png';
+
+  late final AnimationController _float = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2600),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _float.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final avatar = _avatarImage(profile);
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 88),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ThinkingBubble(text: widget.greeting),
+            const SizedBox(height: 24),
+            AnimatedBuilder(
+              animation: _float,
+              builder: (context, child) => Transform.translate(
+                offset: Offset(0, -6 + _float.value * 12),
+                child: child,
+              ),
+              child: Image.asset(
+                _asset,
+                key: const ValueKey('aiko-stage-character'),
+                width: 220,
+                height: 220,
+                fit: BoxFit.contain,
+                semanticLabel: 'Aiko',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Rounded "speech/thinking" bubble carrying Aiko's greeting on the stage.
+class _ThinkingBubble extends StatelessWidget {
+  const _ThinkingBubble({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 320),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AikoColors.primaryBlue.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 15,
+          height: 1.35,
+          color: theme.colorScheme.onSurface,
+        ),
+      ),
+    );
+  }
+}
+
+/// Tappable user profile icon used as the chat AppBar title. Renders the user's
+/// avatar (matching the Profile screen) when available, otherwise a generic
+/// person glyph on the primary blue. Tapping opens `/profile`.
+class _UserProfileIcon extends StatelessWidget {
+  const _UserProfileIcon({required this.profile});
+
+  final Profile? profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = this.profile;
+    final avatar = profile == null ? null : _avatarImage(profile);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       child: IconButton(

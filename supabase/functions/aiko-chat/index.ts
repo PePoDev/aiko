@@ -207,27 +207,11 @@ function buildActiveChain(): ActiveModel[] {
 }
 
 // ============================================================
-// Rate limit, Layer 2 tool toggle, request timeout
+// Layer 2 tool toggle, request timeout
 // ============================================================
 
-const RATE_LIMIT_PER_MIN = Number(Deno.env.get("AIKO_RATE_PER_MIN") ?? "20");
 const MAX_TOOL_ROUNDS = 4;
 const REQUEST_TIMEOUT_MS = 60_000;
-
-const rateBuckets = new Map<string, { tokens: number; updatedAt: number }>();
-
-function takeToken(userId: string): boolean {
-  const now = Date.now();
-  const bucket = rateBuckets.get(userId) ?? { tokens: RATE_LIMIT_PER_MIN, updatedAt: now };
-  const elapsed = (now - bucket.updatedAt) / 60_000;
-  const refilled = Math.min(RATE_LIMIT_PER_MIN, bucket.tokens + elapsed * RATE_LIMIT_PER_MIN);
-  if (refilled < 1) {
-    rateBuckets.set(userId, { tokens: refilled, updatedAt: now });
-    return false;
-  }
-  rateBuckets.set(userId, { tokens: refilled - 1, updatedAt: now });
-  return true;
-}
 
 function sseEvent(payload: Record<string, unknown>): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`);
@@ -843,11 +827,6 @@ serve(async (req) => {
   const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
   if (userErr || !userData?.user) {
     return jsonResponse(401, { error: "Invalid token", code: "BAD_TOKEN" });
-  }
-  const userId = userData.user.id;
-
-  if (!takeToken(userId)) {
-    return jsonResponse(429, { error: "Too many requests. Try again in a moment.", code: "RATE_LIMITED" });
   }
 
   let body: unknown;

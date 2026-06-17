@@ -272,14 +272,11 @@ The one feature needing server logic runs as a Supabase Edge Function (`supabase
 - **Layer 1 — on-device snapshot (always on).** The client assembles a compact `AikoFinancialContext` (net worth, accounts, this-month income/spending, budget pace, goals, recent transactions) from local Brick and sends it in the body; the function folds it into the system prompt, so most "how am I doing" questions resolve in one round-trip. Aggregates only, capped, never the full ledger.
 - **Layer 2 — server-side tools (always on).** The model may first call a fixed allow-list of **read-only** Postgres RPCs (`supabase/migrations/*_aiko_assistant_read_functions.sql`), each `SECURITY INVOKER` under the caller's JWT (RLS scopes results). The function never runs model-supplied SQL and never uses the service-role key. Tool resolution itself falls back across the chain — if provider 1 can't service tools, the runtime tries provider 2.
 
-**Configuration** (Supabase secrets — never in the app or `.env`). The function ships with three code-defined providers and three chain presets; pick the active preset with `AI_PRESET`:
+**Configuration** (Supabase secrets — never in the app or `.env`). The function ships with three code-defined providers and a fixed fallback chain. Set a key for each provider you want to use:
 
 ```sh
-# 1. Pick the active chain (default: "default" preset)
-supabase secrets set AI_PRESET=default
-
-# 2. Set a key for every provider in your active chain.
-#    A missing AI_KEY_<id> silently drops that entry from the chain.
+# Set a key for every provider in the chain.
+# A missing AI_KEY_<id> silently drops that entry from the chain.
 supabase secrets set AI_KEY_DEEPSEEK=sk-...
 supabase secrets set AI_KEY_GEMINI=AIzaSy...
 supabase secrets set AI_KEY_OPENAI=sk-...
@@ -295,17 +292,15 @@ supabase secrets set AI_KEY_OPENAI=sk-...
 | `gemini` | `https://generativelanguage.googleapis.com/v1beta/openai` | `AI_KEY_GEMINI` | `gemini-flash`, `gemini-2.0-flash`, `gemini-1.5-pro` |
 | `openai` | `https://api.openai.com/v1` | `AI_KEY_OPENAI` | `gpt-oss-120b`, `gpt-4o-mini`, `gpt-4o` |
 
-**Chain presets (set `AI_PRESET` to the id):**
+**Active chain (hardcoded in `ACTIVE_CHAIN`, edit the list to change order):**
 
-| `id` | Order |
-| --- | --- |
-| `default` | DeepSeek `deepseek-v4-flash` → Gemini `gemini-flash` → OpenAI `gpt-oss-120b` |
-| `quality` | OpenAI `gpt-oss-120b` → Gemini `gemini-1.5-pro` → DeepSeek `deepseek-reasoner` |
-| `cheap` | DeepSeek `deepseek-v4-flash` → OpenAI `gpt-4o-mini` |
+| Order | Provider | Model |
+| --- | --- | --- |
+| 1 | DeepSeek | `deepseek-v4-flash` |
+| 2 | Gemini | `gemini-flash` |
+| 3 | OpenAI | `gpt-oss-120b` |
 
-To add a provider: declare a new `PROVIDER_*` entry, register it in the `PROVIDERS` map, and reference it from one or more chain presets. To add a chain: add a new `CHAIN_PRESETS[…]` entry.
-
-**Legacy single-provider path:** if `AI_PRESET` is unset and `AI_API_KEY` is set, the function falls back to the old `AI_API_KEY` + `AI_MODEL` + `AI_BASE_URL` config (no fallback, just the one provider) so existing deployments keep working without changes.
+To add a provider: declare a new `PROVIDER_*` entry, register it in the `PROVIDERS` map, and add an entry to the `ACTIVE_CHAIN` list.
 
 **LINE bot (merged in):** the LINE Messaging API webhook lives in this same function — a `POST` carrying an `x-line-signature` header is routed to the LINE handler, which verifies LINE's HMAC signature, looks up the linked Supabase user (service-role, server-side only), refreshes that user's access token, runs the **same chat pipeline in-process** (no second HTTP hop), and replies via the LINE reply API. Linking still happens in the app (Profile → Connect LINE) via a pairing code (`line_pairings` / `line_links`, `redeem_line_pairing` RPC). Extra secrets: `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN` (`SUPABASE_SERVICE_ROLE_KEY` is injected and used only here to read/rotate the link). Point the LINE console Webhook URL at `…/functions/v1/aiko-chat`.
 
@@ -326,9 +321,9 @@ supabase functions serve aiko-chat --env-file ./supabase/functions/.env.local  #
 | 401 | `BAD_TOKEN` | JWT rejected by Supabase Auth |
 | 405 | `METHOD_NOT_ALLOWED` | Non-POST request |
 | 500 | `MISCONFIGURED` | Function missing Supabase env |
-| 500 | `MISSING_PROVIDER_KEY` | No provider available — active `AI_PRESET` has no configured `AI_KEY_*` and `AI_API_KEY` is unset |
+| 500 | `MISSING_PROVIDER_KEY` | No provider available — no `AI_KEY_*` secret is set for any entry in the active chain |
 | 502 | `PROVIDER_DOWN` | Every chain entry failed; the stream's final `error` event summarises each attempt |
-| 502 | `PROVIDER_ERROR` | (Legacy single-provider path) Upstream returned non-OK before the stream started |
+| 502 | `PROVIDER_ERROR` | Upstream returned non-OK before the stream started |
 
 ---
 

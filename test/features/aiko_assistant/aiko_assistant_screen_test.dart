@@ -117,6 +117,35 @@ void main() {
     expect(find.text('How much can I spend?'), findsOneWidget);
   });
 
+  testWidgets('drops the empty-state greeting from the transcript on first send', (
+    tester,
+  ) async {
+    _useWideSurface(tester);
+    final fakeEngine = _RecordingEngine();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [aikoChatEngineProvider.overrideWithValue(fakeEngine)],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const AikoAssistantScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Greeting is rendered as the empty-state thinking bubble.
+    expect(find.textContaining("I'm Aiko"), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'How am I doing?');
+    await tester.testTextInput.receiveAction(TextInputAction.send);
+    await tester.pump();
+
+    // The greeting belonged to the stage, not the transcript; once a real
+    // message is sent it should not reappear as a chat bubble.
+    expect(find.textContaining("I'm Aiko"), findsNothing);
+    expect(find.text('How am I doing?'), findsOneWidget);
+  });
+
   testWidgets('app bar exposes profile title and settings action', (
     tester,
   ) async {

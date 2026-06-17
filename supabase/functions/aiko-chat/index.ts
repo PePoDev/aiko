@@ -4,11 +4,9 @@
 // Streams Chat Completions from any OpenAI-compatible provider as Server-Sent
 // Events to the Aiko mobile assistant. Multiple providers are defined in
 // code as presets (see PROVIDER_* below); each has its own base URL and API
-// key env var. A "chain preset" is an ordered list of (provider, model)
-// entries — the runtime tries them in order and falls back to the next on
-// failure (network error, non-2xx, or a stream that dies before any token
-// is emitted). The active chain is selected at deploy time by the AI_PRESET
-// env var (default: "default").
+// key env var. A fixed chain of (provider, model) entries is tried in order
+// and the runtime falls back to the next on failure (network error, non-2xx,
+// or a stream that dies before any token is emitted).
 //
 // The function validates the caller's Supabase JWT, applies a per-user
 // rate limit, folds the client's on-device financial snapshot (Layer 1)
@@ -55,13 +53,13 @@ const SYSTEM_PROMPT = [
 ].join(" ");
 
 // ============================================================
-// PROVIDER PRESETS — code-defined, swappable via AI_PRESET env
+// PROVIDER PRESETS — code-defined
 // ============================================================
 //
 // Each provider is an OpenAI-compatible Chat Completions endpoint. To add a
 // provider: (1) declare a PROVIDER_* entry below, (2) register it in
-// PROVIDERS, (3) set the matching AI_KEY_<id> secret, (4) reference it from
-// one or more chain presets. Per-provider timeouts live in REQUEST_TIMEOUT_MS.
+// PROVIDERS, (3) set the matching AI_KEY_<id> secret, (4) add it to the
+// ACTIVE_CHAIN. Per-provider timeouts live in REQUEST_TIMEOUT_MS.
 
 interface ProviderPreset {
   readonly id: string;            // kebab-case id used in chains and env keys
@@ -77,10 +75,10 @@ interface ChainEntry {
   readonly model: string;
 }
 
-interface ChainPreset {
-  readonly id: string;
-  readonly label: string;
-  readonly chain: readonly ChainEntry[];
+interface ActiveModel {
+  readonly provider: ProviderPreset;
+  readonly model: string;
+  readonly apiKey: string;
 }
 
 // ----- DEFINE PROVIDER 1: DeepSeek -----
@@ -119,91 +117,33 @@ const PROVIDERS: Record<string, ProviderPreset> = {
   [PROVIDER_OPENAI.id]: PROVIDER_OPENAI,
 };
 
-// ----- CHAIN PRESETS — picked by AI_PRESET at deploy time -----
+// ----- ACTIVE CHAIN -----
 //
-// Each chain is an ordered fallback list. The runtime tries entries in
-// order; on a failure (network error, non-2xx, or a stream that dies
-// before any token), it moves to the next entry. The chain stops at the
-// first successful response.
+// The fixed fallback order: cheap fast model first, two solid backups. The
+// runtime tries entries in order; on a failure (network error, non-2xx, or a
+// stream that dies before any token), it moves to the next entry. The chain
+// stops at the first successful response. Edit this list (and the PROVIDER_*
+// entries above) to change the providers/models in use.
 
-const CHAIN_PRESETS: Record<string, ChainPreset> = {
-  // Default — cheap fast model first, two solid backups.
-  default: {
-    id: "default",
-    label: "Default — DeepSeek → Gemini → OpenAI",
-    chain: [
-      { providerId: "deepseek", model: "deepseek-v4-flash" },
-      { providerId: "gemini", model: "gemini-flash" },
-      { providerId: "openai", model: "gpt-oss-120b" },
-    ],
-  },
-  // Quality — strongest first, with reasoning models as backup.
-  quality: {
-    id: "quality",
-    label: "Quality — OpenAI → Gemini → DeepSeek",
-    chain: [
-      { providerId: "openai", model: "gpt-oss-120b" },
-      { providerId: "gemini", model: "gemini-1.5-pro" },
-      { providerId: "deepseek", model: "deepseek-reasoner" },
-    ],
-  },
-  // Cheap — two low-cost models.
-  cheap: {
-    id: "cheap",
-    label: "Cheap — DeepSeek → OpenAI mini",
-    chain: [
-      { providerId: "deepseek", model: "deepseek-v4-flash" },
-      { providerId: "openai", model: "gpt-4o-mini" },
-    ],
-  },
-};
+const ACTIVE_CHAIN: readonly ChainEntry[] = [
+  { providerId: "deepseek", model: "deepseek-v4-flash" },
+  { providerId: "gemini", model: "gemini-flash" },
+  { providerId: "openai", model: "gpt-oss-120b" },
+];
 
-// Legacy single-provider path (for deployments that haven't migrated). If
-// AI_PRESET isn't set but AI_API_KEY is, fall back to the old config so
-// older deployments keep working without changes.
-const LEGACY_PROVIDER: ProviderPreset = {
-  id: "legacy",
-  label: "Legacy single-provider",
-  baseUrl: (Deno.env.get("AI_BASE_URL") ?? "https://api.openai.com/v1").replace(/\/+$/, ""),
-  apiKeyEnv: "AI_API_KEY",
-  supportsTools: true,
-  models: [],
-};
-PROVIDERS[LEGACY_PROVIDER.id] = LEGACY_PROVIDER;
-
-interface ActiveModel {
-  readonly provider: ProviderPreset;
-  readonly model: string;
-  readonly apiKey: string;
-}
-
-// Build the active chain at request time so deploys can swap presets by
-// env var without code changes. Skip chain entries whose provider or key
-// isn't configured (a missing AI_KEY_* silently drops that entry — the
+// Resolve the active chain at request time, skipping entries whose provider
+// or key isn't configured (a missing AI_KEY_* silently drops that entry — the
 // runtime just moves to the next one).
 function buildActiveChain(): ActiveModel[] {
-  const presetId = Deno.env.get("AI_PRESET") ?? "default";
-  const preset = CHAIN_PRESETS[presetId];
-
-  if (preset) {
-    const out: ActiveModel[] = [];
-    for (const entry of preset.chain) {
-      const provider = PROVIDERS[entry.providerId];
-      if (!provider) continue;
-      const key = Deno.env.get(provider.apiKeyEnv);
-      if (!key) continue;
-      out.push({ provider, model: entry.model, apiKey: key });
-    }
-    if (out.length > 0) return out;
+  const out: ActiveModel[] = [];
+  for (const entry of ACTIVE_CHAIN) {
+    const provider = PROVIDERS[entry.providerId];
+    if (!provider) continue;
+    const key = Deno.env.get(provider.apiKeyEnv);
+    if (!key) continue;
+    out.push({ provider, model: entry.model, apiKey: key });
   }
-
-  // Legacy single-provider fallback.
-  const legacyKey = Deno.env.get("AI_API_KEY");
-  if (legacyKey) {
-    const model = Deno.env.get("AI_MODEL") ?? "gpt-4o-mini";
-    return [{ provider: LEGACY_PROVIDER, model, apiKey: legacyKey }];
-  }
-  return [];
+  return out;
 }
 
 // ============================================================
@@ -842,7 +782,7 @@ serve(async (req) => {
   const chain = buildActiveChain();
   if (chain.length === 0) {
     return jsonResponse(500, {
-      error: "Server is missing AI provider configuration. Set AI_PRESET and the matching AI_KEY_* secrets, or set AI_API_KEY for the legacy path.",
+      error: "Server is missing AI provider configuration. Set at least one AI_KEY_* secret matching an entry in the active chain.",
       code: "MISSING_PROVIDER_KEY",
     });
   }

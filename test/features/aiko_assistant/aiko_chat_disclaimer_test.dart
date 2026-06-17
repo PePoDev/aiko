@@ -62,6 +62,7 @@ void main() {
         final state = ChatState(
           offline: true,
           messages: const [
+            ChatMessage(role: 'user', content: 'How is my budget?'),
             ChatMessage(
               role: 'assistant',
               content: 'You spent on Coffee this month.',
@@ -104,6 +105,7 @@ void main() {
       const state = ChatState(
         offline: true,
         messages: [
+          ChatMessage(role: 'user', content: 'How is my budget?'),
           ChatMessage(
             role: 'assistant',
             content: 'You spent on Coffee this month.',

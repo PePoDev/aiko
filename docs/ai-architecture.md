@@ -219,15 +219,12 @@ PROVIDER_GEMINI   = { baseUrl, apiKeyEnv: "AI_KEY_GEMINI",   models: [...] }
 // DEFINE PROVIDER 3
 PROVIDER_OPENAI   = { baseUrl, apiKeyEnv: "AI_KEY_OPENAI",   models: [...] }
 
-// CHAIN PRESETS — picked by AI_PRESET at deploy time
-CHAIN_PRESETS.default = [deepseek-flash, gemini-flash, openai-gpt-oss-120b]
-CHAIN_PRESETS.quality = [openai-gpt-oss-120b, gemini-1.5-pro, deepseek-reasoner]
-CHAIN_PRESETS.cheap   = [deepseek-flash, openai-gpt-4o-mini]
+// ACTIVE CHAIN — fixed fallback order, edit the list to change providers/models
+ACTIVE_CHAIN = [deepseek-flash, gemini-flash, openai-gpt-oss-120b]
 ```
 
-`buildActiveChain()` reads the active preset, drops any entry whose
-`AI_KEY_*` is unset, and (for backward compat) falls back to the old
-`AI_API_KEY` / `AI_MODEL` / `AI_BASE_URL` triple if no preset resolves.
+`buildActiveChain()` walks `ACTIVE_CHAIN`, drops any entry whose
+`AI_KEY_*` is unset, and returns the remaining entries.
 
 ### 4.1 Fallback rules
 
@@ -269,7 +266,7 @@ flowchart TD
 1. Declare a new `PROVIDER_*` constant (id, baseUrl, apiKeyEnv,
    `supportsTools`, models list).
 2. Register it in `PROVIDERS` so the chain can resolve it.
-3. Reference it from one or more `CHAIN_PRESETS[…]`.
+3. Add an entry to the `ACTIVE_CHAIN` list.
 4. Set the matching `AI_KEY_<id>` Supabase secret.
 
 `supportsTools: false` opts a provider out of Layer 2 — `tryResolveTools`
@@ -300,8 +297,7 @@ parent screen.
 ## 6. Privacy & trust model
 
 - **Keys stay server-side.** Provider API keys live only in the Edge
-  Function's environment. The client never sees them. Even the legacy
-  `AI_API_KEY` path is read in the function, not the app.
+  Function's environment. The client never sees them.
 - **The model only sees RLS-scoped data.** Layer 1 is a client-built
   summary the user already owns; Layer 2 runs as the caller's JWT
   through `SECURITY INVOKER` functions, so RLS scopes every RPC result
@@ -347,11 +343,10 @@ other user's data.
 
 | Env / setting | Where | Default | Purpose |
 | --- | --- | --- | --- |
-| `AI_PRESET` | Edge Function | `default` | Which chain preset to use |
 | `AI_KEY_DEEPSEEK` | Edge Function | — | Provider 1 key (skipped if unset) |
 | `AI_KEY_GEMINI` | Edge Function | — | Provider 2 key (skipped if unset) |
 | `AI_KEY_OPENAI` | Edge Function | — | Provider 3 key (skipped if unset) |
-| `AI_API_KEY` + `AI_MODEL` + `AI_BASE_URL` | Edge Function | — | Legacy single-provider path |
+| `ACTIVE_CHAIN` (code constant) | `aiko-chat/index.ts` | DeepSeek → Gemini → OpenAI | Fixed fallback order; edit the list to change |
 | `aiko_personality_setting` | `profiles` row | `supportive` | Tone knob the system prompt can read |
 | Supabase config (`SUPABASE_URL` + anon key) | Flutter app | — | Switches between `HttpChatEngine` and `OfflineChatEngine` |
 
@@ -365,7 +360,7 @@ in `README.md`.
 
 | Change | File(s) |
 | --- | --- |
-| Provider / chain preset / fallback logic | `supabase/functions/aiko-chat/index.ts` |
+| Provider / active chain / fallback logic | `supabase/functions/aiko-chat/index.ts` |
 | System prompt or disclaimer copy | `supabase/functions/aiko-chat/index.ts` (`SYSTEM_PROMPT`) |
 | Financial snapshot fields / caps | `lib/features/aiko_assistant/application/financial_context.dart` |
 | On-device rule-based answers | `lib/features/aiko_assistant/application/aiko_assistant_service.dart` |

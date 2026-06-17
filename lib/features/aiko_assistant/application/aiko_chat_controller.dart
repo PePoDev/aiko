@@ -95,6 +95,10 @@ class AikoChatController extends Notifier<ChatState> {
   void _streamReply(String text, {required bool addUserMessage}) {
     final messages = [...state.messages];
     if (addUserMessage) {
+      // Drop the initial greeting from the transcript the moment the user
+      // sends their first message — it belongs to the empty state, not the
+      // conversation log, and shouldn't be re-sent to the model.
+      if (state.isEmpty) messages.removeAt(0);
       messages.add(ChatMessage(role: 'user', content: text));
     }
     while (messages.isNotEmpty && !messages.last.isUser) {

@@ -1,5 +1,7 @@
 import 'package:aiko/app/providers.dart';
+import 'package:aiko/core/money/exchange_rate_service.dart';
 import 'package:aiko/core/money/money.dart';
+import 'package:decimal/decimal.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/categories/domain/category_defaults.dart';
@@ -1062,13 +1064,18 @@ void main() {
     expect(amountField.controller?.text, '14.00');
   });
 
-  testWidgets('amount currency can convert to selected account currency', (
+  testWidgets('amount converts to the account currency at save time', (
     tester,
   ) async {
+    final repository = _FakeTransactionRepository([]);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           categoriesProvider.overrideWith(() => _EmptyCategoriesNotifier()),
+          transactionRepositoryProvider.overrideWithValue(repository),
+          exchangeRateServiceProvider.overrideWithValue(
+            const _FixedRateService('0.0300'),
+          ),
           accountsProvider.overrideWith(
             () => _AccountsNotifier([
               Account(
@@ -1100,28 +1107,30 @@ void main() {
     expect(find.text('Currency'), findsOneWidget);
     expect(find.text('THB'), findsOneWidget);
 
-    await _selectAccount(tester, 'usd-wallet');
-
-    expect(find.text('Convert to USD?'), findsOneWidget);
-
     await tester.enterText(
       find.byKey(const Key('transaction-amount-field')),
       '100',
     );
-    await tester.enterText(
-      find.byKey(const Key('transaction-exchange-rate-field')),
-      '0.03',
-    );
-    await tester.drag(find.byType(ListView), const Offset(0, -240));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('convert-currency-button')).first);
+    await _selectAccount(tester, 'usd-wallet');
     await tester.pumpAndSettle();
 
-    final amountField = tester.widget<TextField>(
-      find.byKey(const Key('transaction-amount-field'), skipOffstage: false),
+    // The live rate is auto-filled and the converted preview is shown.
+    expect(find.textContaining('Account is in USD'), findsOneWidget);
+    expect(find.textContaining('Saves as ≈ 3.00 USD'), findsOneWidget);
+
+    final saveButton = find.widgetWithText(FilledButton, 'Save Transaction');
+    await tester.scrollUntilVisible(
+      saveButton,
+      240,
+      scrollable: find.byType(Scrollable).first,
     );
-    expect(amountField.controller?.text, '3.00');
-    expect(find.text('Convert to USD?'), findsNothing);
+    await tester.pumpAndSettle();
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.savedTransaction, isNotNull);
+    expect(repository.savedTransaction!.amount.amount, Decimal.parse('3.00'));
+    expect(repository.savedTransaction!.amount.currency, 'USD');
   });
 
   testWidgets(
@@ -1965,13 +1974,36 @@ class _EmptyAccountsNotifier extends AccountsNotifier {
   Future<List<Account>> build() async => const [];
 }
 
+class _FixedRateService extends ExchangeRateService {
+  const _FixedRateService(this._rate);
+
+  final String _rate;
+
+  @override
+  Future<Decimal?> fetchRate(String from, String to) async =>
+      from.toUpperCase() == to.toUpperCase()
+      ? Decimal.one
+      : Decimal.parse(_rate);
+}
+
 class _AccountsNotifier extends AccountsNotifier {
   _AccountsNotifier(this.accounts);
 
-  final List<Account> accounts;
+  List<Account> accounts;
 
   @override
   Future<List<Account>> build() async => accounts;
+
+  // Keep saves in-memory so the post-save balance recalc doesn't reach the real
+  // account repository (which has no backend in widget tests).
+  @override
+  Future<void> saveAccount(Account account) async {
+    accounts = [
+      for (final a in accounts)
+        if (a.id == account.id) account else a,
+    ];
+    state = AsyncValue.data(accounts);
+  }
 }
 
 class _EmptyGroupsNotifier extends CategoryGroupsNotifier {

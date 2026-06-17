@@ -128,7 +128,7 @@ sequenceDiagram
   Snap->>Snap: read local Brick
   Snap-->>Ctl: snapshot JSON
   Ctl->>FE: POST { messages, financialContext } + Bearer jwt
-  opt AI_TOOLS_ENABLED
+  opt Layer 2 tools
     FE->>Prov: non-streamed completion with tools
     Prov-->>FE: tool_calls?
     loop for each tool call
@@ -167,10 +167,10 @@ tokens bounded and limits how much raw financial data leaves the
 device for the LLM provider. Ad-hoc, deeper questions are Layer 2's
 job, not this snapshot's.
 
-### 3.2 Layer 2 — server-side tools (off by default)
+### 3.2 Layer 2 — server-side tools (always on)
 
-When `AI_TOOLS_ENABLED=true`, before the streamed answer the Edge
-Function lets the model call a fixed allow-list of read-only RPCs:
+Before the streamed answer the Edge Function lets the model call a
+fixed allow-list of read-only RPCs:
 
 ```
 aiko_account_summary     — net worth + per-account balance/type
@@ -247,11 +247,9 @@ text the user is reading.
 flowchart TD
   Start([Request arrives]) --> Build[buildActiveChain]
   Build -->|empty| E1[500 MISSING_PROVIDER_KEY]
-  Build -->|has entries| Tools{AI_TOOLS_ENABLED?}
-  Tools -->|yes| TryTools["for each entry:<br/>tryResolveTools()"]
+  Build -->|has entries| TryTools["Layer 2: for each entry:<br/>tryResolveTools()"]
   TryTools -->|one wins| Stream
   TryTools -->|all fail silently| Stream
-  Tools -->|no| Stream
   Stream["streamWithFallback:<br/>for each entry in chain"] --> Fetch[fetch /chat/completions<br/>with 60s timeout]
   Fetch -->|network err| Next
   Fetch -->|non-2xx| Next
@@ -275,7 +273,7 @@ flowchart TD
 4. Set the matching `AI_KEY_<id>` Supabase secret.
 
 `supportsTools: false` opts a provider out of Layer 2 — `tryResolveTools`
-will skip it when `AI_TOOLS_ENABLED=true` is on.
+skips it.
 
 ---
 
@@ -357,7 +355,6 @@ other user's data.
 | `AI_KEY_OPENAI` | Edge Function | — | Provider 3 key (skipped if unset) |
 | `AI_API_KEY` + `AI_MODEL` + `AI_BASE_URL` | Edge Function | — | Legacy single-provider path |
 | `AIKO_RATE_PER_MIN` | Edge Function | `20` | Per-user stream completions / min |
-| `AI_TOOLS_ENABLED` | Edge Function | `false` | Turn on Layer 2 (read-only RPCs) |
 | `aiko_personality_setting` | `profiles` row | `supportive` | Tone knob the system prompt can read |
 | Supabase config (`SUPABASE_URL` + anon key) | Flutter app | — | Switches between `HttpChatEngine` and `OfflineChatEngine` |
 

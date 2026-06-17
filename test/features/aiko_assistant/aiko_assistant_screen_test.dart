@@ -131,11 +131,14 @@ void main() {
     await tester.pump();
 
     // The clear icon lives inside the suggestion strip, not the app bar, and
-    // uses `Icons.clear_all` rather than a trash icon.
+    // uses `Icons.cleaning_services` (a broom) to signal "clean this chat".
     final clearIcon = find.byTooltip('Clear chat');
     expect(clearIcon, findsOneWidget);
     expect(
-      find.descendant(of: clearIcon, matching: find.byIcon(Icons.clear_all)),
+      find.descendant(
+        of: clearIcon,
+        matching: find.byIcon(Icons.cleaning_services),
+      ),
       findsOneWidget,
     );
 

@@ -18,9 +18,16 @@ import '../features/settings/domain/profile.dart';
 import '../features/transactions/domain/transaction.dart';
 import '../features/investments/data/investment_holding_repository.dart';
 import '../core/money/money.dart';
+import '../core/money/exchange_rate_service.dart';
 
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   return TransactionRepository();
+});
+
+/// Live FX rates for the transaction form's currency conversion. Overridable in
+/// tests so widget tests don't hit the network.
+final exchangeRateServiceProvider = Provider<ExchangeRateService>((ref) {
+  return const ExchangeRateService();
 });
 
 final accountRepositoryProvider = Provider<AccountRepository>((ref) {

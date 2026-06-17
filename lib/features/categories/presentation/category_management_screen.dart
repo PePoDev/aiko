@@ -90,12 +90,12 @@ class CategoryManagementScreen extends ConsumerWidget {
             );
           }
 
-          final groups = <CategoryGroup>[
-            ...(groupsAsync.value ?? const <CategoryGroup>[]).where(
-              (group) => !group.isSystem,
-            ),
-            ...CategoryGroupDefaults.all,
-          ];
+          // Use the provider's merged list directly: it already combines the
+          // user's own groups with the 13 default groups, and — crucially —
+          // folds any per-user budget overlay onto the (read-only) defaults.
+          // Re-appending raw `CategoryGroupDefaults.all` here would discard
+          // the saved group budget and the header would never show it.
+          final groups = groupsAsync.value ?? CategoryGroupDefaults.all;
 
           final incomeCategories = categories
               .where((category) => category.type == CategoryType.income)

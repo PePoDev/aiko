@@ -1022,6 +1022,66 @@ void _budgetPillTests() {
       expect(find.byKey(const ValueKey('group-add-budget')), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'default group shows its saved budget overlay (regression for "+ Budget" '
+    'not reflecting after save)',
+    (tester) async {
+      // The provider's merged output for a default group carrying a per-user
+      // budget overlay — exactly what CategoryGroupsNotifier._merge produces
+      // after saveGroup() on a default group. The screen must use this list
+      // directly instead of re-appending raw CategoryGroupDefaults.all, which
+      // would discard the overlay.
+      final mergedGroups = CategoryGroupDefaults.all
+          .map(
+            (group) => group.id == CategoryGroupDefaults.foodAndDrinkId
+                ? group.copyWith(budgetLimit: Money.parse('500', 'USD'))
+                : group,
+          )
+          .toList(growable: false);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            categoriesProvider.overrideWith(
+              () => _CategoriesNotifier([
+                const Category(
+                  id: 'cat-groceries',
+                  userId: 'user',
+                  name: 'Groceries',
+                  type: CategoryType.expense,
+                  group: CategoryBudgetGroup.needs,
+                  groupId: CategoryGroupDefaults.foodAndDrinkId,
+                  icon: 'food',
+                  color: '#F97316',
+                  budgetEnabled: true,
+                ),
+              ]),
+            ),
+            categoryGroupsProvider.overrideWith(
+              () => _RawGroupsNotifier(mergedGroups),
+            ),
+          ],
+          child: MaterialApp(
+            theme: AikoTheme.light(),
+            home: const CategoryManagementScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The Food & Drink default group carries a budget overlay: it must
+      // render the spent/limit text and the animated progress bar, and must
+      // NOT render the "+ Budget" add chip.
+      expect(find.text('Food & Drink'), findsOneWidget);
+      expect(find.byKey(const ValueKey('group-total-amount')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('group-budget-progress')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('group-add-budget')), findsNothing);
+    },
+  );
 }
 
 class _CategoriesNotifier extends CategoriesNotifier {
@@ -1045,6 +1105,18 @@ class _GroupsNotifier extends CategoryGroupsNotifier {
     ...groups,
     ...CategoryGroupDefaults.all,
   ];
+}
+
+/// Returns its list verbatim — simulates the production notifier's *merged*
+/// output (user groups + default groups with per-user budget overlays folded
+/// in). Used by regression tests that need a default group to carry a budget.
+class _RawGroupsNotifier extends CategoryGroupsNotifier {
+  _RawGroupsNotifier(this.groups);
+
+  final List<CategoryGroup> groups;
+
+  @override
+  Future<List<CategoryGroup>> build() async => groups;
 }
 
 class _SavingCategoriesNotifier extends _CategoriesNotifier {

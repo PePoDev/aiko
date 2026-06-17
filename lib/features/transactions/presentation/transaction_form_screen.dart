@@ -47,6 +47,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final List<String> _tags = [];
   TransactionType _type = TransactionType.expense;
   String _selectedCurrency = 'THB';
+
+  // Live FX auto-fill state. Tracks the last "from>to" pair we fetched so we
+  // don't refetch on every rebuild, and a flag for the in-flight spinner.
+  String? _fetchedRatePair;
+  bool _isFetchingRate = false;
   DateTime _selectedDate = DateTime.now();
   String? _selectedCategoryId;
   String? _selectedAccountId;
@@ -755,36 +760,83 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     return currency.trim().toUpperCase();
   }
 
-  void _convertAmountToAccountCurrency(String accountCurrency) {
-    final amount = Decimal.tryParse(_amountController.text.trim());
-    final rate = Decimal.tryParse(_exchangeRateController.text.trim());
-
-    if (amount == null || amount <= Decimal.zero) {
-      _showConversionError('Enter a positive amount before converting.');
+  /// Auto-fills the exchange rate with a live quote when the selected account
+  /// tracks a currency different from the amount's. Skips a pair already fetched
+  /// (or being fetched) so it's safe to call from every relevant change/build.
+  /// On failure the rate stays at its current value for the user to enter.
+  Future<void> _maybeAutofillRate(String? accountCurrency) async {
+    if (accountCurrency == null || accountCurrency == _selectedCurrency) {
       return;
     }
-    if (rate == null || rate <= Decimal.zero) {
-      _showConversionError('Enter a positive exchange rate.');
+    final pair = '$_selectedCurrency>$accountCurrency';
+    if (_isFetchingRate || _fetchedRatePair == pair) {
       return;
     }
 
-    final convertedAmount = amount * rate;
     setState(() {
-      _amountController.text = convertedAmount.toStringAsFixed(2);
-      _selectedCurrency = accountCurrency;
-      _exchangeRateController.text = '1.00';
+      _isFetchingRate = true;
+      _fetchedRatePair = pair;
+    });
+    final rate = await ref
+        .read(exchangeRateServiceProvider)
+        .fetchRate(_selectedCurrency, accountCurrency);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isFetchingRate = false;
+      if (rate != null) {
+        _exchangeRateController.text = rate.toStringAsFixed(4);
+      }
+      // On failure we keep the pair marked as attempted so `build` doesn't
+      // auto-retry in a loop. The refresh button / manual edit let the user
+      // retry or enter a rate by hand.
     });
   }
 
-  void _showConversionError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AikoColors.warningOrange,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  /// Lets the user override the auto-filled rate. The amount itself is left in
+  /// its entered currency — the conversion happens at save time.
+  Future<void> _editRateManually(
+    String selectedCurrency,
+    String accountCurrency,
+  ) async {
+    final controller = TextEditingController(
+      text: _exchangeRateController.text.trim(),
+    );
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('1 $selectedCurrency equals'),
+        content: TextField(
+          key: const Key('transaction-exchange-rate-field'),
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(suffixText: accountCurrency),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Use this rate'),
+          ),
+        ],
       ),
     );
+    controller.dispose();
+
+    final rate = result == null ? null : Decimal.tryParse(result);
+    if (rate == null || rate <= Decimal.zero) {
+      return;
+    }
+    setState(() {
+      _exchangeRateController.text = rate.toStringAsFixed(4);
+      // A manual rate sticks — don't let an auto-fetch overwrite it.
+      _fetchedRatePair = '$_selectedCurrency>$accountCurrency';
+    });
   }
 
   Future<void> _showAmountCalculator() async {
@@ -1125,6 +1177,35 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
+    // Convert into the account's currency at save time. The amount is entered
+    // in `_selectedCurrency`; if the account tracks a different currency we
+    // multiply by the (auto-filled or manually edited) rate and store the
+    // result in the account's currency. See docs/currency-conversion.md.
+    final accounts =
+        ref.read(accountsProvider).whenOrNull(data: (value) => value) ??
+        const <Account>[];
+    final accountCurrency = _accountCurrencyFor(accounts, _selectedAccountId);
+    var effectiveAmount = amount;
+    var effectiveCurrency = _selectedCurrency;
+    if (accountCurrency != null && accountCurrency != _selectedCurrency) {
+      final rate = Decimal.tryParse(_exchangeRateController.text.trim());
+      if (rate == null || rate <= Decimal.zero) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Enter a positive exchange rate to convert.'),
+            backgroundColor: AikoColors.warningOrange,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+        return;
+      }
+      effectiveAmount = amount * rate;
+      effectiveCurrency = accountCurrency;
+    }
+
     // When editing a transfer leg, keep its original direction (transferIn /
     // transferOut) rather than collapsing back to a plain transfer.
     final txType =
@@ -1157,7 +1238,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     // transfer leg falls through to the single-row path below.
     if (_type == TransactionType.transfer && existingTransaction == null) {
       await _submitTransferPair(
-        amount: amount,
+        amount: effectiveAmount,
+        currency: effectiveCurrency,
         tags: tags,
         note: _noteController.text.trim(),
         itemName: itemName,
@@ -1170,7 +1252,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       userId: existingTransaction?.userId ?? '',
       accountId: _selectedAccountId!,
       type: txType,
-      amount: Money(amount: amount, currency: _selectedCurrency),
+      amount: Money(amount: effectiveAmount, currency: effectiveCurrency),
       date: _selectedDate,
       categoryId: _selectedCategoryId,
       merchant: itemName.isEmpty ? categoryName : itemName,
@@ -1206,6 +1288,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   /// label so each leg reads clearly in the transaction list.
   Future<void> _submitTransferPair({
     required Decimal amount,
+    required String currency,
     required List<String> tags,
     required String note,
     required String itemName,
@@ -1222,7 +1305,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     final fromName = nameFor(_selectedAccountId);
     final toName = nameFor(_selectedToAccountId);
-    final money = Money(amount: amount, currency: _selectedCurrency);
+    final money = Money(amount: amount, currency: currency);
 
     final outLeg = FinanceTransaction(
       id: const Uuid().v4(),
@@ -1514,6 +1597,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   onSelected: (value) {
                     if (value != null) {
                       setState(() => _selectedCurrency = value);
+                      _maybeAutofillRate(
+                        _accountCurrencyFor(
+                          accountSnapshot,
+                          _selectedAccountId,
+                        ),
+                      );
                     }
                   },
                 ),
@@ -1617,8 +1706,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   fieldKey: 'account',
                   accounts: activeAccounts,
                   selectedAccountId: _selectedAccountId,
-                  onSelected: (value) =>
-                      setState(() => _selectedAccountId = value),
+                  onSelected: (value) {
+                    setState(() => _selectedAccountId = value);
+                    _maybeAutofillRate(
+                      _accountCurrencyFor(accountSnapshot, value),
+                    );
+                  },
                 );
               }
             },
@@ -1629,8 +1722,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               selectedCurrency: _selectedCurrency,
               accountCurrency: selectedAccountCurrency,
               exchangeRateController: _exchangeRateController,
-              onConvert: () =>
-                  _convertAmountToAccountCurrency(selectedAccountCurrency),
+              amountController: _amountController,
+              isFetchingRate: _isFetchingRate,
+              onRefreshRate: () {
+                _fetchedRatePair = null;
+                _maybeAutofillRate(selectedAccountCurrency);
+              },
+              onEditRate: () =>
+                  _editRateManually(_selectedCurrency, selectedAccountCurrency),
             ),
             const SizedBox(height: 12),
           ],
@@ -1947,87 +2046,115 @@ class _ItemNameInputState extends State<_ItemNameInput> {
   }
 }
 
+/// Compact notice shown when the chosen account's currency differs from the
+/// amount's. It states the account currency, shows the live rate as a tappable
+/// (editable) number, and previews the converted amount. No convert button —
+/// the conversion runs at save time. See docs/currency-conversion.md.
 class _CurrencyConversionPrompt extends StatelessWidget {
   const _CurrencyConversionPrompt({
     required this.selectedCurrency,
     required this.accountCurrency,
     required this.exchangeRateController,
-    required this.onConvert,
+    required this.amountController,
+    required this.isFetchingRate,
+    required this.onRefreshRate,
+    required this.onEditRate,
   });
 
   final String selectedCurrency;
   final String accountCurrency;
   final TextEditingController exchangeRateController;
-  final VoidCallback onConvert;
+  final TextEditingController amountController;
+  final bool isFetchingRate;
+  final VoidCallback onRefreshRate;
+  final VoidCallback onEditRate;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
 
     return Card(
       color: AikoColors.warningOrange.withValues(alpha: 0.08),
       child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: ListenableBuilder(
+          listenable: Listenable.merge([
+            exchangeRateController,
+            amountController,
+          ]),
+          builder: (context, _) {
+            final rate = Decimal.tryParse(exchangeRateController.text.trim());
+            final amount = Decimal.tryParse(amountController.text.trim());
+            final preview = (rate != null && amount != null)
+                ? '≈ ${(amount * rate).toStringAsFixed(2)} $accountCurrency'
+                : null;
+
+            return Row(
               children: [
                 const Icon(
                   Icons.currency_exchange,
+                  size: 20,
                   color: AikoColors.warningOrange,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    'Convert to $accountCurrency?',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Account currency + editable rate on one line.
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            'Account is in $accountCurrency · 1 $selectedCurrency = ',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                          InkWell(
+                            key: const Key('edit-exchange-rate'),
+                            onTap: onEditRate,
+                            child: Text(
+                              '${rate?.toStringAsFixed(4) ?? '—'} $accountCurrency',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: primary,
+                                fontWeight: FontWeight.w700,
+                                decoration: TextDecoration.underline,
+                                decorationColor: primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (preview != null)
+                        Text(
+                          'Saves as $preview',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
+                if (isFetchingRate)
+                  const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                else
+                  IconButton(
+                    key: const Key('refresh-exchange-rate-button'),
+                    tooltip: 'Refresh live rate',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.refresh, size: 20),
+                    onPressed: onRefreshRate,
+                  ),
               ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'The selected account tracks $accountCurrency, but this amount is in $selectedCurrency.',
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: TextField(
-                    key: const Key('transaction-exchange-rate-field'),
-                    controller: exchangeRateController,
-                    decoration: InputDecoration(
-                      labelText: '1 $selectedCurrency equals',
-                      suffixText: accountCurrency,
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton.icon(
-                    key: const Key('convert-currency-button'),
-                    onPressed: onConvert,
-                    icon: const Icon(Icons.swap_horiz),
-                    label: Text(
-                      'Convert to $accountCurrency',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, 56),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

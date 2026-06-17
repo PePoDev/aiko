@@ -263,14 +263,14 @@ Saved calculations store as `SavedCalculatorScenario`, compare side-by-side, and
 
 The one feature needing server logic runs as a Supabase Edge Function (`supabase/functions/aiko-chat/`) — an SSE proxy that streams Chat Completions from any **OpenAI-compatible provider**, with **automatic fallback across an ordered chain of (provider, model) entries**. Provider keys stay server-side.
 
-**Request flow:** (1) validates the caller's Supabase JWT (`Authorization: Bearer <jwt>`); (2) enforces a per-user in-memory rate limit (default `20`/min, else `429 RATE_LIMITED`); (3) builds the message list (last 20) behind a fixed system prompt defining Aiko's persona, forcing the disclaimer on any numeric/recommendation answer, injecting the user's `baseCurrency`; (4) optionally runs Layer 2 tool calls (off by default); (5) streams the final answer to the provider with `stream: true`, re-emitting each token as `data: {"delta":"..."}\n\n`, closing with `data: {"done":true}\n\n`. Client: `HttpChatEngine` in `lib/features/aiko_assistant/application/chat_engine.dart` calls `${SUPABASE_URL}/functions/v1/aiko-chat`.
+**Request flow:** (1) validates the caller's Supabase JWT (`Authorization: Bearer <jwt>`); (2) enforces a per-user in-memory rate limit (default `20`/min, else `429 RATE_LIMITED`); (3) builds the message list (last 20) behind a fixed system prompt defining Aiko's persona, forcing the disclaimer on any numeric/recommendation answer, injecting the user's `baseCurrency`; (4) runs Layer 2 tool calls; (5) streams the final answer to the provider with `stream: true`, re-emitting each token as `data: {"delta":"..."}\n\n`, closing with `data: {"done":true}\n\n`. Client: `HttpChatEngine` in `lib/features/aiko_assistant/application/chat_engine.dart` calls `${SUPABASE_URL}/functions/v1/aiko-chat`.
 
 **Auto-fallback:** the runtime walks an ordered chain of `(provider, model)` entries. On a network error, non-2xx, 60s timeout, or a stream that dies before any token has been sent, it silently moves to the next entry. Once tokens have flowed to the client, a mid-stream error is surfaced as a final `error` event (we can't safely restart a stream the client has already started reading). When every entry fails, the stream ends with `data: {"error":"...","code":"PROVIDER_DOWN"}\n\n` summarising each attempt.
 
 **How Aiko reads your data** (model only ever sees RLS-scoped data; key never leaves the server):
 
 - **Layer 1 — on-device snapshot (always on).** The client assembles a compact `AikoFinancialContext` (net worth, accounts, this-month income/spending, budget pace, goals, recent transactions) from local Brick and sends it in the body; the function folds it into the system prompt, so most "how am I doing" questions resolve in one round-trip. Aggregates only, capped, never the full ledger.
-- **Layer 2 — server-side tools (off by default, `AI_TOOLS_ENABLED`).** When on, the model may first call a fixed allow-list of **read-only** Postgres RPCs (`supabase/migrations/*_aiko_assistant_read_functions.sql`), each `SECURITY INVOKER` under the caller's JWT (RLS scopes results). The function never runs model-supplied SQL and never uses the service-role key. Tool resolution itself falls back across the chain — if provider 1 can't service tools, the runtime tries provider 2.
+- **Layer 2 — server-side tools (always on).** The model may first call a fixed allow-list of **read-only** Postgres RPCs (`supabase/migrations/*_aiko_assistant_read_functions.sql`), each `SECURITY INVOKER` under the caller's JWT (RLS scopes results). The function never runs model-supplied SQL and never uses the service-role key. Tool resolution itself falls back across the chain — if provider 1 can't service tools, the runtime tries provider 2.
 
 **Configuration** (Supabase secrets — never in the app or `.env`). The function ships with three code-defined providers and three chain presets; pick the active preset with `AI_PRESET`:
 
@@ -284,9 +284,8 @@ supabase secrets set AI_KEY_DEEPSEEK=sk-...
 supabase secrets set AI_KEY_GEMINI=AIzaSy...
 supabase secrets set AI_KEY_OPENAI=sk-...
 
-# 3. Rate limit and Layer 2:
+# 3. Rate limit (Layer 2 tools are always on — no toggle):
 supabase secrets set AIKO_RATE_PER_MIN=20                    # default: 20
-supabase secrets set AI_TOOLS_ENABLED=false                  # default: false (Layer 2 tools)
 ```
 
 `SUPABASE_URL` / `SUPABASE_ANON_KEY` are injected by the runtime.
@@ -311,10 +310,12 @@ To add a provider: declare a new `PROVIDER_*` entry, register it in the `PROVIDE
 
 **Legacy single-provider path:** if `AI_PRESET` is unset and `AI_API_KEY` is set, the function falls back to the old `AI_API_KEY` + `AI_MODEL` + `AI_BASE_URL` config (no fallback, just the one provider) so existing deployments keep working without changes.
 
-**Deploy & local dev** (the function validates the JWT itself — keep gateway verification on; do **not** pass `--no-verify-jwt`):
+**LINE bot (merged in):** the LINE Messaging API webhook lives in this same function — a `POST` carrying an `x-line-signature` header is routed to the LINE handler, which verifies LINE's HMAC signature, looks up the linked Supabase user (service-role, server-side only), refreshes that user's access token, runs the **same chat pipeline in-process** (no second HTTP hop), and replies via the LINE reply API. Linking still happens in the app (Profile → Connect LINE) via a pairing code (`line_pairings` / `line_links`, `redeem_line_pairing` RPC). Extra secrets: `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN` (`SUPABASE_SERVICE_ROLE_KEY` is injected and used only here to read/rotate the link). Point the LINE console Webhook URL at `…/functions/v1/aiko-chat`.
+
+**Deploy & local dev** — deploy with `--no-verify-jwt`: LINE webhook calls carry a LINE signature, not a Supabase JWT, so the gateway can't verify them. This is safe because the app chat path still validates the JWT itself in code (`getUser`), and the LINE path verifies the LINE signature itself:
 
 ```sh
-supabase functions deploy aiko-chat
+supabase functions deploy aiko-chat --no-verify-jwt
 supabase functions serve aiko-chat --env-file ./supabase/functions/.env.local  # .env.local is git-ignored
 ```
 
@@ -423,6 +424,8 @@ All tables enforce `user_id = auth.uid()` via RLS. Exception: `categories` uses 
 | **AikoInsight** | `id`, `user_id`, `insight_type`, `title`, `description`, `recommendation`, `confidence_score`, `source_data`, `dismissed_at`, `created_at` |
 
 **Backend rules:** migrations in `supabase/migrations/` (never edit existing — create new); RLS scoped to `auth.uid()` on every table; never expose the service-role key client-side; `seed.sql` is dev/demo only; push with `supabase link --project-ref <ref>` then `supabase db push`.
+
+**Always ship backend changes:** after editing any Edge Function, run `supabase functions deploy <name>` (add `--no-verify-jwt` for `aiko-chat`). After adding a schema migration, run `supabase db push`. Don't leave deployed state behind the repo.
 
 ---
 

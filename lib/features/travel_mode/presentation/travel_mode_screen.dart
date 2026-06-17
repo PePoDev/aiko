@@ -219,13 +219,19 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final notifier = ref.read(travelModeProvider.notifier);
+              final updated = await notifier.refreshRate();
+              final rate = ref.read(travelModeProvider).exchangeRate;
+              messenger.showSnackBar(
                 SnackBar(
                   content: Text(
-                    'Updated spot rates: 1 ${trip.homeCurrency} = ${state.exchangeRate.toStringAsFixed(2)} ${trip.localCurrency}',
+                    updated
+                        ? 'Updated spot rates: 1 ${trip.homeCurrency} = ${rate.toStringAsFixed(2)} ${trip.localCurrency}'
+                        : "Couldn't reach live rates — showing 1 ${trip.homeCurrency} = ${rate.toStringAsFixed(2)} ${trip.localCurrency}.",
                   ),
-                  duration: const Duration(seconds: 1),
+                  duration: const Duration(seconds: 2),
                 ),
               );
             },

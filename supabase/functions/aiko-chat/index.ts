@@ -12,18 +12,36 @@
 //
 // The function validates the caller's Supabase JWT, applies a per-user
 // rate limit, folds the client's on-device financial snapshot (Layer 1)
-// into the system prompt, and — when AI_TOOLS_ENABLED — lets the model
-// pull deeper data through read-only Postgres RPCs (Layer 2). Each SSE
+// into the system prompt, and lets the model pull deeper data through
+// read-only Postgres RPCs (Layer 2). Each SSE
 // chunk is `data: {"delta":"..."}\n\n` with a final `data: {"done":true}`.
 //
 // Security model: provider keys live only here (never on the client). All
 // data access runs through the caller's JWT, so Postgres RLS scopes every
-// read to that user. The function never uses the service-role key, never
-// executes model-supplied SQL, and only calls a fixed allow-list of
-// read-only RPCs.
+// read to that user. The function never executes model-supplied SQL, and
+// only calls a fixed allow-list of read-only RPCs.
+//
+// LINE bot (merged in): a POST carrying an `x-line-signature` header is the
+// LINE webhook. We verify LINE's HMAC signature, look up the linked Supabase
+// user (service-role, server-side only — an inbound LINE event has no JWT),
+// refresh that user's access token, run the *same* chat pipeline in-process
+// (no second HTTP hop), and reply through the LINE Messaging API. This is the
+// only place the service-role key is used, and only to read/rotate the LINE
+// link — per-user data access still flows through that user's JWT into the
+// RLS-scoped client. Because LINE requests carry no Supabase JWT, deploy this
+// function with `--no-verify-jwt`; the app chat path still validates the JWT
+// itself below (getUser), so dropping gateway verification is safe.
 
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+
+// ---- LINE bot config ----
+const LINE_CHANNEL_SECRET = Deno.env.get("LINE_CHANNEL_SECRET") ?? "";
+const LINE_CHANNEL_ACCESS_TOKEN = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN") ?? "";
+const PAIRING_TTL_MIN = 10;
+const LINE_REPLY_ENDPOINT = "https://api.line.me/v2/bot/message/reply";
+const MAX_LINE_TEXT = 4800; // LINE caps a text message at 5000 chars.
+const LINE_FALLBACK = "Aiko is having trouble right now. Please try again in a moment.";
 
 const SYSTEM_PROMPT = [
   "You are Aiko, a friendly, warm, and supportive personal finance companion in the Aiko app.",
@@ -193,7 +211,6 @@ function buildActiveChain(): ActiveModel[] {
 // ============================================================
 
 const RATE_LIMIT_PER_MIN = Number(Deno.env.get("AIKO_RATE_PER_MIN") ?? "20");
-const AI_TOOLS_ENABLED = (Deno.env.get("AI_TOOLS_ENABLED") ?? "false").toLowerCase() === "true";
 const MAX_TOOL_ROUNDS = 4;
 const REQUEST_TIMEOUT_MS = 60_000;
 
@@ -264,8 +281,8 @@ function financialContextBlock(ctx: unknown): string {
 }
 
 // ---- Layer 2: read-only tool catalog (mirrors the SQL RPCs) ----
-// Disabled by default. Each tool maps 1:1 to a SECURITY INVOKER Postgres
-// function, so RLS keeps results scoped to the calling user.
+// Always on. Each tool maps 1:1 to a SECURITY INVOKER Postgres function, so
+// RLS keeps results scoped to the calling user.
 
 const DATE = { type: "string", description: "ISO date, YYYY-MM-DD" } as const;
 
@@ -465,6 +482,14 @@ async function resolveToolsWithChain(
   }
 }
 
+// Where streamed tokens go. The app path wraps a ReadableStream controller
+// (re-emitting SSE); the LINE path collects them into a single string.
+interface ChatSink {
+  delta(text: string): void;
+  done(): void;
+  fail(message: string, code?: string): void;
+}
+
 // Stream the final answer with automatic fallback. For each entry in the
 // chain we attempt the request and stream its tokens. If the upstream
 // fails before sending any token (network error, non-2xx, or stream break),
@@ -474,7 +499,7 @@ async function resolveToolsWithChain(
 async function streamWithFallback(
   chain: ActiveModel[],
   buildPayload: (entry: ActiveModel) => ProviderPayload,
-  controller: ReadableStreamDefaultController<Uint8Array>,
+  sink: ChatSink,
 ): Promise<void> {
   const decoder = new TextDecoder();
   const attempts: { provider: string; model: string; error: string }[] = [];
@@ -518,8 +543,7 @@ async function streamWithFallback(
           if (!trimmed || !trimmed.startsWith("data:")) continue;
           const payload = trimmed.slice(5).trim();
           if (payload === "[DONE]") {
-            controller.enqueue(sseEvent({ done: true }));
-            controller.close();
+            sink.done();
             try { reader.releaseLock(); } catch { /* noop */ }
             return;
           }
@@ -527,7 +551,7 @@ async function streamWithFallback(
             const json = JSON.parse(payload);
             const delta = json?.choices?.[0]?.delta?.content;
             if (typeof delta === "string" && delta.length > 0) {
-              controller.enqueue(sseEvent({ delta }));
+              sink.delta(delta);
               sentAny = true;
             }
           } catch {
@@ -535,8 +559,7 @@ async function streamWithFallback(
           }
         }
       }
-      controller.enqueue(sseEvent({ done: true }));
-      controller.close();
+      sink.done();
       try { reader.releaseLock(); } catch { /* noop */ }
       return;
     } catch (e) {
@@ -553,20 +576,237 @@ async function streamWithFallback(
     if (!sentAny) continue; // no token sent yet — safe to fall back
 
     // Tokens already flowed; can't restart cleanly. Surface the error.
-    controller.enqueue(sseEvent({ error: `Stream failed: ${failError ?? "unknown"}` }));
-    try { controller.close(); } catch { /* noop */ }
+    sink.fail(`Stream failed: ${failError ?? "unknown"}`);
     return;
   }
 
   const summary = attempts.map((a) => `${a.provider}/${a.model}: ${a.error}`).join(" | ");
-  controller.enqueue(sseEvent({
-    error: `All providers failed — ${summary}`,
-    code: "PROVIDER_DOWN",
-  }));
-  try { controller.close(); } catch { /* noop */ }
+  sink.fail(`All providers failed — ${summary}`, "PROVIDER_DOWN");
+}
+
+// ============================================================
+// LINE bot — webhook handling + in-process chat (no second hop)
+// ============================================================
+
+const encoder = new TextEncoder();
+
+// Verify LINE's HMAC-SHA256 signature over the raw body.
+async function verifyLineSignature(rawBody: string, signature: string | null): Promise<boolean> {
+  if (!signature || !LINE_CHANNEL_SECRET) return false;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(LINE_CHANNEL_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const mac = await crypto.subtle.sign("HMAC", key, encoder.encode(rawBody));
+  const expected = btoa(String.fromCharCode(...new Uint8Array(mac)));
+  if (expected.length !== signature.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+  return diff === 0;
+}
+
+async function replyToLine(replyToken: string, text: string): Promise<void> {
+  await fetch(LINE_REPLY_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+    },
+    body: JSON.stringify({
+      replyToken,
+      messages: [{ type: "text", text: text.slice(0, MAX_LINE_TEXT) }],
+    }),
+  }).catch(() => {/* best-effort: LINE reply tokens are short-lived */});
+}
+
+// 6 chars from an unambiguous alphabet, single active code per LINE user,
+// ~10 min TTL, redeemed via the redeem_line_pairing RPC.
+// ponytail: no rate limit on guessing; add one if it ever looks worth it.
+function newPairingCode(): string {
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  let code = "";
+  for (const b of bytes) code += alphabet[b % alphabet.length];
+  return code;
+}
+
+async function startPairing(
+  admin: ReturnType<typeof createClient>,
+  lineUserId: string,
+): Promise<string> {
+  const code = newPairingCode();
+  await admin.from("line_pairings").upsert({
+    line_user_id: lineUserId,
+    code,
+    expires_at: new Date(Date.now() + PAIRING_TTL_MIN * 60_000).toISOString(),
+  }, { onConflict: "line_user_id" });
+  return `Hi! I'm Aiko 💙 To connect your account, open the Aiko app → Profile → Connect LINE and enter this code:\n\n${code}\n\nThe code expires in ${PAIRING_TTL_MIN} minutes.`;
+}
+
+interface LinkRow {
+  user_id: string;
+  refresh_token: string | null;
+}
+
+// Exchange the stored refresh token for a fresh access token and rotate the
+// stored one. Returns null if the link can't be refreshed (user must re-link).
+async function freshAccessToken(
+  admin: ReturnType<typeof createClient>,
+  lineUserId: string,
+  link: LinkRow,
+): Promise<string | null> {
+  if (!link.refresh_token) return null;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const supabaseAnon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const anon = createClient(supabaseUrl, supabaseAnon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await anon.auth.refreshSession({ refresh_token: link.refresh_token });
+  if (error || !data.session) return null;
+
+  await admin
+    .from("line_links")
+    .update({ refresh_token: data.session.refresh_token, updated_at: new Date().toISOString() })
+    .eq("line_user_id", lineUserId);
+
+  return data.session.access_token;
+}
+
+// Run the full chat pipeline in-process as the linked user and collect the
+// streamed reply into one string. Same chain/tools/system prompt as the app
+// path — just a collecting sink instead of an SSE stream.
+async function runAikoChat(accessToken: string, text: string): Promise<string> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseAnon = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!supabaseUrl || !supabaseAnon) return LINE_FALLBACK;
+
+  const supabase = createClient(supabaseUrl, supabaseAnon, {
+    auth: { persistSession: false },
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+  });
+
+  const chain = buildActiveChain();
+  if (chain.length === 0) return LINE_FALLBACK;
+
+  // No on-device snapshot over LINE (Layer 1). Pull base currency so money is
+  // labelled correctly; Layer 2 tools (when enabled) fetch the rest.
+  const { data: profile } = await supabase.from("profiles").select("base_currency").maybeSingle();
+  const baseCurrency = (profile as { base_currency?: string } | null)?.base_currency ?? "USD";
+
+  const messages: ChatMessage[] = [
+    {
+      role: "system",
+      content: `${SYSTEM_PROMPT}\n\nUser's base currency: ${baseCurrency}. Always render currency with that code.`,
+    },
+    { role: "user", content: text },
+  ];
+
+  await resolveToolsWithChain(supabase, messages, chain);
+
+  let answer = "";
+  const sink: ChatSink = {
+    delta: (t) => { answer += t; },
+    done: () => {},
+    fail: () => {},
+  };
+  await streamWithFallback(chain, (entry) => ({
+    model: entry.model,
+    messages,
+    stream: true,
+    temperature: 0.4,
+  }), sink);
+
+  return answer.trim() || LINE_FALLBACK;
+}
+
+async function handleTextMessage(
+  admin: ReturnType<typeof createClient>,
+  lineUserId: string,
+  replyToken: string,
+  text: string,
+): Promise<void> {
+  const { data: link } = await admin
+    .from("line_links")
+    .select("user_id, refresh_token")
+    .eq("line_user_id", lineUserId)
+    .maybeSingle();
+
+  if (!link) {
+    await replyToLine(replyToken, await startPairing(admin, lineUserId));
+    return;
+  }
+
+  const token = await freshAccessToken(admin, lineUserId, link as LinkRow);
+  if (!token) {
+    await replyToLine(
+      replyToken,
+      `Your Aiko sign-in expired — let's reconnect.\n\n${await startPairing(admin, lineUserId)}`,
+    );
+    return;
+  }
+
+  await replyToLine(replyToken, await runAikoChat(token, text));
+}
+
+async function handleLineEvents(rawBody: string): Promise<void> {
+  let body: { events?: unknown };
+  try {
+    body = JSON.parse(rawBody);
+  } catch {
+    return;
+  }
+  const events = Array.isArray(body.events) ? body.events : [];
+  if (events.length === 0) return;
+
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const admin = createClient(Deno.env.get("SUPABASE_URL") ?? "", serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  for (const event of events as Array<Record<string, any>>) {
+    const lineUserId = event?.source?.userId;
+    const replyToken = event?.replyToken;
+    if (!lineUserId || !replyToken) continue;
+
+    if (event.type === "follow") {
+      await replyToLine(replyToken, await startPairing(admin, lineUserId));
+      continue;
+    }
+    if (event.type === "message" && event.message?.type === "text") {
+      await handleTextMessage(admin, lineUserId, replyToken, String(event.message.text ?? ""));
+    }
+  }
+}
+
+// LINE webhook entry. Identified by the x-line-signature header (no Supabase
+// JWT). Verifies the signature itself and never trusts unsigned POSTs.
+async function handleLineWebhook(req: Request): Promise<Response> {
+  if (
+    !Deno.env.get("SUPABASE_URL") || !Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
+    !LINE_CHANNEL_SECRET || !LINE_CHANNEL_ACCESS_TOKEN
+  ) {
+    // Misconfigured — ack so LINE doesn't retry endlessly, but do nothing.
+    return new Response("ok", { status: 200 });
+  }
+
+  const rawBody = await req.text();
+  if (!(await verifyLineSignature(rawBody, req.headers.get("x-line-signature")))) {
+    return new Response("Bad signature", { status: 401 });
+  }
+
+  await handleLineEvents(rawBody);
+  return new Response("ok", { status: 200 });
 }
 
 serve(async (req) => {
+  // LINE webhook path — a POST carrying LINE's signature header.
+  if (req.method === "POST" && req.headers.get("x-line-signature") !== null) {
+    return handleLineWebhook(req);
+  }
+
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: {
@@ -641,22 +881,31 @@ serve(async (req) => {
     ...body.messages.slice(-20).map((m) => ({ role: m.role, content: m.content })),
   ];
 
-  // Layer 2: let the model pull deeper data first (off by default).
-  if (AI_TOOLS_ENABLED) {
-    await resolveToolsWithChain(supabase, messages, chain);
-  }
+  // Layer 2: let the model pull deeper data first.
+  await resolveToolsWithChain(supabase, messages, chain);
 
   // Final answer: always streamed, no tools — forces a prose reply over the
   // (possibly tool-enriched) message list. Provider/model is selected per
   // chain entry by the fallback loop.
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      const sink: ChatSink = {
+        delta: (t) => controller.enqueue(sseEvent({ delta: t })),
+        done: () => {
+          controller.enqueue(sseEvent({ done: true }));
+          try { controller.close(); } catch { /* noop */ }
+        },
+        fail: (msg, code) => {
+          controller.enqueue(sseEvent(code ? { error: msg, code } : { error: msg }));
+          try { controller.close(); } catch { /* noop */ }
+        },
+      };
       await streamWithFallback(chain, (entry) => ({
         model: entry.model,
         messages,
         stream: true,
         temperature: 0.4,
-      }), controller);
+      }), sink);
     },
   });
 

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/trip.dart';
+import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
 
 class TravelState {
@@ -30,11 +31,39 @@ class TravelModeNotifier extends Notifier<TravelState> {
     return const TravelState();
   }
 
-  void createTrip(Trip trip) {
-    // Pick standard default exchange rates to feel realistic
-    double rate = 1.0;
-    if (trip.homeCurrency == 'USD') {
-      rate = switch (trip.localCurrency) {
+  /// Starts a trip immediately with a sensible offline default rate, then
+  /// refines it with a live quote when the network is available.
+  Future<void> createTrip(Trip trip) async {
+    state = TravelState(
+      activeTrip: trip,
+      exchangeRate: _fallbackRate(trip.homeCurrency, trip.localCurrency),
+    );
+    await refreshRate();
+  }
+
+  /// Fetches a live `1 home = rate local` quote for the active trip. Returns
+  /// `true` when it updated; `false` on no trip or a failed lookup (the last
+  /// known rate is kept).
+  Future<bool> refreshRate() async {
+    final trip = state.activeTrip;
+    if (trip == null) return false;
+    final rate = await ref
+        .read(exchangeRateServiceProvider)
+        .fetchRate(trip.homeCurrency, trip.localCurrency);
+    if (rate == null) return false;
+    state = state.copyWith(exchangeRate: rate.toDouble());
+    return true;
+  }
+
+  void updateExchangeRate(double newRate) {
+    state = state.copyWith(exchangeRate: newRate);
+  }
+
+  /// Standard reference rates so a trip feels realistic offline / before the
+  /// live quote arrives.
+  double _fallbackRate(String homeCurrency, String localCurrency) {
+    if (homeCurrency == 'USD') {
+      return switch (localCurrency) {
         'EUR' => 0.92,
         'JPY' => 156.40,
         'GBP' => 0.79,
@@ -42,8 +71,8 @@ class TravelModeNotifier extends Notifier<TravelState> {
         'AUD' => 1.50,
         _ => 1.0,
       };
-    } else if (trip.homeCurrency == 'THB') {
-      rate = switch (trip.localCurrency) {
+    } else if (homeCurrency == 'THB') {
+      return switch (localCurrency) {
         'USD' => 0.027,
         'EUR' => 0.025,
         'JPY' => 4.30,
@@ -54,11 +83,7 @@ class TravelModeNotifier extends Notifier<TravelState> {
         _ => 1.0,
       };
     }
-    state = TravelState(activeTrip: trip, exchangeRate: rate);
-  }
-
-  void updateExchangeRate(double newRate) {
-    state = state.copyWith(exchangeRate: newRate);
+    return 1.0;
   }
 
   void addForeignFee(Money fee) {

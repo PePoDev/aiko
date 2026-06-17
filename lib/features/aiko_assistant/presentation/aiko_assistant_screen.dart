@@ -515,9 +515,8 @@ class _SuggestionStrip extends StatelessWidget {
 }
 
 /// Pill-shaped icon button rendered as the first item in the suggestion strip
-/// when the chat has content. Uses `Icons.clear_all` (a clear/sweep icon)
-/// rather than a trash icon to signal "clear this conversation" without
-/// implying per-message deletion.
+/// when the chat has content. Uses `Icons.cleaning_services` (a broom) to
+/// signal "clean up this conversation" without implying per-message deletion.
 class _ClearChatIcon extends StatelessWidget {
   const _ClearChatIcon({super.key, required this.onTap});
 
@@ -541,7 +540,7 @@ class _ClearChatIcon extends StatelessWidget {
           child: const Padding(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             child: Icon(
-              Icons.clear_all,
+              Icons.cleaning_services,
               color: AikoColors.deepBlue,
               size: 18,
             ),

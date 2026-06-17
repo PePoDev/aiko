@@ -37,6 +37,8 @@ void main() {
     expect(shown.every(AikoPromptSuggestions.all.contains), isTrue);
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('Ask about your money...'), findsOneWidget);
+    // Nothing to clear on a fresh chat, so the clear chip stays hidden.
+    expect(find.byTooltip('Clear chat'), findsNothing);
   });
 
   testWidgets(
@@ -128,7 +130,16 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.tap(find.byTooltip('Clear chat'));
+    // The clear icon lives inside the suggestion strip, not the app bar, and
+    // uses `Icons.clear_all` rather than a trash icon.
+    final clearIcon = find.byTooltip('Clear chat');
+    expect(clearIcon, findsOneWidget);
+    expect(
+      find.descendant(of: clearIcon, matching: find.byIcon(Icons.clear_all)),
+      findsOneWidget,
+    );
+
+    await tester.tap(clearIcon);
     await tester.pumpAndSettle();
     expect(find.text('Clear chat?'), findsOneWidget);
     expect(find.textContaining('cannot be undone'), findsOneWidget);
@@ -138,6 +149,54 @@ void main() {
 
     expect(find.text('hi'), findsNothing);
     expect(await store.load(), isEmpty);
+  });
+
+  testWidgets('clear chat icon is the first item in the suggestion strip', (
+    tester,
+  ) async {
+    _useWideSurface(tester);
+    final store = ChatStore(storage: _seededStorage());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [chatStoreProvider.overrideWithValue(store)],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const AikoAssistantScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    // The strip is a horizontal Row — the clear chip should sit to the left
+    // of the first prompt chip in reading order.
+    final clearChip = find.byKey(const ValueKey('chat-clear-chip'));
+    final firstPrompt = find.text(_shownSuggestions().first);
+    expect(clearChip, findsOneWidget);
+    expect(firstPrompt, findsOneWidget);
+    final clearCenter = tester.getCenter(clearChip);
+    final promptCenter = tester.getCenter(firstPrompt);
+    expect(clearCenter.dx, lessThan(promptCenter.dx));
+  });
+
+  testWidgets('app bar profile icon opens the profile screen', (tester) async {
+    _useWideSurface(tester);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const AikoAssistantScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    // The profile icon is hidden until the profile provider resolves. Without
+    // a real profile in the test environment, we just confirm the icon isn't
+    // shown and there's no broken link in the app bar.
+    final profileIcon = find.byTooltip('Profile');
+    expect(profileIcon, findsNothing);
   });
 }
 

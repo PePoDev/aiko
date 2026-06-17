@@ -34,7 +34,7 @@ The May 31, 2026 reference idea boards are implemented as in-app flows and suppl
 
 | Idea | Coverage |
 | --- | --- |
-| Idea 1 | Core app screens: splash, onboarding, login, dashboard, notifications, accounts, safe-to-spend, customization |
+| Idea 1 | Core app screens: splash, onboarding, login, dashboard, notifications, accounts, safe-to-spend |
 | Idea 2 | Transactions, transaction detail, add/split transaction, receipt review, search filters, categories, account detail |
 | Idea 3 | Budget, pace, safe-to-spend, goals, saving plans, cash flow, Sankey, reports, monthly report |
 | Idea 4 | Credit cards, debt payoff, loans, net worth, assets, portfolio, allocation, tax center, tax analytics |
@@ -134,7 +134,7 @@ GoRouter around a bottom-nav shell with 5 primary tabs:
 
 1. **Accounts (`/accounts`)** — Bank/Cash/Wallet accounts, including credit cards.
 2. **Categories (`/categories`)** — Hierarchical management with the 13 default groups + custom categories.
-3. **Overview (`/home`)** — Customizable dashboard of independently managed panels (Aiko greeting, Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, Aiko Goal Simulator), primary-color action icons, a scrollable in-page Edit layout action, and an app-bar Menu action.
+3. **Overview (`/home`)** — Static dashboard with a fixed set and order of panels (Aiko greeting, Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, Aiko Goal Simulator, plus balance / net-worth / asset summaries), primary-color action icons, and an app-bar Menu action. The widget set and order are defined by `_homeWidgets` in `home_dashboard_screen.dart` and are **not** user-customizable.
 4. **Transactions (`/transactions`)** — Unified search, filters, recurring entries, auto-categorization rules.
 5. **Aiko (`/aiko`)** — Chat (`/aiko-assistant`), optimization (`/aiko-optimize`), course hub.
 
@@ -179,7 +179,7 @@ Optimizes for low backend cost, strong offline support, fast UX, low vendor lock
 Core finance data reads/writes locally first via [Brick](https://github.com/GetDutchie/brick) (SQLite local store, Supabase Postgres remote). Brick handles mapping, local cache, the Supabase provider, the sync queue, and local query subscriptions — no hand-rolled outbox/retry/mappers.
 
 - **Optimistic local writes:** profiles, accounts, categories, transactions, budgets, goals persist to SQLite immediately and the UI updates at once. With Supabase configured + authed, Brick queues writes and syncs in the background; when unavailable, repositories return local data or safe empty/default states — never backend errors in normal flows. Prefer `tryClient()` + offline fallback over `AikoSupabase.requireSession()` in user-facing repositories.
-- **⚠️ Known gap (offline, no Supabase config):** `accountsProvider`, `transactionsProvider`, `budgetsProvider`, `goalsProvider`, `dashboardSummaryProvider`, `dashboardDueItemsProvider` (`lib/app/providers.dart`) call repositories without try/catch. If the offline store or `OfflineUserContext` (`lib/core/offline/offline_user_context.dart`) throws (typical on fresh install, or where the secure-storage platform channel is unavailable), the error reaches the screen's `AikoScreenState.error` → "X is unavailable" (message includes `$error` for diagnosis). Only `dashboardLayoutRepository.load` swallows errors today. Fix: wrap each `build()`/provider body in try/catch returning an empty list or default summary.
+- **⚠️ Known gap (offline, no Supabase config):** `accountsProvider`, `transactionsProvider`, `budgetsProvider`, `goalsProvider`, `dashboardSummaryProvider`, `dashboardDueItemsProvider` (`lib/app/providers.dart`) call repositories without try/catch. If the offline store or `OfflineUserContext` (`lib/core/offline/offline_user_context.dart`) throws (typical on fresh install, or where the secure-storage platform channel is unavailable), the error reaches the screen's `AikoScreenState.error` → "X is unavailable" (message includes `$error` for diagnosis). Fix: wrap each `build()`/provider body in try/catch returning an empty list or default summary.
 - **Brick `details_json` round-trip (regen-safe):** `OfflineAccount.detailsJson` is stored as a local VARCHAR and as a Supabase `jsonb` column named `details`. The Supabase round-trip is wired through `accountDetailsFromSupabase` / `accountDetailsToSupabase` on `lib/brick/models/account.model.dart` via `@Supabase(fromGenerator/toGenerator)`, and the local read tolerates legacy NULL rows via `accountDetailsFromSqlite` (`@Sqlite(fromGenerator)`), so `dart run build_runner build` is safe to re-run and a fresh or legacy install both load accounts. Regression coverage: `test/brick/account_details_json_test.dart`.
 - After editing `lib/brick/models/`, run `dart run build_runner build` and commit generated adapters, schema, migrations.
 - **System (default) categories:** global Supabase rows (`user_id = NULL`) injected in-memory via `CategoryDefaults` (`lib/features/categories/domain/category_defaults.dart`) — never stored per-user in Brick, not user-writable, fixed stable UUIDs (never change them). They belong to 13 global, read-only groups (`CategoryGroupDefaults.all`, same file): Income & Earnings, Investments & Savings, Food & Drink, Transport, Housing & Utilities, Health & Fitness, Shopping & Personal, Entertainment & Leisure, Education, Travel, Family & Giving, Bills & Financial, and the "Other" catch-all — each a `user_id = NULL` in-memory `category_groups` row with a fixed UUID. Groups section the Categories screen; "Other" also absorbs any unfiled custom category. Default groups aren't editable/deletable but are offerable as assignment targets for custom categories.
@@ -196,7 +196,7 @@ Core finance data reads/writes locally first via [Brick](https://github.com/GetD
 - **Notifier / Service / Controller convention (T-601):** three distinct roles, each named by suffix so the call site reads as a contract.
   - `*Notifier` (e.g. `TransactionsNotifier extends AsyncNotifier<…>`) — reactive Riverpod state. Owns the in-memory snapshot, listens to repository events, calls `ref.keepAlive()` when appropriate. No business logic that doesn't need to update the UI.
   - `*Service` (e.g. `PredictionService`, `OfflineDataMigrator`, `CategoryBudgetProgressService`) — pure or near-pure function object. Holds no Riverpod state, no widget refs. Stateless (`const` ctor) and side-effect-bounded so it's easy to unit-test in isolation.
-  - `*Controller` (e.g. `AikoChatController`, `DashboardLayoutNotifier` when it talks to widgets) — orchestrates a Notifier + Service + UI side effects. Owns the stream, retry, and user-facing message derivation, but doesn't compute the business result itself.
+  - `*Controller` (e.g. `AikoChatController`) — orchestrates a Notifier + Service + UI side effects. Owns the stream, retry, and user-facing message derivation, but doesn't compute the business result itself.
   - Repositories (`*Repository`) sit in `data/` and own persistence — they wrap a Brick `OfflineStore` and never touch `ref` / `BuildContext`.
 
 ### Sync Fields & Conflict Resolution
@@ -225,7 +225,7 @@ Cost stays low: most reads come from local SQLite, dashboards read local summary
 
 ## Core Features
 
-- **🏠 Customizable Dashboard** — Aiko welcome card + separately managed Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, Aiko Goal Simulator panels; quick-add transaction; scrollable Edit layout action.
+- **🏠 Dashboard** — Static, fixed-order panels: Aiko welcome card + Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, Upcoming due dates, This Month Overview, Cash flow mapping, Aiko Goal Simulator, and balance / net-worth / asset summaries; quick-add transaction. Not user-customizable.
 - **💰 Money Tracking & Automation** — 13 transaction types (income, expense, transfer, refund, investment buy/sell, dividend, interest, loan payment, credit card payment, tax payment, fee, adjustment). Split transactions, receipt attachments, recurring entries (Once/Daily/Weekly/Monthly/Annually, each with its own end date), duplicate detection. Amount-first quick entry with receipt OCR and voice. Transaction rules auto-apply categories/tags/splits/names by merchant keyword, account, or amount.
 - **📊 Smart Budgeting (merged into Categories)** — Each Category owns an optional budget: monthly/weekly/yearly/daily period, envelope / zero-based / 50-30-20 templates, one-period rollover, alert thresholds (default 50/75/90/100%). Safe-to-Spend: `Leftover = Income − Fixed Bills − Reserves − Debt − Goals − Current Spending`. Pace compares spending velocity against limits.
 - **🎯 Financial Goals (merged into Accounts)** — Goal accounts (`Account.type == goal`) carry a SMART target amount, target date, and priority. `currentBalance` is the saved amount; auto-calculated monthly contribution, Monte Carlo success probability, and the saving plan all read from the same row.
@@ -515,7 +515,6 @@ Shape: cards/rows/inputs/chips/segmented controls 8px radius; bottom sheets 20px
 - **Lists:** compact `ListTile` rows, 48px tap target, single-line titles, aligned trailing amounts/statuses, dividers/card borders instead of nested containers.
 - **Chips/badges:** short labels; status color matches semantic meaning and includes text.
 - **Navigation:** shell tabs Accounts/Categories/Overview/Transactions/Aiko; bottom nav is a flush, compact 60dp bar (1px top border, surface background, no pill, no shadow); active = a 3dp indicator bar at the top of the tab in primary blue (premium purple for Aiko) with icon + label on-surface; Aiko's unselected label uses muted purple for a subtle AI hint; Menu (Overview app-bar action) holds Planning, Insights and AI, Tools and Data, Settings and Security.
-- **Overview layout editing:** a scrollable in-page `Edit layout`/`Done` action at the bottom of Overview content — never in the app bar or a fixed bottom bar.
 - **Sheets/dialogs:** bottom sheets for mobile create/edit (drag handle, safe area, scrollable, 20px top radius); dialogs for destructive confirmation (name the object + effect).
 - **Charts/progress:** every chart needs a text summary; every progress bar shows current, target, period with semantic color + label (8px compact, 10–12px on dashboards).
 
@@ -562,7 +561,7 @@ Six expression variants: `happy`, `thinking`, `encouraging`, `warning`, `celebra
 | Accounts | balances, currency, account type, active state, net-worth inclusion, and (when type=goal) target amount, target date, priority. |
 | Settings | App config, profile, privacy, security, sync, notification, route links |
 | Aiko | AI explanation, suggestions, review, optimization, chat |
-| Dashboard | In-page monthly overview, scrollable layout customization, notifications, cross-feature summaries |
+| Dashboard | In-page monthly overview, notifications, cross-feature summaries (fixed layout) |
 | Reports | Generated summaries and monthly report presentation |
 | Calculators | Inputs, results, saved scenarios, conversion actions |
 | Portfolio | Holdings and allocation detail |
@@ -594,15 +593,15 @@ Apply the design system in batches: (1) shared foundation — `FinanceCard`, `Ai
 
 | Idea group | Existing owner | Supplemental routes |
 | --- | --- | --- |
-| Core app screens | Auth, onboarding, dashboard, accounts | `/notifications`, in-page This Month Overview, in-page Edit layout |
+| Core app screens | Auth, onboarding, dashboard, accounts | `/notifications`, in-page This Month Overview |
 | Transactions, categories, accounts | Transactions, categories, accounts | inline search and filters, `/transactions/split`, `/transactions/receipt-review` |
 | Budget, goals, cash flow, reports | Budget, goals, reports | `/budget/pace`, `/budget/safe-to-spend`, `/budget/cash-flow`, `/budget/cash-flow-sankey`, `/goals/detail`, `/goals/saving-plan`, `/goals/chance-of-success`, `/reports/monthly` |
 | Credit, debt, portfolio, tax | Credit cards, debt, portfolio, assets, tax | `/credit-cards/detail`, `/debt-overview`, `/loans/detail`, `/net-worth`, `/portfolio/allocation`, `/portfolio/holding`, `/tax-analytics` |
 | Aiko AI, calculators, settings, extras | Aiko, calculators, bills, learning, travel, settings | `/aiko-insights`, `/calculator-result`, `/profile-security` |
 
-Route rules: don't duplicate an existing feature screen to match a board; sticky bottom actions for filter/save/confirm/calculator-result screens; scrollable in-page action for Overview layout editing; sample data realistic and scoped to preview/offline states; real repositories remain the source of persisted data; Aiko guidance appears after the primary number/decision (except onboarding and chat); every supplemental route must render without a Supabase session.
+Route rules: don't duplicate an existing feature screen to match a board; sticky bottom actions for filter/save/confirm/calculator-result screens; sample data realistic and scoped to preview/offline states; real repositories remain the source of persisted data; Aiko guidance appears after the primary number/decision (except onboarding and chat); every supplemental route must render without a Supabase session.
 
-Entry points — **Home:** app-bar Menu + notifications, in-page This Month Overview + Edit layout. **Transactions:** app-bar search with inline type/amount/date filters, split + receipt-review tools. **Budget:** tools menu (pace, safe-to-spend, cash flow, Sankey). **Goals:** tools menu (saving plan, chance of success, detail). **Reports:** monthly report from the list. **Calculators:** hub → focused calculators + result states. **Menu (from Overview):** Planning, Insights and AI, Tools and Data, Settings and Security.
+Entry points — **Home:** app-bar Menu + notifications, in-page This Month Overview. **Transactions:** app-bar search with inline type/amount/date filters, split + receipt-review tools. **Budget:** tools menu (pace, safe-to-spend, cash flow, Sankey). **Goals:** tools menu (saving plan, chance of success, detail). **Reports:** monthly report from the list. **Calculators:** hub → focused calculators + result states. **Menu (from Overview):** Planning, Insights and AI, Tools and Data, Settings and Security.
 
 ### QA Checklist
 

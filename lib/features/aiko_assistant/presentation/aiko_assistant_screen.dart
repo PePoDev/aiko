@@ -180,13 +180,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
           ],
         ),
         actions: [
-          if (profile != null) _UserProfileChip(profile: profile),
-          if (!state.isEmpty)
-            IconButton(
-              tooltip: 'Clear chat',
-              onPressed: _confirmClear,
-              icon: const Icon(Icons.delete_outline),
-            ),
+          if (profile != null) _UserProfileIcon(profile: profile),
         ],
       ),
       body: Column(
@@ -226,6 +220,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
                       key: _suggestionsKey,
                       suggestions: suggestions,
                       onSelected: _submit,
+                      onClear: state.isEmpty ? null : _confirmClear,
                     ),
                   ),
               ],
@@ -478,10 +473,16 @@ class _SuggestionStrip extends StatelessWidget {
     super.key,
     required this.suggestions,
     required this.onSelected,
+    this.onClear,
   });
 
   final List<String> suggestions;
   final void Function(String) onSelected;
+
+  /// When non-null, a clear-chat icon is rendered as the first item in the
+  /// strip. The owning screen passes a confirmation callback here so the
+  /// destructive action still asks before wiping the conversation.
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -495,11 +496,56 @@ class _SuggestionStrip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
+            if (onClear != null) ...[
+              _ClearChatIcon(
+                key: const ValueKey('chat-clear-chip'),
+                onTap: onClear!,
+              ),
+              const SizedBox(width: 8),
+            ],
             for (var i = 0; i < suggestions.length; i++) ...[
               if (i > 0) const SizedBox(width: 8),
               _SuggestionChip(title: suggestions[i], onSelected: onSelected),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Pill-shaped icon button rendered as the first item in the suggestion strip
+/// when the chat has content. Uses `Icons.clear_all` (a clear/sweep icon)
+/// rather than a trash icon to signal "clear this conversation" without
+/// implying per-message deletion.
+class _ClearChatIcon extends StatelessWidget {
+  const _ClearChatIcon({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Clear chat',
+      child: Material(
+        color: AikoColors.softBlue.withValues(alpha: 0.35),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: AikoColors.primaryBlue.withValues(alpha: 0.2),
+          ),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            child: Icon(
+              Icons.clear_all,
+              color: AikoColors.deepBlue,
+              size: 18,
+            ),
+          ),
         ),
       ),
     );
@@ -691,81 +737,39 @@ class _OfflineNotice extends StatelessWidget {
   }
 }
 
-/// Tappable user profile shown in the chat AppBar. Renders the user's initials
-/// as a circular avatar (matching the Profile screen) and their display name.
-/// Tapping opens `/profile`. Hidden when the profile is still loading or
-/// unavailable so the screen never flashes a broken avatar.
-class _UserProfileChip extends StatelessWidget {
-  const _UserProfileChip({required this.profile});
+/// Tappable user profile icon shown in the chat AppBar. Renders the user's
+/// avatar (matching the Profile screen) when available, otherwise a generic
+/// person glyph on the primary blue. Tapping opens `/profile`. Hidden when the
+/// profile is still loading or unavailable so the screen never flashes a
+/// broken avatar.
+class _UserProfileIcon extends StatelessWidget {
+  const _UserProfileIcon({required this.profile});
 
   final Profile profile;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final avatar = _avatarImage(profile);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-      child: Material(
-        color: theme.colorScheme.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-        child: InkWell(
-          key: const ValueKey('chat-user-profile-chip'),
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => context.push('/profile'),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: AikoColors.primaryBlue,
-                  backgroundImage: _avatarImage(profile),
-                  child: _avatarImage(profile) != null
-                      ? null
-                      : Text(
-                          _initials(profile.displayName),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11,
-                          ),
-                        ),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    profile.displayName,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 2),
-                Icon(
-                  Icons.expand_more,
+      child: IconButton(
+        key: const ValueKey('chat-user-profile-icon'),
+        tooltip: 'Profile',
+        onPressed: () => context.push('/profile'),
+        icon: CircleAvatar(
+          radius: 16,
+          backgroundColor: AikoColors.primaryBlue,
+          backgroundImage: avatar,
+          child: avatar != null
+              ? null
+              : const Icon(
+                  Icons.person_outline,
+                  color: AikoColors.white,
                   size: 18,
-                  color: theme.colorScheme.onSurfaceVariant,
                 ),
-              ],
-            ),
-          ),
         ),
       ),
     );
-  }
-
-  String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
   ImageProvider? _avatarImage(Profile profile) {

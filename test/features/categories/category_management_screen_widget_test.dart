@@ -282,6 +282,67 @@ void main() {
     expect(find.text('Edit Group'), findsOneWidget);
   });
 
+  testWidgets('chevron icon button toggles the group and updates its tooltip', (
+    tester,
+  ) async {
+    final groups = [
+      const CategoryGroup(
+        id: 'group-household',
+        userId: 'user',
+        name: 'Household',
+        icon: 'home',
+        color: '#0EA5E9',
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          categoriesProvider.overrideWith(
+            () => _CategoriesNotifier([
+              const Category(
+                id: 'cat-rent',
+                userId: 'user',
+                name: 'Rent',
+                type: CategoryType.expense,
+                group: CategoryBudgetGroup.needs,
+                groupId: 'group-household',
+                icon: 'home',
+                color: '#0EA5E9',
+                budgetEnabled: true,
+              ),
+            ]),
+          ),
+          categoryGroupsProvider.overrideWith(() => _GroupsNotifier(groups)),
+        ],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const CategoryManagementScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final toggleButton = find.byKey(
+      const ValueKey('group-household-toggle'),
+    );
+    expect(toggleButton, findsOneWidget);
+    expect(find.byTooltip('Expand group'), findsOneWidget);
+    expect(find.text('Rent'), findsNothing);
+
+    await tester.tap(toggleButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Rent'), findsOneWidget);
+    expect(find.byTooltip('Collapse group'), findsOneWidget);
+    expect(find.byTooltip('Expand group'), findsNothing);
+
+    await tester.tap(toggleButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Rent'), findsNothing);
+    expect(find.byTooltip('Expand group'), findsOneWidget);
+  });
+
   testWidgets('default category tap does not open a popup or route', (
     tester,
   ) async {

@@ -573,13 +573,16 @@ class _GroupHeader extends StatelessWidget {
                   )
                 else
                   const SizedBox(width: 8),
-                AnimatedRotation(
-                  turns: expanded ? 0.5 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Icon(
-                    Icons.expand_more,
-                    size: 22,
-                    color: theme.colorScheme.onSurfaceVariant,
+                IconButton(
+                  key: ValueKey('group-${title.toLowerCase()}-toggle'),
+                  tooltip: expanded ? 'Collapse group' : 'Expand group',
+                  visualDensity: VisualDensity.compact,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  onPressed: onToggle,
+                  icon: AnimatedRotation(
+                    turns: expanded ? 0.5 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.expand_more, size: 22),
                   ),
                 ),
               ],

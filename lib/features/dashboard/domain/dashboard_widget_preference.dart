@@ -8,7 +8,6 @@ enum DashboardWidgetType {
   netEarnings,
   categoryBudgets,
   spendingCalendar,
-  dueItems,
   thisMonthOverview,
   cashFlowMapping,
   aikoGoalSimulator,

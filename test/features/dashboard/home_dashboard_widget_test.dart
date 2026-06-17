@@ -125,11 +125,7 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('This Month Overview'), findsOneWidget);
-    expect(find.text('Upcoming due dates'), findsOneWidget);
-    expect(
-      tester.getTopLeft(find.text('Upcoming due dates')).dy,
-      lessThan(tester.getTopLeft(find.text('This Month Overview')).dy),
-    );
+    expect(find.text('Upcoming due dates'), findsNothing);
     expect(find.text('Total balance'), findsOneWidget);
     final monthOverviewCard = find
         .ancestor(
@@ -465,7 +461,6 @@ Widget _dashboardScope({
           ),
         ),
       ),
-      dashboardDueItemsProvider.overrideWith((ref) async => const []),
       transactionsProvider.overrideWith(
         () => _TransactionsNotifier(transactions),
       ),

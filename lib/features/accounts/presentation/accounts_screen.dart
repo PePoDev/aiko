@@ -19,6 +19,8 @@ class AccountsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accountsAsync = ref.watch(accountsProvider);
     final transactionsAsync = ref.watch(transactionsProvider);
+    final baseCurrency =
+        ref.watch(profileProvider).value?.baseCurrency ?? 'USD';
 
     return Scaffold(
       appBar: AppBar(
@@ -67,6 +69,11 @@ class AccountsScreen extends ConsumerWidget {
                 _AccountTypeHeader(
                   type: section.type,
                   accountCount: section.accounts.length,
+                  total: _computeTypeTotal(
+                    accounts: section.accounts,
+                    transactions: transactions,
+                    baseCurrency: baseCurrency,
+                  ),
                 ),
                 if (section.accounts.isEmpty)
                   _AddAccountPlaceholder(
@@ -128,10 +135,15 @@ List<_AccountTypeSection> _groupAccountsByType(List<Account> accounts) {
 }
 
 class _AccountTypeHeader extends StatelessWidget {
-  const _AccountTypeHeader({required this.type, required this.accountCount});
+  const _AccountTypeHeader({
+    required this.type,
+    required this.accountCount,
+    required this.total,
+  });
 
   final AccountType type;
   final int accountCount;
+  final Money? total;
 
   @override
   Widget build(BuildContext context) {
@@ -140,7 +152,8 @@ class _AccountTypeHeader extends StatelessWidget {
 
     // Plain section label (no filled band) so it doesn't clash with the rounded
     // cards below. The accent comes through a small tinted tile matching the
-    // account rows; the bold label carries the cue without color alone.
+    // account rows; the bold label carries the cue without color alone. The
+    // trailing sum (in base currency) gives an at-a-glance total for the type.
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
       child: Row(
@@ -165,6 +178,18 @@ class _AccountTypeHeader extends StatelessWidget {
               ),
             ),
           ),
+          if (total != null) ...[
+            const SizedBox(width: 8),
+            Text(
+              total!.format(),
+              key: ValueKey('type-total-${type.name}'),
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: accent,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -672,6 +697,24 @@ Money _currentBalanceForAccount(
     balance = transaction.applyToAccountBalance(balance);
   }
   return balance;
+}
+
+/// Sum the current balance of every account in the section, restricted to the
+/// user's base currency. Mixed-currency accounts are skipped rather than
+/// converted (no FX path here) so the displayed total never mixes units.
+Money? _computeTypeTotal({
+  required List<Account> accounts,
+  required List<FinanceTransaction> transactions,
+  required String baseCurrency,
+}) {
+  Money? total;
+  final upper = baseCurrency.toUpperCase();
+  for (final account in accounts) {
+    if (account.currency.toUpperCase() != upper) continue;
+    final balance = _currentBalanceForAccount(account, transactions);
+    total = total == null ? balance : total + balance;
+  }
+  return total;
 }
 
 String _transactionTypeLabel(TransactionType type) {

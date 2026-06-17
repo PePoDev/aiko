@@ -21,7 +21,9 @@ void main() {
     expect(find.text('Add Account Manually'), findsNothing);
     expect(find.text('Cash Wallet'), findsOneWidget);
     expect(find.text('Cash wallet'), findsOneWidget);
-    expect(find.text('\$25.00'), findsOneWidget);
+    // $25.00 appears twice: once in the per-row trailing balance, and once in
+    // the Cash section header as the type total.
+    expect(find.text('\$25.00'), findsNWidgets(2));
   });
 
   testWidgets('accounts screen groups accounts by account type', (
@@ -372,6 +374,53 @@ void main() {
     expect(find.text('-\$4.50'), findsOneWidget);
     expect(find.text('+\$500.00'), findsOneWidget);
   });
+
+  testWidgets(
+    'account type header shows the base-currency total of its accounts',
+    (tester) async {
+      final notifier = _AccountsNotifier([
+        _account(id: 'cash-1', name: 'Wallet', type: AccountType.cash)
+            .copyWith(currentBalance: Money.parse('40', 'USD')),
+        _account(id: 'cash-2', name: 'Piggy bank', type: AccountType.cash)
+            .copyWith(currentBalance: Money.parse('15.50', 'USD')),
+        _account(id: 'eur-cash', name: 'Euro cash', type: AccountType.cash)
+            .copyWith(currentBalance: Money.parse('100', 'EUR')),
+        _account(id: 'bank-1', name: 'Checking', type: AccountType.bank)
+            .copyWith(currentBalance: Money.parse('200', 'USD')),
+        _account(id: 'bank-2', name: 'Savings', type: AccountType.bank)
+            .copyWith(currentBalance: Money.parse('-50', 'USD')),
+      ]);
+      await tester.pumpWidget(_accountsApp(notifier));
+      await tester.pumpAndSettle();
+
+      // Cash section: $40 + $15.50 = $55.50. The EUR account is skipped
+      // because it isn't in the user's base currency (USD).
+      expect(
+        find.byKey(const ValueKey('type-total-cash')),
+        findsOneWidget,
+      );
+      final cashTotal = tester.widget<Text>(
+        find.byKey(const ValueKey('type-total-cash')),
+      );
+      expect(cashTotal.data, '\$55.50');
+
+      // Bank section: $200 + (-$50) = $150.
+      expect(
+        find.byKey(const ValueKey('type-total-bank')),
+        findsOneWidget,
+      );
+      final bankTotal = tester.widget<Text>(
+        find.byKey(const ValueKey('type-total-bank')),
+      );
+      expect(bankTotal.data, '\$150.00');
+
+      // Empty types (e.g. Credit Card) hide the total entirely.
+      expect(
+        find.byKey(const ValueKey('type-total-creditCard')),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets('account edit popup can edit every account model field', (
     tester,

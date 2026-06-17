@@ -14,12 +14,10 @@ import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
 import '../../categories/domain/category.dart';
-import '../domain/dashboard_due_item.dart';
 import '../domain/dashboard_summary.dart';
 import '../domain/dashboard_widget_preference.dart';
 import '../../transactions/domain/transaction.dart';
 import '../../transactions/presentation/transaction_form_screen.dart';
-import 'widgets/dashboard_due_items_widget.dart';
 
 class HomeDashboardScreen extends ConsumerStatefulWidget {
   const HomeDashboardScreen({super.key});
@@ -33,7 +31,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   Future<void> _refresh() async {
     await Future.wait([
       ref.refresh(dashboardSummaryProvider.future),
-      ref.refresh(dashboardDueItemsProvider.future),
       ref.refresh(transactionsProvider.future),
       ref.refresh(accountsProvider.future),
       ref.refresh(categoriesProvider.future),
@@ -43,7 +40,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
-    final dueItemsAsync = ref.watch(dashboardDueItemsProvider);
     final l10n = AppLocalizations.of(context);
 
     return Scaffold(
@@ -73,7 +69,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               for (var i = 0; i < _homeRows.length; i++)
                 Padding(
                   padding: EdgeInsets.only(top: i == 0 ? 0 : 16),
-                  child: _row(context, _homeRows[i], summary, dueItemsAsync),
+                  child: _row(context, _homeRows[i], summary),
                 ),
             ],
           ),
@@ -88,19 +84,14 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     BuildContext context,
     List<DashboardWidgetType> group,
     DashboardSummary summary,
-    AsyncValue<List<DashboardDueItem>> dueItemsAsync,
   ) {
     if (group.length == 2) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: _buildWidget(context, group[0], summary, dueItemsAsync),
-          ),
+          Expanded(child: _buildWidget(context, group[0], summary)),
           const SizedBox(width: 16),
-          Expanded(
-            child: _buildWidget(context, group[1], summary, dueItemsAsync),
-          ),
+          Expanded(child: _buildWidget(context, group[1], summary)),
         ],
       );
     }
@@ -109,20 +100,19 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: _buildWidget(context, only, summary, dueItemsAsync)),
+          Expanded(child: _buildWidget(context, only, summary)),
           const SizedBox(width: 16),
           const Expanded(child: SizedBox.shrink()),
         ],
       );
     }
-    return _buildWidget(context, only, summary, dueItemsAsync);
+    return _buildWidget(context, only, summary);
   }
 
   Widget _buildWidget(
     BuildContext context,
     DashboardWidgetType type,
     DashboardSummary summary,
-    AsyncValue<List<DashboardDueItem>> dueItemsAsync,
   ) {
     final l10n = AppLocalizations.of(context);
     return switch (type) {
@@ -146,19 +136,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       ),
       DashboardWidgetType.spendingCalendar => const _OverviewAnalyticsWidget(
         kind: _AnalyticsWidgetKind.spendingCalendar,
-      ),
-      DashboardWidgetType.dueItems => dueItemsAsync.when(
-        loading: () => FinanceCard(
-          title: l10n.upcomingDueDates,
-          icon: Icons.event_available_outlined,
-          child: const Text('Loading upcoming due dates…'),
-        ),
-        error: (error, stack) => FinanceCard(
-          title: l10n.upcomingDueDates,
-          icon: Icons.event_available_outlined,
-          child: Text(l10n.unableToLoadDueDates),
-        ),
-        data: (items) => DashboardDueItemsWidget(items: items),
       ),
       DashboardWidgetType.thisMonthOverview => _ThisMonthOverviewSection(
         summary: summary,
@@ -184,7 +161,6 @@ const _homeWidgets = <DashboardWidgetType>[
   DashboardWidgetType.netEarnings,
   DashboardWidgetType.categoryBudgets,
   DashboardWidgetType.spendingCalendar,
-  DashboardWidgetType.dueItems,
   DashboardWidgetType.totalBalance,
   DashboardWidgetType.thisMonthOverview,
   DashboardWidgetType.leftToSave,

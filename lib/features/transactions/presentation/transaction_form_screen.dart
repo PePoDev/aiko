@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/money/money.dart';
 import '../../../core/money/supported_currencies.dart';
 import '../../../theme/aiko_colors.dart';
@@ -46,7 +47,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _imagePicker = ImagePicker();
   final List<String> _tags = [];
   TransactionType _type = TransactionType.expense;
-  String _selectedCurrency = 'THB';
+  String _selectedCurrency = kDefaultBaseCurrency;
+
+  /// The user's preferred currency; used as the default for new entries and
+  /// when OCR/voice/autofill can't infer one. Falls back to the app default
+  /// until the profile loads.
+  String get _baseCurrency =>
+      ref.read(profileProvider).value?.baseCurrency ?? kDefaultBaseCurrency;
 
   // Live FX auto-fill state. Tracks the last "from>to" pair we fetched so we
   // don't refetch on every rebuild, and a flag for the in-flight spinner.
@@ -83,7 +90,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   void initState() {
     super.initState();
     final transaction = widget.initialTransaction;
-    if (transaction == null) return;
+    if (transaction == null) {
+      _selectedCurrency = _baseCurrency;
+      return;
+    }
 
     _titleController.text = transaction.merchant ?? '';
     _amountController.text = transaction.amount.amount.toString();
@@ -167,7 +177,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _type = newType;
       _titleController.clear();
       _amountController.clear();
-      _selectedCurrency = 'THB';
+      _selectedCurrency = _baseCurrency;
       _exchangeRateController.text = '1.00';
       _noteController.clear();
       _selectedCategoryId = null;
@@ -371,7 +381,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       autofill = await ocrService.scanWithCloudOcr(
         imageBytes: imageBytes,
         fileName: captured.name,
-        currency: 'THB',
+        currency: _baseCurrency,
       );
     } catch (_) {
       if (!mounted) return;
@@ -414,7 +424,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       type: TransactionType.expense,
       date: autofill.date ?? DateTime.now(),
       title: autofill.merchant ?? '',
-      currency: autofill.total?.currency ?? 'THB',
+      currency: autofill.total?.currency ?? _baseCurrency,
     );
   }
 
@@ -714,7 +724,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   void _parseVoiceCommand(String command) {
     try {
       const parser = VoiceTransactionParser();
-      final draft = parser.parse(command, now: DateTime.now());
+      final draft = parser.parse(
+        command,
+        now: DateTime.now(),
+        currency: _baseCurrency,
+      );
 
       _autofillForm(
         amount: draft.amount.amount.toDouble(),

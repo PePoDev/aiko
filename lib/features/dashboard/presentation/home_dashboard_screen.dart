@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/money/money.dart';
 import '../../../core/prediction/monte_carlo_engine.dart';
 import '../../../l10n/app_localizations.dart';
@@ -638,7 +639,10 @@ class _DailySpendingPanel extends ConsumerWidget {
         accentColor: AikoColors.warningOrange,
       ),
       data: (transactions) {
-        final used = _dailySpendingUsed(transactions);
+        final baseCurrency =
+            ref.watch(profileProvider).value?.baseCurrency ??
+            kDefaultBaseCurrency;
+        final used = _dailySpendingUsed(transactions, baseCurrency);
         // Daily Spending became a derived panel from transaction date instead
         // of a stored budget, so the "limit" half is intentionally dropped.
         // The "Today" caption frames the number as a fact, not a target.
@@ -653,10 +657,13 @@ class _DailySpendingPanel extends ConsumerWidget {
     );
   }
 
-  Money _dailySpendingUsed(List<FinanceTransaction> transactions) {
+  Money _dailySpendingUsed(
+    List<FinanceTransaction> transactions,
+    String baseCurrency,
+  ) {
     final today = DateTime.now();
     String? currency;
-    Money running = Money.zero('USD');
+    Money? running;
     for (final transaction in transactions) {
       if (!transaction.isExpense) continue;
       if (transaction.status != TransactionStatus.posted) continue;
@@ -667,9 +674,11 @@ class _DailySpendingPanel extends ConsumerWidget {
       }
       currency ??= transaction.amount.currency;
       if (transaction.amount.currency != currency) continue;
-      running = running + transaction.amount;
+      running = running == null
+          ? transaction.amount
+          : running + transaction.amount;
     }
-    return running;
+    return running ?? Money.zero(baseCurrency);
   }
 }
 
@@ -839,7 +848,10 @@ class _CashFlowMappingPanel extends ConsumerWidget {
           savings = totalIncome * 0.05;
         }
 
-        final currencyFormat = NumberFormat.simpleCurrency(name: 'USD');
+        final baseCurrency =
+            ref.watch(profileProvider).value?.baseCurrency ??
+            kDefaultBaseCurrency;
+        final currencyFormat = NumberFormat.simpleCurrency(name: baseCurrency);
 
         return FinanceCard(
           title: 'Cash flow mapping',

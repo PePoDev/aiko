@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/money/money.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/account.dart';
@@ -45,7 +46,10 @@ class _OnboardingAccountFormState extends ConsumerState<OnboardingAccountForm> {
       final balanceVal = Decimal.parse(_balanceController.text.trim());
       final institution = _institutionController.text.trim();
 
-      final money = Money(amount: balanceVal, currency: 'THB');
+      final currency =
+          ref.read(profileProvider).value?.baseCurrency ??
+          kDefaultBaseCurrency;
+      final money = Money(amount: balanceVal, currency: currency);
 
       final account = Account(
         id: const Uuid().v4(),

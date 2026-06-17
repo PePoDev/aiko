@@ -634,22 +634,8 @@ class _GroupBudgetTrailing extends StatelessWidget {
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               )
-            : Container(
-                key: const ValueKey('group-add-budget'),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AikoColors.warningOrange.withValues(alpha: 0.5),
-                  ),
-                ),
-                child: Text(
-                  '+ Budget',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AikoColors.warningOrange,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+            : _AddBudgetChip(
+                chipKey: const ValueKey('group-add-budget'),
               ),
       ),
     );
@@ -830,28 +816,40 @@ class _BudgetTrailing extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (amount != null) ...[amountText, const SizedBox(width: 8)],
-                  Container(
-                    key: ValueKey('category-$categoryId-add-budget'),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: AikoColors.warningOrange.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    child: Text(
-                      '+ Budget',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: AikoColors.warningOrange,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                  _AddBudgetChip(
+                    chipKey: ValueKey('category-$categoryId-add-budget'),
                   ),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+/// Quiet "+ Budget" affordance shown when no limit is set. Neutral outline so
+/// it sits back until tapped, rather than competing with real budget figures.
+class _AddBudgetChip extends StatelessWidget {
+  const _AddBudgetChip({required this.chipKey});
+
+  final Key chipKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    return Container(
+      key: chipKey,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Text(
+        '+ Budget',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: muted,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../brick/offline_model_mappers.dart';
 import '../../../brick/repository.dart';
 import '../../../brick/models/profile.model.dart';
@@ -27,8 +28,8 @@ class ProfileRepository {
         id: userId,
         displayName: email.contains('@') ? email.split('@').first : 'Aiko User',
         email: email,
-        baseCurrency: 'THB',
-        country: 'TH',
+        baseCurrency: kDefaultBaseCurrency,
+        country: kDefaultCountry,
         onboardingStatus: OnboardingStatus.notStarted,
         securityStatus: SecurityStatus.notConfigured,
         preferredTheme: resolveInitialTheme(),

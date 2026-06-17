@@ -257,7 +257,9 @@ const _languageOptions = [
 String _languageLabelFor(Locale locale) {
   for (final option in _languageOptions) {
     if (option.languageCode == locale.languageCode) {
-      return '${option.label} (${option.nativeLabel})';
+      return option.label == option.nativeLabel
+          ? option.label
+          : '${option.label} (${option.nativeLabel})';
     }
   }
   return 'Thai (ไทย)';

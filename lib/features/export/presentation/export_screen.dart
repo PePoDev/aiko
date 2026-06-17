@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/config/app_config.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../transactions/domain/transaction.dart';
@@ -95,7 +96,10 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
             .fold(0.0, (sum, tx) => sum + tx.amount.amount.toDouble());
         final double netVal = incomeVal - expenseVal;
 
-        final currencyFormat = NumberFormat.simpleCurrency(name: 'USD');
+        final baseCurrency =
+            ref.read(profileProvider).value?.baseCurrency ??
+            kDefaultBaseCurrency;
+        final currencyFormat = NumberFormat.simpleCurrency(name: baseCurrency);
 
         final StringBuffer rowsBuffer = StringBuffer();
         for (final tx in filtered) {

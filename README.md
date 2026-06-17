@@ -28,26 +28,6 @@ Cross-platform (iOS + Android) personal finance app built with Flutter + Supabas
 
 ---
 
-## Design Ideas
-
-The May 31, 2026 reference idea boards are implemented as in-app flows and supplemental detail states — coverage targets, not a separate theme. Existing feature screens are the source of truth; idea states integrate as subroutes, menu tools, or inline actions ([Route and Idea Coverage](#route-and-idea-coverage)). **Rule:** when an idea board overlaps an existing feature, improve that flow — never build a parallel screen.
-
-| Idea | Coverage |
-| --- | --- |
-| Idea 1 | Core app screens: splash, onboarding, login, dashboard, notifications, accounts, safe-to-spend |
-| Idea 2 | Transactions, transaction detail, add/split transaction, receipt review, search filters, categories, account detail |
-| Idea 3 | Budget, pace, safe-to-spend, goals, saving plans, cash flow, Sankey, reports, monthly report |
-| Idea 4 | Credit cards, debt payoff, loans, net worth, assets, portfolio, allocation, tax center, tax analytics |
-| Idea 5 | Ask Aiko, Aiko insights/review/optimize, calculators, learning hub, travel mode, settings, profile security |
-
-![Idea 1 core app screens](screenshots/idea-1.png)
-![Idea 2 transactions categories and accounts](screenshots/idea-2.png)
-![Idea 3 budget goals cash flow and reports](screenshots/idea-3.png)
-![Idea 4 credit debt portfolio and tax](screenshots/idea-4.png)
-![Idea 5 Aiko AI calculators settings and extras](screenshots/idea-5.png)
-
----
-
 ## Tech Stack
 
 | Component | Technology |

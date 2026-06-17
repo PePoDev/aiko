@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../app/providers.dart';
+import '../../../core/config/app_config.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../application/calculator_services.dart';
 
-class CalculatorDetailScreen extends StatefulWidget {
+class CalculatorDetailScreen extends ConsumerStatefulWidget {
   const CalculatorDetailScreen({required this.title, super.key});
 
   final String title;
 
   @override
-  State<CalculatorDetailScreen> createState() => _CalculatorDetailScreenState();
+  ConsumerState<CalculatorDetailScreen> createState() =>
+      _CalculatorDetailScreenState();
 }
 
-class _CalculatorDetailScreenState extends State<CalculatorDetailScreen> {
+class _CalculatorDetailScreenState
+    extends ConsumerState<CalculatorDetailScreen> {
   static const _service = CalculatorServices();
 
   late _CalculatorConfig _config;
@@ -419,7 +424,9 @@ class _CalculatorDetailScreenState extends State<CalculatorDetailScreen> {
   }
 
   String _formatCurrency(double value) {
-    return NumberFormat.simpleCurrency(name: 'USD').format(value);
+    final baseCurrency =
+        ref.read(profileProvider).value?.baseCurrency ?? kDefaultBaseCurrency;
+    return NumberFormat.simpleCurrency(name: baseCurrency).format(value);
   }
 
   String _formatPercent(double value) {

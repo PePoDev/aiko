@@ -65,10 +65,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isDirty(Profile profile) {
     if (!_initialised) return false;
     if (_displayNameController.text.trim() != profile.displayName) return true;
-    if (_fullNameController.text.trim() != (profile.fullName ?? ''))
+    if (_fullNameController.text.trim() != (profile.fullName ?? '')) {
       return true;
-    if (_phoneController.text.trim() != (profile.phoneNumber ?? ''))
+    }
+    if (_phoneController.text.trim() != (profile.phoneNumber ?? '')) {
       return true;
+    }
     if (_draft.gender != profile.gender) return true;
     if (_draft.dateOfBirth != profile.dateOfBirth) return true;
     if (_draft.avatarPath != profile.avatarPath) return true;

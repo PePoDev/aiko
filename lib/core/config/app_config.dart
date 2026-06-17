@@ -1,9 +1,9 @@
 /// Default values for the user's profile. Onboarding, the auth
-/// repository, and the profile repository all default to USD/US until the user
+/// repository, and the profile repository all default to THB/TH until the user
 /// picks something; the single source of truth lives here so a new entry point
 /// doesn't reintroduce a different default.
-const String kDefaultBaseCurrency = 'USD';
-const String kDefaultCountry = 'US';
+const String kDefaultBaseCurrency = 'THB';
+const String kDefaultCountry = 'TH';
 
 class AppConfig {
   const AppConfig({

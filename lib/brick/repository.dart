@@ -4,6 +4,7 @@ import 'package:brick_sqlite/memory_cache_provider.dart';
 import 'package:brick_supabase/brick_supabase.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart' show databaseFactory;
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show SupabaseClient;
 
 import '../core/config/app_config.dart';
@@ -46,8 +47,10 @@ class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
       return;
     }
 
+    final factory = kIsWeb ? databaseFactoryFfiWeb : databaseFactory;
+
     final (client, queue) = OfflineFirstWithSupabaseRepository.clientQueue(
-      databaseFactory: databaseFactory,
+      databaseFactory: factory,
       databasePath: 'aiko_offline_queue.sqlite',
       ignorePaths: const {'/auth/v1', '/storage/v1', '/functions/v1'},
       onReattempt: (request, statusCode) {
@@ -82,7 +85,7 @@ class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
       ),
       sqliteProvider: SqliteProvider(
         'aiko_offline.sqlite',
-        databaseFactory: databaseFactory,
+        databaseFactory: factory,
         modelDictionary: sqliteModelDictionary,
       ),
       migrations: migrations,

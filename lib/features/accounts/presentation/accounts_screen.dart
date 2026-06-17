@@ -71,7 +71,8 @@ class AccountsScreen extends ConsumerWidget {
                 if (section.accounts.isEmpty)
                   _AddAccountPlaceholder(
                     type: section.type,
-                    onTap: () => _showAccountForm(context),
+                    onTap: () =>
+                        _showAccountForm(context, initialType: section.type),
                   )
                 else
                   for (
@@ -137,26 +138,24 @@ class _AccountTypeHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final accent = _colorForAccount(type);
 
-    // A tinted "band" with a solid filled circle marks this as a group header,
-    // distinct from the account cards below (white cards, translucent icon
-    // tiles). Shape (solid vs translucent), the band background, and the bold
-    // label keep the cue working without relying on color alone.
-    return Container(
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+    // Plain section label (no filled band) so it doesn't clash with the rounded
+    // cards below. The accent comes through a small tinted tile matching the
+    // account rows; the bold label carries the cue without color alone.
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
       child: Row(
         children: [
           Container(
-            width: 38,
-            height: 38,
+            width: 28,
+            height: 28,
             alignment: Alignment.center,
-            decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
-            child: Icon(_iconForAccount(type), color: Colors.white, size: 20),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(_iconForAccount(type), color: accent, size: 17),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               '${_accountTypeLabel(type)} ($accountCount)',
@@ -172,9 +171,16 @@ class _AccountTypeHeader extends StatelessWidget {
   }
 }
 
-void _showAccountForm(BuildContext context, {Account? account}) {
+void _showAccountForm(
+  BuildContext context, {
+  Account? account,
+  AccountType? initialType,
+}) {
   Navigator.of(context).push<Account>(
-    MaterialPageRoute(builder: (_) => AccountFormScreen(account: account)),
+    MaterialPageRoute(
+      builder: (_) =>
+          AccountFormScreen(account: account, initialType: initialType),
+    ),
   );
 }
 
@@ -559,13 +565,8 @@ class _AccountTypeDetailsCard extends StatelessWidget {
   List<(String, String)> _rowsFor(AccountDetails d) {
     return switch (d) {
       CashDetails() => const [],
-      BankDetails() => [
-        if (d.accountNumberLast4 != null) ('Last 4', d.accountNumberLast4!),
-        if (d.accountHolderName != null) ('Holder', d.accountHolderName!),
-      ],
-      EWalletDetails() => [
-        if (d.linkedPhoneOrEmail != null) ('Contact', d.linkedPhoneOrEmail!),
-      ],
+      BankDetails() => const [],
+      EWalletDetails() => const [],
       CreditCardDetails() => [
         ('Statement day', '${d.statementDay}'),
         ('Due day', '${d.dueDay}'),
@@ -732,20 +733,31 @@ IconData _iconForAccount(AccountType type) {
   return switch (type) {
     AccountType.cash => Icons.wallet_outlined,
     AccountType.bank => Icons.account_balance_outlined,
+    AccountType.eWallet => Icons.account_balance_wallet_outlined,
     AccountType.creditCard => Icons.credit_card_outlined,
-    AccountType.investment => Icons.trending_up_outlined,
     AccountType.loan => Icons.handshake_outlined,
-    _ => Icons.account_balance_wallet_outlined,
+    AccountType.investment => Icons.trending_up_outlined,
+    AccountType.asset => Icons.diamond_outlined,
+    AccountType.liability => Icons.trending_down_outlined,
+    AccountType.goal => Icons.flag_outlined,
+    AccountType.other => Icons.category_outlined,
   };
 }
 
 Color _colorForAccount(AccountType type) {
+  // Semantic where it fits: green = savings/income, orange = bills/limits,
+  // red = debt, teal = portfolio/wealth. Reuses tokens, never one-off colors.
   return switch (type) {
     AccountType.cash => AikoColors.successGreen,
     AccountType.bank => AikoColors.deepBlue,
+    AccountType.eWallet => AikoColors.primaryBlue,
     AccountType.creditCard => AikoColors.warningOrange,
+    AccountType.loan => AikoColors.dangerRed,
     AccountType.investment => AikoColors.analyticsTeal,
-    _ => AikoColors.primaryBlue,
+    AccountType.asset => AikoColors.analyticsTeal,
+    AccountType.liability => AikoColors.dangerRed,
+    AccountType.goal => AikoColors.successGreen,
+    AccountType.other => AikoColors.primaryBlue,
   };
 }
 

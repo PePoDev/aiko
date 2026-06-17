@@ -24,9 +24,13 @@ import 'subforms/loan_subform.dart';
 import 'subforms/other_subform.dart';
 
 class AccountFormScreen extends ConsumerStatefulWidget {
-  const AccountFormScreen({super.key, this.account});
+  const AccountFormScreen({super.key, this.account, this.initialType});
 
   final Account? account;
+
+  /// Pre-selects the account type when creating a new account (ignored when
+  /// [account] is provided, since an existing account carries its own type).
+  final AccountType? initialType;
 
   @override
   ConsumerState<AccountFormScreen> createState() => _AccountFormScreenState();
@@ -58,7 +62,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
   void initState() {
     super.initState();
     final a = widget.account;
-    _type = a?.type ?? AccountType.cash;
+    _type = a?.type ?? widget.initialType ?? AccountType.cash;
     _currency = a?.currency ?? 'THB';
     _details = a?.details ?? AccountDetails.defaultFor(_type);
     _nameController.text = a?.name ?? '';
@@ -101,16 +105,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         key: ValueKey(_type),
         child: switch (_type) {
           AccountType.cash => const CashSubform(),
-          AccountType.bank => BankSubform(
-            key: const ValueKey('bank'),
-            initial: _details as BankDetails,
-            onChanged: (d) => setState(() => _details = d),
-          ),
-          AccountType.eWallet => EWalletSubform(
-            key: const ValueKey('ew'),
-            initial: _details as EWalletDetails,
-            onChanged: (d) => setState(() => _details = d),
-          ),
+          AccountType.bank => const BankSubform(),
+          AccountType.eWallet => const EWalletSubform(),
           AccountType.creditCard => CreditCardSubform(
             key: _subformKey,
             initial: _details as CreditCardDetails,

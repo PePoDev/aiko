@@ -43,46 +43,15 @@ class CashDetails extends AccountDetails {
 }
 
 class BankDetails extends AccountDetails {
-  const BankDetails({this.accountNumberLast4, this.accountHolderName});
-  final String? accountNumberLast4;
-  final String? accountHolderName;
+  const BankDetails();
   @override
   String get variantName => 'bank';
-
-  BankDetails copyWith({
-    String? accountNumberLast4,
-    String? accountHolderName,
-  }) => BankDetails(
-    accountNumberLast4: accountNumberLast4 ?? this.accountNumberLast4,
-    accountHolderName: accountHolderName ?? this.accountHolderName,
-  );
-
-  @override
-  bool operator ==(Object other) =>
-      other is BankDetails &&
-      other.accountNumberLast4 == accountNumberLast4 &&
-      other.accountHolderName == accountHolderName;
-
-  @override
-  int get hashCode => Object.hash(accountNumberLast4, accountHolderName);
 }
 
 class EWalletDetails extends AccountDetails {
-  const EWalletDetails({this.linkedPhoneOrEmail});
-  final String? linkedPhoneOrEmail;
+  const EWalletDetails();
   @override
   String get variantName => 'eWallet';
-
-  EWalletDetails copyWith({String? linkedPhoneOrEmail}) => EWalletDetails(
-    linkedPhoneOrEmail: linkedPhoneOrEmail ?? this.linkedPhoneOrEmail,
-  );
-
-  @override
-  bool operator ==(Object other) =>
-      other is EWalletDetails && other.linkedPhoneOrEmail == linkedPhoneOrEmail;
-
-  @override
-  int get hashCode => linkedPhoneOrEmail.hashCode;
 }
 
 class CreditCardDetails extends AccountDetails {

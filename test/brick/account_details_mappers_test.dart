@@ -8,8 +8,8 @@ void main() {
   test('round-trips every variant', () {
     final samples = <AccountDetails>[
       const CashDetails(),
-      const BankDetails(accountNumberLast4: '1234', accountHolderName: 'A'),
-      const EWalletDetails(linkedPhoneOrEmail: 'a@b.c'),
+      const BankDetails(),
+      const EWalletDetails(),
       CreditCardDetails(
         creditLimit: Money.parse('5000', 'USD'),
         statementDay: 15,

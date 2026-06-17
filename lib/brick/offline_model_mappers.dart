@@ -386,10 +386,8 @@ Map<String, dynamic> accountDetailsToJson(AccountDetails d) {
     case CashDetails():
       break;
     case BankDetails():
-      base['accountNumberLast4'] = d.accountNumberLast4;
-      base['accountHolderName'] = d.accountHolderName;
     case EWalletDetails():
-      base['linkedPhoneOrEmail'] = d.linkedPhoneOrEmail;
+      break;
     case CreditCardDetails():
       base['creditLimit'] = d.creditLimit?.toJson();
       base['statementDay'] = d.statementDay;
@@ -429,13 +427,8 @@ AccountDetails accountDetailsFromJson(Map<String, dynamic>? json) {
   final type = json['_type'] as String?;
   return switch (type) {
     'cash' => const CashDetails(),
-    'bank' => BankDetails(
-      accountNumberLast4: json['accountNumberLast4'] as String?,
-      accountHolderName: json['accountHolderName'] as String?,
-    ),
-    'eWallet' => EWalletDetails(
-      linkedPhoneOrEmail: json['linkedPhoneOrEmail'] as String?,
-    ),
+    'bank' => const BankDetails(),
+    'eWallet' => const EWalletDetails(),
     'creditCard' => CreditCardDetails(
       creditLimit: _moneyFromJson(json['creditLimit']),
       statementDay: (json['statementDay'] as int?) ?? 1,

@@ -1,45 +1,32 @@
-// Aiko Chat — Supabase Edge Function
-// Multi-provider streaming chat backend with automatic fallback.
+// Aiko Chat — Supabase Edge Function.
+// Streams Chat Completions from OpenAI-compatible providers as SSE, with
+// automatic fallback across a code-defined chain. Validates the caller's
+// Supabase JWT, folds an on-device financial snapshot (Layer 1) into the
+// system prompt, and lets the model call a fixed allow-list of read-only
+// Postgres RPCs (Layer 2). Each chunk is `data: {"delta":"..."}\n\n`, ending
+// `data: {"done":true}`.
 //
-// Streams Chat Completions from any OpenAI-compatible provider as Server-Sent
-// Events to the Aiko mobile assistant. Multiple providers are defined in
-// code as presets (see PROVIDER_* below); each has its own base URL and API
-// key env var. A fixed chain of (provider, model) entries is tried in order
-// and the runtime falls back to the next on failure (network error, non-2xx,
-// or a stream that dies before any token is emitted).
-//
-// The function validates the caller's Supabase JWT, applies a per-user
-// rate limit, folds the client's on-device financial snapshot (Layer 1)
-// into the system prompt, and lets the model pull deeper data through
-// read-only Postgres RPCs (Layer 2). Each SSE
-// chunk is `data: {"delta":"..."}\n\n` with a final `data: {"done":true}`.
-//
-// Security model: provider keys live only here (never on the client). All
-// data access runs through the caller's JWT, so Postgres RLS scopes every
-// read to that user. The function never executes model-supplied SQL, and
-// only calls a fixed allow-list of read-only RPCs.
-//
-// LINE bot (merged in): a POST carrying an `x-line-signature` header is the
-// LINE webhook. We verify LINE's HMAC signature, look up the linked Supabase
-// user (service-role, server-side only — an inbound LINE event has no JWT),
-// refresh that user's access token, run the *same* chat pipeline in-process
-// (no second HTTP hop), and reply through the LINE Messaging API. This is the
-// only place the service-role key is used, and only to read/rotate the LINE
-// link — per-user data access still flows through that user's JWT into the
-// RLS-scoped client. Because LINE requests carry no Supabase JWT, deploy this
-// function with `--no-verify-jwt`; the app chat path still validates the JWT
-// itself below (getUser), so dropping gateway verification is safe.
+// Provider keys live only here. All data access runs under the caller's JWT
+// (RLS-scoped); the function never runs model-supplied SQL. A POST carrying
+// `x-line-signature` is the LINE webhook (signature verified in-code, linked
+// user's token refreshed, same pipeline run in-process) — deploy with
+// `--no-verify-jwt`; the app path still validates the JWT via getUser.
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  createClient,
+  SupabaseClient,
+} from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 // ---- LINE bot config ----
 const LINE_CHANNEL_SECRET = Deno.env.get("LINE_CHANNEL_SECRET") ?? "";
-const LINE_CHANNEL_ACCESS_TOKEN = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN") ?? "";
+const LINE_CHANNEL_ACCESS_TOKEN = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN") ??
+  "";
 const PAIRING_TTL_MIN = 10;
 const LINE_REPLY_ENDPOINT = "https://api.line.me/v2/bot/message/reply";
 const MAX_LINE_TEXT = 4800; // LINE caps a text message at 5000 chars.
-const LINE_FALLBACK = "Aiko is having trouble right now. Please try again in a moment.";
+const LINE_FALLBACK =
+  "Aiko is having trouble right now. Please try again in a moment.";
 
 const SYSTEM_PROMPT = [
   "You are Aiko, a friendly, warm, and supportive personal finance companion in the Aiko app.",
@@ -52,103 +39,61 @@ const SYSTEM_PROMPT = [
   "If the user asks something unrelated to personal finance, gently steer back: 'I'm best with money questions — want to ask me about your spending, budgets, or goals?'",
 ].join(" ");
 
-// ============================================================
-// PROVIDER PRESETS — code-defined
-// ============================================================
-//
-// Each provider is an OpenAI-compatible Chat Completions endpoint. To add a
-// provider: (1) declare a PROVIDER_* entry below, (2) register it in
-// PROVIDERS, (3) set the matching AI_KEY_<id> secret, (4) add it to the
-// ACTIVE_CHAIN. Per-provider timeouts live in REQUEST_TIMEOUT_MS.
+// ---- Providers & active chain ----
+// Each provider is an OpenAI-compatible Chat Completions endpoint. Add one:
+// declare it below, set its AI_KEY_<id> secret, add an entry to ACTIVE_CHAIN.
+// The runtime tries ACTIVE_CHAIN in order; on a failure (network error,
+// non-2xx, or a stream that dies before any token) it moves to the next.
 
-interface ProviderPreset {
-  readonly id: string;            // kebab-case id used in chains and env keys
-  readonly label: string;         // human-readable name
-  readonly baseUrl: string;       // provider's /v1 endpoint, no trailing slash
-  readonly apiKeyEnv: string;     // env var that holds the provider's API key
-  readonly supportsTools: boolean; // can the provider handle tool/function calling?
-  readonly models: readonly string[]; // canonical models (documentation only)
-}
-
-interface ChainEntry {
-  readonly providerId: string;
-  readonly model: string;
+interface Provider {
+  readonly id: string;
+  readonly label: string;
+  readonly baseUrl: string;
+  readonly apiKeyEnv: string;
 }
 
 interface ActiveModel {
-  readonly provider: ProviderPreset;
+  readonly provider: Provider;
   readonly model: string;
   readonly apiKey: string;
 }
 
-// ----- DEFINE PROVIDER 1: DeepSeek -----
-const PROVIDER_DEEPSEEK: ProviderPreset = {
-  id: "deepseek",
-  label: "DeepSeek",
-  baseUrl: "https://api.deepseek.com/v1",
-  apiKeyEnv: "AI_KEY_DEEPSEEK",
-  supportsTools: true,
-  models: ["deepseek-v4-flash", "deepseek-chat", "deepseek-reasoner"],
+const PROVIDERS: Record<string, Provider> = {
+  deepseek: {
+    id: "deepseek",
+    label: "DeepSeek",
+    baseUrl: "https://api.deepseek.com/v1",
+    apiKeyEnv: "AI_KEY_DEEPSEEK",
+  },
+  gemini: {
+    id: "gemini",
+    label: "Google Gemini",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    apiKeyEnv: "AI_KEY_GEMINI",
+  },
+  openai: {
+    id: "openai",
+    label: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    apiKeyEnv: "AI_KEY_OPENAI",
+  },
 };
 
-// ----- DEFINE PROVIDER 2: Google Gemini (OpenAI-compatible) -----
-const PROVIDER_GEMINI: ProviderPreset = {
-  id: "gemini",
-  label: "Google Gemini (OpenAI-compatible)",
-  baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-  apiKeyEnv: "AI_KEY_GEMINI",
-  supportsTools: true,
-  models: ["gemini-flash", "gemini-2.0-flash", "gemini-1.5-pro"],
-};
-
-// ----- DEFINE PROVIDER 3: OpenAI -----
-const PROVIDER_OPENAI: ProviderPreset = {
-  id: "openai",
-  label: "OpenAI",
-  baseUrl: "https://api.openai.com/v1",
-  apiKeyEnv: "AI_KEY_OPENAI",
-  supportsTools: true,
-  models: ["gpt-oss-120b", "gpt-4o-mini", "gpt-4o"],
-};
-
-const PROVIDERS: Record<string, ProviderPreset> = {
-  [PROVIDER_DEEPSEEK.id]: PROVIDER_DEEPSEEK,
-  [PROVIDER_GEMINI.id]: PROVIDER_GEMINI,
-  [PROVIDER_OPENAI.id]: PROVIDER_OPENAI,
-};
-
-// ----- ACTIVE CHAIN -----
-//
-// The fixed fallback order: cheap fast model first, two solid backups. The
-// runtime tries entries in order; on a failure (network error, non-2xx, or a
-// stream that dies before any token), it moves to the next entry. The chain
-// stops at the first successful response. Edit this list (and the PROVIDER_*
-// entries above) to change the providers/models in use.
-
-const ACTIVE_CHAIN: readonly ChainEntry[] = [
+const ACTIVE_CHAIN: readonly { providerId: string; model: string }[] = [
   { providerId: "deepseek", model: "deepseek-v4-flash" },
   { providerId: "gemini", model: "gemini-flash" },
   { providerId: "openai", model: "gpt-oss-120b" },
 ];
 
-// Resolve the active chain at request time, skipping entries whose provider
-// or key isn't configured (a missing AI_KEY_* silently drops that entry — the
-// runtime just moves to the next one).
+// Skip entries whose provider/key isn't configured (missing AI_KEY_* drops
+// the entry silently — runtime just moves to the next).
 function buildActiveChain(): ActiveModel[] {
-  const out: ActiveModel[] = [];
-  for (const entry of ACTIVE_CHAIN) {
+  return ACTIVE_CHAIN.flatMap((entry) => {
     const provider = PROVIDERS[entry.providerId];
-    if (!provider) continue;
-    const key = Deno.env.get(provider.apiKeyEnv);
-    if (!key) continue;
-    out.push({ provider, model: entry.model, apiKey: key });
-  }
-  return out;
+    const apiKey = provider ? Deno.env.get(provider.apiKeyEnv) : undefined;
+    return provider && apiKey ? [{ provider, model: entry.model, apiKey }] : [];
+  });
 }
-
-// ============================================================
-// Layer 2 tool toggle, request timeout
-// ============================================================
 
 const MAX_TOOL_ROUNDS = 4;
 const REQUEST_TIMEOUT_MS = 60_000;
@@ -204,6 +149,14 @@ function financialContextBlock(ctx: unknown): string {
   ].join("\n");
 }
 
+function systemPromptFor(
+  baseCurrency: string,
+  financialContext?: unknown,
+): string {
+  return `${SYSTEM_PROMPT}\n\nUser's base currency: ${baseCurrency}. Always render currency with that code.` +
+    financialContextBlock(financialContext);
+}
+
 // ---- Layer 2: read-only tool catalog (mirrors the SQL RPCs) ----
 // Always on. Each tool maps 1:1 to a SECURITY INVOKER Postgres function, so
 // RLS keeps results scoped to the calling user.
@@ -216,7 +169,11 @@ const TOOLS = [
     function: {
       name: "aiko_account_summary",
       description: "Net worth and the balance/type of each active account.",
-      parameters: { type: "object", properties: {}, additionalProperties: false },
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
     },
   },
   {
@@ -236,7 +193,8 @@ const TOOLS = [
     type: "function",
     function: {
       name: "aiko_spending_by_category",
-      description: "Total expense per category between two dates (highest first).",
+      description:
+        "Total expense per category between two dates (highest first).",
       parameters: {
         type: "object",
         properties: { start_date: DATE, end_date: DATE },
@@ -262,7 +220,8 @@ const TOOLS = [
     type: "function",
     function: {
       name: "aiko_recent_transactions",
-      description: "The most recent transactions (date, type, amount, merchant, category).",
+      description:
+        "The most recent transactions (date, type, amount, merchant, category).",
       parameters: {
         type: "object",
         properties: {
@@ -276,8 +235,13 @@ const TOOLS = [
     type: "function",
     function: {
       name: "aiko_goal_progress",
-      description: "Active savings goals with current/target amount and percent complete.",
-      parameters: { type: "object", properties: {}, additionalProperties: false },
+      description:
+        "Active savings goals with current/target amount and percent complete.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
     },
   },
 ];
@@ -303,7 +267,12 @@ async function runTool(
 
   if (name === "aiko_recent_transactions") {
     const n = Number((args as { max_rows?: unknown }).max_rows ?? 20);
-    args = { max_rows: Math.min(Math.max(Number.isFinite(n) ? Math.trunc(n) : 20, 1), 50) };
+    args = {
+      max_rows: Math.min(
+        Math.max(Number.isFinite(n) ? Math.trunc(n) : 20, 1),
+        50,
+      ),
+    };
   }
 
   try {
@@ -325,9 +294,26 @@ interface ProviderPayload {
   tools?: unknown[];
 }
 
+function payloadFor(
+  entry: ActiveModel,
+  messages: ChatMessage[],
+  opts: { stream: boolean; tools?: unknown[] },
+): ProviderPayload {
+  return {
+    model: entry.model,
+    messages,
+    temperature: 0.4,
+    stream: opts.stream,
+    ...(opts.tools ? { tools: opts.tools } : {}),
+  };
+}
+
 function withTimeout(ms: number): { signal: AbortSignal; cancel: () => void } {
   const c = new AbortController();
-  const t = setTimeout(() => c.abort(new Error(`Request timed out after ${ms}ms`)), ms);
+  const t = setTimeout(
+    () => c.abort(new Error(`Request timed out after ${ms}ms`)),
+    ms,
+  );
   return { signal: c.signal, cancel: () => clearTimeout(t) };
 }
 
@@ -359,13 +345,11 @@ async function tryResolveTools(
     const { signal, cancel } = withTimeout(REQUEST_TIMEOUT_MS);
     let resp: Response;
     try {
-      resp = await providerFetch(entry, {
-        model: entry.model,
-        messages,
-        stream: false,
-        temperature: 0.4,
-        tools: TOOLS,
-      }, signal);
+      resp = await providerFetch(
+        entry,
+        payloadFor(entry, messages, { stream: false, tools: TOOLS }),
+        signal,
+      );
     } catch {
       cancel();
       return false;
@@ -376,7 +360,9 @@ async function tryResolveTools(
     const json = await resp.json().catch(() => null);
     const message = json?.choices?.[0]?.message;
     const toolCalls = message?.tool_calls;
-    if (!message || !Array.isArray(toolCalls) || toolCalls.length === 0) return true;
+    if (!message || !Array.isArray(toolCalls) || toolCalls.length === 0) {
+      return true;
+    }
 
     messages.push({
       role: "assistant",
@@ -385,7 +371,11 @@ async function tryResolveTools(
     });
 
     for (const call of toolCalls) {
-      const result = await runTool(supabase, call?.function?.name, call?.function?.arguments);
+      const result = await runTool(
+        supabase,
+        call?.function?.name,
+        call?.function?.arguments,
+      );
       messages.push({ role: "tool", tool_call_id: call.id, content: result });
     }
   }
@@ -401,7 +391,6 @@ async function resolveToolsWithChain(
   chain: ActiveModel[],
 ): Promise<void> {
   for (const entry of chain) {
-    if (!entry.provider.supportsTools) continue;
     if (await tryResolveTools(supabase, messages, entry)) return;
   }
 }
@@ -422,7 +411,7 @@ interface ChatSink {
 // final `error` event.
 async function streamWithFallback(
   chain: ActiveModel[],
-  buildPayload: (entry: ActiveModel) => ProviderPayload,
+  messages: ChatMessage[],
   sink: ChatSink,
 ): Promise<void> {
   const decoder = new TextDecoder();
@@ -433,10 +422,18 @@ async function streamWithFallback(
     const { signal, cancel } = withTimeout(REQUEST_TIMEOUT_MS);
     let upstream: Response;
     try {
-      upstream = await providerFetch(entry, buildPayload(entry), signal);
+      upstream = await providerFetch(
+        entry,
+        payloadFor(entry, messages, { stream: true }),
+        signal,
+      );
     } catch (e) {
       cancel();
-      attempts.push({ provider: entry.provider.label, model: entry.model, error: (e as Error).message });
+      attempts.push({
+        provider: entry.provider.label,
+        model: entry.model,
+        error: (e as Error).message,
+      });
       continue;
     }
     cancel();
@@ -468,7 +465,9 @@ async function streamWithFallback(
           const payload = trimmed.slice(5).trim();
           if (payload === "[DONE]") {
             sink.done();
-            try { reader.releaseLock(); } catch { /* noop */ }
+            try {
+              reader.releaseLock();
+            } catch { /* noop */ }
             return;
           }
           try {
@@ -484,12 +483,16 @@ async function streamWithFallback(
         }
       }
       sink.done();
-      try { reader.releaseLock(); } catch { /* noop */ }
+      try {
+        reader.releaseLock();
+      } catch { /* noop */ }
       return;
     } catch (e) {
       failError = (e as Error).message;
     } finally {
-      try { reader.releaseLock(); } catch { /* noop */ }
+      try {
+        reader.releaseLock();
+      } catch { /* noop */ }
     }
 
     attempts.push({
@@ -504,7 +507,8 @@ async function streamWithFallback(
     return;
   }
 
-  const summary = attempts.map((a) => `${a.provider}/${a.model}: ${a.error}`).join(" | ");
+  const summary = attempts.map((a) => `${a.provider}/${a.model}: ${a.error}`)
+    .join(" | ");
   sink.fail(`All providers failed — ${summary}`, "PROVIDER_DOWN");
 }
 
@@ -515,7 +519,10 @@ async function streamWithFallback(
 const encoder = new TextEncoder();
 
 // Verify LINE's HMAC-SHA256 signature over the raw body.
-async function verifyLineSignature(rawBody: string, signature: string | null): Promise<boolean> {
+async function verifyLineSignature(
+  rawBody: string,
+  signature: string | null,
+): Promise<boolean> {
   if (!signature || !LINE_CHANNEL_SECRET) return false;
   const key = await crypto.subtle.importKey(
     "raw",
@@ -528,7 +535,9 @@ async function verifyLineSignature(rawBody: string, signature: string | null): P
   const expected = btoa(String.fromCharCode(...new Uint8Array(mac)));
   if (expected.length !== signature.length) return false;
   let diff = 0;
-  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+  for (let i = 0; i < expected.length; i++) {
+    diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+  }
   return diff === 0;
 }
 
@@ -558,7 +567,7 @@ function newPairingCode(): string {
 }
 
 async function startPairing(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   lineUserId: string,
 ): Promise<string> {
   const code = newPairingCode();
@@ -578,7 +587,7 @@ interface LinkRow {
 // Exchange the stored refresh token for a fresh access token and rotate the
 // stored one. Returns null if the link can't be refreshed (user must re-link).
 async function freshAccessToken(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   lineUserId: string,
   link: LinkRow,
 ): Promise<string | null> {
@@ -588,12 +597,17 @@ async function freshAccessToken(
   const anon = createClient(supabaseUrl, supabaseAnon, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data, error } = await anon.auth.refreshSession({ refresh_token: link.refresh_token });
+  const { data, error } = await anon.auth.refreshSession({
+    refresh_token: link.refresh_token,
+  });
   if (error || !data.session) return null;
 
   await admin
     .from("line_links")
-    .update({ refresh_token: data.session.refresh_token, updated_at: new Date().toISOString() })
+    .update({
+      refresh_token: data.session.refresh_token,
+      updated_at: new Date().toISOString(),
+    })
     .eq("line_user_id", lineUserId);
 
   return data.session.access_token;
@@ -617,14 +631,14 @@ async function runAikoChat(accessToken: string, text: string): Promise<string> {
 
   // No on-device snapshot over LINE (Layer 1). Pull base currency so money is
   // labelled correctly; Layer 2 tools (when enabled) fetch the rest.
-  const { data: profile } = await supabase.from("profiles").select("base_currency").maybeSingle();
-  const baseCurrency = (profile as { base_currency?: string } | null)?.base_currency ?? "USD";
+  const { data: profile } = await supabase.from("profiles").select(
+    "base_currency",
+  ).maybeSingle();
+  const baseCurrency =
+    (profile as { base_currency?: string } | null)?.base_currency ?? "USD";
 
   const messages: ChatMessage[] = [
-    {
-      role: "system",
-      content: `${SYSTEM_PROMPT}\n\nUser's base currency: ${baseCurrency}. Always render currency with that code.`,
-    },
+    { role: "system", content: systemPromptFor(baseCurrency) },
     { role: "user", content: text },
   ];
 
@@ -632,22 +646,19 @@ async function runAikoChat(accessToken: string, text: string): Promise<string> {
 
   let answer = "";
   const sink: ChatSink = {
-    delta: (t) => { answer += t; },
+    delta: (t) => {
+      answer += t;
+    },
     done: () => {},
     fail: () => {},
   };
-  await streamWithFallback(chain, (entry) => ({
-    model: entry.model,
-    messages,
-    stream: true,
-    temperature: 0.4,
-  }), sink);
+  await streamWithFallback(chain, messages, sink);
 
   return answer.trim() || LINE_FALLBACK;
 }
 
 async function handleTextMessage(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   lineUserId: string,
   replyToken: string,
   text: string,
@@ -667,7 +678,10 @@ async function handleTextMessage(
   if (!token) {
     await replyToLine(
       replyToken,
-      `Your Aiko sign-in expired — let's reconnect.\n\n${await startPairing(admin, lineUserId)}`,
+      `Your Aiko sign-in expired — let's reconnect.\n\n${await startPairing(
+        admin,
+        lineUserId,
+      )}`,
     );
     return;
   }
@@ -690,17 +704,28 @@ async function handleLineEvents(rawBody: string): Promise<void> {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  for (const event of events as Array<Record<string, any>>) {
-    const lineUserId = event?.source?.userId;
+  for (const event of events as Array<Record<string, unknown>>) {
+    const lineUserId = (event?.source as Record<string, unknown> | undefined)
+      ?.userId;
     const replyToken = event?.replyToken;
-    if (!lineUserId || !replyToken) continue;
+    if (typeof lineUserId !== "string" || typeof replyToken !== "string") {
+      continue;
+    }
 
     if (event.type === "follow") {
       await replyToLine(replyToken, await startPairing(admin, lineUserId));
       continue;
     }
-    if (event.type === "message" && event.message?.type === "text") {
-      await handleTextMessage(admin, lineUserId, replyToken, String(event.message.text ?? ""));
+    if (event.type === "message") {
+      const message = event.message as Record<string, unknown> | undefined;
+      if (message?.type === "text") {
+        await handleTextMessage(
+          admin,
+          lineUserId,
+          replyToken,
+          String(message.text ?? ""),
+        );
+      }
     }
   }
 }
@@ -709,7 +734,8 @@ async function handleLineEvents(rawBody: string): Promise<void> {
 // JWT). Verifies the signature itself and never trusts unsigned POSTs.
 async function handleLineWebhook(req: Request): Promise<Response> {
   if (
-    !Deno.env.get("SUPABASE_URL") || !Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
+    !Deno.env.get("SUPABASE_URL") ||
+    !Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
     !LINE_CHANNEL_SECRET || !LINE_CHANNEL_ACCESS_TOKEN
   ) {
     // Misconfigured — ack so LINE doesn't retry endlessly, but do nothing.
@@ -717,7 +743,9 @@ async function handleLineWebhook(req: Request): Promise<Response> {
   }
 
   const rawBody = await req.text();
-  if (!(await verifyLineSignature(rawBody, req.headers.get("x-line-signature")))) {
+  if (
+    !(await verifyLineSignature(rawBody, req.headers.get("x-line-signature")))
+  ) {
     return new Response("Bad signature", { status: 401 });
   }
 
@@ -742,19 +770,28 @@ serve(async (req) => {
   }
 
   if (req.method !== "POST") {
-    return jsonResponse(405, { error: "Method not allowed", code: "METHOD_NOT_ALLOWED" });
+    return jsonResponse(405, {
+      error: "Method not allowed",
+      code: "METHOD_NOT_ALLOWED",
+    });
   }
 
   const authHeader = req.headers.get("authorization") ?? "";
   const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (!jwt) {
-    return jsonResponse(401, { error: "Missing bearer token", code: "NO_TOKEN" });
+    return jsonResponse(401, {
+      error: "Missing bearer token",
+      code: "NO_TOKEN",
+    });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseAnon = Deno.env.get("SUPABASE_ANON_KEY");
   if (!supabaseUrl || !supabaseAnon) {
-    return jsonResponse(500, { error: "Server is not configured", code: "MISCONFIGURED" });
+    return jsonResponse(500, {
+      error: "Server is not configured",
+      code: "MISCONFIGURED",
+    });
   }
 
   // Anon client carrying the caller's JWT → every query/RPC is RLS-scoped to
@@ -776,13 +813,17 @@ serve(async (req) => {
     return jsonResponse(400, { error: "Invalid JSON", code: "BAD_JSON" });
   }
   if (!isRequestBody(body)) {
-    return jsonResponse(400, { error: "messages array is required", code: "BAD_REQUEST" });
+    return jsonResponse(400, {
+      error: "messages array is required",
+      code: "BAD_REQUEST",
+    });
   }
 
   const chain = buildActiveChain();
   if (chain.length === 0) {
     return jsonResponse(500, {
-      error: "Server is missing AI provider configuration. Set at least one AI_KEY_* secret matching an entry in the active chain.",
+      error:
+        "Server is missing AI provider configuration. Set at least one AI_KEY_* secret matching an entry in the active chain.",
       code: "MISSING_PROVIDER_KEY",
     });
   }
@@ -791,13 +832,16 @@ serve(async (req) => {
     (typeof body.financialContext?.baseCurrency === "string"
       ? (body.financialContext.baseCurrency as string)
       : "USD");
-  const systemWithContext =
-    `${SYSTEM_PROMPT}\n\nUser's base currency: ${baseCurrency}. Always render currency with that code.` +
-    financialContextBlock(body.financialContext);
 
   const messages: ChatMessage[] = [
-    { role: "system", content: systemWithContext },
-    ...body.messages.slice(-20).map((m) => ({ role: m.role, content: m.content })),
+    {
+      role: "system",
+      content: systemPromptFor(baseCurrency, body.financialContext),
+    },
+    ...body.messages.slice(-20).map((m) => ({
+      role: m.role,
+      content: m.content,
+    })),
   ];
 
   // Layer 2: let the model pull deeper data first.
@@ -812,19 +856,20 @@ serve(async (req) => {
         delta: (t) => controller.enqueue(sseEvent({ delta: t })),
         done: () => {
           controller.enqueue(sseEvent({ done: true }));
-          try { controller.close(); } catch { /* noop */ }
+          try {
+            controller.close();
+          } catch { /* noop */ }
         },
         fail: (msg, code) => {
-          controller.enqueue(sseEvent(code ? { error: msg, code } : { error: msg }));
-          try { controller.close(); } catch { /* noop */ }
+          controller.enqueue(
+            sseEvent(code ? { error: msg, code } : { error: msg }),
+          );
+          try {
+            controller.close();
+          } catch { /* noop */ }
         },
       };
-      await streamWithFallback(chain, (entry) => ({
-        model: entry.model,
-        messages,
-        stream: true,
-        temperature: 0.4,
-      }), sink);
+      await streamWithFallback(chain, messages, sink);
     },
   });
 

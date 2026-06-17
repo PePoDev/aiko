@@ -124,6 +124,12 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
         title: _UserProfileIcon(profile: profile),
         actions: [
           IconButton(
+            key: const ValueKey('chat-notifications-icon'),
+            tooltip: 'Notifications',
+            icon: const Icon(Icons.notifications_none),
+            onPressed: () => context.push('/notifications'),
+          ),
+          IconButton(
             key: const ValueKey('chat-settings-icon'),
             tooltip: 'Settings',
             icon: const Icon(Icons.settings_outlined),

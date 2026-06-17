@@ -162,6 +162,10 @@ void main() {
     await tester.pump();
 
     expect(find.byTooltip('Profile'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('chat-notifications-icon')),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('chat-settings-icon')), findsOneWidget);
     // The clear action is gone — chat sessions are no longer saved.
     expect(find.byTooltip('Clear chat'), findsNothing);

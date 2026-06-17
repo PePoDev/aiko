@@ -514,88 +514,85 @@ class _GroupHeader extends StatelessWidget {
         : '$categoryCount ${categoryCount == 1 ? 'category' : 'categories'}';
     return InkWell(
       onTap: onToggle,
-      child: ColoredBox(
-        color: color.withValues(alpha: 0.08),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(icon, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          title,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          subtitle,
-                          key: ValueKey('group-${title.toLowerCase()}-count'),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  _GroupBudgetTrailing(
-                    total: total,
-                    budget: budget,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
                     color: color,
-                    onTap: onBudgetTap,
+                    shape: BoxShape.circle,
                   ),
-                  if (onEdit != null)
-                    IconButton(
-                      icon: const Icon(Icons.tune, size: 18),
-                      tooltip: 'Edit group',
-                      visualDensity: VisualDensity.compact,
-                      color: theme.colorScheme.onSurfaceVariant,
-                      onPressed: onEdit,
-                    )
-                  else
-                    const SizedBox(width: 8),
-                  AnimatedRotation(
-                    turns: expanded ? 0.5 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      Icons.expand_more,
-                      size: 22,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                  child: Icon(icon, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        subtitle,
+                        key: ValueKey('group-${title.toLowerCase()}-count'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              if (budget != null) ...[
-                const SizedBox(height: 8),
-                _GroupBudgetProgress(
-                  spent: total ?? Money.zero(budget!.currency),
-                  limit: budget!,
+                ),
+                const SizedBox(width: 8),
+                _GroupBudgetTrailing(
+                  total: total,
+                  budget: budget,
                   color: color,
+                  onTap: onBudgetTap,
+                ),
+                if (onEdit != null)
+                  IconButton(
+                    icon: const Icon(Icons.tune, size: 18),
+                    tooltip: 'Edit group',
+                    visualDensity: VisualDensity.compact,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    onPressed: onEdit,
+                  )
+                else
+                  const SizedBox(width: 8),
+                AnimatedRotation(
+                  turns: expanded ? 0.5 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.expand_more,
+                    size: 22,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
+            ),
+            if (budget != null) ...[
+              const SizedBox(height: 8),
+              _GroupBudgetProgress(
+                spent: total ?? Money.zero(budget!.currency),
+                limit: budget!,
+                color: color,
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );

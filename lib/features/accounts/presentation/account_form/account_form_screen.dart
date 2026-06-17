@@ -13,10 +13,7 @@ import '../../domain/account_validator.dart';
 import 'account_common_fields.dart';
 import 'subforms/account_subform.dart';
 import 'subforms/asset_subform.dart';
-import 'subforms/bank_subform.dart';
-import 'subforms/cash_subform.dart';
 import 'subforms/credit_card_subform.dart';
-import 'subforms/ewallet_subform.dart';
 import 'subforms/goal_subform.dart';
 import 'subforms/investment_subform.dart';
 import 'subforms/liability_subform.dart';
@@ -104,9 +101,9 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       child: KeyedSubtree(
         key: ValueKey(_type),
         child: switch (_type) {
-          AccountType.cash => const CashSubform(),
-          AccountType.bank => const BankSubform(),
-          AccountType.eWallet => const EWalletSubform(),
+          AccountType.cash ||
+          AccountType.bank ||
+          AccountType.eWallet => const SizedBox.shrink(),
           AccountType.creditCard => CreditCardSubform(
             key: _subformKey,
             initial: _details as CreditCardDetails,

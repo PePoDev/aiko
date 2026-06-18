@@ -1,13 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/transaction_capture/transaction_capture.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/aiko_colors.dart';
 
-class AuthenticatedShell extends StatelessWidget {
+class AuthenticatedShell extends ConsumerStatefulWidget {
   const AuthenticatedShell({required this.child, super.key});
 
   final Widget child;
+
+  @override
+  ConsumerState<AuthenticatedShell> createState() => _AuthenticatedShellState();
+}
+
+class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    // Drain anything captured while we were away (and start listeners if the
+    // user enabled capture). Fire-and-forget — failures are non-fatal.
+    _lifecycle = AppLifecycleListener(onResume: _processCapture);
+    _bootstrapCapture();
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  Future<void> _bootstrapCapture() async {
+    final settings = await TransactionCaptureSettings.load();
+    if (settings.enabled) {
+      await ref.read(transactionCaptureServiceProvider).start();
+    }
+    await _processCapture();
+  }
+
+  Future<void> _processCapture() async {
+    try {
+      await ref.read(transactionCaptureProcessorProvider).processInbox();
+    } catch (_) {
+      // Capture is best-effort; never block the app on it.
+    }
+  }
 
   List<_AikoNavItem> _getNavItems(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -52,7 +92,7 @@ class AuthenticatedShell extends StatelessWidget {
     final selectedIndex = _indexFor(location);
 
     return Scaffold(
-      body: SafeArea(bottom: false, child: child),
+      body: SafeArea(bottom: false, child: widget.child),
       bottomNavigationBar: _AikoBottomNavigation(
         selectedIndex: selectedIndex,
         onSelected: (index) {
@@ -95,6 +135,7 @@ class AuthenticatedShell extends StatelessWidget {
 
   bool _isSecondaryRoute(String location) {
     return location.startsWith('/transaction-rules') ||
+        location.startsWith('/transaction-capture') ||
         location.startsWith('/reports/monthly') ||
         location.startsWith('/export') ||
         location.startsWith('/calculators') ||

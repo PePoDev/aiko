@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/storage/secure_storage_service.dart';
@@ -129,7 +130,16 @@ class _TransactionRulesScreenState extends State<TransactionRulesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Transaction rules')),
+      appBar: AppBar(
+        title: const Text('Transaction rules'),
+        actions: [
+          IconButton(
+            tooltip: 'Auto-capture (SMS & notifications)',
+            icon: const Icon(Icons.notifications_active_outlined),
+            onPressed: () => context.push('/transaction-capture'),
+          ),
+        ],
+      ),
       body: ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         itemCount: _rules.length + 1,

@@ -65,6 +65,16 @@ class AccountsScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
             children: [
+              _AccountsSummaryCard(
+                accountCount: accounts.length,
+                total: _computeTotalBalance(
+                  accounts: accounts,
+                  transactions: transactions,
+                  baseCurrency: baseCurrency,
+                ),
+                baseCurrency: baseCurrency,
+              ),
+              const SizedBox(height: 16),
               for (final section in accountSections) ...[
                 _AccountTypeHeader(
                   type: section.type,
@@ -109,6 +119,48 @@ class AccountsScreen extends ConsumerWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _AccountsSummaryCard extends StatelessWidget {
+  const _AccountsSummaryCard({
+    required this.accountCount,
+    required this.total,
+    required this.baseCurrency,
+  });
+
+  final int accountCount;
+  final Money? total;
+  final String baseCurrency;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return FinanceCard(
+      title: 'Account summary',
+      icon: Icons.account_balance_wallet_outlined,
+      accentColor: AikoColors.primaryBlue,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            total?.format() ?? '—',
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: AikoColors.primaryBlue,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$accountCount ${accountCount == 1 ? 'account' : 'accounts'} · total balance in $baseCurrency',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -715,6 +767,20 @@ Money? _computeTypeTotal({
     total = total == null ? balance : total + balance;
   }
   return total;
+}
+
+/// Total balance across all accounts, restricted to the base currency (same
+/// no-FX rule as [_computeTypeTotal] so units never mix).
+Money? _computeTotalBalance({
+  required List<Account> accounts,
+  required List<FinanceTransaction> transactions,
+  required String baseCurrency,
+}) {
+  return _computeTypeTotal(
+    accounts: accounts,
+    transactions: transactions,
+    baseCurrency: baseCurrency,
+  );
 }
 
 String _transactionTypeLabel(TransactionType type) {

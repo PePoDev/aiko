@@ -1,6 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Auto-capture transactions from bank SMS. NOTE: Google Play restricts
+         READ_SMS to default SMS handlers; shipping this needs a Play Console
+         Permissions Declaration / policy exception or the review will reject it. -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS"/>
+    <uses-permission android:name="android.permission.READ_SMS"/>
+    <!-- Reading other apps' notifications is granted via the system
+         "Notification access" screen (BIND_NOTIFICATION_LISTENER_SERVICE),
+         declared on the service the plugin merges in — not a runtime permission. -->
     <application
         android:label="Aiko~"
         android:name="${applicationName}"

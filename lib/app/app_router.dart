@@ -22,6 +22,7 @@ import '../features/settings/presentation/settings_screen.dart';
 import '../features/settings/presentation/notification_settings_screen.dart';
 import '../features/transactions/presentation/transaction_list_screen.dart';
 import '../features/transactions/presentation/transaction_rules_screen.dart';
+import '../features/transaction_capture/transaction_capture_screen.dart';
 import '../features/travel_mode/presentation/travel_mode_screen.dart';
 import '../shared/widgets/screen_states.dart';
 import 'authenticated_shell.dart';
@@ -69,6 +70,10 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
           GoRoute(
             path: '/transaction-rules',
             builder: (context, state) => const TransactionRulesScreen(),
+          ),
+          GoRoute(
+            path: '/transaction-capture',
+            builder: (context, state) => const TransactionCaptureScreen(),
           ),
           GoRoute(
             path: '/categories',

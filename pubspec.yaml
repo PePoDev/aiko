@@ -57,6 +57,9 @@ dependencies:
   file_selector: ^1.1.0
   logging: ^1.3.0
   flutter_svg: ^2.0.10
+  # Android-only auto-capture: read bank SMS + other apps' notifications.
+  another_telephony: ^0.4.0
+  notification_listener_service: ^0.3.3
 
 dev_dependencies:
   flutter_test:

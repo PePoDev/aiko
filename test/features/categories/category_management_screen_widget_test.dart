@@ -324,9 +324,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    final toggleButton = find.byKey(
-      const ValueKey('group-household-toggle'),
-    );
+    final toggleButton = find.byKey(const ValueKey('group-household-toggle'));
     expect(toggleButton, findsOneWidget);
     expect(find.byTooltip('Expand group'), findsOneWidget);
     expect(find.text('Rent'), findsNothing);
@@ -1003,11 +1001,13 @@ void _budgetPillTests() {
     await tester.tap(find.text('Other'));
     await tester.pumpAndSettle();
 
-    // Budgeted row: trailing total carries a slash (spent/limit), no add chip.
-    final budgeted = tester.widget<Text>(
+    // Budgeted row: leads with the amount still left to spend (remaining-first)
+    // and a per-day allowance, no add chip.
+    expect(
       find.byKey(const ValueKey('category-cat-budgeted-total')),
+      findsOneWidget,
     );
-    expect(budgeted.data, contains('/'));
+    expect(find.textContaining('/day'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('category-cat-budgeted-add-budget')),
       findsNothing,

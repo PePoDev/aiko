@@ -420,6 +420,16 @@ class _GroupAccordion extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = aikoHexColor(entry.group.color);
+    // Per-category spend slices for the group's stacked budget bar.
+    final segments = <_BudgetSegment>[
+      for (final c in entry.categories)
+        if ((totals.amountForCategory(c.id)?.amount ?? Decimal.zero) >
+            Decimal.zero)
+          _BudgetSegment(
+            aikoHexColor(c.color),
+            totals.amountForCategory(c.id)!.amount.toDouble(),
+          ),
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -427,6 +437,7 @@ class _GroupAccordion extends StatelessWidget {
           title: entry.group.name,
           total: entry.total,
           budget: entry.group.budgetLimit,
+          segments: segments,
           count: entry.count,
           categoryCount: entry.categories.length,
           color: color,
@@ -484,6 +495,7 @@ class _GroupHeader extends StatelessWidget {
     required this.title,
     required this.total,
     required this.budget,
+    required this.segments,
     required this.count,
     required this.categoryCount,
     required this.color,
@@ -497,6 +509,7 @@ class _GroupHeader extends StatelessWidget {
   final String title;
   final Money? total;
   final Money? budget;
+  final List<_BudgetSegment> segments;
   final int count;
   final int categoryCount;
   final Color color;
@@ -590,8 +603,10 @@ class _GroupHeader extends StatelessWidget {
             if (budget != null) ...[
               const SizedBox(height: 8),
               _GroupBudgetProgress(
+                key: const ValueKey('group-budget-progress'),
                 spent: total ?? Money.zero(budget!.currency),
                 limit: budget!,
+                segments: segments,
                 color: color,
               ),
             ],
@@ -637,48 +652,84 @@ class _GroupBudgetTrailing extends StatelessWidget {
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               )
-            : _AddBudgetChip(
-                chipKey: const ValueKey('group-add-budget'),
-              ),
+            : _AddBudgetChip(chipKey: const ValueKey('group-add-budget')),
       ),
     );
   }
 }
 
-/// Animated progress bar of group spending against its group-level limit.
-/// Fills from 0 on first paint and re-tweens when spent/limit changes; turns
-/// danger-red once the limit is exceeded.
+/// One category's slice of a group's stacked budget bar.
+class _BudgetSegment {
+  const _BudgetSegment(this.color, this.amount);
+  final Color color;
+  final double amount;
+}
+
+/// Stacked budget bar for a group: each [segments] slice is a category's
+/// spend, sized against the group [limit]; the grey tail is headroom left.
+/// When spend exceeds the limit the slices fill the whole bar (no tail) and a
+/// danger-red outline flags the overrun — the trailing total carries the exact
+/// figures, so 101% vs 150% is read from the number, not the bar.
 class _GroupBudgetProgress extends StatelessWidget {
   const _GroupBudgetProgress({
     required this.spent,
     required this.limit,
+    required this.segments,
     required this.color,
+    super.key,
   });
 
   final Money spent;
   final Money limit;
+  final List<_BudgetSegment> segments;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final ratio = limit.amount <= Decimal.zero
+    final limitD = limit.amount.toDouble();
+    final spentD = spent.amount.toDouble();
+    final over = limitD > 0 && spentD > limitD;
+    // Bar represents the limit; once over it represents spend so slices fill.
+    final denom = over ? spentD : (limitD <= 0 ? 1.0 : limitD);
+    final remaining = over
         ? 0.0
-        : (spent.amount / limit.amount).toDouble();
-    final barColor = ratio > 1.0 ? AikoColors.dangerRed : color;
-    return TweenAnimationBuilder<double>(
-      key: const ValueKey('group-budget-progress'),
-      tween: Tween(begin: 0, end: ratio.clamp(0.0, 1.0)),
-      duration: const Duration(milliseconds: 350),
-      curve: Curves.easeInOut,
-      builder: (context, value, _) => ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: LinearProgressIndicator(
-          value: value,
-          minHeight: 6,
-          color: barColor,
-          backgroundColor: Theme.of(context).colorScheme.outlineVariant,
-        ),
+        : (limitD - spentD).clamp(0.0, double.infinity);
+    // ponytail: flex needs ints — scale to per-mille and floor at 1 so a tiny
+    // slice still shows. Sub-rounding drift is invisible at bar widths.
+    int weight(double v) => (v / denom * 1000).round().clamp(1, 1000000);
+
+    final bar = ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        height: 8,
+        child: segments.isEmpty
+            ? ColoredBox(color: Theme.of(context).colorScheme.outlineVariant)
+            : Row(
+                children: [
+                  for (final s in segments)
+                    Expanded(
+                      flex: weight(s.amount),
+                      child: ColoredBox(color: s.color),
+                    ),
+                  if (remaining > 0)
+                    Expanded(
+                      flex: weight(remaining),
+                      child: ColoredBox(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
+                ],
+              ),
       ),
+    );
+
+    if (!over) return bar;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AikoColors.dangerRed, width: 1.5),
+      ),
+      child: bar,
     );
   }
 }
@@ -767,6 +818,7 @@ class _CategoryRow extends StatelessWidget {
               _BudgetTrailing(
                 amount: amount,
                 limit: category.hasBudget ? category.monthlyLimit : null,
+                period: category.budgetPeriod,
                 categoryId: category.id,
                 onTap: onBudgetTap,
               ),
@@ -778,25 +830,45 @@ class _CategoryRow extends StatelessWidget {
   }
 }
 
-/// Tappable trailing slot on a category row. With a budget it shows
-/// `spent/limit` and edits it; without one it shows the spent amount plus a
-/// quiet `+ Budget` chip so adding a limit is always one tap away.
+/// Tappable trailing slot on a category row. With a budget it leads with the
+/// amount still left to spend (remaining-first) plus a per-day allowance, and
+/// colours by how much of the limit is used; without one it shows the spent
+/// amount plus a quiet `+ Budget` chip so adding a limit is always one tap away.
 class _BudgetTrailing extends StatelessWidget {
   const _BudgetTrailing({
     required this.amount,
     required this.limit,
+    required this.period,
     required this.categoryId,
     required this.onTap,
   });
 
   final Money? amount;
   final Money? limit;
+  final CategoryBudgetPeriod period;
   final String categoryId;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    if (limit != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: _RemainingFirst(
+            spent: amount ?? Money.zero(limit!.currency),
+            limit: limit!,
+            period: period,
+            categoryId: categoryId,
+          ),
+        ),
+      );
+    }
+
     final amountText = Text(
       _spentOverLimit(amount, limit),
       textAlign: TextAlign.right,
@@ -813,17 +885,15 @@ class _BudgetTrailing extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        child: limit != null
-            ? amountText
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (amount != null) ...[amountText, const SizedBox(width: 8)],
-                  _AddBudgetChip(
-                    chipKey: ValueKey('category-$categoryId-add-budget'),
-                  ),
-                ],
-              ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (amount != null) ...[amountText, const SizedBox(width: 8)],
+            _AddBudgetChip(
+              chipKey: ValueKey('category-$categoryId-add-budget'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -856,6 +926,97 @@ class _AddBudgetChip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Remaining-first budget readout: the bold number is what's left to spend,
+/// coloured green/amber/red by how much of the limit is used, with the limit
+/// and a per-day allowance demoted underneath. Over budget flips to the
+/// overspend amount.
+class _RemainingFirst extends StatelessWidget {
+  const _RemainingFirst({
+    required this.spent,
+    required this.limit,
+    required this.period,
+    required this.categoryId,
+  });
+
+  final Money spent;
+  final Money limit;
+  final CategoryBudgetPeriod period;
+  final String categoryId;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final over = spent.amount > limit.amount;
+    final ratio = limit.amount <= Decimal.zero
+        ? 0.0
+        : (spent.amount / limit.amount).toDouble();
+    final color = over
+        ? AikoColors.dangerRed
+        : ratio >= 0.75
+        ? AikoColors.warningOrange
+        : AikoColors.successGreen;
+
+    final headline = over
+        ? '-${(spent - limit).format()}'
+        : (limit - spent).format();
+
+    final String sub;
+    if (over) {
+      sub = 'of ${limit.format()} · over';
+    } else {
+      final daysLeft = _periodDaysLeft(period);
+      final daily = (limit - spent).amount.toDouble() / daysLeft;
+      sub = 'of ${limit.format()} · ${daily.toStringAsFixed(0)}/day';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          headline,
+          key: ValueKey('category-$categoryId-total'),
+          textAlign: TextAlign.right,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: color,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          sub,
+          textAlign: TextAlign.right,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Whole days left in the current budget [period], today inclusive (min 1).
+int _periodDaysLeft(CategoryBudgetPeriod period) {
+  final now = DateTime.now();
+  final end = switch (period) {
+    CategoryBudgetPeriod.daily => DateTime(
+      now.year,
+      now.month,
+      now.day,
+      23,
+      59,
+    ),
+    CategoryBudgetPeriod.weekly => now.add(
+      Duration(days: DateTime.daysPerWeek - now.weekday),
+    ),
+    CategoryBudgetPeriod.monthly => DateTime(now.year, now.month + 1, 0),
+    CategoryBudgetPeriod.yearly => DateTime(now.year + 1, 1, 0),
+  };
+  return (end.difference(now).inHours / 24).ceil().clamp(1, 366);
 }
 
 class _CategoryTotals {

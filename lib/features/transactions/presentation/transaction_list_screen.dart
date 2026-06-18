@@ -8,6 +8,7 @@ import '../../../core/money/money.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
+import '../../categories/presentation/category_visual.dart';
 import '../domain/transaction.dart';
 import 'transaction_detail_screen.dart';
 import 'transaction_form_screen.dart';
@@ -866,7 +867,7 @@ class _CompactTransactionCard extends ConsumerWidget {
             if (matches.isEmpty) {
               return null;
             }
-            return _categoryIconFor(matches.first.icon);
+            return aikoCategoryIcon(matches.first.icon);
           },
         ) ??
         (transaction.type == TransactionType.income
@@ -949,32 +950,6 @@ class _CompactTransactionCard extends ConsumerWidget {
     );
   }
 
-  IconData _categoryIconFor(String iconName) {
-    switch (iconName) {
-      case 'food':
-        return Icons.restaurant_outlined;
-      case 'housing':
-        return Icons.home_outlined;
-      case 'travel':
-        return Icons.flight_outlined;
-      case 'coffee':
-        return Icons.coffee_outlined;
-      case 'shopping':
-        return Icons.shopping_bag_outlined;
-      case 'savings':
-        return Icons.savings_outlined;
-      case 'investing':
-        return Icons.trending_up_outlined;
-      case 'gym':
-        return Icons.fitness_center_outlined;
-      case 'salary':
-        return Icons.attach_money_outlined;
-      case 'entertainment':
-        return Icons.movie_outlined;
-      default:
-        return Icons.category_outlined;
-    }
-  }
 }
 
 class _TransactionTimeAndTags extends StatelessWidget {

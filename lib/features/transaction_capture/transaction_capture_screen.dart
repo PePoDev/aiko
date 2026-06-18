@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
 import '../../shared/widgets/aiko_data_widgets.dart';
-import '../../theme/aiko_colors.dart';
 import '../accounts/domain/account.dart';
 import 'transaction_capture.dart';
 
@@ -80,23 +79,9 @@ class _TransactionCaptureScreenState
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (!Platform.isAndroid) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Auto-capture')),
-        body: const Padding(
-          padding: EdgeInsets.all(16),
-          child: AikoInlineNotice(
-            title: 'Android only',
-            icon: Icons.info_outline,
-            accentColor: AikoColors.warningOrange,
-            message:
-                'Reading SMS and other apps’ notifications is only possible '
-                'on Android. iOS does not allow it.',
-          ),
-        ),
-      );
-    }
-
+    // Capture relies on Android-only OS access; on other platforms the controls
+    // render disabled rather than functional.
+    final android = Platform.isAndroid;
     final accounts = ref.watch(accountsProvider).value ?? const <Account>[];
 
     return Scaffold(
@@ -116,32 +101,39 @@ class _TransactionCaptureScreenState
             contentPadding: EdgeInsets.zero,
             title: const Text('Enable auto-capture'),
             subtitle: const Text('Listen for new SMS and notifications'),
-            value: _settings.enabled,
-            onChanged: (value) => _persist(_settings.copyWith(enabled: value)),
+            value: android && _settings.enabled,
+            onChanged: android
+                ? (value) => _persist(_settings.copyWith(enabled: value))
+                : null,
           ),
           const Divider(),
           ListTile(
+            enabled: android,
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.notifications_active_outlined),
             title: const Text('Notification access'),
             subtitle: Text(_notificationsGranted ? 'Granted' : 'Not granted'),
             trailing: FilledButton(
-              onPressed: _notificationsGranted ? null : _grantNotifications,
+              onPressed: !android || _notificationsGranted
+                  ? null
+                  : _grantNotifications,
               child: const Text('Grant'),
             ),
           ),
           ListTile(
+            enabled: android,
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.sms_outlined),
             title: const Text('SMS access'),
             subtitle: const Text('Read incoming bank SMS'),
             trailing: FilledButton(
-              onPressed: _grantSms,
+              onPressed: android ? _grantSms : null,
               child: const Text('Grant'),
             ),
           ),
           const Divider(),
           ListTile(
+            enabled: android,
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.account_balance_wallet_outlined),
             title: const Text('Capture account'),
@@ -164,11 +156,13 @@ class _TransactionCaptureScreenState
                     child: Text(account.name),
                   ),
               ],
-              onChanged: (value) {
-                if (value != null) {
-                  _persist(_settings.copyWith(accountId: value));
-                }
-              },
+              onChanged: android
+                  ? (value) {
+                      if (value != null) {
+                        _persist(_settings.copyWith(accountId: value));
+                      }
+                    }
+                  : null,
             ),
           ),
         ],

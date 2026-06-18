@@ -15,7 +15,9 @@ import 'package:uuid/uuid.dart';
 import '../../app/providers.dart';
 import '../../core/money/money.dart';
 import '../../core/storage/secure_storage_service.dart';
+import '../transactions/data/transaction_rule_store.dart';
 import '../transactions/domain/transaction.dart';
+import '../transactions/domain/transaction_rule.dart';
 import 'bank_message_parser.dart';
 
 /// A captured SMS or notification waiting to be turned into a transaction.
@@ -132,17 +134,21 @@ class TransactionCaptureService {
   final _inbox = const CapturedMessageInbox();
   StreamSubscription<ServiceNotificationEvent>? _notifSub;
 
-  Future<bool> notificationsGranted() =>
-      NotificationListenerService.isPermissionGranted();
+  Future<bool> notificationsGranted() async =>
+      Platform.isAndroid &&
+      await NotificationListenerService.isPermissionGranted();
 
   /// Opens the system "notification access" screen for the user to grant.
-  Future<bool> requestNotifications() =>
-      NotificationListenerService.requestPermission();
+  Future<bool> requestNotifications() async =>
+      Platform.isAndroid &&
+      await NotificationListenerService.requestPermission();
 
   Future<bool> requestSms() async =>
-      await _telephony.requestPhoneAndSmsPermissions ?? false;
+      Platform.isAndroid &&
+      (await _telephony.requestPhoneAndSmsPermissions ?? false);
 
   Future<void> start() async {
+    if (!Platform.isAndroid) return; // SMS/notification capture is Android-only
     _telephony.listenIncomingSms(
       onNewMessage: (message) => _inbox.add(
         CapturedMessage(
@@ -192,9 +198,11 @@ class CapturedMessageProcessor {
   final Ref _ref;
   final _inbox = const CapturedMessageInbox();
   final _parser = const BankMessageParser();
+  final _matcher = const TransactionRuleMatcher();
   final _uuid = const Uuid();
 
   Future<int> processInbox() async {
+    if (!Platform.isAndroid) return 0;
     final settings = await TransactionCaptureSettings.load();
     if (!settings.enabled || settings.accountId == null) return 0;
 
@@ -209,13 +217,16 @@ class CapturedMessageProcessor {
 
     final currency =
         _ref.read(profileProvider).value?.baseCurrency ?? account.currency;
+    final rules = await _ref.read(transactionRulesProvider.future);
     final notifier = _ref.read(transactionsProvider.notifier);
 
     var created = 0;
     for (final message in messages) {
       final parsed = _parser.parse(message.body);
       if (parsed != null) {
-        await notifier.addTransaction(
+        // Run the captured draft through the user's rules so it lands
+        // categorized/tagged the same way a manual entry would.
+        final draft = _matcher.apply(
           FinanceTransaction(
             id: _uuid.v4(),
             userId: '', // repository stamps the signed-in user
@@ -230,7 +241,9 @@ class CapturedMessageProcessor {
             note: 'Auto-captured from ${message.source}',
             tags: const ['captured'],
           ),
+          rules,
         );
+        await notifier.addTransaction(draft);
         created++;
       }
       // Drop whether parsed or not, so the queue never re-scans the same text.

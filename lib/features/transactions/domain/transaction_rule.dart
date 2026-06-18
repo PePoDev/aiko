@@ -36,6 +36,36 @@ class TransactionRule {
   final int priority;
   final bool isActive;
 
+  factory TransactionRule.fromJson(Map<String, dynamic> json) => TransactionRule(
+    id: json['id'] as String,
+    userId: json['user_id'] as String? ?? '',
+    name: json['name'] as String? ?? 'Rule',
+    conditionType: RuleConditionType.values.byName(
+      json['condition_type'] as String? ?? RuleConditionType.merchant.name,
+    ),
+    operator: RuleConditionOperator.values.byName(
+      json['operator'] as String? ?? RuleConditionOperator.contains.name,
+    ),
+    conditionValue: json['condition_value'] as String? ?? '',
+    targetCategoryId: json['target_category_id'] as String?,
+    tagsToApply: List<String>.from(json['tags_to_apply'] as List? ?? const []),
+    priority: json['priority'] as int? ?? 100,
+    isActive: json['is_active'] as bool? ?? true,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'user_id': userId,
+    'name': name,
+    'condition_type': conditionType.name,
+    'operator': operator.name,
+    'condition_value': conditionValue,
+    'target_category_id': targetCategoryId,
+    'tags_to_apply': tagsToApply,
+    'priority': priority,
+    'is_active': isActive,
+  };
+
   bool matches(FinanceTransaction transaction) {
     final value = switch (conditionType) {
       RuleConditionType.merchant => transaction.merchant ?? '',
@@ -59,5 +89,33 @@ class TransactionRule {
         conditionValue.toLowerCase(),
       ),
     };
+  }
+}
+
+/// Applies a set of rules to a draft transaction: the first matching rule (by
+/// ascending priority) sets the category; every match merges its tags.
+class TransactionRuleMatcher {
+  const TransactionRuleMatcher();
+
+  FinanceTransaction apply(
+    FinanceTransaction transaction,
+    List<TransactionRule> rules,
+  ) {
+    final active = rules.where((rule) => rule.isActive).toList()
+      ..sort((a, b) => a.priority.compareTo(b.priority));
+
+    var categoryId = transaction.categoryId;
+    final tags = <String>{...transaction.tags};
+    for (final rule in active) {
+      if (!rule.matches(transaction)) continue;
+      categoryId ??= rule.targetCategoryId;
+      tags.addAll(rule.tagsToApply);
+    }
+
+    if (categoryId == transaction.categoryId &&
+        tags.length == transaction.tags.length) {
+      return transaction; // no rule changed anything
+    }
+    return transaction.copyWith(categoryId: categoryId, tags: tags.toList());
   }
 }

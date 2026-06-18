@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -133,11 +134,14 @@ class _TransactionRulesScreenState extends State<TransactionRulesScreen> {
       appBar: AppBar(
         title: const Text('Transaction rules'),
         actions: [
-          IconButton(
-            tooltip: 'Auto-capture (SMS & notifications)',
-            icon: const Icon(Icons.notifications_active_outlined),
-            onPressed: () => context.push('/transaction-capture'),
-          ),
+          // Auto-capture relies on Android-only OS access — hide the entry
+          // point elsewhere.
+          if (Platform.isAndroid)
+            IconButton(
+              tooltip: 'Auto-capture (SMS & notifications)',
+              icon: const Icon(Icons.notifications_active_outlined),
+              onPressed: () => context.push('/transaction-capture'),
+            ),
         ],
       ),
       body: ListView.separated(

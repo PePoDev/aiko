@@ -18,7 +18,6 @@ import '../features/investments/presentation/investments_screen.dart';
 import '../features/settings/presentation/connect_line_screen.dart';
 import '../features/settings/presentation/profile_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
-import '../features/settings/presentation/notification_settings_screen.dart';
 import '../features/transactions/presentation/transaction_list_screen.dart';
 import '../features/transactions/presentation/transaction_rules_screen.dart';
 import '../features/transaction_capture/transaction_capture_screen.dart';
@@ -94,10 +93,7 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             path: '/settings/cash-flow-sankey',
             builder: (context, state) => const CashFlowSankeyScreen(),
           ),
-          GoRoute(
-            path: '/settings/saving-plan',
-            builder: (context, state) => const SavingPlanScreen(),
-          ),
+
           GoRoute(
             path: '/settings/chance-of-success',
             builder: (context, state) => const ChanceOfSuccessScreen(),
@@ -150,10 +146,7 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             path: '/connect-line',
             builder: (context, state) => const ConnectLineScreen(),
           ),
-          GoRoute(
-            path: '/notification-settings',
-            builder: (context, state) => const NotificationSettingsScreen(),
-          ),
+
           GoRoute(
             path: '/portfolio',
             builder: (context, state) => const InvestmentsScreen(),

@@ -42,13 +42,7 @@ class PlanningScreen extends StatelessWidget {
       icon: Icons.trending_up_outlined,
       color: AikoColors.analyticsTeal,
     ),
-    _PlanningItem(
-      title: 'Assets and Net Worth',
-      description: 'View total assets, liabilities, and net worth over time.',
-      path: '/assets-net-worth',
-      icon: Icons.account_balance_wallet_outlined,
-      color: AikoColors.analyticsTeal,
-    ),
+
     _PlanningItem(
       title: 'Travel Mode',
       description: 'Plan trips, currencies, and travel budgets.',

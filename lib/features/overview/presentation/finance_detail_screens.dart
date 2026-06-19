@@ -337,55 +337,7 @@ class CashFlowSankeyScreen extends StatelessWidget {
   }
 }
 
-class SavingPlanScreen extends StatefulWidget {
-  const SavingPlanScreen({super.key});
 
-  @override
-  State<SavingPlanScreen> createState() => _SavingPlanScreenState();
-}
-
-class _SavingPlanScreenState extends State<SavingPlanScreen> {
-  final Map<String, bool> _plans = {
-    'Auto-Save (General)': true,
-    'Emergency Fund': true,
-    'Vacation 2025': true,
-    'New Laptop': false,
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    return AikoDetailScaffold(
-      title: 'Saving Plan',
-      children: [
-        const AikoInlineNotice(
-          title: 'Plan today, achieve tomorrow',
-          message: 'Aiko keeps contributions consistent without surprises.',
-          icon: Icons.savings_outlined,
-        ),
-        Card(
-          child: Column(
-            children: [
-              for (final plan in _plans.entries)
-                SwitchListTile(
-                  value: plan.value,
-                  title: Text(plan.key),
-                  subtitle: Text(plan.value ? 'Active' : 'Paused'),
-                  secondary: const Icon(Icons.savings_outlined),
-                  onChanged: (value) =>
-                      setState(() => _plans[plan.key] = value),
-                ),
-            ],
-          ),
-        ),
-        FilledButton.icon(
-          onPressed: () => _showSnack(context, 'New saving plan started.'),
-          icon: const Icon(Icons.add),
-          label: const Text('Create New Plan'),
-        ),
-      ],
-    );
-  }
-}
 
 class ChanceOfSuccessScreen extends StatelessWidget {
   const ChanceOfSuccessScreen({super.key});

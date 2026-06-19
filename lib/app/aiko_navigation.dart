@@ -53,13 +53,7 @@ const aikoNavigationItems = <AikoNavigationItem>[
     description: 'Visual Sankey of where your income flows.',
     accentColor: AikoColors.analyticsTeal,
   ),
-  AikoNavigationItem(
-    label: 'Goals: Saving Plan',
-    path: '/settings/saving-plan',
-    icon: Icons.savings_outlined,
-    description: 'Required monthly contribution for each active goal.',
-    accentColor: AikoColors.successGreen,
-  ),
+
   AikoNavigationItem(
     label: 'Goals: Chance of Success',
     path: '/settings/chance-of-success',
@@ -88,13 +82,7 @@ const aikoNavigationItems = <AikoNavigationItem>[
     description: 'Inspect a single holding performance and history.',
     accentColor: AikoColors.analyticsTeal,
   ),
-  AikoNavigationItem(
-    label: 'Assets and Net Worth',
-    path: '/assets-net-worth',
-    icon: Icons.account_balance_wallet_outlined,
-    description: 'View total assets, liabilities, and net worth over time.',
-    accentColor: AikoColors.analyticsTeal,
-  ),
+
   // Insights and AI
   AikoNavigationItem(
     label: 'Learning Hub',
@@ -115,13 +103,6 @@ const aikoNavigationItems = <AikoNavigationItem>[
     path: '/export',
     icon: Icons.file_download_outlined,
     description: 'Create CSV, Excel-compatible, and PDF-ready outputs.',
-  ),
-  // Settings and Security
-  AikoNavigationItem(
-    label: 'Notifications',
-    path: '/notification-settings',
-    icon: Icons.notifications_outlined,
-    description: 'Configure recurring, budget, goal, and insight alerts.',
   ),
 
 

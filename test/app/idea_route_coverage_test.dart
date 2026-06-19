@@ -7,15 +7,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   const expectedRoutes = <String, String>{
-    '/notifications': 'Notifications',
     '/settings/pace': 'Pace Overview',
     '/settings/safe-to-spend': 'Safe to Spend',
     '/settings/cash-flow': 'Cash Flow',
     '/settings/cash-flow-sankey': 'Cash Flow Sankey',
-    '/settings/saving-plan': 'Saving Plan',
     '/settings/chance-of-success': 'Chance of Success',
-    '/reports/monthly': 'Monthly Report',
-    '/profile-security': 'Profile & Security',
   };
 
   for (final entry in expectedRoutes.entries) {

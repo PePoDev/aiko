@@ -65,7 +65,6 @@ void main() {
       expect(find.text('Budget: Safe to Spend'), findsOneWidget);
       expect(find.text('Budget: Cash Flow'), findsOneWidget);
       expect(find.text('Budget: Cash Flow (Sankey)'), findsOneWidget);
-      expect(find.text('Goals: Saving Plan'), findsOneWidget);
       expect(find.text('Goals: Chance of Success'), findsOneWidget);
 
       // The list is a single flat container — no Planning/Insights/etc.
@@ -81,7 +80,6 @@ void main() {
         '/settings/safe-to-spend',
         '/settings/cash-flow',
         '/settings/cash-flow-sankey',
-        '/settings/saving-plan',
         '/settings/chance-of-success',
       };
       final configuredPaths = aikoNavigationItems.map((e) => e.path).toSet();

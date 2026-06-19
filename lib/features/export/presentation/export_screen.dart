@@ -223,76 +223,48 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          // 1. Date Range Card
+          // Export Settings Card
           FinanceCard(
-            title: '1. Choose Date Range',
-            icon: Icons.calendar_today_outlined,
+            title: 'Export Settings',
+            icon: Icons.tune_outlined,
             accentColor: AikoColors.deepBlue,
-            child: RadioGroup<String>(
-              groupValue: _dateRange,
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => _dateRange = value);
-                }
-              },
-              child: Column(
-                children: [
-                  RadioListTile<String>(
-                    title: const Text('Current Month'),
-                    subtitle: const Text('Only transactions posted this month'),
-                    value: 'current_month',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Date Range', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'current_month', label: Text('This Month')),
+                      ButtonSegment(value: 'last_month', label: Text('Last Month')),
+                      ButtonSegment(value: 'all_time', label: Text('All Time')),
+                    ],
+                    selected: {_dateRange},
+                    onSelectionChanged: (Set<String> newSelection) {
+                      setState(() => _dateRange = newSelection.first);
+                    },
                   ),
-                  RadioListTile<String>(
-                    title: const Text('Last Month'),
-                    subtitle: const Text('Only transactions posted last month'),
-                    value: 'last_month',
+                ),
+                const SizedBox(height: 24),
+                Text('Format', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'csv', label: Text('CSV')),
+                      ButtonSegment(value: 'excel', label: Text('Excel')),
+                      ButtonSegment(value: 'pdf', label: Text('PDF')),
+                    ],
+                    selected: {_format},
+                    onSelectionChanged: (Set<String> newSelection) {
+                      setState(() => _format = newSelection.first);
+                    },
                   ),
-                  RadioListTile<String>(
-                    title: const Text('All Time'),
-                    subtitle: const Text('Export full historical ledger'),
-                    value: 'all_time',
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // 2. Format Selection Card
-          FinanceCard(
-            title: '2. Select Format',
-            icon: Icons.article_outlined,
-            accentColor: AikoColors.warningOrange,
-            child: RadioGroup<String>(
-              groupValue: _format,
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => _format = value);
-                }
-              },
-              child: Column(
-                children: [
-                  RadioListTile<String>(
-                    title: const Text('Export CSV'),
-                    subtitle: const Text('Raw comma-separated data values'),
-                    value: 'csv',
-                  ),
-                  RadioListTile<String>(
-                    title: const Text('Excel Spreadsheet'),
-                    subtitle: const Text(
-                      'CSV format with forced UTF-8 BOM encoding',
-                    ),
-                    value: 'excel',
-                  ),
-                  RadioListTile<String>(
-                    title: const Text('PDF / HTML Statement'),
-                    subtitle: const Text(
-                      'Styled offline report invoice summary',
-                    ),
-                    value: 'pdf',
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),

@@ -139,7 +139,6 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
         location.startsWith('/reports/monthly') ||
         location.startsWith('/export') ||
         location.startsWith('/calculators') ||
-        location.startsWith('/notification-settings') ||
         location.startsWith('/notifications') ||
         location.startsWith('/profile-security') ||
         location.startsWith('/learning-hub');

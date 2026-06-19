@@ -38,11 +38,6 @@ void main() {
                 path: '/home',
                 builder: (context, state) => const Scaffold(body: Text('Home')),
               ),
-              GoRoute(
-                path: '/onboarding',
-                builder: (context, state) =>
-                    const Scaffold(body: Text('Onboarding')),
-              ),
             ],
           ),
         ),

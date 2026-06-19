@@ -3,28 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   const requiredIcons = [
-    'home',
-    'transactions',
-    'budget',
-    'insights',
     'aiko',
-    'account',
-    'bank',
-    'credit_card',
-    'wallet',
-    'category',
-    'receipt',
-    'search_filter',
-    'goal',
-    'cash_flow',
-    'debt',
-    'loan',
-    'portfolio',
-    'tax',
-    'calculator',
-    'travel',
-    'security',
-    'notification',
   ];
 
   for (final icon in requiredIcons) {

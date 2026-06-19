@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../app/providers.dart';
 import '../../../shared/widgets/aiko_idea_widgets.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../onboarding/application/complete_onboarding.dart';
 import '../../settings/domain/profile.dart';
 import '../data/auth_repository.dart';
 
@@ -172,13 +173,17 @@ class _LoginScreenState extends State<LoginScreen> {
     final container = ProviderScope.containerOf(context);
     final profileRepo = container.read(profileRepositoryProvider);
     final profile = await profileRepo.load();
+    // Onboarding is gone: on first entry just seed the default accounts and
+    // mark the profile completed, then go straight to the dashboard.
+    if (profile.onboardingStatus != OnboardingStatus.completed) {
+      await completeOnboarding(
+        accountRepository: container.read(accountRepositoryProvider),
+        profileRepository: profileRepo,
+      );
+    }
     container.invalidate(profileProvider);
     if (!mounted) return;
-    if (profile.onboardingStatus == OnboardingStatus.completed) {
-      context.go('/home');
-    } else {
-      context.go('/onboarding');
-    }
+    context.go('/home');
   }
 
   Future<void> _handleSignIn() async {

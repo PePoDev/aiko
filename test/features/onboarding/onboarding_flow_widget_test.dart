@@ -1,14 +1,9 @@
-import 'package:aiko/app/providers.dart';
 import 'package:aiko/features/accounts/data/account_repository.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
-import 'package:aiko/features/onboarding/presentation/onboarding_screens.dart';
+import 'package:aiko/features/onboarding/application/complete_onboarding.dart';
 import 'package:aiko/features/settings/data/profile_repository.dart';
 import 'package:aiko/features/settings/domain/profile.dart';
-import 'package:aiko/theme/aiko_theme.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../helpers/test_app.dart';
 
@@ -29,114 +24,37 @@ void main() {
     expect(find.text('Log In', skipOffstage: false), findsOneWidget);
   });
 
-  testWidgets('onboarding picks a goal, finishes, and seeds default accounts', (
-    tester,
-  ) async {
-    final accountRepository = _FakeAccountRepository();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          accountRepositoryProvider.overrideWithValue(accountRepository),
-          profileRepositoryProvider.overrideWithValue(_FakeProfileRepository()),
-        ],
-        child: MaterialApp.router(
-          theme: AikoTheme.light(),
-          routerConfig: GoRouter(
-            initialLocation: '/onboarding',
-            routes: [
-              GoRoute(
-                path: '/onboarding',
-                builder: (context, state) => const OnboardingFlowScreen(),
-              ),
-              GoRoute(
-                path: '/home',
-                builder: (context, state) =>
-                    const Scaffold(body: Text('Aiko Home')),
-              ),
-            ],
-          ),
-        ),
-      ),
+  test('completeOnboarding seeds a cash + bank account and completes', () async {
+    final accounts = _FakeAccountRepository();
+    final profiles = _FakeProfileRepository();
+
+    await completeOnboarding(
+      accountRepository: accounts,
+      profileRepository: profiles,
     );
 
-    await tester.pumpAndSettle();
-
-    expect(
-      find.textContaining("What's your", skipOffstage: false),
-      findsOneWidget,
-    );
-    expect(find.text('Save More', skipOffstage: false), findsOneWidget);
-
-    await tester.tap(find.text('Finish'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Aiko Home', skipOffstage: false), findsOneWidget);
-    expect(
-      accountRepository.accounts.map((a) => a.type).toSet(),
-      {AccountType.cash, AccountType.bank},
-    );
+    expect(accounts.accounts.map((a) => a.type).toSet(), {
+      AccountType.cash,
+      AccountType.bank,
+    });
+    expect(profiles.profile.onboardingStatus, OnboardingStatus.completed);
   });
 
-  testWidgets('finishing onboarding twice does not duplicate default accounts', (
-    tester,
-  ) async {
-    final accountRepository = _FakeAccountRepository();
-    final profileRepository = _FakeProfileRepository();
+  test('completeOnboarding is idempotent', () async {
+    final accounts = _FakeAccountRepository();
+    final profiles = _FakeProfileRepository();
 
-    await _completeOnboarding(
-      tester,
-      accountRepository: accountRepository,
-      profileRepository: profileRepository,
+    await completeOnboarding(
+      accountRepository: accounts,
+      profileRepository: profiles,
     );
-    await _completeOnboarding(
-      tester,
-      accountRepository: accountRepository,
-      profileRepository: profileRepository,
+    await completeOnboarding(
+      accountRepository: accounts,
+      profileRepository: profiles,
     );
 
-    final bankAccounts = accountRepository.accounts.where(
-      (account) => account.type == AccountType.bank,
-    );
-
-    expect(bankAccounts, hasLength(1));
-    expect(accountRepository.accounts, hasLength(2));
+    expect(accounts.accounts, hasLength(2));
   });
-}
-
-Future<void> _completeOnboarding(
-  WidgetTester tester, {
-  required _FakeAccountRepository accountRepository,
-  required _FakeProfileRepository profileRepository,
-}) async {
-  await tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        accountRepositoryProvider.overrideWithValue(accountRepository),
-        profileRepositoryProvider.overrideWithValue(profileRepository),
-      ],
-      child: MaterialApp.router(
-        theme: AikoTheme.light(),
-        routerConfig: GoRouter(
-          initialLocation: '/onboarding',
-          routes: [
-            GoRoute(
-              path: '/onboarding',
-              builder: (context, state) => const OnboardingFlowScreen(),
-            ),
-            GoRoute(
-              path: '/home',
-              builder: (context, state) =>
-                  const Scaffold(body: Text('Aiko Home')),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('Finish'));
-  await tester.pumpAndSettle();
 }
 
 class _FakeAccountRepository extends AccountRepository {

@@ -124,6 +124,11 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
             ),
             icon: Icon(Icons.rule, color: actionColor),
           ),
+          IconButton(
+            tooltip: 'Travel Mode',
+            onPressed: () => context.push('/travel-mode'),
+            icon: Icon(Icons.flight_takeoff_outlined, color: actionColor),
+          ),
         ],
       ),
       body: transactionsAsync.when(
@@ -532,8 +537,6 @@ class _TransactionMonthPage extends ConsumerStatefulWidget {
 }
 
 class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
-  // Days the user has collapsed. Empty = everything expanded (matches design).
-  final _collapsed = <DateTime>{};
 
   @override
   Widget build(BuildContext context) {
@@ -607,21 +610,11 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
         ),
         const SizedBox(height: 16),
         for (final group in groups) ...[
-          _TransactionDateHeader(
-            date: group.date,
-            total: group.total,
-            collapsed: _collapsed.contains(group.date),
-            onToggle: () => setState(() {
-              if (!_collapsed.add(group.date)) {
-                _collapsed.remove(group.date);
-              }
-            }),
+          _TransactionDateHeader(date: group.date, total: group.total),
+          _DayTransactionsCard(
+            transactions: group.transactions,
+            accountLabels: accountLabels,
           ),
-          if (!_collapsed.contains(group.date))
-            _DayTransactionsCard(
-              transactions: group.transactions,
-              accountLabels: accountLabels,
-            ),
           const SizedBox(height: 16),
         ],
       ],
@@ -785,17 +778,10 @@ Map<String, String> _accountLabelsForTransactions({
 }
 
 class _TransactionDateHeader extends StatelessWidget {
-  const _TransactionDateHeader({
-    required this.date,
-    required this.total,
-    required this.collapsed,
-    required this.onToggle,
-  });
+  const _TransactionDateHeader({required this.date, required this.total});
 
   final DateTime date;
   final Money total;
-  final bool collapsed;
-  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -804,37 +790,25 @@ class _TransactionDateHeader extends StatelessWidget {
       color: theme.colorScheme.onSurface,
       fontWeight: FontWeight.w700,
     );
-    return InkWell(
-      onTap: onToggle,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-        child: Row(
-          children: [
-            Icon(
-              Icons.calendar_today_outlined,
-              size: 16,
-              color: theme.colorScheme.primary,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+      child: Row(
+        children: [
+          Icon(
+            Icons.calendar_today_outlined,
+            size: 16,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(width: 8),
+          Text(_dateHeaderLabel(date), style: headerStyle),
+          const Spacer(),
+          Text(
+            _formatDailyTotal(total),
+            style: headerStyle?.copyWith(
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
-            const SizedBox(width: 8),
-            Text(_dateHeaderLabel(date), style: headerStyle),
-            const Spacer(),
-            Text(
-              _formatDailyTotal(total),
-              style: headerStyle?.copyWith(
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              collapsed
-                  ? Icons.keyboard_arrow_down
-                  : Icons.keyboard_arrow_up,
-              size: 20,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -923,11 +897,6 @@ class _MonthSummaryCard extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right,
-                color: theme.colorScheme.onSurfaceVariant,
               ),
             ],
           ),
@@ -1100,27 +1069,29 @@ class _TransactionRow extends ConsumerWidget {
     final amount = '$sign${transaction.amount.format()}';
     final timeLabel = DateFormat('HH:mm').format(transaction.date);
     final categoriesAsync = ref.watch(categoriesProvider);
-    final categoryIcon =
-        categoriesAsync.whenOrNull(
-          data: (categories) {
-            final matches = categories.where(
-              (category) => category.id == transaction.categoryId,
-            );
-            if (matches.isEmpty) {
-              return null;
-            }
-            return aikoCategoryIcon(matches.first.icon);
-          },
-        ) ??
-        (transaction.type == TransactionType.income
-            ? Icons.south_west
-            : Icons.north_east);
+    final category = categoriesAsync.whenOrNull(
+      data: (categories) {
+        final matches = categories.where(
+          (category) => category.id == transaction.categoryId,
+        );
+        return matches.isEmpty ? null : matches.first;
+      },
+    );
+    final categoryIcon = category != null
+        ? aikoCategoryIcon(category.icon)
+        : (transaction.type == TransactionType.income
+              ? Icons.south_west
+              : Icons.north_east);
+    // A note adds a second descriptive line, but only when it isn't already
+    // the title (which happens when the merchant is missing).
+    final note = transaction.merchant != null ? transaction.note : null;
 
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: 44,
@@ -1136,15 +1107,50 @@ class _TransactionRow extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall,
+                        ),
+                      ),
+                      if (transaction.isRecurring) ...[
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.repeat,
+                          size: 14,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ],
+                      if (transaction.splits.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.call_split,
+                          size: 14,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ],
+                    ],
                   ),
+                  if (note != null && note.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      note,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 3),
-                  _TransactionTimeAndTags(
+                  _TransactionMeta(
                     time: timeLabel,
+                    categoryName: category?.name,
+                    status: transaction.status,
                     tags: transaction.tags,
                   ),
                 ],
@@ -1179,12 +1185,6 @@ class _TransactionRow extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
           ],
         ),
       ),
@@ -1192,33 +1192,88 @@ class _TransactionRow extends ConsumerWidget {
   }
 }
 
-class _TransactionTimeAndTags extends StatelessWidget {
-  const _TransactionTimeAndTags({required this.time, required this.tags});
+class _TransactionMeta extends StatelessWidget {
+  const _TransactionMeta({
+    required this.time,
+    required this.categoryName,
+    required this.status,
+    required this.tags,
+  });
 
   final String time;
+  final String? categoryName;
+  final TransactionStatus status;
   final List<String> tags;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Wrap(
-          spacing: 4,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(
-              time,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            for (final tag in tags) _TransactionTagChip(label: '#$tag'),
-          ],
-        );
-      },
+    final theme = Theme.of(context);
+    final metaStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          time,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: metaStyle,
+        ),
+        if (categoryName != null) ...[
+          Text('·', style: metaStyle),
+          Text(
+            categoryName!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: metaStyle,
+          ),
+        ],
+        if (status != TransactionStatus.posted) _StatusPill(status: status),
+        for (final tag in tags) _TransactionTagChip(label: '#$tag'),
+      ],
+    );
+  }
+}
+
+/// Small semantic pill shown when a transaction isn't `posted` yet.
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.status});
+
+  final TransactionStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (status) {
+      TransactionStatus.draft => ('Draft', AikoColors.warningOrange),
+      TransactionStatus.voided => ('Voided', AikoColors.dangerRed),
+      TransactionStatus.archived => (
+        'Archived',
+        Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      TransactionStatus.posted => (
+        'Posted',
+        Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    };
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
     );
   }
 }

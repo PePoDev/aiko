@@ -95,13 +95,6 @@ const aikoNavigationItems = <AikoNavigationItem>[
     description: 'View total assets, liabilities, and net worth over time.',
     accentColor: AikoColors.analyticsTeal,
   ),
-  AikoNavigationItem(
-    label: 'Travel Mode',
-    path: '/travel-mode',
-    icon: Icons.flight_takeoff_outlined,
-    description: 'Plan trips, currencies, and travel budgets.',
-    accentColor: AikoColors.primaryBlue,
-  ),
   // Insights and AI
   AikoNavigationItem(
     label: 'Learning Hub',
@@ -118,12 +111,6 @@ const aikoNavigationItems = <AikoNavigationItem>[
         'Run finance, loan, retirement, stock, and everyday calculators.',
   ),
   AikoNavigationItem(
-    label: 'Monthly Report',
-    path: '/reports/monthly',
-    icon: Icons.summarize_outlined,
-    description: 'Open the current monthly finance review.',
-  ),
-  AikoNavigationItem(
     label: 'Export',
     path: '/export',
     icon: Icons.file_download_outlined,
@@ -136,16 +123,6 @@ const aikoNavigationItems = <AikoNavigationItem>[
     icon: Icons.notifications_outlined,
     description: 'Configure recurring, budget, goal, and insight alerts.',
   ),
-  AikoNavigationItem(
-    label: 'Notifications Center',
-    path: '/notifications',
-    icon: Icons.notifications_active_outlined,
-    description: 'Review recent alerts, updates, and financial reminders.',
-  ),
-  AikoNavigationItem(
-    label: 'Profile & Security',
-    path: '/profile-security',
-    icon: Icons.admin_panel_settings_outlined,
-    description: 'Manage account security, biometrics, and login alerts.',
-  ),
+
+
 ];

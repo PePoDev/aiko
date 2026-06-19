@@ -643,69 +643,7 @@ class HoldingDetailScreen extends StatelessWidget {
   }
 }
 
-class ProfileSecurityScreen extends StatefulWidget {
-  const ProfileSecurityScreen({super.key});
 
-  @override
-  State<ProfileSecurityScreen> createState() => _ProfileSecurityScreenState();
-}
-
-class _ProfileSecurityScreenState extends State<ProfileSecurityScreen> {
-  bool _twoFactor = true;
-  bool _biometric = true;
-  bool _alerts = true;
-
-  @override
-  Widget build(BuildContext context) {
-    return AikoDetailScaffold(
-      title: 'Profile & Security',
-      children: [
-        const AikoInlineNotice(
-          title: 'Aiko Finance',
-          message: 'hello@aiko.finance, +1 (555) 121-4567',
-          icon: Icons.person_outline,
-        ),
-        Card(
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.lock_outline),
-                title: const Text('Change Password'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _showSnack(context, 'Password flow opened.'),
-              ),
-              const Divider(),
-              SwitchListTile(
-                value: _twoFactor,
-                title: const Text('Two-Factor Authentication'),
-                secondary: const Icon(Icons.verified_user_outlined),
-                onChanged: (value) => setState(() => _twoFactor = value),
-              ),
-              SwitchListTile(
-                value: _biometric,
-                title: const Text('Biometric Login'),
-                secondary: const Icon(Icons.fingerprint),
-                onChanged: (value) => setState(() => _biometric = value),
-              ),
-              SwitchListTile(
-                value: _alerts,
-                title: const Text('Login Alerts'),
-                secondary: const Icon(Icons.notifications_active_outlined),
-                onChanged: (value) => setState(() => _alerts = value),
-              ),
-            ],
-          ),
-        ),
-        const AikoInlineNotice(
-          title: 'Account Security Score',
-          message: 'Strong, all account protections are active.',
-          icon: Icons.shield_outlined,
-          accentColor: AikoColors.successGreen,
-        ),
-      ],
-    );
-  }
-}
 
 class _SegmentedHeader extends StatelessWidget {
   const _SegmentedHeader({required this.labels});

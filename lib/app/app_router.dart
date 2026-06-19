@@ -13,7 +13,6 @@ import '../features/export/presentation/export_screen.dart';
 
 import '../features/learning_hub/presentation/learning_hub_screen.dart';
 import '../features/navigation/presentation/planning_screen.dart';
-import '../features/onboarding/presentation/onboarding_screens.dart';
 import '../features/overview/presentation/finance_detail_screens.dart';
 import '../features/investments/presentation/investments_screen.dart';
 import '../features/settings/presentation/connect_line_screen.dart';
@@ -46,10 +45,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
     routes: [
       GoRoute(path: '/', builder: (context, state) => const WelcomeScreen()),
       GoRoute(path: '/auth', builder: (context, state) => const LoginScreen()),
-      GoRoute(
-        path: '/onboarding',
-        builder: (context, state) => const OnboardingFlowScreen(),
-      ),
       ShellRoute(
         builder: (context, state, child) => AuthenticatedShell(child: child),
         routes: [
@@ -150,10 +145,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
           GoRoute(
             path: '/profile',
             builder: (context, state) => const ProfileScreen(),
-          ),
-          GoRoute(
-            path: '/profile-security',
-            builder: (context, state) => const ProfileSecurityScreen(),
           ),
           GoRoute(
             path: '/connect-line',

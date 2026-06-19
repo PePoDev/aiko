@@ -124,24 +124,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _onAvatarTap() async {
-    final source = await showModalBottomSheet<AvatarAction>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Take photo'),
-              onTap: () => Navigator.pop(sheetContext, AvatarAction.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from gallery'),
-              onTap: () => Navigator.pop(sheetContext, AvatarAction.gallery),
-            ),
-            if (_draft.hasAvatar)
+    AvatarAction? source;
+
+    if (_draft.hasAvatar) {
+      source = await showModalBottomSheet<AvatarAction>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Choose from gallery'),
+                onTap: () => Navigator.pop(sheetContext, AvatarAction.gallery),
+              ),
               ListTile(
                 leading: const Icon(
                   Icons.delete_outline,
@@ -153,11 +150,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 onTap: () => Navigator.pop(sheetContext, AvatarAction.remove),
               ),
-            const SizedBox(height: 8),
-          ],
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      source = AvatarAction.gallery;
+    }
+
     if (source == null || !mounted) return;
 
     if (source == AvatarAction.remove) {
@@ -171,10 +172,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     setState(() => _avatarBusy = true);
     try {
-      final imageSource = source == AvatarAction.camera
-          ? ImageSource.camera
-          : ImageSource.gallery;
-      final picked = await _avatarService.pickAndUpload(source: imageSource);
+      final picked = await _avatarService.pickAndUpload(source: ImageSource.gallery);
       if (picked == null) {
         return;
       }
@@ -632,6 +630,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(
+                          Icons.lock_outline,
+                          color: AikoColors.primaryBlue,
+                        ),
+                        title: const Text('Change Password'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Password flow opened.')),
+                          );
+                        },
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(
                           Icons.logout,
                           color: AikoColors.primaryBlue,
                         ),
@@ -914,4 +927,4 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 }
 
-enum AvatarAction { camera, gallery, remove }
+enum AvatarAction { gallery, remove }

@@ -4,6 +4,22 @@ import 'package:aiko/features/transactions/domain/transaction.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('foreign-currency transaction leaves account balance untouched', () {
+    final balance = Money.parse('100', 'THB');
+    final usdExpense = FinanceTransaction(
+      id: 'fx',
+      userId: 'user',
+      accountId: 'cash',
+      type: TransactionType.expense,
+      amount: Money.parse('50', 'USD'),
+      date: DateTime(2026),
+    );
+
+    // No-FX rule: mismatched currency must not throw and must not change it.
+    expect(usdExpense.applyToAccountBalance(balance), balance);
+    expect(usdExpense.reverseFromAccountBalance(balance), balance);
+  });
+
   test('transaction repository rejects non-positive expense', () async {
     const repository = TransactionRepository();
 

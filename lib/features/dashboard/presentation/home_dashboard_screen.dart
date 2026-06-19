@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
@@ -43,7 +44,16 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     final l10n = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.overview)),
+      appBar: AppBar(
+        title: Text(l10n.overview),
+        actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            icon: const Icon(Icons.notifications_none),
+            onPressed: () => context.push('/notifications'),
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: summaryAsync.when(
@@ -628,6 +638,7 @@ class _DailySpendingPanel extends ConsumerWidget {
           caption: 'Today',
           icon: Icons.today_outlined,
           accentColor: AikoColors.warningOrange,
+          onTap: () => context.push('/transactions'),
         );
       },
     );
@@ -699,6 +710,7 @@ class _OverviewMiniCard extends StatelessWidget {
     required this.icon,
     required this.accentColor,
     this.progressValue,
+    this.onTap,
   });
 
   final String title;
@@ -707,6 +719,7 @@ class _OverviewMiniCard extends StatelessWidget {
   final IconData icon;
   final Color accentColor;
   final double? progressValue;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -740,14 +753,26 @@ class _OverviewMiniCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: accentColor,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: accentColor,
+                  ),
+                ),
+              ),
+              if (onTap != null)
+                Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+            ],
           ),
           if (progressValue != null) ...[
             const SizedBox(height: 8),
@@ -781,7 +806,9 @@ class _OverviewMiniCard extends StatelessWidget {
         side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       clipBehavior: Clip.antiAlias,
-      child: content,
+      child: onTap == null
+          ? content
+          : InkWell(onTap: onTap, borderRadius: radius, child: content),
     );
   }
 }
@@ -1313,34 +1340,47 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
         final categories =
             categoriesAsync.whenOrNull(data: (items) => items) ??
             const <Category>[];
+        final baseCurrency =
+            ref.watch(profileProvider).value?.baseCurrency ??
+            kDefaultBaseCurrency;
+        final symbol = NumberFormat.simpleCurrency(
+          name: baseCurrency,
+        ).currencySymbol;
 
         return switch (kind) {
           _AnalyticsWidgetKind.dailySummary => _DailySummaryCard(
             transactions: transactions,
+            currencySymbol: symbol,
+            showPeriodSelector: true,
             onTap: () => _openAnalyticsDetail(
               context,
               kind: kind,
               transactions: transactions,
               categories: categories,
+              currencySymbol: symbol,
             ),
           ),
           _AnalyticsWidgetKind.netEarnings => _MonthlyNetEarningsCard(
             transactions: transactions,
+            currencySymbol: symbol,
             onTap: () => _openAnalyticsDetail(
               context,
               kind: kind,
               transactions: transactions,
               categories: categories,
+              currencySymbol: symbol,
             ),
           ),
           _AnalyticsWidgetKind.categoryBudgets => _CategoryBudgetCard(
             transactions: transactions,
             categories: categories,
+            currencySymbol: symbol,
             onTap: () => _openAnalyticsDetail(
               context,
               kind: kind,
               transactions: transactions,
               categories: categories,
+              currencySymbol: symbol,
             ),
           ),
           _AnalyticsWidgetKind.spendingCalendar => _SpendingCalendarCard(
@@ -1350,6 +1390,7 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
               kind: kind,
               transactions: transactions,
               categories: categories,
+              currencySymbol: symbol,
             ),
           ),
         };
@@ -1362,6 +1403,7 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
     required _AnalyticsWidgetKind kind,
     required List<FinanceTransaction> transactions,
     required List<Category> categories,
+    required String currencySymbol,
   }) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -1369,6 +1411,7 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
           kind: kind,
           transactions: transactions,
           categories: categories,
+          currencySymbol: currencySymbol,
         ),
       ),
     );
@@ -1393,19 +1436,37 @@ extension on _AnalyticsWidgetKind {
   }
 }
 
-class _DailySummaryCard extends StatelessWidget {
+class _DailySummaryCard extends StatefulWidget {
   const _DailySummaryCard({
     required this.transactions,
     this.daysToShow = 7,
+    this.currencySymbol = r'$',
+    this.showPeriodSelector = false,
     this.onTap,
   });
 
   final List<FinanceTransaction> transactions;
   final int daysToShow;
+  final String currencySymbol;
+
+  /// Home shows a "This week / This month" pill; the detail screen drives the
+  /// range with its own chips, so it leaves this off and passes [daysToShow].
+  final bool showPeriodSelector;
   final VoidCallback? onTap;
 
   @override
+  State<_DailySummaryCard> createState() => _DailySummaryCardState();
+}
+
+class _DailySummaryCardState extends State<_DailySummaryCard> {
+  late int _period = widget.daysToShow;
+
+  @override
   Widget build(BuildContext context) {
+    final transactions = widget.transactions;
+    final onTap = widget.onTap;
+    final symbol = widget.currencySymbol;
+    final daysToShow = widget.showPeriodSelector ? _period : widget.daysToShow;
     final today = _dateOnly(DateTime.now());
     final days = [
       for (var offset = daysToShow - 1; offset >= 0; offset--)
@@ -1439,7 +1500,12 @@ class _DailySummaryCard extends StatelessWidget {
       title: 'Daily summary',
       icon: Icons.bar_chart_outlined,
       accentColor: AikoColors.analyticsTeal,
-      trailing: onTap == null ? null : const Icon(Icons.chevron_right),
+      trailing: widget.showPeriodSelector
+          ? _PeriodPill(
+              days: _period,
+              onChanged: (value) => setState(() => _period = value),
+            )
+          : (onTap == null ? null : const Icon(Icons.chevron_right)),
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1469,10 +1535,20 @@ class _DailySummaryCard extends StatelessWidget {
                         if (index < 0 || index >= buckets.length) {
                           return const SizedBox.shrink();
                         }
+                        // Weekday letters read well for a week; for longer
+                        // ranges they'd collide, so show the day number on
+                        // every 5th bar instead.
+                        final day = buckets[index].day;
+                        final label = buckets.length <= 7
+                            ? _weekdayLabel(day)
+                            : (index == 0 || day.day % 5 == 0)
+                                ? '${day.day}'
+                                : '';
+                        if (label.isEmpty) return const SizedBox.shrink();
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
-                            _weekdayLabel(buckets[index].day),
+                            label,
                             style: Theme.of(context).textTheme.labelSmall,
                           ),
                         );
@@ -1511,29 +1587,115 @@ class _DailySummaryCard extends StatelessWidget {
               const _LegendDot(color: AikoColors.dangerRed, label: 'Expense'),
               const Spacer(),
               Text(
-                '7d avg \$${sevenDayAverage.toStringAsFixed(0)}',
+                '7-day avg $symbol${sevenDayAverage.toStringAsFixed(0)}',
                 style: Theme.of(context).textTheme.labelMedium,
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Average spending:',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '7 days: \$${sevenDayAverage.toStringAsFixed(0)} per day',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              Text(
-                '30 days: \$${thirtyDayAverage.toStringAsFixed(0)} per day',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+          const SizedBox(height: 12),
+          _AverageSpendingBox(
+            sevenDay: '$symbol${sevenDayAverage.toStringAsFixed(0)}',
+            thirtyDay: '$symbol${thirtyDayAverage.toStringAsFixed(0)}',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Period selector pill shown in the Daily summary header (week / month).
+class _PeriodPill extends StatelessWidget {
+  const _PeriodPill({required this.days, required this.onChanged});
+
+  final int days;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return PopupMenuButton<int>(
+      initialValue: days,
+      onSelected: onChanged,
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: 7, child: Text('This week')),
+        PopupMenuItem(value: 30, child: Text('This month')),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              days <= 7 ? 'This week' : 'This month',
+              style: theme.textTheme.labelLarge,
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.keyboard_arrow_down, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Tinted summary box with a trend badge, matching the dashboard design.
+class _AverageSpendingBox extends StatelessWidget {
+  const _AverageSpendingBox({required this.sevenDay, required this.thirtyDay});
+
+  final String sevenDay;
+  final String thirtyDay;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: AikoColors.successGreen.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.trending_up,
+              size: 16,
+              color: AikoColors.successGreen,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Average spending',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '7 days: $sevenDay per day',
+                  style: theme.textTheme.bodySmall,
+                ),
+                Text(
+                  '30 days: $thirtyDay per day',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1545,11 +1707,13 @@ class _MonthlyNetEarningsCard extends StatelessWidget {
   const _MonthlyNetEarningsCard({
     required this.transactions,
     this.monthsToShow = 4,
+    this.currencySymbol = r'$',
     this.onTap,
   });
 
   final List<FinanceTransaction> transactions;
   final int monthsToShow;
+  final String currencySymbol;
   final VoidCallback? onTap;
 
   @override
@@ -1661,7 +1825,7 @@ class _MonthlyNetEarningsCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'This month net: \$${net.toStringAsFixed(0)}',
+            'This month net: $currencySymbol${net.toStringAsFixed(0)}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: net >= 0 ? AikoColors.successGreen : AikoColors.dangerRed,
               fontWeight: FontWeight.w700,
@@ -1678,12 +1842,14 @@ class _CategoryBudgetCard extends StatelessWidget {
     required this.transactions,
     required this.categories,
     this.maxRows = 5,
+    this.currencySymbol = r'$',
     this.onTap,
   });
 
   final List<FinanceTransaction> transactions;
   final List<Category> categories;
   final int maxRows;
+  final String currencySymbol;
   final VoidCallback? onTap;
 
   @override
@@ -1760,7 +1926,7 @@ class _CategoryBudgetCard extends StatelessWidget {
                       color: row.color,
                       title: row.label == 'No spending'
                           ? ''
-                          : '\$${row.used.toStringAsFixed(0)}',
+                          : '$currencySymbol${row.used.toStringAsFixed(0)}',
                       radius: 54,
                       titleStyle: Theme.of(
                         context,
@@ -1778,7 +1944,7 @@ class _CategoryBudgetCard extends StatelessWidget {
             )
           else
             for (final row in rows.take(maxRows)) ...[
-              _CategoryBudgetRow(row: row),
+              _CategoryBudgetRow(row: row, currencySymbol: currencySymbol),
               if (row != rows.take(maxRows).last) const SizedBox(height: 10),
             ],
         ],
@@ -1901,9 +2067,10 @@ class _SpendingCalendarCard extends StatelessWidget {
 }
 
 class _CategoryBudgetRow extends StatelessWidget {
-  const _CategoryBudgetRow({required this.row});
+  const _CategoryBudgetRow({required this.row, this.currencySymbol = r'$'});
 
   final _CategoryUsage row;
+  final String currencySymbol;
 
   @override
   Widget build(BuildContext context) {
@@ -1920,8 +2087,8 @@ class _CategoryBudgetRow extends StatelessWidget {
             const Spacer(),
             Text(
               row.budget > 0
-                  ? '\$${row.used.toStringAsFixed(0)} / \$${row.budget.toStringAsFixed(0)}'
-                  : '\$${row.used.toStringAsFixed(0)} used',
+                  ? '$currencySymbol${row.used.toStringAsFixed(0)} / $currencySymbol${row.budget.toStringAsFixed(0)}'
+                  : '$currencySymbol${row.used.toStringAsFixed(0)} used',
               style: Theme.of(context).textTheme.labelMedium,
             ),
           ],
@@ -1947,11 +2114,13 @@ class _AnalyticsDetailScreen extends StatefulWidget {
     required this.kind,
     required this.transactions,
     required this.categories,
+    required this.currencySymbol,
   });
 
   final _AnalyticsWidgetKind kind;
   final List<FinanceTransaction> transactions;
   final List<Category> categories;
+  final String currencySymbol;
 
   @override
   State<_AnalyticsDetailScreen> createState() => _AnalyticsDetailScreenState();
@@ -2030,15 +2199,18 @@ class _AnalyticsDetailScreenState extends State<_AnalyticsDetailScreen> {
       _AnalyticsWidgetKind.dailySummary => _DailySummaryCard(
         transactions: widget.transactions,
         daysToShow: _dailyDays,
+        currencySymbol: widget.currencySymbol,
       ),
       _AnalyticsWidgetKind.netEarnings => _MonthlyNetEarningsCard(
         transactions: widget.transactions,
         monthsToShow: _earningMonths,
+        currencySymbol: widget.currencySymbol,
       ),
       _AnalyticsWidgetKind.categoryBudgets => _CategoryBudgetCard(
         transactions: widget.transactions,
         categories: widget.categories,
         maxRows: _categoryRows,
+        currencySymbol: widget.currencySymbol,
       ),
       _AnalyticsWidgetKind.spendingCalendar => _SpendingCalendarCard(
         transactions: widget.transactions,
@@ -2078,22 +2250,22 @@ class _AnalyticsDetailScreenState extends State<_AnalyticsDetailScreen> {
     return switch (widget.kind) {
       _AnalyticsWidgetKind.dailySummary => [
         'Transactions included: ${widget.transactions.length}',
-        'Average daily expense over $_dailyDays days: \$${_averageDailyExpense(widget.transactions, _dateOnly(now), _dailyDays).toStringAsFixed(0)}',
-        'Current month expense: \$${monthlyExpense.toStringAsFixed(0)}',
+        'Average daily expense over $_dailyDays days: ${widget.currencySymbol}${_averageDailyExpense(widget.transactions, _dateOnly(now), _dailyDays).toStringAsFixed(0)}',
+        'Current month expense: ${widget.currencySymbol}${monthlyExpense.toStringAsFixed(0)}',
       ],
       _AnalyticsWidgetKind.netEarnings => [
-        'Current month income: \$${monthlyIncome.toStringAsFixed(0)}',
-        'Current month expense: \$${monthlyExpense.toStringAsFixed(0)}',
-        'Current month net: \$${(monthlyIncome - monthlyExpense).toStringAsFixed(0)}',
+        'Current month income: ${widget.currencySymbol}${monthlyIncome.toStringAsFixed(0)}',
+        'Current month expense: ${widget.currencySymbol}${monthlyExpense.toStringAsFixed(0)}',
+        'Current month net: ${widget.currencySymbol}${(monthlyIncome - monthlyExpense).toStringAsFixed(0)}',
       ],
       _AnalyticsWidgetKind.categoryBudgets => [
         'Categories with a budget: ${widget.categories.where((c) => c.monthlyLimit != null).length}',
         'Tracked categories: ${widget.categories.length}',
-        'Current month expense: \$${monthlyExpense.toStringAsFixed(0)}',
+        'Current month expense: ${widget.currencySymbol}${monthlyExpense.toStringAsFixed(0)}',
       ],
       _AnalyticsWidgetKind.spendingCalendar => [
         'Month: ${_monthShortLabel(DateTime(now.year, now.month, 1))} ${now.year}',
-        'Current month expense: \$${monthlyExpense.toStringAsFixed(0)}',
+        'Current month expense: ${widget.currencySymbol}${monthlyExpense.toStringAsFixed(0)}',
         'Dot size scale: ${(_calendarDotScale * 100).round()}%',
       ],
     };

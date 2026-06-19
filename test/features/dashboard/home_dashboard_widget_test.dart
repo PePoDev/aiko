@@ -75,14 +75,13 @@ void main() {
     expect(find.text('Edit layout'), findsNothing);
     expect(find.byTooltip('Remove Daily spending'), findsNothing);
 
-    // The notifications icon lives on the Profile app bar; the Home
-    // app bar has no actions.
+    // The Home app bar exposes a notifications action.
     expect(
       find.descendant(
         of: find.byType(AppBar),
         matching: find.byIcon(Icons.notifications_none),
       ),
-      findsNothing,
+      findsOneWidget,
     );
   });
 

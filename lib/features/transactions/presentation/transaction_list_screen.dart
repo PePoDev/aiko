@@ -1,6 +1,7 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
@@ -510,7 +511,7 @@ String _dateFilterLabel(_TransactionDateFilter filter) {
   };
 }
 
-class _TransactionMonthPage extends ConsumerWidget {
+class _TransactionMonthPage extends ConsumerStatefulWidget {
   const _TransactionMonthPage({
     required this.transactions,
     required this.allTransactions,
@@ -526,7 +527,17 @@ class _TransactionMonthPage extends ConsumerWidget {
   final VoidCallback onClearSearch;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_TransactionMonthPage> createState() =>
+      _TransactionMonthPageState();
+}
+
+class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
+  // Days the user has collapsed. Empty = everything expanded (matches design).
+  final _collapsed = <DateTime>{};
+
+  @override
+  Widget build(BuildContext context) {
+    final searchState = widget.searchState;
     final accounts =
         ref.watch(accountsProvider).whenOrNull(data: (accounts) => accounts) ??
         const <Account>[];
@@ -540,7 +551,7 @@ class _TransactionMonthPage extends ConsumerWidget {
       for (final category in categories) category.id: category,
     };
 
-    final filtered = transactions.where((tx) {
+    final filtered = widget.transactions.where((tx) {
       return _matchesSearchState(
         transaction: tx,
         searchState: searchState,
@@ -553,13 +564,13 @@ class _TransactionMonthPage extends ConsumerWidget {
       return AikoScreenState.empty(
         title: searchState.isActive
             ? 'No matching transactions'
-            : 'No transactions in $monthLabel',
+            : 'No transactions in ${widget.monthLabel}',
         message: searchState.isActive
             ? 'Try a different search or clear filters.'
             : 'Add a transaction for this month when you are ready.',
         action: searchState.isActive
             ? TextButton(
-                onPressed: onClearSearch,
+                onPressed: widget.onClearSearch,
                 child: const Text('Clear search'),
               )
             : null,
@@ -569,36 +580,56 @@ class _TransactionMonthPage extends ConsumerWidget {
     final groups = _groupTransactionsByDate(filtered);
     final accountLabels = _accountLabelsForTransactions(
       transactions: filtered,
-      allTransactions: allTransactions,
+      allTransactions: widget.allTransactions,
       accounts: accounts,
     );
 
+    final monthTotal = _monthTotal(filtered);
+    final daysInMonth = DateTime(
+      filtered.first.date.year,
+      filtered.first.date.month + 1,
+      0,
+    ).day;
+    final averagePerDay = Money(
+      amount: (monthTotal.amount / Decimal.fromInt(daysInMonth))
+          .toDecimal(scaleOnInfinitePrecision: 2),
+      currency: monthTotal.currency,
+    );
+
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
       children: [
+        _MonthSummaryCard(
+          monthLabel: widget.monthLabel,
+          total: monthTotal,
+          averagePerDay: averagePerDay,
+          onTap: () => context.push('/reports/monthly'),
+        ),
+        const SizedBox(height: 16),
         for (final group in groups) ...[
-          _TransactionDateHeader(date: group.date, total: group.total),
-          for (final tx in group.transactions)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _CompactTransactionCard(
-                transaction: tx,
-                accountLabel: accountLabels[tx.id] ?? 'Unknown',
-                accent: tx.type == TransactionType.income
-                    ? AikoColors.successGreen
-                    : AikoColors.dangerRed,
-                sign: tx.type == TransactionType.income ? '+' : '-',
-                onTap: () => Navigator.of(context, rootNavigator: true).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => TransactionDetailScreen(transaction: tx),
-                  ),
-                ),
-              ),
+          _TransactionDateHeader(
+            date: group.date,
+            total: group.total,
+            collapsed: _collapsed.contains(group.date),
+            onToggle: () => setState(() {
+              if (!_collapsed.add(group.date)) {
+                _collapsed.remove(group.date);
+              }
+            }),
+          ),
+          if (!_collapsed.contains(group.date))
+            _DayTransactionsCard(
+              transactions: group.transactions,
+              accountLabels: accountLabels,
             ),
+          const SizedBox(height: 16),
         ],
       ],
     );
   }
+
+  Money _monthTotal(List<FinanceTransaction> transactions) =>
+      _dailyTotal(transactions);
 
   bool _matchesSearchState({
     required FinanceTransaction transaction,
@@ -754,33 +785,244 @@ Map<String, String> _accountLabelsForTransactions({
 }
 
 class _TransactionDateHeader extends StatelessWidget {
-  const _TransactionDateHeader({required this.date, required this.total});
+  const _TransactionDateHeader({
+    required this.date,
+    required this.total,
+    required this.collapsed,
+    required this.onToggle,
+  });
 
   final DateTime date;
   final Money total;
+  final bool collapsed;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
-      child: Row(
+    final headerStyle = theme.textTheme.titleSmall?.copyWith(
+      color: theme.colorScheme.onSurface,
+      fontWeight: FontWeight.w700,
+    );
+    return InkWell(
+      onTap: onToggle,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+        child: Row(
+          children: [
+            Icon(
+              Icons.calendar_today_outlined,
+              size: 16,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Text(_dateHeaderLabel(date), style: headerStyle),
+            const Spacer(),
+            Text(
+              _formatDailyTotal(total),
+              style: headerStyle?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              collapsed
+                  ? Icons.keyboard_arrow_down
+                  : Icons.keyboard_arrow_up,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Month spending summary shown above the day groups. Mirrors the daily-total
+/// math (`income +`, everything else `−`) so the headline matches the rows.
+class _MonthSummaryCard extends StatelessWidget {
+  const _MonthSummaryCard({
+    required this.monthLabel,
+    required this.total,
+    required this.averagePerDay,
+    required this.onTap,
+  });
+
+  final String monthLabel;
+  final Money total;
+  final Money averagePerDay;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final radius = BorderRadius.circular(8);
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.account_balance_wallet_outlined,
+                  color: theme.colorScheme.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$monthLabel Summary',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _MonthSummaryMetric(
+                            label: 'Total Spent',
+                            value: _formatDailyTotal(total),
+                            valueColor: AikoColors.dangerRed,
+                          ),
+                        ),
+                        Container(
+                          width: 1,
+                          height: 32,
+                          color: theme.colorScheme.outlineVariant,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _MonthSummaryMetric(
+                            label: 'Average per Day',
+                            value: _formatDailyTotal(averagePerDay),
+                            valueColor: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MonthSummaryMetric extends StatelessWidget {
+  const _MonthSummaryMetric({
+    required this.label,
+    required this.value,
+    required this.valueColor,
+  });
+
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: valueColor,
+            fontWeight: FontWeight.w700,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One card per day holding that day's transaction rows, divided by hairlines —
+/// matches the grouped-card layout in the design.
+class _DayTransactionsCard extends StatelessWidget {
+  const _DayTransactionsCard({
+    required this.transactions,
+    required this.accountLabels,
+  });
+
+  final List<FinanceTransaction> transactions;
+  final Map<String, String> accountLabels;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final radius = BorderRadius.circular(8);
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
         children: [
-          Text(
-            _dateHeaderLabel(date),
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
+          for (var i = 0; i < transactions.length; i++) ...[
+            if (i != 0)
+              Divider(
+                height: 1,
+                thickness: 1,
+                indent: 16,
+                endIndent: 16,
+                color: theme.colorScheme.outlineVariant,
+              ),
+            _TransactionRow(
+              transaction: transactions[i],
+              accountLabel: accountLabels[transactions[i].id] ?? 'Unknown',
+              accent: transactions[i].type == TransactionType.income
+                  ? AikoColors.successGreen
+                  : AikoColors.dangerRed,
+              sign: transactions[i].type == TransactionType.income ? '+' : '-',
+              onTap: () => Navigator.of(context, rootNavigator: true).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      TransactionDetailScreen(transaction: transactions[i]),
+                ),
+              ),
             ),
-          ),
-          const Spacer(),
-          Text(
-            _formatDailyTotal(total),
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          ],
         ],
       ),
     );
@@ -836,8 +1078,8 @@ const _monthLabels = [
   'Dec',
 ];
 
-class _CompactTransactionCard extends ConsumerWidget {
-  const _CompactTransactionCard({
+class _TransactionRow extends ConsumerWidget {
+  const _TransactionRow({
     required this.transaction,
     required this.accountLabel,
     required this.accent,
@@ -853,10 +1095,10 @@ class _CompactTransactionCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final title = transaction.merchant ?? transaction.note ?? 'Transaction';
     final amount = '$sign${transaction.amount.format()}';
     final timeLabel = DateFormat('HH:mm').format(transaction.date);
-    final radius = BorderRadius.circular(8);
     final categoriesAsync = ref.watch(categoriesProvider);
     final categoryIcon =
         categoriesAsync.whenOrNull(
@@ -874,82 +1116,80 @@ class _CompactTransactionCard extends ConsumerWidget {
             ? Icons.south_west
             : Icons.north_east);
 
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: radius,
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: radius,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(categoryIcon, color: accent, size: 16),
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 3),
-                    _TransactionTimeAndTags(
-                      time: timeLabel,
-                      tags: transaction.tags,
-                    ),
-                  ],
-                ),
+              child: Icon(categoryIcon, color: accent, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 3),
+                  _TransactionTimeAndTags(
+                    time: timeLabel,
+                    tags: transaction.tags,
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 132),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      amount,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: accent,
-                        fontWeight: FontWeight.w700,
-                      ),
+            ),
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 140),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    amount,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: accent,
+                      fontWeight: FontWeight.w700,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      accountLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.end,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    accountLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ],
         ),
       ),
     );
   }
-
 }
 
 class _TransactionTimeAndTags extends StatelessWidget {

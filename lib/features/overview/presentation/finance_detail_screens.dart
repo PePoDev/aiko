@@ -1,73 +1,108 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/providers.dart';
 import '../../../shared/widgets/aiko_data_widgets.dart';
+import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../dashboard/domain/app_notification.dart';
 
-class NotificationsCenterScreen extends StatelessWidget {
+class NotificationsCenterScreen extends ConsumerWidget {
   const NotificationsCenterScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notificationsAsync = ref.watch(notificationsProvider);
+
     return AikoDetailScaffold(
       title: 'Notifications',
-      actions: [
-        TextButton(
-          onPressed: () =>
-              _showSnack(context, 'All notifications marked read.'),
-          child: const Text('Mark all'),
-        ),
-      ],
-      children: const [
-        _SegmentedHeader(labels: ['All', 'Alerts', 'Updates']),
-        AikoDataListCard(
-          title: 'Today',
-          icon: Icons.notifications_none,
-          rows: [
-            AikoDataRow(
-              label: 'Budget alert',
-              subtitle: 'You have used 80% of Food & Dining.',
-              value: '9:30 AM',
-              color: AikoColors.warningOrange,
-              icon: Icons.warning_amber_outlined,
-            ),
-            AikoDataRow(
-              label: 'Goal progress',
-              subtitle: 'Vacation 2025 is 50% complete.',
-              value: '8:15 AM',
-              color: AikoColors.successGreen,
-              icon: Icons.flag_outlined,
-            ),
-            AikoDataRow(
-              label: 'Account linked',
-              subtitle: 'Chase Checking was connected.',
-              value: '7:45 AM',
-              icon: Icons.account_balance_outlined,
-            ),
-          ],
-        ),
-        AikoDataListCard(
-          title: 'Yesterday',
-          icon: Icons.history,
-          rows: [
-            AikoDataRow(
-              label: 'Recurring reminder',
-              subtitle: 'Netflix renews soon.',
-              value: '9:00 PM',
-              color: AikoColors.premiumPurple,
-              icon: Icons.receipt_long_outlined,
-            ),
-            AikoDataRow(
-              label: 'Weekly summary',
-              subtitle: 'Your weekly spending summary is ready.',
-              value: '6:30 PM',
-              icon: Icons.summarize_outlined,
-            ),
-          ],
+      children: [
+        notificationsAsync.when(
+          loading: () => const AikoScreenState.loading(),
+          error: (_, _) => const AikoScreenState.error(
+            title: 'Notifications unavailable',
+            message: 'Aiko could not read your data right now. Pull to retry.',
+          ),
+          data: (notifications) {
+            if (notifications.isEmpty) {
+              return const AikoScreenState.empty(
+                title: 'All caught up',
+                message:
+                    'No budget alerts, upcoming bills, or goal milestones right now.',
+              );
+            }
+            return Column(
+              children: [
+                for (final group in AppNotificationGroup.values)
+                  if (notifications.any((n) => n.group == group))
+                    _NotificationGroupCard(
+                      group: group,
+                      notifications: notifications
+                          .where((n) => n.group == group)
+                          .toList(growable: false),
+                    ),
+              ],
+            );
+          },
         ),
       ],
     );
   }
 }
+
+class _NotificationGroupCard extends StatelessWidget {
+  const _NotificationGroupCard({
+    required this.group,
+    required this.notifications,
+  });
+
+  final AppNotificationGroup group;
+  final List<AppNotification> notifications;
+
+  @override
+  Widget build(BuildContext context) {
+    return AikoDataListCard(
+      title: _groupTitle(group),
+      icon: _groupIcon(group),
+      rows: [
+        for (final n in notifications)
+          AikoDataRow(
+            label: n.title,
+            subtitle: n.subtitle,
+            value: '',
+            color: _severityColor(n.severity),
+            icon: _severityIcon(n.severity),
+          ),
+      ],
+    );
+  }
+}
+
+String _groupTitle(AppNotificationGroup group) => switch (group) {
+  AppNotificationGroup.budget => 'Budget alerts',
+  AppNotificationGroup.bills => 'Upcoming bills',
+  AppNotificationGroup.goals => 'Goals',
+};
+
+IconData _groupIcon(AppNotificationGroup group) => switch (group) {
+  AppNotificationGroup.budget => Icons.pie_chart_outline,
+  AppNotificationGroup.bills => Icons.receipt_long_outlined,
+  AppNotificationGroup.goals => Icons.flag_outlined,
+};
+
+Color _severityColor(AppNotificationSeverity severity) => switch (severity) {
+  AppNotificationSeverity.info => AikoColors.primaryBlue,
+  AppNotificationSeverity.success => AikoColors.successGreen,
+  AppNotificationSeverity.warning => AikoColors.warningOrange,
+  AppNotificationSeverity.danger => AikoColors.dangerRed,
+};
+
+IconData _severityIcon(AppNotificationSeverity severity) => switch (severity) {
+  AppNotificationSeverity.info => Icons.info_outline,
+  AppNotificationSeverity.success => Icons.check_circle_outline,
+  AppNotificationSeverity.warning => Icons.warning_amber_outlined,
+  AppNotificationSeverity.danger => Icons.error_outline,
+};
 
 class PaceOverviewScreen extends StatelessWidget {
   const PaceOverviewScreen({super.key});

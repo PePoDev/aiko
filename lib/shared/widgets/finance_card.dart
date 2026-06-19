@@ -37,17 +37,26 @@ class FinanceCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            // Pin the trailing control to the top-right while the icon + title
+            // stay vertically centered within their own row.
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (icon != null) ...[
-                _CardIcon(icon: icon!, color: accent),
-                const SizedBox(width: 12),
-              ],
               Expanded(
-                child: Text(
-                  title,
-                  style: theme.textTheme.titleMedium,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                child: Row(
+                  children: [
+                    if (icon != null) ...[
+                      _CardIcon(icon: icon!, color: accent),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: theme.textTheme.titleMedium,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               if (trailing != null) ...[

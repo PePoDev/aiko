@@ -25,10 +25,9 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
   final _pageController = PageController();
   var _page = 0;
   var _focus = 'save';
-  var _selectedAccount = _AccountChoice.bank;
   var _isFinishing = false;
 
-  static const _stepsCount = 2;
+  static const _stepsCount = 1;
   static const _selectedCurrency = kDefaultBaseCurrency;
   static const _selectedCountry = kDefaultCountry;
 
@@ -53,34 +52,38 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
   }
 
   Future<void> _saveFirstAccountAndProfile() async {
-    final option = _accountOptions
-        .where((item) => item.choice == _selectedAccount)
-        .first;
     final balance = Money.zero(_selectedCurrency);
-    final account = Account(
-      id: const Uuid().v4(),
-      userId: '',
-      name: option.accountName,
-      type: option.accountType,
-      currentBalance: balance,
-      institution: option.institution,
-    );
+    final defaults = [
+      Account(
+        id: const Uuid().v4(),
+        userId: '',
+        name: 'Cash',
+        type: AccountType.cash,
+        currentBalance: balance,
+      ),
+      Account(
+        id: const Uuid().v4(),
+        userId: '',
+        name: 'Bank Account',
+        type: AccountType.bank,
+        currentBalance: balance,
+      ),
+    ];
 
     try {
       final repo = ref.read(accountRepositoryProvider);
       final existingAccounts = await repo.list();
-      final alreadyExists = existingAccounts.any(
-        (existing) =>
-            existing.name == account.name &&
-            existing.type == account.type &&
-            existing.currency == account.currency &&
-            existing.institution == account.institution,
-      );
-      if (!alreadyExists) {
-        await repo.save(account);
+      for (final account in defaults) {
+        final alreadyExists = existingAccounts.any(
+          (existing) =>
+              existing.name == account.name && existing.type == account.type,
+        );
+        if (!alreadyExists) {
+          await repo.save(account);
+        }
       }
     } catch (error) {
-      debugPrint('Saved first account locally: $error');
+      debugPrint('Saved default accounts locally: $error');
     }
 
     try {
@@ -144,12 +147,6 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                       _GoalStep(
                         focus: _focus,
                         onChanged: (value) => setState(() => _focus = value),
-                      ),
-                      _FirstAccountStep(
-                        selected: _selectedAccount,
-                        onChanged: (value) {
-                          setState(() => _selectedAccount = value);
-                        },
                       ),
                     ],
                   ),
@@ -254,119 +251,6 @@ class _GoalStep extends StatelessWidget {
   }
 }
 
-class _FirstAccountStep extends StatelessWidget {
-  const _FirstAccountStep({required this.selected, required this.onChanged});
-
-  final _AccountChoice selected;
-  final ValueChanged<_AccountChoice> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(28, 0, 28, 24),
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Let's add your\nfirst account",
-                    style: textTheme.headlineSmall?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontWeight: FontWeight.w900,
-                      height: 1.08,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Connect an account to see your financial picture in one place.',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      height: 1.35,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 14),
-            const AikoCharacterImage(
-              size: 108,
-              borderRadius: 28,
-              semanticLabel: 'Aiko ready to connect an account',
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        for (final option in _accountOptions) ...[
-          _AccountOptionTile(
-            option: option,
-            selected: selected == option.choice,
-            onTap: () => onChanged(option.choice),
-          ),
-          const SizedBox(height: 10),
-        ],
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AikoColors.paleBlue,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: colorScheme.outlineVariant),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.lock_outline, color: AikoColors.deepBlue),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Bank-level security. Your data is encrypted and secure.',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AikoColors.paleBlue,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: colorScheme.outlineVariant),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.auto_awesome, color: AikoColors.premiumPurple),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Aiko analyzes your financial data to give you personalized insights.',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _IdeaOptionTile extends StatelessWidget {
   const _IdeaOptionTile({
     required this.selected,
@@ -457,30 +341,6 @@ class _IdeaOptionTile extends StatelessWidget {
   }
 }
 
-class _AccountOptionTile extends StatelessWidget {
-  const _AccountOptionTile({
-    required this.option,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final _AccountOption option;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return _IdeaOptionTile(
-      selected: selected,
-      icon: option.icon,
-      color: option.color,
-      title: option.title,
-      subtitle: option.subtitle,
-      onTap: onTap,
-    );
-  }
-}
-
 class _GoalOption {
   const _GoalOption({
     required this.key,
@@ -495,30 +355,6 @@ class _GoalOption {
   final String subtitle;
   final IconData icon;
   final Color color;
-}
-
-enum _AccountChoice { bank, creditCard, investment, paypal, other }
-
-class _AccountOption {
-  const _AccountOption({
-    required this.choice,
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-    required this.accountName,
-    required this.accountType,
-    this.institution,
-  });
-
-  final _AccountChoice choice;
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-  final String accountName;
-  final AccountType accountType;
-  final String? institution;
 }
 
 const _goalOptions = [
@@ -556,55 +392,5 @@ const _goalOptions = [
     subtitle: 'Save for experiences that matter',
     icon: Icons.flight_takeoff_outlined,
     color: AikoColors.analyticsTeal,
-  ),
-];
-
-const _accountOptions = [
-  _AccountOption(
-    choice: _AccountChoice.bank,
-    title: 'Bank Account',
-    subtitle: 'Checking, Savings',
-    icon: Icons.account_balance_outlined,
-    color: AikoColors.primaryBlue,
-    accountName: 'Chase Checking',
-    accountType: AccountType.bank,
-    institution: 'Chase Bank',
-  ),
-  _AccountOption(
-    choice: _AccountChoice.creditCard,
-    title: 'Credit Card',
-    subtitle: 'Visa, Mastercard, Amex',
-    icon: Icons.credit_card_outlined,
-    color: AikoColors.deepBlue,
-    accountName: 'Credit Card',
-    accountType: AccountType.creditCard,
-  ),
-  _AccountOption(
-    choice: _AccountChoice.investment,
-    title: 'Investment Account',
-    subtitle: 'Brokerage, Retirement',
-    icon: Icons.trending_up_outlined,
-    color: AikoColors.analyticsTeal,
-    accountName: 'Investment Account',
-    accountType: AccountType.investment,
-  ),
-  _AccountOption(
-    choice: _AccountChoice.paypal,
-    title: 'PayPal',
-    subtitle: 'Connect your PayPal',
-    icon: Icons.account_balance_wallet_outlined,
-    color: AikoColors.deepBlue,
-    accountName: 'PayPal',
-    accountType: AccountType.eWallet,
-    institution: 'PayPal',
-  ),
-  _AccountOption(
-    choice: _AccountChoice.other,
-    title: 'Other Account',
-    subtitle: 'Loans, Mortgages, etc.',
-    icon: Icons.wallet_outlined,
-    color: AikoColors.premiumPurple,
-    accountName: 'Other Account',
-    accountType: AccountType.other,
   ),
 ];

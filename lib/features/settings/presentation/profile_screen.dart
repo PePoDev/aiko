@@ -8,10 +8,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/money/supported_currencies.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../application/profile_avatar_service.dart';
+import '../data/line_link_repository.dart';
 import '../domain/profile.dart';
 import '../../auth/data/auth_repository.dart';
 
@@ -75,6 +77,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (_draft.dateOfBirth != profile.dateOfBirth) return true;
     if (_draft.avatarPath != profile.avatarPath) return true;
     if (_draft.avatarUrl != profile.avatarUrl) return true;
+    if (_draft.baseCurrency != profile.baseCurrency) return true;
     return false;
   }
 
@@ -90,6 +93,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         dateOfBirth: _draft.dateOfBirth,
         avatarPath: _draft.avatarPath,
         avatarUrl: _draft.avatarUrl,
+        baseCurrency: _draft.baseCurrency,
       );
       await repo.save(next);
       ref.invalidate(profileProvider);
@@ -229,6 +233,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
     if (picked == null || !mounted) return;
     setState(() => _draft = _draft.copyWith(gender: picked));
+  }
+
+  Future<void> _pickBaseCurrency() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final code in kAikoSupportedCurrencies)
+              ListTile(
+                title: Text(_currencyLabel(code)),
+                trailing: _draft.baseCurrency == code
+                    ? const Icon(Icons.check, color: AikoColors.primaryBlue)
+                    : null,
+                onTap: () => Navigator.pop(sheetContext, code),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    if (picked == _draft.baseCurrency) return;
+    setState(() => _draft = _draft.copyWith(baseCurrency: picked));
+  }
+
+  String _currencyLabel(String code) {
+    final symbol = NumberFormat.simpleCurrency(name: code).currencySymbol;
+    return '$code · $symbol';
   }
 
   String _genderLabel(Gender gender) {
@@ -462,6 +497,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               )
                             : null,
                       ),
+                      const SizedBox(height: 16),
+                      _buildChoiceRow(
+                        label: 'Base currency',
+                        value: _currencyLabel(_draft.baseCurrency),
+                        icon: Icons.attach_money_outlined,
+                        onTap: _pickBaseCurrency,
+                      ),
                       const SizedBox(height: 8),
                       ListTile(
                         contentPadding: const EdgeInsets.symmetric(
@@ -544,16 +586,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   icon: Icons.hub_outlined,
                   child: Column(
                     children: [
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(
-                          Icons.chat_bubble_outline,
-                          color: AikoColors.primaryBlue,
-                        ),
-                        title: const Text('Connect LINE'),
-                        subtitle: const Text('Chat with Aiko from LINE'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => context.push('/connect-line'),
+                      Builder(
+                        builder: (context) {
+                          final linked =
+                              ref.watch(lineLinkedProvider).value ?? false;
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(
+                              Icons.chat_bubble_outline,
+                              color: AikoColors.primaryBlue,
+                            ),
+                            title: Text(linked ? 'LINE connected' : 'Connect LINE'),
+                            subtitle: Text(
+                              linked
+                                  ? 'Aiko can chat with you on LINE'
+                                  : 'Chat with Aiko from LINE',
+                            ),
+                            trailing: linked
+                                ? const Icon(
+                                    Icons.check_circle,
+                                    color: AikoColors.successGreen,
+                                  )
+                                : const Icon(Icons.chevron_right),
+                            onTap: linked
+                                ? null
+                                : () async {
+                                    await context.push('/connect-line');
+                                    ref.invalidate(lineLinkedProvider);
+                                  },
+                          );
+                        },
                       ),
                     ],
                   ),

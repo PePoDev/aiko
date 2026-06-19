@@ -10,7 +10,7 @@
          "Notification access" screen (BIND_NOTIFICATION_LISTENER_SERVICE),
          declared on the service the plugin merges in — not a runtime permission. -->
     <application
-        android:label="Aiko~"
+        android:label="Aiko"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

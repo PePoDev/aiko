@@ -141,11 +141,16 @@ class FinanceTransaction {
   bool get _isInflow =>
       type == TransactionType.income || type == TransactionType.transferIn;
 
+  // ponytail: no-FX rule — a transaction in a different currency than the
+  // account leaves the balance untouched (no rate stored to convert with).
+  // Add conversion here if/when transactions carry an exchange rate.
   Money applyToAccountBalance(Money balance) {
+    if (amount.currency != balance.currency) return balance;
     return _isInflow ? balance + amount : balance - amount;
   }
 
   Money reverseFromAccountBalance(Money balance) {
+    if (amount.currency != balance.currency) return balance;
     return _isInflow ? balance - amount : balance + amount;
   }
 

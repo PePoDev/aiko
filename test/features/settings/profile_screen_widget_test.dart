@@ -53,6 +53,46 @@ void main() {
     expect(repository.savedProfile?.email, 'person@example.com');
     expect(repository.savedProfile?.phoneNumber, '+66 81 234 5678');
   });
+
+  testWidgets('changing base currency shows it in the row and persists', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _FakeProfileRepository(_profile);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [profileRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp(
+          theme: AikoTheme.light(),
+          home: const ProfileScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Base currency'), findsOneWidget);
+    expect(find.text('THB · ฿'), findsOneWidget);
+
+    await tester.tap(find.text('THB · ฿'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('USD · \$').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('USD · \$'), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
+
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(repository.savedProfile?.baseCurrency, 'USD');
+  });
 }
 
 /// Targets a profile [TextField] by its `labelText` instead of by content,

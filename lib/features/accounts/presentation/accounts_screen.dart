@@ -72,6 +72,14 @@ class AccountsScreen extends ConsumerWidget {
                   transactions: transactions,
                   baseCurrency: baseCurrency,
                 ),
+                netWorth: _computeTotalBalance(
+                  accounts: [
+                    for (final a in accounts)
+                      if (a.includeInNetWorth) a,
+                  ],
+                  transactions: transactions,
+                  baseCurrency: baseCurrency,
+                ),
                 baseCurrency: baseCurrency,
               ),
               const SizedBox(height: 16),
@@ -85,35 +93,34 @@ class AccountsScreen extends ConsumerWidget {
                     baseCurrency: baseCurrency,
                   ),
                 ),
-                if (section.accounts.isEmpty)
-                  _AddAccountPlaceholder(
-                    type: section.type,
-                    onTap: () =>
-                        _showAccountForm(context, initialType: section.type),
-                  )
-                else
-                  for (
-                    var accountIndex = 0;
-                    accountIndex < section.accounts.length;
-                    accountIndex++
-                  ) ...[
-                    _AccountListItem(
-                      account: section.accounts[accountIndex],
-                      currentBalance: _currentBalanceForAccount(
-                        section.accounts[accountIndex],
-                        transactions,
-                      ),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => AccountDetailScreen(
-                            account: section.accounts[accountIndex],
+                _AccountSectionCard(
+                  children: section.accounts.isEmpty
+                      ? [
+                          _AddAccountPlaceholder(
+                            type: section.type,
+                            onTap: () => _showAccountForm(
+                              context,
+                              initialType: section.type,
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
-                    if (accountIndex != section.accounts.length - 1)
-                      const SizedBox(height: 8),
-                  ],
+                        ]
+                      : [
+                          for (final account in section.accounts)
+                            _AccountListItem(
+                              account: account,
+                              currentBalance: _currentBalanceForAccount(
+                                account,
+                                transactions,
+                              ),
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      AccountDetailScreen(account: account),
+                                ),
+                              ),
+                            ),
+                        ],
+                ),
                 const SizedBox(height: 16),
               ],
             ],
@@ -128,11 +135,13 @@ class _AccountsSummaryCard extends StatelessWidget {
   const _AccountsSummaryCard({
     required this.accountCount,
     required this.total,
+    required this.netWorth,
     required this.baseCurrency,
   });
 
   final int accountCount;
   final Money? total;
+  final Money? netWorth;
   final String baseCurrency;
 
   @override
@@ -158,6 +167,16 @@ class _AccountsSummaryCard extends StatelessWidget {
             '$accountCount ${accountCount == 1 ? 'account' : 'accounts'} · total balance in $baseCurrency',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Net worth ${netWorth?.format() ?? '—'}',
+            key: const ValueKey('account-summary-net-worth'),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -273,6 +292,42 @@ void _showAccountSnackBar(BuildContext context, String message) {
   );
 }
 
+/// Groups one account-type section's rows into a single bordered card with
+/// hairline dividers between them — mirrors the day-grouped transaction cards.
+class _AccountSectionCard extends StatelessWidget {
+  const _AccountSectionCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final radius = BorderRadius.circular(8);
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i != 0)
+              Divider(
+                height: 1,
+                thickness: 1,
+                indent: 16,
+                endIndent: 16,
+                color: theme.colorScheme.outlineVariant,
+              ),
+            children[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _AccountListItem extends StatelessWidget {
   const _AccountListItem({
     required this.account,
@@ -288,49 +343,47 @@ class _AccountListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = _colorForAccount(account.type);
 
-    return Card(
-      child: ListTile(
-        onTap: onTap,
-        dense: true,
-        visualDensity: VisualDensity.compact,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-        minLeadingWidth: 0,
-        horizontalTitleGap: 12,
-        leading: Container(
-          width: 34,
-          height: 34,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: 0.12),
-            shape: BoxShape.circle,
+    return ListTile(
+      onTap: onTap,
+      dense: true,
+      visualDensity: VisualDensity.compact,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      minLeadingWidth: 0,
+      horizontalTitleGap: 12,
+      leading: Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.12),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(_iconForAccount(account.type), color: accent, size: 19),
+      ),
+      title: Text(
+        account.name,
+        style: Theme.of(
+          context,
+        ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      subtitle: Text(
+        _accountSubtitle(account),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            currentBalance.format(),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
-          child: Icon(_iconForAccount(account.type), color: accent, size: 19),
-        ),
-        title: Text(
-          account.name,
-          style: Theme.of(
-            context,
-          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(
-          _accountSubtitle(account),
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              currentBalance.format(),
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 18),
-          ],
-        ),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right, size: 18),
+        ],
       ),
     );
   }
@@ -347,39 +400,37 @@ class _AddAccountPlaceholder extends StatelessWidget {
     final theme = Theme.of(context);
     final accent = _colorForAccount(type);
 
-    return Card(
-      child: ListTile(
-        onTap: onTap,
-        dense: true,
-        visualDensity: VisualDensity.compact,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-        minLeadingWidth: 0,
-        horizontalTitleGap: 12,
-        leading: Container(
-          width: 34,
-          height: 34,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: 0.06),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.add,
-            color: accent.withValues(alpha: 0.5),
-            size: 19,
-          ),
+    return ListTile(
+      onTap: onTap,
+      dense: true,
+      visualDensity: VisualDensity.compact,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      minLeadingWidth: 0,
+      horizontalTitleGap: 12,
+      leading: Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.06),
+          shape: BoxShape.circle,
         ),
-        title: Text(
-          'Add ${_accountTypeLabel(type).toLowerCase()}',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+        child: Icon(
+          Icons.add,
+          color: accent.withValues(alpha: 0.5),
+          size: 19,
         ),
-        trailing: Icon(
-          Icons.chevron_right,
-          size: 18,
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+      ),
+      title: Text(
+        'Add ${_accountTypeLabel(type).toLowerCase()}',
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
         ),
+      ),
+      trailing: Icon(
+        Icons.chevron_right,
+        size: 18,
+        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
       ),
     );
   }

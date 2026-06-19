@@ -428,6 +428,7 @@ class _GroupAccordion extends StatelessWidget {
           _BudgetSegment(
             aikoHexColor(c.color),
             totals.amountForCategory(c.id)!.amount.toDouble(),
+            c.name,
           ),
     ];
     return Column(
@@ -609,6 +610,13 @@ class _GroupHeader extends StatelessWidget {
                 segments: segments,
                 color: color,
               ),
+              if (segments.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                _GroupStackedLegend(
+                  segments: segments,
+                  currency: budget!.currency,
+                ),
+              ],
             ],
           ],
         ),
@@ -660,9 +668,10 @@ class _GroupBudgetTrailing extends StatelessWidget {
 
 /// One category's slice of a group's stacked budget bar.
 class _BudgetSegment {
-  const _BudgetSegment(this.color, this.amount);
+  const _BudgetSegment(this.color, this.amount, this.label);
   final Color color;
   final double amount;
+  final String label;
 }
 
 /// Stacked budget bar for a group: each [segments] slice is a category's
@@ -734,6 +743,62 @@ class _GroupBudgetProgress extends StatelessWidget {
   }
 }
 
+/// Legend row that sits below the group stacked bar: one swatch + name +
+/// amount per non-zero segment, flowing horizontally. Reads as a quick
+/// "who's in the bar" map so the user doesn't have to count pixels.
+class _GroupStackedLegend extends StatelessWidget {
+  const _GroupStackedLegend({required this.segments, required this.currency});
+
+  final List<_BudgetSegment> segments;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 4,
+      children: [
+        for (final s in segments)
+          _GroupStackedLegendItem(segment: s, currency: currency),
+      ],
+    );
+  }
+}
+
+class _GroupStackedLegendItem extends StatelessWidget {
+  const _GroupStackedLegendItem({required this.segment, required this.currency});
+
+  final _BudgetSegment segment;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final amount = Money.parse(segment.amount.toString(), currency).format();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: segment.color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '${segment.label} $amount',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _CategoryRow extends StatelessWidget {
   const _CategoryRow({
     required this.category,
@@ -755,6 +820,13 @@ class _CategoryRow extends StatelessWidget {
     final color = aikoHexColor(category.color);
     final icon = aikoCategoryIcon(category.icon);
     final hasActivity = count > 0;
+    final limit = category.hasBudget ? category.monthlyLimit : null;
+    final leftSub = limit != null
+        ? '${(amount ?? Money.zero(limit.currency)).format()} of '
+              '${limit.format()} spent'
+        : (hasActivity
+              ? (count == 1 ? '1 this month' : '$count this month')
+              : null);
 
     return InkWell(
       key: ValueKey('category-row-${category.id}'),
@@ -804,9 +876,10 @@ class _CategoryRow extends StatelessWidget {
                         ],
                       ],
                     ),
-                    if (hasActivity)
+                    if (leftSub != null)
                       Text(
-                        count == 1 ? '1 this month' : '$count this month',
+                        leftSub,
+                        key: ValueKey('category-${category.id}-left-sub'),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -958,17 +1031,25 @@ class _RemainingFirst extends StatelessWidget {
         ? AikoColors.warningOrange
         : AikoColors.successGreen;
 
+    // ponytail: limit and spent may carry different currencies (a budget set in
+    // one currency while base changed). The rest of this widget already
+    // compares them as raw amounts, so do the same here and wrap once — no-FX,
+    // no Money operator that would throw on a currency mismatch.
+    final remaining = Money(
+      amount: limit.amount - spent.amount,
+      currency: limit.currency,
+    );
     final headline = over
-        ? '-${(spent - limit).format()}'
-        : (limit - spent).format();
+        ? '-${Money(amount: spent.amount - limit.amount, currency: limit.currency).format()}'
+        : remaining.format();
 
+    final daysLeft = _periodDaysLeft(period);
     final String sub;
     if (over) {
-      sub = 'of ${limit.format()} · over';
+      sub = 'over budget';
     } else {
-      final daysLeft = _periodDaysLeft(period);
-      final daily = (limit - spent).amount.toDouble() / daysLeft;
-      sub = 'of ${limit.format()} · ${daily.toStringAsFixed(0)}/day';
+      final daily = remaining.amount.toDouble() / daysLeft;
+      sub = '${daily.toStringAsFixed(0)}/day · $daysLeft left';
     }
 
     return Column(

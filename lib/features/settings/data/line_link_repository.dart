@@ -1,6 +1,13 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_client_provider.dart';
+
+/// True when the signed-in user has already linked LINE. Refresh after a
+/// successful connect to flip the Profile entry to "Connected".
+final lineLinkedProvider = FutureProvider<bool>(
+  (ref) => const LineLinkRepository().isLinked(),
+);
 
 /// Redeems a LINE pairing code from inside the app.
 ///
@@ -13,6 +20,24 @@ import '../../../core/supabase/supabase_client_provider.dart';
 /// server-side under the caller's `auth.uid()`.
 class LineLinkRepository {
   const LineLinkRepository();
+
+  /// Whether the signed-in user already has a LINE link. Returns false offline
+  /// or signed out (the Connect entry stays available, no error surfaced).
+  Future<bool> isLinked() async {
+    final client = AikoSupabase.tryClient();
+    final session = client?.auth.currentSession;
+    if (client == null || session == null) return false;
+    try {
+      final rows = await client
+          .from('line_links')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .limit(1);
+      return rows.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
 
   /// Throws [LineLinkException] with a user-facing message on any failure.
   Future<void> connectWithCode(String rawCode) async {

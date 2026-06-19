@@ -29,13 +29,14 @@ void main() {
     expect(find.text('Log In', skipOffstage: false), findsOneWidget);
   });
 
-  testWidgets('onboarding flow goes from goal to first account and finishes', (
+  testWidgets('onboarding picks a goal, finishes, and seeds default accounts', (
     tester,
   ) async {
+    final accountRepository = _FakeAccountRepository();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          accountRepositoryProvider.overrideWithValue(_FakeAccountRepository()),
+          accountRepositoryProvider.overrideWithValue(accountRepository),
           profileRepositoryProvider.overrideWithValue(_FakeProfileRepository()),
         ],
         child: MaterialApp.router(
@@ -66,22 +67,17 @@ void main() {
     );
     expect(find.text('Save More', skipOffstage: false), findsOneWidget);
 
-    await tester.tap(find.text('Next'));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.textContaining("Let's add your", skipOffstage: false),
-      findsOneWidget,
-    );
-    expect(find.text('Bank Account', skipOffstage: false), findsOneWidget);
-
     await tester.tap(find.text('Finish'));
     await tester.pumpAndSettle();
 
     expect(find.text('Aiko Home', skipOffstage: false), findsOneWidget);
+    expect(
+      accountRepository.accounts.map((a) => a.type).toSet(),
+      {AccountType.cash, AccountType.bank},
+    );
   });
 
-  testWidgets('finishing onboarding twice does not duplicate first account', (
+  testWidgets('finishing onboarding twice does not duplicate default accounts', (
     tester,
   ) async {
     final accountRepository = _FakeAccountRepository();
@@ -98,11 +94,12 @@ void main() {
       profileRepository: profileRepository,
     );
 
-    final chaseAccounts = accountRepository.accounts.where(
-      (account) => account.name == 'Chase Checking',
+    final bankAccounts = accountRepository.accounts.where(
+      (account) => account.type == AccountType.bank,
     );
 
-    expect(chaseAccounts, hasLength(1));
+    expect(bankAccounts, hasLength(1));
+    expect(accountRepository.accounts, hasLength(2));
   });
 }
 
@@ -137,8 +134,6 @@ Future<void> _completeOnboarding(
     ),
   );
 
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('Next'));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Finish'));
   await tester.pumpAndSettle();

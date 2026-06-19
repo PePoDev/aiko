@@ -9,6 +9,7 @@ import '../features/categories/domain/category.dart';
 import '../features/categories/domain/category_defaults.dart';
 import '../features/dashboard/data/dashboard_due_item_repository.dart';
 import '../features/dashboard/data/dashboard_repository.dart';
+import '../features/dashboard/domain/app_notification.dart';
 import '../features/dashboard/domain/dashboard_due_item.dart';
 import '../features/dashboard/domain/dashboard_summary.dart';
 import '../features/insights/data/aiko_insight_repository.dart';
@@ -593,6 +594,30 @@ final dashboardDueItemsProvider =
       } catch (error, stackTrace) {
         // Surface to `AikoScreenState.error`; offline + secure-storage broken
         // must render a recoverable error widget, not a provider-tree crash.
+        Error.throwWithStackTrace(error, stackTrace);
+      }
+    });
+
+/// Notifications derived live from the user's real local data (budget
+/// breaches, upcoming bills, goal milestones). No notifications table — this
+/// recomputes on each open. Returns an empty list when nothing is noteworthy.
+final notificationsProvider =
+    FutureProvider.autoDispose<List<AppNotification>>((ref) async {
+      try {
+        final transactions = await ref.watch(transactionsProvider.future);
+        final categories = await ref.watch(categoriesProvider.future);
+        final accounts = await ref.watch(accountsProvider.future);
+        final dueItems = await ref.watch(dashboardDueItemsProvider.future);
+        return buildNotifications(
+          transactions: transactions,
+          categories: categories,
+          accounts: accounts,
+          dueItems: dueItems,
+          asOf: DateTime.now(),
+        );
+      } catch (error, stackTrace) {
+        // Surface to `AikoScreenState.error`; a broken offline store renders a
+        // recoverable error widget instead of crashing the provider tree.
         Error.throwWithStackTrace(error, stackTrace);
       }
     });

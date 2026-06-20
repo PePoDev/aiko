@@ -146,7 +146,7 @@ void main() {
     expect(find.text('How am I doing?'), findsOneWidget);
   });
 
-  testWidgets('app bar exposes profile title and settings action', (
+  testWidgets('app bar exposes profile title without settings/notifications', (
     tester,
   ) async {
     _useWideSurface(tester);
@@ -162,11 +162,9 @@ void main() {
     await tester.pump();
 
     expect(find.byTooltip('Profile'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('chat-notifications-icon')),
-      findsOneWidget,
-    );
-    expect(find.byKey(const ValueKey('chat-settings-icon')), findsOneWidget);
+    // Notifications and settings moved to the Home screen.
+    expect(find.byKey(const ValueKey('chat-notifications-icon')), findsNothing);
+    expect(find.byKey(const ValueKey('chat-settings-icon')), findsNothing);
     // The clear action is gone — chat sessions are no longer saved.
     expect(find.byTooltip('Clear chat'), findsNothing);
   });

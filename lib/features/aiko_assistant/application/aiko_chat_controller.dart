@@ -57,9 +57,6 @@ class ChatState {
 
 final aikoChatEngineProvider = Provider<ChatEngine>((ref) {
   final config = ref.watch(aikoSupabaseConfigProvider);
-  if (!config.isConfigured) {
-    return const OfflineChatEngine();
-  }
   return HttpChatEngine(functionUrl: '${config.url}/functions/v1/aiko-chat');
 });
 
@@ -121,7 +118,17 @@ class AikoChatController extends Notifier<ChatState> {
   /// The optimistic UI update already happened in [_streamReply], so the brief
   /// snapshot build doesn't block the typing indicator.
   Future<void> _dispatch(List<ChatMessage> history) async {
-    final context = state.offline ? null : await buildAikoFinancialContext(ref);
+    if (state.offline) {
+      // ponytail: chat needs the cloud engine; on-device answering is gone.
+      _handleEvent(
+        const ChatReplyError(
+          'Connect to Aiko cloud to chat.',
+          retryable: false,
+        ),
+      );
+      return;
+    }
+    final context = await buildAikoFinancialContext(ref);
     if (!ref.mounted) return;
     _subscription?.cancel();
     _subscription = ref
@@ -185,8 +192,8 @@ class AikoChatController extends Notifier<ChatState> {
 }
 
 /// Splits an AI reply's accumulated text into its main answer and a trailing
-/// italic disclaimer. Both the offline engine and the cloud Aiko prompt wrap
-/// the disclaimer in `_…_` (or `*…*`) and separate it from the body with a
+/// italic disclaimer. The cloud Aiko prompt wraps
+/// the disclaimer in `_…_` (or `*…*`) and separates it from the body with a
 /// blank line — we lift that block out so the chat can render it compact and
 /// below a divider instead of as inline body text.
 @visibleForTesting

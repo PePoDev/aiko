@@ -48,9 +48,16 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         title: Text(l10n.overview),
         actions: [
           IconButton(
+            key: const ValueKey('home-notifications-icon'),
             tooltip: 'Notifications',
             icon: const Icon(Icons.notifications_none),
             onPressed: () => context.push('/notifications'),
+          ),
+          IconButton(
+            key: const ValueKey('home-settings-icon'),
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => context.push('/settings'),
           ),
         ],
       ),

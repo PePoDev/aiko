@@ -122,20 +122,6 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
         elevation: 0,
         titleSpacing: 12,
         title: _UserProfileIcon(profile: profile),
-        actions: [
-          IconButton(
-            key: const ValueKey('chat-notifications-icon'),
-            tooltip: 'Notifications',
-            icon: const Icon(Icons.notifications_none),
-            onPressed: () => context.push('/notifications'),
-          ),
-          IconButton(
-            key: const ValueKey('chat-settings-icon'),
-            tooltip: 'Settings',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.push('/settings'),
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -632,8 +618,8 @@ class _OfflineNotice extends StatelessWidget {
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'On-device mode — Aiko answers from data on this device. '
-              'Connect to Aiko cloud for richer, up-to-date insights.',
+              'Aiko chat needs the cloud. '
+              'Connect to Aiko cloud to start chatting.',
               style: TextStyle(fontSize: 12, color: AikoColors.deepBlue),
             ),
           ),

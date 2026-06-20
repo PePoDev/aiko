@@ -4,8 +4,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../core/supabase/supabase_client_provider.dart';
-import '../domain/aiko_response.dart';
-import 'aiko_assistant_service.dart';
 import 'financial_context.dart';
 
 class ChatMessage {
@@ -63,40 +61,6 @@ abstract class ChatEngine {
     required List<ChatMessage> history,
     AikoFinancialContext? context,
   });
-}
-
-class OfflineChatEngine implements ChatEngine {
-  const OfflineChatEngine({this.service = const AikoAssistantService()});
-
-  final AikoAssistantService service;
-
-  @override
-  Stream<ChatReplyEvent> streamReply({
-    required List<ChatMessage> history,
-    AikoFinancialContext? context,
-  }) async* {
-    // The on-device engine answers from its own rule-based service; the
-    // snapshot is only used by the cloud engine.
-    final lastUser = history.lastWhere(
-      (m) => m.isUser,
-      orElse: () => const ChatMessage(role: 'user', content: ''),
-    );
-    final AikoResponse response;
-    try {
-      response = service.answerQuestion(question: lastUser.content);
-    } catch (e) {
-      yield ChatReplyError(e);
-      return;
-    }
-    final text = response.answer.trim();
-    final disclaimer = response.disclaimer;
-    yield ChatReplyDelta(
-      disclaimer != null && disclaimer.isNotEmpty
-          ? '$text\n\n_${disclaimer}_'
-          : text,
-    );
-    yield ChatReplyDone(text);
-  }
 }
 
 class HttpChatEngine implements ChatEngine {

@@ -3,23 +3,15 @@
 enum DashboardWidgetType {
   aikoWelcome,
   dailySpending,
-  safeThisWeek,
   dailySummary,
   netEarnings,
   categoryBudgets,
   spendingCalendar,
-  cashFlowMapping,
-  leftToSave,
-  cashFlow,
-  topAssets;
+  cashFlowMapping;
 
-  /// Intrinsic width on the dashboard grid. A couple of compact summaries are
-  /// half-width so two share a row; everything else is full.
-  DashboardWidgetSize get defaultSize => switch (this) {
-    DashboardWidgetType.dailySpending ||
-    DashboardWidgetType.safeThisWeek => DashboardWidgetSize.half,
-    _ => DashboardWidgetSize.full,
-  };
+  /// Intrinsic width on the dashboard grid. Every widget is full-width today;
+  /// the half option is kept for future compact summaries.
+  DashboardWidgetSize get defaultSize => DashboardWidgetSize.full;
 }
 
 /// Width a widget occupies in the dashboard grid.

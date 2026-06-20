@@ -139,7 +139,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         child: Text(l10n.safeToSpendDescription(summary.safeToSpend.format())),
       ),
       DashboardWidgetType.dailySpending => const _DailySpendingPanel(),
-      DashboardWidgetType.safeThisWeek => const _SafeThisWeekPanel(),
       DashboardWidgetType.dailySummary => const _OverviewAnalyticsWidget(
         kind: _AnalyticsWidgetKind.dailySummary,
       ),
@@ -153,9 +152,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         kind: _AnalyticsWidgetKind.spendingCalendar,
       ),
       DashboardWidgetType.cashFlowMapping => const _CashFlowMappingPanel(),
-      DashboardWidgetType.leftToSave => const _LeftToSavePanel(),
-      DashboardWidgetType.cashFlow => const _CashFlowPanel(),
-      DashboardWidgetType.topAssets => const _TopAssetsPanel(),
     };
   }
 }
@@ -163,15 +159,11 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
 /// The fixed set of widgets shown on the home dashboard, in display order.
 const _homeWidgets = <DashboardWidgetType>[
   DashboardWidgetType.dailySpending,
-  DashboardWidgetType.safeThisWeek,
   DashboardWidgetType.dailySummary,
   DashboardWidgetType.netEarnings,
   DashboardWidgetType.categoryBudgets,
   DashboardWidgetType.spendingCalendar,
-  DashboardWidgetType.leftToSave,
-  DashboardWidgetType.cashFlow,
   DashboardWidgetType.cashFlowMapping,
-  DashboardWidgetType.topAssets,
 ];
 
 /// Rows: two consecutive half widgets share a row, everything else is full.
@@ -196,180 +188,26 @@ List<List<DashboardWidgetType>> _groupHomeRows(
   return rows;
 }
 
-class _LeftToSavePanel extends ConsumerWidget {
-  const _LeftToSavePanel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final summaryAsync = ref.watch(dashboardSummaryProvider);
-    return summaryAsync.when(
-      loading: () => const _OverviewMiniCard(
-        title: 'Left to save',
-        value: 'Loading',
-        caption: 'After safe spending',
-        icon: Icons.flag_outlined,
-        accentColor: AikoColors.analyticsTeal,
-      ),
-      error: (_, _) => const _OverviewMiniCard(
-        title: 'Left to save',
-        value: 'Unavailable',
-        caption: 'After safe spending',
-        icon: Icons.flag_outlined,
-        accentColor: AikoColors.analyticsTeal,
-      ),
-      data: (summary) {
-        final netCashFlow = summary.monthlyIncome - summary.monthlySpending;
-        final leftToSave = netCashFlow - summary.safeToSpend;
-        return _OverviewMiniCard(
-          title: 'Left to save',
-          value: leftToSave.format(),
-          caption: 'After safe spending',
-          icon: Icons.flag_outlined,
-          accentColor: AikoColors.analyticsTeal,
-        );
-      },
-    );
-  }
-}
-
-class _CashFlowPanel extends ConsumerWidget {
-  const _CashFlowPanel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final summaryAsync = ref.watch(dashboardSummaryProvider);
-    return summaryAsync.when(
-      loading: () => const _OverviewMiniCard(
-        title: 'Cash flow',
-        value: 'Loading',
-        caption: 'Income minus expenses',
-        icon: Icons.waterfall_chart,
-        accentColor: AikoColors.successGreen,
-      ),
-      error: (_, _) => const _OverviewMiniCard(
-        title: 'Cash flow',
-        value: 'Unavailable',
-        caption: 'Income minus expenses',
-        icon: Icons.waterfall_chart,
-        accentColor: AikoColors.successGreen,
-      ),
-      data: (summary) {
-        final netCashFlow = summary.monthlyIncome - summary.monthlySpending;
-        return _OverviewMiniCard(
-          title: 'Cash flow',
-          value: netCashFlow.format(),
-          caption: 'Income minus expenses',
-          icon: Icons.waterfall_chart,
-          accentColor: netCashFlow.isNegative
-              ? AikoColors.dangerRed
-              : AikoColors.successGreen,
-        );
-      },
-    );
-  }
-}
-
-class _TopAssetsPanel extends ConsumerWidget {
-  const _TopAssetsPanel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final summaryAsync = ref.watch(dashboardSummaryProvider);
-    return summaryAsync.when(
-      loading: () => const FinanceCard(
-        title: 'Top assets',
-        icon: Icons.inventory_2_outlined,
-        accentColor: AikoColors.analyticsTeal,
-        child: Text('Loading...'),
-      ),
-      error: (_, _) => const FinanceCard(
-        title: 'Top assets',
-        icon: Icons.inventory_2_outlined,
-        accentColor: AikoColors.analyticsTeal,
-        child: Text('Unavailable'),
-      ),
-      data: (summary) {
-        return FinanceCard(
-          title: 'Top assets',
-          icon: Icons.inventory_2_outlined,
-          accentColor: AikoColors.analyticsTeal,
-          child: Column(
-            children: [
-              _AssetRow(
-                label: 'Cash & Bank',
-                value: summary.totalCash.format(),
-                color: AikoColors.primaryBlue,
-              ),
-              const SizedBox(height: 12),
-              _AssetRow(
-                label: 'Net worth',
-                value: summary.netWorth.format(),
-                color: AikoColors.successGreen,
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _AssetRow extends StatelessWidget {
-  const _AssetRow({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
-        ),
-        Text(
-          value,
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
-        ),
-      ],
-    );
-  }
-}
-
 class _DailySpendingPanel extends ConsumerWidget {
   const _DailySpendingPanel();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final transactionsAsync = ref.watch(transactionsProvider);
+    final summary = ref.watch(dashboardSummaryProvider).value;
 
     return transactionsAsync.when(
-      loading: () => const _OverviewMiniCard(
+      loading: () => const FinanceCard(
         title: 'Daily spending',
-        value: 'Loading',
-        caption: 'Today',
         icon: Icons.today_outlined,
         accentColor: AikoColors.warningOrange,
+        child: Text('Loading...'),
       ),
-      error: (_, _) => const _OverviewMiniCard(
+      error: (_, _) => const FinanceCard(
         title: 'Daily spending',
-        value: 'Unavailable',
-        caption: 'Today',
         icon: Icons.today_outlined,
         accentColor: AikoColors.warningOrange,
+        child: Text('Unavailable'),
       ),
       data: (transactions) {
         final baseCurrency =
@@ -380,11 +218,8 @@ class _DailySpendingPanel extends ConsumerWidget {
         // Gauge measures today's spend against a daily slice of the weekly
         // safe-to-spend (Safe this week ÷ 7). The arc fills 0→100%; the big
         // number can read past 100% when the day runs over its safe budget.
-        final safeToSpend = ref
-            .watch(dashboardSummaryProvider)
-            .value
-            ?.safeToSpend;
-        final dailySafe = (safeToSpend?.amount.toDouble() ?? 0) / 7;
+        final safeToSpend = summary?.safeToSpend ?? Money.zero(baseCurrency);
+        final dailySafe = safeToSpend.amount.toDouble() / 7;
         final ratio = dailySafe > 0 ? used.amount.toDouble() / dailySafe : 0.0;
         final color = ratio >= 1
             ? AikoColors.dangerRed
@@ -392,20 +227,60 @@ class _DailySpendingPanel extends ConsumerWidget {
             ? AikoColors.warningOrange
             : AikoColors.successGreen;
 
+        // Merged-in summaries (formerly separate panels): the weekly safe
+        // figure, what's left to save after it, and the month's net cash flow.
+        final cashFlow = summary == null
+            ? Money.zero(baseCurrency)
+            : summary.monthlyIncome - summary.monthlySpending;
+        final leftToSave = cashFlow - safeToSpend;
+
         return FinanceCard(
           title: 'Daily spending',
           icon: Icons.today_outlined,
           accentColor: color,
           onTap: () => context.push('/transactions'),
-          child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: AikoGauge(
-                value: ratio,
-                label: '${used.format()} today',
-                color: color,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: AikoGauge(
+                    value: ratio,
+                    label: '${used.format()} today',
+                    color: color,
+                  ),
+                ),
               ),
-            ),
+              const Divider(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: _MiniMetric(
+                      label: 'Safe this week',
+                      value: safeToSpend.format(),
+                      color: AikoColors.analyticsTeal,
+                    ),
+                  ),
+                  Expanded(
+                    child: _MiniMetric(
+                      label: 'Left to save',
+                      value: leftToSave.format(),
+                      color: AikoColors.analyticsTeal,
+                    ),
+                  ),
+                  Expanded(
+                    child: _MiniMetric(
+                      label: 'Cash flow',
+                      value: cashFlow.format(),
+                      color: cashFlow.isNegative
+                          ? AikoColors.dangerRed
+                          : AikoColors.successGreen,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         );
       },
@@ -437,116 +312,43 @@ class _DailySpendingPanel extends ConsumerWidget {
   }
 }
 
-class _SafeThisWeekPanel extends ConsumerWidget {
-  const _SafeThisWeekPanel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final summaryAsync = ref.watch(dashboardSummaryProvider);
-
-    return summaryAsync.when(
-      loading: () => const _OverviewMiniCard(
-        title: 'Safe this week',
-        value: 'Loading',
-        caption: 'Estimate',
-        icon: Icons.savings_outlined,
-        accentColor: AikoColors.analyticsTeal,
-      ),
-      error: (_, _) => const _OverviewMiniCard(
-        title: 'Safe this week',
-        value: 'Unavailable',
-        caption: 'Estimate',
-        icon: Icons.savings_outlined,
-        accentColor: AikoColors.analyticsTeal,
-      ),
-      data: (summary) => _OverviewMiniCard(
-        title: 'Safe this week',
-        value: summary.safeToSpend.format(),
-        caption: 'Estimate',
-        icon: Icons.savings_outlined,
-        accentColor: AikoColors.analyticsTeal,
-      ),
-    );
-  }
-}
-
-class _OverviewMiniCard extends StatelessWidget {
-  const _OverviewMiniCard({
-    required this.title,
+/// One labelled figure in the Daily spending card's summary row.
+class _MiniMetric extends StatelessWidget {
+  const _MiniMetric({
+    required this.label,
     required this.value,
-    required this.caption,
-    required this.icon,
-    required this.accentColor,
+    required this.color,
   });
 
-  final String title;
+  final String label;
   final String value;
-  final String caption;
-  final IconData icon;
-  final Color accentColor;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final radius = BorderRadius.circular(8);
-    final content = Padding(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: accentColor, size: 20),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge,
-                ),
-              ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
           ),
-          const SizedBox(height: 14),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: accentColor,
-            ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: color,
           ),
-          const SizedBox(height: 4),
-          if (caption.isNotEmpty)
-            Text(
-              caption,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-        ],
-      ),
-    );
-
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: radius,
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: content,
+        ),
+      ],
     );
   }
 }

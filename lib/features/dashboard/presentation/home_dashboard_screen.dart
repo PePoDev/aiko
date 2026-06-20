@@ -7,13 +7,11 @@ import 'package:intl/intl.dart';
 import '../../../app/providers.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/money/money.dart';
-import '../../../core/prediction/monte_carlo_engine.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/aiko_data_widgets.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
-import '../../accounts/domain/account.dart';
 import '../../categories/domain/category.dart';
 import '../domain/dashboard_summary.dart';
 import '../domain/dashboard_widget_preference.dart';
@@ -154,17 +152,9 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       DashboardWidgetType.spendingCalendar => const _OverviewAnalyticsWidget(
         kind: _AnalyticsWidgetKind.spendingCalendar,
       ),
-      DashboardWidgetType.thisMonthOverview => _ThisMonthOverviewSection(
-        summary: summary,
-      ),
       DashboardWidgetType.cashFlowMapping => const _CashFlowMappingPanel(),
-      DashboardWidgetType.aikoGoalSimulator => const _AikoGoalSimulatorPanel(),
-      DashboardWidgetType.totalBalance => const _TotalBalancePanel(),
       DashboardWidgetType.leftToSave => const _LeftToSavePanel(),
       DashboardWidgetType.cashFlow => const _CashFlowPanel(),
-      DashboardWidgetType.netWorth => const _NetWorthPanel(),
-      DashboardWidgetType.netWorthTrend => const _NetWorthTrendPanel(),
-      DashboardWidgetType.assetsLiabilities => const _AssetsLiabilitiesPanel(),
       DashboardWidgetType.topAssets => const _TopAssetsPanel(),
     };
   }
@@ -178,15 +168,9 @@ const _homeWidgets = <DashboardWidgetType>[
   DashboardWidgetType.netEarnings,
   DashboardWidgetType.categoryBudgets,
   DashboardWidgetType.spendingCalendar,
-  DashboardWidgetType.totalBalance,
-  DashboardWidgetType.thisMonthOverview,
   DashboardWidgetType.leftToSave,
   DashboardWidgetType.cashFlow,
   DashboardWidgetType.cashFlowMapping,
-  DashboardWidgetType.aikoGoalSimulator,
-  DashboardWidgetType.netWorth,
-  DashboardWidgetType.netWorthTrend,
-  DashboardWidgetType.assetsLiabilities,
   DashboardWidgetType.topAssets,
 ];
 
@@ -210,83 +194,6 @@ List<List<DashboardWidgetType>> _groupHomeRows(
     }
   }
   return rows;
-}
-
-class _ThisMonthOverviewSection extends StatelessWidget {
-  const _ThisMonthOverviewSection({required this.summary});
-
-  final DashboardSummary summary;
-
-  @override
-  Widget build(BuildContext context) {
-    final netCashFlow = summary.monthlyIncome - summary.monthlySpending;
-
-    return AikoDataListCard(
-      title: 'This Month Overview',
-      icon: Icons.calendar_month_outlined,
-      rows: [
-        AikoDataRow(
-          label: 'Income',
-          value: summary.monthlyIncome.format(),
-          color: AikoColors.successGreen,
-        ),
-        AikoDataRow(
-          label: 'Expenses',
-          value: '-${summary.monthlySpending.format()}',
-          color: AikoColors.dangerRed,
-        ),
-        AikoDataRow(
-          label: 'Savings',
-          value: netCashFlow.format(),
-          color: AikoColors.analyticsTeal,
-        ),
-      ],
-    );
-  }
-}
-
-class _TotalBalancePanel extends ConsumerWidget {
-  const _TotalBalancePanel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final summaryAsync = ref.watch(dashboardSummaryProvider);
-    return summaryAsync.when(
-      loading: () => const _OverviewMiniCard(
-        title: 'Total balance',
-        value: 'Loading',
-        caption: 'Cash',
-        icon: Icons.account_balance_wallet_outlined,
-        accentColor: AikoColors.successGreen,
-      ),
-      error: (_, _) => const _OverviewMiniCard(
-        title: 'Total balance',
-        value: 'Unavailable',
-        caption: 'Cash',
-        icon: Icons.account_balance_wallet_outlined,
-        accentColor: AikoColors.successGreen,
-      ),
-      data: (summary) {
-        final progress = _moneyRatio(summary.totalCash, summary.netWorth);
-        return _OverviewMiniCard(
-          title: 'Total balance',
-          value: summary.netWorth.format(),
-          caption: 'Cash ${summary.totalCash.format()}',
-          icon: Icons.account_balance_wallet_outlined,
-          accentColor: AikoColors.successGreen,
-          progressValue: progress,
-        );
-      },
-    );
-  }
-
-  double _moneyRatio(Money value, Money target) {
-    if (target.amount == Money.zero(target.currency).amount ||
-        value.currency != target.currency) {
-      return 0;
-    }
-    return value.ratio(target).clamp(0.0, 1.0);
-  }
 }
 
 class _LeftToSavePanel extends ConsumerWidget {
@@ -358,173 +265,6 @@ class _CashFlowPanel extends ConsumerWidget {
               : AikoColors.successGreen,
         );
       },
-    );
-  }
-}
-
-class _NetWorthPanel extends ConsumerWidget {
-  const _NetWorthPanel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final summaryAsync = ref.watch(dashboardSummaryProvider);
-    return summaryAsync.when(
-      loading: () => const _OverviewMiniCard(
-        title: 'Net worth',
-        value: 'Loading',
-        caption: 'Assets minus liabilities',
-        icon: Icons.account_balance_wallet_outlined,
-        accentColor: AikoColors.successGreen,
-      ),
-      error: (_, _) => const _OverviewMiniCard(
-        title: 'Net worth',
-        value: 'Unavailable',
-        caption: 'Assets minus liabilities',
-        icon: Icons.account_balance_wallet_outlined,
-        accentColor: AikoColors.successGreen,
-      ),
-      data: (summary) {
-        return _OverviewMiniCard(
-          title: 'Net worth',
-          value: summary.netWorth.format(),
-          caption: 'Assets minus liabilities',
-          icon: Icons.account_balance_wallet_outlined,
-          accentColor: AikoColors.successGreen,
-        );
-      },
-    );
-  }
-}
-
-class _NetWorthTrendPanel extends StatelessWidget {
-  const _NetWorthTrendPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return FinanceCard(
-      title: 'Net worth trend',
-      icon: Icons.trending_up_outlined,
-      accentColor: AikoColors.primaryBlue,
-      child: SizedBox(
-        height: 120,
-        child: BarChart(
-          BarChartData(
-            barGroups: _generateTrendData(),
-            titlesData: const FlTitlesData(show: false),
-            gridData: const FlGridData(show: false),
-            borderData: FlBorderData(show: false),
-            barTouchData: BarTouchData(enabled: false),
-          ),
-        ),
-      ),
-    );
-  }
-
-  List<BarChartGroupData> _generateTrendData() {
-    final values = [80, 82, 84, 90, 88, 95, 100, 106, 111, 118, 126, 148];
-    return List.generate(values.length, (index) {
-      return BarChartGroupData(
-        x: index,
-        barRods: [
-          BarChartRodData(
-            toY: values[index].toDouble(),
-            color: AikoColors.primaryBlue,
-            width: 8,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-          ),
-        ],
-      );
-    });
-  }
-}
-
-class _AssetsLiabilitiesPanel extends ConsumerWidget {
-  const _AssetsLiabilitiesPanel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final summaryAsync = ref.watch(dashboardSummaryProvider);
-    return summaryAsync.when(
-      loading: () => const FinanceCard(
-        title: 'Assets & liabilities',
-        icon: Icons.balance_outlined,
-        accentColor: AikoColors.analyticsTeal,
-        child: Text('Loading...'),
-      ),
-      error: (_, _) => const FinanceCard(
-        title: 'Assets & liabilities',
-        icon: Icons.balance_outlined,
-        accentColor: AikoColors.analyticsTeal,
-        child: Text('Unavailable'),
-      ),
-      data: (summary) {
-        final assets = summary.netWorth + summary.totalCash;
-        final liabilities = summary.totalCash;
-        return FinanceCard(
-          title: 'Assets & liabilities',
-          icon: Icons.balance_outlined,
-          accentColor: AikoColors.analyticsTeal,
-          child: Row(
-            children: [
-              Expanded(
-                child: _MetricTile(
-                  label: 'Assets',
-                  value: assets.format(),
-                  icon: Icons.add_chart,
-                  color: AikoColors.successGreen,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _MetricTile(
-                  label: 'Liabilities',
-                  value: liabilities.format(),
-                  icon: Icons.remove_circle_outline,
-                  color: AikoColors.dangerRed,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-        ),
-      ],
     );
   }
 }
@@ -636,16 +376,37 @@ class _DailySpendingPanel extends ConsumerWidget {
             ref.watch(profileProvider).value?.baseCurrency ??
             kDefaultBaseCurrency;
         final used = _dailySpendingUsed(transactions, baseCurrency);
-        // Daily Spending became a derived panel from transaction date instead
-        // of a stored budget, so the "limit" half is intentionally dropped.
-        // The "Today" caption frames the number as a fact, not a target.
-        return _OverviewMiniCard(
+
+        // Gauge measures today's spend against a daily slice of the weekly
+        // safe-to-spend (Safe this week ÷ 7). The arc fills 0→100%; the big
+        // number can read past 100% when the day runs over its safe budget.
+        final safeToSpend = ref
+            .watch(dashboardSummaryProvider)
+            .value
+            ?.safeToSpend;
+        final dailySafe = (safeToSpend?.amount.toDouble() ?? 0) / 7;
+        final ratio = dailySafe > 0 ? used.amount.toDouble() / dailySafe : 0.0;
+        final color = ratio >= 1
+            ? AikoColors.dangerRed
+            : ratio >= 0.75
+            ? AikoColors.warningOrange
+            : AikoColors.successGreen;
+
+        return FinanceCard(
           title: 'Daily spending',
-          value: used.format(),
-          caption: 'Today',
           icon: Icons.today_outlined,
-          accentColor: AikoColors.warningOrange,
+          accentColor: color,
           onTap: () => context.push('/transactions'),
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: AikoGauge(
+                value: ratio,
+                label: '${used.format()} today',
+                color: color,
+              ),
+            ),
+          ),
         );
       },
     );
@@ -716,8 +477,6 @@ class _OverviewMiniCard extends StatelessWidget {
     required this.caption,
     required this.icon,
     required this.accentColor,
-    this.progressValue,
-    this.onTap,
   });
 
   final String title;
@@ -725,8 +484,6 @@ class _OverviewMiniCard extends StatelessWidget {
   final String caption;
   final IconData icon;
   final Color accentColor;
-  final double? progressValue;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -760,39 +517,15 @@ class _OverviewMiniCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: accentColor,
-                  ),
-                ),
-              ),
-              if (onTap != null)
-                Icon(
-                  Icons.chevron_right,
-                  size: 20,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-            ],
-          ),
-          if (progressValue != null) ...[
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: progressValue,
-                minHeight: 8,
-                color: accentColor,
-                backgroundColor: accentColor.withValues(alpha: 0.16),
-              ),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: accentColor,
             ),
-          ],
+          ),
           const SizedBox(height: 4),
           if (caption.isNotEmpty)
             Text(
@@ -813,9 +546,7 @@ class _OverviewMiniCard extends StatelessWidget {
         side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       clipBehavior: Clip.antiAlias,
-      child: onTap == null
-          ? content
-          : InkWell(onTap: onTap, borderRadius: radius, child: content),
+      child: content,
     );
   }
 }
@@ -946,53 +677,6 @@ class _CashFlowMappingPanel extends ConsumerWidget {
   }
 }
 
-class _AikoGoalSimulatorPanel extends ConsumerWidget {
-  const _AikoGoalSimulatorPanel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final goalAccountsAsync = ref.watch(goalAccountsDerivedProvider);
-
-    return goalAccountsAsync.when(
-      loading: () => const FinanceCard(
-        title: 'Aiko Goal Simulator',
-        icon: Icons.query_stats_outlined,
-        accentColor: AikoColors.premiumPurple,
-        child: Text('Loading goal simulation...'),
-      ),
-      error: (_, _) => const FinanceCard(
-        title: 'Aiko Goal Simulator',
-        icon: Icons.query_stats_outlined,
-        accentColor: AikoColors.premiumPurple,
-        child: Text('Unable to load goal simulation right now.'),
-      ),
-      data: (goalAccounts) {
-        if (goalAccounts.isEmpty) {
-          return const FinanceCard(
-            title: 'Aiko Goal Simulator',
-            icon: Icons.query_stats_outlined,
-            accentColor: AikoColors.premiumPurple,
-            child: Text(
-              'Set up a SMART savings goal to run real-time Monte Carlo models '
-              'forecasting your actual chance of success under volatile '
-              'market bands.',
-            ),
-          );
-        }
-
-        return Column(
-          children: [
-            for (final goal in goalAccounts) ...[
-              _GoalMonteCarloCard(goal: goal),
-              const SizedBox(height: 16),
-            ],
-          ],
-        );
-      },
-    );
-  }
-}
-
 class _FlowAmount extends StatelessWidget {
   const _FlowAmount({
     required this.label,
@@ -1021,185 +705,6 @@ class _FlowAmount extends StatelessWidget {
       ],
     );
   }
-}
-
-class _GoalMonteCarloCard extends StatelessWidget {
-  const _GoalMonteCarloCard({required this.goal});
-
-  final Account goal;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final now = DateTime.now();
-    final target = goal.targetDate ?? now.add(const Duration(days: 365));
-    var months = ((target.year - now.year) * 12) + target.month - now.month;
-    if (months <= 0) months = 1;
-
-    final remaining = goal.goalRemaining.amount.toDouble();
-    var monthlyContribution = remaining / months;
-    if (monthlyContribution <= 0) monthlyContribution = 100.0;
-
-    const engine = MonteCarloEngine();
-    final result = engine.run(
-      currentBalance: goal.currentBalance.amount.toDouble(),
-      monthlyContribution: monthlyContribution,
-      targetAmount: goal.targetAmount?.amount.toDouble() ?? 1,
-      targetMonths: months,
-      expectedAnnualReturnPercent: 6.0,
-      annualVolatilityPercent: 12.0,
-    );
-    final currencyFormat = NumberFormat.simpleCurrency(name: goal.currency);
-
-    return FinanceCard(
-      title: 'Monte Carlo: ${goal.name}',
-      icon: Icons.auto_awesome,
-      accentColor: AikoColors.premiumPurple,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _GoalProbabilityHeader(probability: result.successProbabilityPercent),
-          const SizedBox(height: 16),
-          Text(
-            'Based on 1,000 simulations at 6% expected return and 12% volatility with monthly savings of ${currencyFormat.format(monthlyContribution)}.',
-            style: textTheme.bodySmall,
-          ),
-          const Divider(height: 24),
-          Text(
-            'Projected future balance bands in $months months:',
-            style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          _ProjectionBands(
-            conservative: currencyFormat.format(result.conservativeAmount),
-            expected: currencyFormat.format(result.expectedAmount),
-            optimistic: currencyFormat.format(result.optimisticAmount),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GoalProbabilityHeader extends StatelessWidget {
-  const _GoalProbabilityHeader({required this.probability});
-
-  final double probability;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final color = _probabilityColor(probability);
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Goal Completion Chance', style: textTheme.bodySmall),
-              const SizedBox(height: 4),
-              Text(
-                '${probability.toStringAsFixed(1)}%',
-                style: textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-        ),
-        CircularProgressIndicator(
-          value: probability / 100,
-          color: color,
-          backgroundColor: Colors.grey.withValues(alpha: 0.2),
-        ),
-      ],
-    );
-  }
-}
-
-class _ProjectionBands extends StatelessWidget {
-  const _ProjectionBands({
-    required this.conservative,
-    required this.expected,
-    required this.optimistic,
-  });
-
-  final String conservative;
-  final String expected;
-  final String optimistic;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        _BandColumn(
-          label: 'Conservative',
-          amount: conservative,
-          color: Colors.grey,
-          textTheme: textTheme,
-        ),
-        _BandColumn(
-          label: 'Expected',
-          amount: expected,
-          color: AikoColors.deepBlue,
-          textTheme: textTheme,
-        ),
-        _BandColumn(
-          label: 'Optimistic',
-          amount: optimistic,
-          color: AikoColors.successGreen,
-          textTheme: textTheme,
-        ),
-      ],
-    );
-  }
-}
-
-class _BandColumn extends StatelessWidget {
-  const _BandColumn({
-    required this.label,
-    required this.amount,
-    required this.color,
-    required this.textTheme,
-  });
-
-  final String label;
-  final String amount;
-  final Color color;
-  final TextTheme textTheme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          amount,
-          style: textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-Color _probabilityColor(double probability) {
-  if (probability >= 80) return AikoColors.successGreen;
-  if (probability >= 50) return AikoColors.warningOrange;
-  return AikoColors.dangerRed;
 }
 
 class _SankeyPainter extends CustomPainter {
@@ -1512,7 +1017,7 @@ class _DailySummaryCardState extends State<_DailySummaryCard> {
               days: _period,
               onChanged: (value) => setState(() => _period = value),
             )
-          : (onTap == null ? null : const Icon(Icons.chevron_right)),
+          : null,
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1549,8 +1054,8 @@ class _DailySummaryCardState extends State<_DailySummaryCard> {
                         final label = buckets.length <= 7
                             ? _weekdayLabel(day)
                             : (index == 0 || day.day % 5 == 0)
-                                ? '${day.day}'
-                                : '';
+                            ? '${day.day}'
+                            : '';
                         if (label.isEmpty) return const SizedBox.shrink();
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
@@ -1758,7 +1263,6 @@ class _MonthlyNetEarningsCard extends StatelessWidget {
       title: 'Net earnings',
       icon: Icons.stacked_bar_chart_outlined,
       accentColor: AikoColors.deepBlue,
-      trailing: onTap == null ? null : const Icon(Icons.chevron_right),
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1915,7 +1419,6 @@ class _CategoryBudgetCard extends StatelessWidget {
       title: 'Category budgets',
       icon: Icons.pie_chart_outline,
       accentColor: AikoColors.premiumPurple,
-      trailing: onTap == null ? null : const Icon(Icons.chevron_right),
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1997,7 +1500,6 @@ class _SpendingCalendarCard extends StatelessWidget {
       title: 'Spending calendar',
       icon: Icons.calendar_month_outlined,
       accentColor: AikoColors.warningOrange,
-      trailing: onTap == null ? null : const Icon(Icons.chevron_right),
       onTap: onTap,
       child: Column(
         children: [

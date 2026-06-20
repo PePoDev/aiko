@@ -14,6 +14,7 @@ import '../features/export/presentation/export_screen.dart';
 import '../features/learning_hub/presentation/learning_hub_screen.dart';
 import '../features/navigation/presentation/planning_screen.dart';
 import '../features/overview/presentation/finance_detail_screens.dart';
+import '../features/investments/domain/investment_holding.dart';
 import '../features/investments/presentation/investments_screen.dart';
 import '../features/settings/presentation/connect_line_screen.dart';
 import '../features/settings/presentation/profile_screen.dart';
@@ -96,7 +97,12 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
 
           GoRoute(
             path: '/settings/chance-of-success',
-            builder: (context, state) => const ChanceOfSuccessScreen(),
+            builder: (context, state) {
+              final extra = state.extra;
+              return ChanceOfSuccessScreen(
+                goal: extra is Account ? extra : null,
+              );
+            },
           ),
           GoRoute(
             path: '/planning',
@@ -157,7 +163,12 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
           ),
           GoRoute(
             path: '/portfolio/holding',
-            builder: (context, state) => const HoldingDetailScreen(),
+            builder: (context, state) {
+              final extra = state.extra;
+              return HoldingDetailScreen(
+                holding: extra is InvestmentHolding ? extra : null,
+              );
+            },
           ),
           GoRoute(
             path: '/learning-hub',

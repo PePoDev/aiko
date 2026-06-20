@@ -109,6 +109,20 @@ class OfflineStore {
       return rowsDeleted > 0;
     }
 
-    return _repository.delete<TModel>(model, query: query);
+    try {
+      // requireRemote awaits the Supabase DELETE before removing the local row,
+      // so a follow-up `alwaysHydrate` read can't re-fetch the row before the
+      // server has removed it. With optimisticLocal the queued DELETE raced the
+      // re-hydrate GET, the row reappeared, and the user had to delete twice.
+      return await _repository.delete<TModel>(
+        model,
+        query: query,
+        policy: OfflineFirstDeletePolicy.requireRemote,
+      );
+    } catch (_) {
+      // Offline (signed in but no connectivity) or transient failure: fall back
+      // to the optimistic local delete + queued remote DELETE.
+      return _repository.delete<TModel>(model, query: query);
+    }
   }
 }

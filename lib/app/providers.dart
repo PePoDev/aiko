@@ -15,6 +15,7 @@ import '../features/dashboard/domain/dashboard_summary.dart';
 import '../features/overview/application/allocation_service.dart';
 import '../features/overview/application/budget_insights_service.dart';
 import '../features/overview/application/cash_flow_service.dart';
+import '../features/overview/application/goal_forecast_service.dart';
 import '../features/overview/application/monthly_report_service.dart';
 import '../features/overview/domain/monthly_report.dart';
 import '../features/investments/application/investments_provider.dart';
@@ -671,6 +672,25 @@ final portfolioAllocationProvider =
       final result = const AllocationService().build(holdings);
       ref.keepAlive();
       return result;
+    });
+
+/// Monte Carlo goal forecast for a single goal account, keyed by goal id so the
+/// 1,000-run simulation is computed once and cached (stable across rebuilds).
+/// Returns null when the goal no longer exists.
+final goalForecastProvider = FutureProvider.autoDispose
+    .family<GoalForecast?, String>((ref, goalId) async {
+      final goals = await ref.watch(accountsProvider.future);
+      Account? goal;
+      for (final a in goals) {
+        if (a.id == goalId && a.type == AccountType.goal) {
+          goal = a;
+          break;
+        }
+      }
+      if (goal == null) return null;
+      final forecast = const GoalForecastService().forecast(goal);
+      ref.keepAlive();
+      return forecast;
     });
 
 final dashboardDueItemsProvider =

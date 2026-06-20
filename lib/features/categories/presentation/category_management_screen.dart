@@ -70,23 +70,45 @@ class CategoryManagementScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: categoriesAsync.when(
-        loading: () => const AikoScreenState.loading(),
-        error: (error, stack) => AikoScreenState.error(
-          title: 'Categories are unavailable',
-          message: 'Aiko could not load your categories right now.\n$error',
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await Future.wait([
+            ref.refresh(categoriesProvider.future),
+            ref.refresh(categoryGroupsProvider.future),
+            ref.refresh(transactionsProvider.future),
+          ]);
+        },
+        child: categoriesAsync.when(
+        loading: () => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [AikoScreenState.loading()],
+        ),
+        error: (error, stack) => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            AikoScreenState.error(
+              title: 'Categories are unavailable',
+              message:
+                  'Aiko could not load your categories right now.\n$error',
+            ),
+          ],
         ),
         data: (categories) {
           if (categories.isEmpty) {
-            return AikoScreenState.empty(
-              title: 'No categories yet',
-              message:
-                  'Create categories to organize transactions and budgets.',
-              action: PrimaryActionButton(
-                label: 'Add Category',
-                icon: Icons.add_circle_outline,
-                onPressed: () => _showAddCategorySheet(context),
-              ),
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                AikoScreenState.empty(
+                  title: 'No categories yet',
+                  message:
+                      'Create categories to organize transactions and budgets.',
+                  action: PrimaryActionButton(
+                    label: 'Add Category',
+                    icon: Icons.add_circle_outline,
+                    onPressed: () => _showAddCategorySheet(context),
+                  ),
+                ),
+              ],
             );
           }
 
@@ -111,6 +133,7 @@ class CategoryManagementScreen extends ConsumerWidget {
           );
 
           return ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             children: [
               _CategorySection(
@@ -147,6 +170,7 @@ class CategoryManagementScreen extends ConsumerWidget {
             ],
           );
         },
+        ),
       ),
     );
   }

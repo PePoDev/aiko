@@ -583,19 +583,27 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
     final previewIds = previewSources.keys.toSet();
 
     if (filtered.isEmpty && ghosts.isEmpty) {
-      return AikoScreenState.empty(
-        title: searchState.isActive
-            ? 'No matching transactions'
-            : 'No transactions in ${widget.month.label}',
-        message: searchState.isActive
-            ? 'Try a different search or clear filters.'
-            : 'Add a transaction for this month when you are ready.',
-        action: searchState.isActive
-            ? TextButton(
-                onPressed: widget.onClearSearch,
-                child: const Text('Clear search'),
-              )
-            : null,
+      return RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            AikoScreenState.empty(
+              title: searchState.isActive
+                  ? 'No matching transactions'
+                  : 'No transactions in ${widget.month.label}',
+              message: searchState.isActive
+                  ? 'Try a different search or clear filters.'
+                  : 'Add a transaction for this month when you are ready.',
+              action: searchState.isActive
+                  ? TextButton(
+                      onPressed: widget.onClearSearch,
+                      child: const Text('Clear search'),
+                    )
+                  : null,
+            ),
+          ],
+        ),
       );
     }
 
@@ -626,7 +634,10 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
       currency: monthTotal.currency,
     );
 
-    return ListView(
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
       children: [
         _MonthSummaryCard(
@@ -647,7 +658,16 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
           const SizedBox(height: 16),
         ],
       ],
+      ),
     );
+  }
+
+  Future<void> _refresh() async {
+    await Future.wait([
+      ref.refresh(transactionsProvider.future),
+      ref.refresh(accountsProvider.future),
+      ref.refresh(categoriesProvider.future),
+    ]);
   }
 
   Money _monthTotal(List<FinanceTransaction> transactions) =>

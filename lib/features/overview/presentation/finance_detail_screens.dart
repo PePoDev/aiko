@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
 import '../../../shared/widgets/aiko_data_widgets.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../accounts/domain/account.dart';
 import '../../categories/domain/category.dart';
 import '../../categories/presentation/category_visual.dart';
 import '../../dashboard/domain/app_notification.dart';
+import '../../investments/application/investments_provider.dart';
+import '../../investments/domain/investment_holding.dart';
 import '../domain/monthly_report.dart';
 
 class NotificationsCenterScreen extends ConsumerWidget {
@@ -425,36 +429,145 @@ class CashFlowSankeyScreen extends ConsumerWidget {
   }
 }
 
-class ChanceOfSuccessScreen extends StatelessWidget {
-  const ChanceOfSuccessScreen({super.key});
+/// Highest-priority goal (high > medium > low), tie-broken by the nearest
+/// target date, used when the screen is opened without a specific goal.
+Account? _topGoal(List<Account> accounts) {
+  final goals = accounts.where((a) => a.type == AccountType.goal).toList();
+  if (goals.isEmpty) return null;
+  goals.sort((a, b) {
+    final byPriority = a.priority.index.compareTo(b.priority.index);
+    if (byPriority != 0) return byPriority;
+    final aDate = a.targetDate ?? DateTime(9999);
+    final bDate = b.targetDate ?? DateTime(9999);
+    return aDate.compareTo(bDate);
+  });
+  return goals.first;
+}
+
+class ChanceOfSuccessScreen extends ConsumerWidget {
+  const ChanceOfSuccessScreen({this.goal, super.key});
+
+  /// Optional specific goal (passed via route `extra`). When null the screen
+  /// shows the top-priority goal.
+  final Account? goal;
 
   @override
-  Widget build(BuildContext context) {
-    return const AikoDetailScaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accountsAsync = ref.watch(accountsProvider);
+    return AikoDetailScaffold(
       title: 'Chance of Success',
       children: [
-        AikoInlineNotice(
-          title: 'Great progress',
-          message: 'You are on track to reach this goal.',
-          icon: Icons.auto_graph_outlined,
-          accentColor: AikoColors.successGreen,
-        ),
-        Card(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: AikoGauge(value: 0.78, label: 'High Chance'),
+        accountsAsync.when(
+          loading: () => const AikoScreenState.loading(),
+          error: (_, _) => const AikoScreenState.error(
+            title: 'Unavailable',
+            message: 'Aiko could not read your goals right now.',
           ),
-        ),
-        AikoDataListCard(
-          title: 'Projection',
-          rows: [
-            AikoDataRow(label: 'Current Savings', value: '\$1,250.00'),
-            AikoDataRow(label: 'Monthly Saving', value: '\$250.00'),
-            AikoDataRow(label: 'Target Amount', value: '\$2,500.00'),
-            AikoDataRow(label: 'Target Date', value: 'Aug 31, 2026'),
-          ],
+          data: (accounts) {
+            final target = goal ?? _topGoal(accounts);
+            if (target == null) {
+              return const AikoScreenState.empty(
+                title: 'No goals yet',
+                message:
+                    'Create a goal account with a target and date, and Aiko '
+                    'will estimate your chance of reaching it.',
+              );
+            }
+            return _ChanceBody(goal: target);
+          },
         ),
       ],
+    );
+  }
+}
+
+class _ChanceBody extends ConsumerWidget {
+  const _ChanceBody({required this.goal});
+
+  final Account goal;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final forecastAsync = ref.watch(goalForecastProvider(goal.id));
+    return forecastAsync.when(
+      loading: () => const AikoScreenState.loading(),
+      error: (_, _) => const AikoScreenState.error(
+        title: 'Unavailable',
+        message: 'Aiko could not run the simulation right now.',
+      ),
+      data: (forecast) {
+        if (forecast == null) {
+          return const AikoScreenState.empty(
+            title: 'Goal not found',
+            message: 'This goal may have been deleted.',
+          );
+        }
+        final probability = forecast.result.successProbabilityPercent;
+        final currency = goal.currentBalance.currency;
+        final (label, color) = switch (probability) {
+          >= 70 => ('High Chance', AikoColors.successGreen),
+          >= 40 => ('Fair Chance', AikoColors.warningOrange),
+          _ => ('Low Chance', AikoColors.dangerRed),
+        };
+        final targetDate = goal.targetDate;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AikoInlineNotice(
+              title: '${goal.name}: ${probability.round()}% chance',
+              message: probability >= 70
+                  ? 'You are on track to reach this goal.'
+                  : 'Saving a bit more each month would lift your odds.',
+              icon: Icons.auto_graph_outlined,
+              accentColor: color,
+            ),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: AikoGauge(
+                  value: (probability / 100).clamp(0.0, 1.0),
+                  label: label,
+                  color: color,
+                ),
+              ),
+            ),
+            AikoDataListCard(
+              title: 'Projection',
+              rows: [
+                AikoDataRow(
+                  label: 'Current Savings',
+                  value: goal.currentBalance.format(),
+                ),
+                AikoDataRow(
+                  label: 'Monthly Saving',
+                  value: Money.parse(
+                    forecast.monthlyContribution.toStringAsFixed(2),
+                    currency,
+                  ).format(),
+                ),
+                AikoDataRow(
+                  label: 'Target Amount',
+                  value: (goal.targetAmount ?? Money.zero(currency)).format(),
+                ),
+                AikoDataRow(
+                  label: 'Target Date',
+                  value: targetDate == null
+                      ? 'Not set'
+                      : DateFormat.yMMMd().format(targetDate),
+                ),
+              ],
+            ),
+            AikoInlineNotice(
+              title: 'How this is estimated',
+              message:
+                  '1,000 simulations at 6% expected return and 12% volatility '
+                  'over ${forecast.months} months. Estimates only, not advice.',
+              icon: Icons.info_outline,
+              accentColor: AikoColors.premiumPurple,
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -678,83 +791,94 @@ class AssetAllocationScreen extends ConsumerWidget {
   }
 }
 
-class HoldingDetailScreen extends StatelessWidget {
-  const HoldingDetailScreen({super.key});
+class HoldingDetailScreen extends ConsumerWidget {
+  const HoldingDetailScreen({this.holding, super.key});
+
+  /// Optional specific holding (passed via route `extra`). When null the screen
+  /// shows the largest holding by market value.
+  final InvestmentHolding? holding;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final holdingsAsync = ref.watch(investmentsProvider);
     return AikoDetailScaffold(
       title: 'Holding Detail',
       children: [
-        const AikoMetricCard(
-          label: 'Apple Inc.',
-          value: '\$195.74',
-          change: '+\$2.35 today',
-          icon: Icons.business,
-          accentColor: AikoColors.successGreen,
-        ),
-        const AikoDataListCard(
-          title: 'Your Holding',
-          icon: Icons.inventory_2_outlined,
-          rows: [
-            AikoDataRow(label: 'Shares', value: '25'),
-            AikoDataRow(
-              label: 'Market Value',
-              value: '\$4,893.50',
-              color: AikoColors.successGreen,
-            ),
-            AikoDataRow(label: 'Average Cost', value: '\$168.20'),
-            AikoDataRow(
-              label: 'Total Gain',
-              value: '+\$687.00',
-              color: AikoColors.successGreen,
-            ),
-          ],
-        ),
-        const Card(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: AikoMiniBarChart(
-              values: [
-                150,
-                155,
-                148,
-                164,
-                172,
-                168,
-                181,
-                176,
-                188,
-                193,
-                190,
-                196,
-              ],
-              color: AikoColors.primaryBlue,
-            ),
+        holdingsAsync.when(
+          loading: () => const AikoScreenState.loading(),
+          error: (_, _) => const AikoScreenState.error(
+            title: 'Unavailable',
+            message: 'Aiko could not read your holdings right now.',
           ),
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton(
-                onPressed: () => _showSnack(context, 'Buy flow opened.'),
-                child: const Text('Buy'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => _showSnack(context, 'Sell flow opened.'),
-                child: const Text('Sell'),
-              ),
-            ),
-          ],
+          data: (holdings) {
+            final selected =
+                holding ??
+                (holdings.isEmpty
+                    ? null
+                    : holdings.reduce(
+                        (a, b) =>
+                            a.marketValue.compareTo(b.marketValue) >= 0 ? a : b,
+                      ));
+            if (selected == null) {
+              return const AikoScreenState.empty(
+                title: 'No holdings yet',
+                message:
+                    'Add an investment holding and its detail will appear here.',
+              );
+            }
+            return _HoldingBody(holding: selected);
+          },
         ),
       ],
     );
   }
 }
 
-void _showSnack(BuildContext context, String message) {
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+class _HoldingBody extends StatelessWidget {
+  const _HoldingBody({required this.holding});
+
+  final InvestmentHolding holding;
+
+  @override
+  Widget build(BuildContext context) {
+    final gain = holding.unrealizedGainLoss;
+    final gainColor = gain.isNegative
+        ? AikoColors.dangerRed
+        : AikoColors.successGreen;
+    final gainLabel = '${gain.isNegative ? '' : '+'}${gain.format()}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AikoMetricCard(
+          label: holding.symbol,
+          value: holding.currentPrice.format(),
+          change: holding.assetClass,
+          icon: Icons.business,
+          accentColor: AikoColors.analyticsTeal,
+        ),
+        AikoDataListCard(
+          title: 'Your Holding',
+          icon: Icons.inventory_2_outlined,
+          rows: [
+            AikoDataRow(label: 'Shares', value: holding.quantity.toString()),
+            AikoDataRow(
+              label: 'Market Value',
+              value: holding.marketValue.format(),
+              color: AikoColors.primaryBlue,
+            ),
+            AikoDataRow(
+              label: 'Average Cost',
+              value: holding.averageCost.format(),
+            ),
+            AikoDataRow(
+              label: 'Unrealized Gain/Loss',
+              value: gainLabel,
+              color: gainColor,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }

@@ -36,96 +36,126 @@ class AccountsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: accountsAsync.when(
-        loading: () => const AikoScreenState.loading(),
-        error: (err, _) => AikoScreenState.error(
-          title: 'Accounts are unavailable',
-          message: 'Aiko could not load your accounts right now. $err',
-        ),
-        data: (accounts) {
-          final transactions =
-              transactionsAsync.whenOrNull(
-                data: (transactions) => transactions,
-              ) ??
-              const <FinanceTransaction>[];
-          if (accounts.isEmpty) {
-            return AikoScreenState.empty(
-              title: 'No accounts yet',
-              message: 'Add your cash, bank, card, or investment accounts.',
-              action: PrimaryActionButton(
-                label: 'Add account',
-                icon: Icons.add_card_outlined,
-                onPressed: () => _showAccountForm(context),
-              ),
-            );
-          }
-
-          final accountSections = _groupAccountsByType(accounts);
-
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await Future.wait([
+            ref.refresh(accountsProvider.future),
+            ref.refresh(transactionsProvider.future),
+          ]);
+        },
+        child: accountsAsync.when(
+          loading: () => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: const [AikoScreenState.loading()],
+          ),
+          error: (err, _) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             children: [
-              _AccountsSummaryCard(
-                accountCount: accounts.length,
-                total: _computeTotalBalance(
-                  accounts: accounts,
-                  transactions: transactions,
-                  baseCurrency: baseCurrency,
-                ),
-                netWorth: _computeTotalBalance(
-                  accounts: [
-                    for (final a in accounts)
-                      if (a.includeInNetWorth) a,
-                  ],
-                  transactions: transactions,
-                  baseCurrency: baseCurrency,
-                ),
-                baseCurrency: baseCurrency,
+              AikoScreenState.error(
+                title: 'Accounts are unavailable',
+                message: 'Aiko could not load your accounts right now. $err',
               ),
-              const SizedBox(height: 16),
-              for (final section in accountSections) ...[
-                _AccountTypeHeader(
-                  type: section.type,
-                  accountCount: section.accounts.length,
-                  total: _computeTypeTotal(
-                    accounts: section.accounts,
+            ],
+          ),
+          data: (accounts) {
+            final transactions =
+                transactionsAsync.whenOrNull(
+                  data: (transactions) => transactions,
+                ) ??
+                const <FinanceTransaction>[];
+            if (accounts.isEmpty) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  AikoScreenState.empty(
+                    title: 'No accounts yet',
+                    message:
+                        'Add your cash, bank, card, or investment accounts.',
+                    action: PrimaryActionButton(
+                      label: 'Add account',
+                      icon: Icons.add_card_outlined,
+                      onPressed: () => _showAccountForm(context),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            final accountSections = _groupAccountsByType(accounts);
+            final assetsLiabilities = _computeAssetsLiabilities(
+              accounts: accounts,
+              transactions: transactions,
+              baseCurrency: baseCurrency,
+            );
+
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+              children: [
+                _AccountsSummaryCard(
+                  accountCount: accounts.length,
+                  total: _computeTotalBalance(
+                    accounts: accounts,
                     transactions: transactions,
                     baseCurrency: baseCurrency,
                   ),
-                ),
-                _AccountSectionCard(
-                  children: section.accounts.isEmpty
-                      ? [
-                          _AddAccountPlaceholder(
-                            type: section.type,
-                            onTap: () => _showAccountForm(
-                              context,
-                              initialType: section.type,
-                            ),
-                          ),
-                        ]
-                      : [
-                          for (final account in section.accounts)
-                            _AccountListItem(
-                              account: account,
-                              currentBalance: _currentBalanceForAccount(
-                                account,
-                                transactions,
-                              ),
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) =>
-                                      AccountDetailScreen(account: account),
-                                ),
-                              ),
-                            ),
-                        ],
+                  netWorth: _computeTotalBalance(
+                    accounts: [
+                      for (final a in accounts)
+                        if (a.includeInNetWorth) a,
+                    ],
+                    transactions: transactions,
+                    baseCurrency: baseCurrency,
+                  ),
+                  baseCurrency: baseCurrency,
+                  assets: assetsLiabilities.assets,
+                  liabilities: assetsLiabilities.liabilities,
                 ),
                 const SizedBox(height: 16),
+                for (final section in accountSections) ...[
+                  _AccountTypeHeader(
+                    type: section.type,
+                    accountCount: section.accounts.length,
+                    total: _computeTypeTotal(
+                      accounts: section.accounts,
+                      transactions: transactions,
+                      baseCurrency: baseCurrency,
+                    ),
+                  ),
+                  _AccountSectionCard(
+                    children: section.accounts.isEmpty
+                        ? [
+                            _AddAccountPlaceholder(
+                              type: section.type,
+                              onTap: () => _showAccountForm(
+                                context,
+                                initialType: section.type,
+                              ),
+                            ),
+                          ]
+                        : [
+                            for (final account in section.accounts)
+                              _AccountListItem(
+                                account: account,
+                                currentBalance: _currentBalanceForAccount(
+                                  account,
+                                  transactions,
+                                ),
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        AccountDetailScreen(account: account),
+                                  ),
+                                ),
+                              ),
+                          ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ],
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -137,12 +167,16 @@ class _AccountsSummaryCard extends StatelessWidget {
     required this.total,
     required this.netWorth,
     required this.baseCurrency,
+    required this.assets,
+    required this.liabilities,
   });
 
   final int accountCount;
   final Money? total;
   final Money? netWorth;
   final String baseCurrency;
+  final Money? assets;
+  final Money? liabilities;
 
   @override
   Widget build(BuildContext context) {
@@ -179,8 +213,70 @@ class _AccountsSummaryCard extends StatelessWidget {
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
+          if (assets != null || liabilities != null) ...[
+            const Divider(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: _MetricTile(
+                    label: 'Assets',
+                    value: (assets ?? Money.zero(baseCurrency)).format(),
+                    icon: Icons.add_chart,
+                    color: AikoColors.successGreen,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _MetricTile(
+                    label: 'Liabilities',
+                    value: (liabilities ?? Money.zero(baseCurrency)).format(),
+                    icon: Icons.remove_circle_outline,
+                    color: AikoColors.dangerRed,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  const _MetricTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ],
     );
   }
 }
@@ -408,11 +504,7 @@ class _AddAccountPlaceholder extends StatelessWidget {
           color: accent.withValues(alpha: 0.06),
           shape: BoxShape.circle,
         ),
-        child: Icon(
-          Icons.add,
-          color: accent.withValues(alpha: 0.5),
-          size: 19,
-        ),
+        child: Icon(Icons.add, color: accent.withValues(alpha: 0.5), size: 19),
       ),
       title: Text(
         'Add ${_accountTypeLabel(type).toLowerCase()}',
@@ -811,6 +903,33 @@ Money? _computeTypeTotal({
     total = total == null ? balance : total + balance;
   }
   return total;
+}
+
+/// Splits net-worth accounts into assets (positive current balances) and
+/// liabilities (what's owed, from negative balances), restricted to the base
+/// currency so units never mix. Sign-based rather than type-based so a card or
+/// loan in credit counts correctly; assets − liabilities reconciles with net
+/// worth. Either side is null when no account contributes.
+({Money? assets, Money? liabilities}) _computeAssetsLiabilities({
+  required List<Account> accounts,
+  required List<FinanceTransaction> transactions,
+  required String baseCurrency,
+}) {
+  Money? assets;
+  Money? liabilities;
+  final upper = baseCurrency.toUpperCase();
+  for (final account in accounts) {
+    if (!account.includeInNetWorth) continue;
+    if (account.currency.toUpperCase() != upper) continue;
+    final balance = _currentBalanceForAccount(account, transactions);
+    if (balance.isNegative) {
+      final owed = Money.zero(account.currency) - balance;
+      liabilities = liabilities == null ? owed : liabilities + owed;
+    } else {
+      assets = assets == null ? balance : assets + balance;
+    }
+  }
+  return (assets: assets, liabilities: liabilities);
 }
 
 /// Total balance across all accounts, restricted to the base currency (same

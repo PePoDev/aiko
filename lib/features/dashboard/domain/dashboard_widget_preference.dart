@@ -8,15 +8,9 @@ enum DashboardWidgetType {
   netEarnings,
   categoryBudgets,
   spendingCalendar,
-  thisMonthOverview,
   cashFlowMapping,
-  aikoGoalSimulator,
-  totalBalance,
   leftToSave,
   cashFlow,
-  netWorth,
-  netWorthTrend,
-  assetsLiabilities,
   topAssets;
 
   /// Intrinsic width on the dashboard grid. A couple of compact summaries are

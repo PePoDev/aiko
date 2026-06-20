@@ -56,7 +56,7 @@ class ChatState {
 }
 
 final aikoChatEngineProvider = Provider<ChatEngine>((ref) {
-  final config = ref.watch(supabaseConfigProvider);
+  final config = ref.watch(aikoSupabaseConfigProvider);
   if (!config.isConfigured) {
     return const OfflineChatEngine();
   }
@@ -72,7 +72,7 @@ class AikoChatController extends Notifier<ChatState> {
 
   @override
   ChatState build() {
-    final offline = !ref.watch(supabaseConfigProvider).isConfigured;
+    final offline = !ref.watch(aikoSupabaseConfigProvider).isConfigured;
     ref.onDispose(() {
       _subscription?.cancel();
     });
@@ -183,19 +183,6 @@ class AikoChatController extends Notifier<ChatState> {
     return 'Something went wrong. Tap retry to try again.';
   }
 }
-
-class _SupabaseConfig {
-  const _SupabaseConfig({required this.url, required this.isConfigured});
-  final String url;
-  final bool isConfigured;
-}
-
-final supabaseConfigProvider = Provider<_SupabaseConfig>((ref) {
-  return _SupabaseConfig(
-    url: ref.watch(aikoSupabaseConfigProvider).url,
-    isConfigured: ref.watch(aikoSupabaseConfigProvider).isConfigured,
-  );
-});
 
 /// Splits an AI reply's accumulated text into its main answer and a trailing
 /// italic disclaimer. Both the offline engine and the cloud Aiko prompt wrap

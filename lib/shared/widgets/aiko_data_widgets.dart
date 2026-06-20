@@ -163,7 +163,7 @@ class AikoMetricCard extends StatelessWidget {
             ],
             if (progress != null) ...[
               const SizedBox(height: 12),
-              AikoProgressBar(value: progress!, color: accentColor),
+              _AikoProgressBar(value: progress!, color: accentColor),
             ],
           ],
         ),
@@ -196,17 +196,14 @@ class AikoMetricGrid extends StatelessWidget {
   }
 }
 
-class AikoProgressBar extends StatelessWidget {
-  const AikoProgressBar({
+class _AikoProgressBar extends StatelessWidget {
+  const _AikoProgressBar({
     required this.value,
     this.color = AikoColors.primaryBlue,
-    this.height = 8,
-    super.key,
   });
 
   final double value;
   final Color color;
-  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -214,7 +211,7 @@ class AikoProgressBar extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       child: LinearProgressIndicator(
         value: value.clamp(0, 1),
-        minHeight: height,
+        minHeight: 8,
         color: color,
         backgroundColor: Theme.of(context).colorScheme.outlineVariant,
       ),

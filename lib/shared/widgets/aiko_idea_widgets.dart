@@ -148,35 +148,6 @@ class AikoPrimaryButton extends StatelessWidget {
   }
 }
 
-class AikoPageDots extends StatelessWidget {
-  const AikoPageDots({required this.count, required this.active, super.key});
-
-  final int count;
-  final int active;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(count, (index) {
-        final selected = index == active;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          width: selected ? 8 : 5,
-          height: selected ? 8 : 5,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            color: selected ? AikoColors.deepBlue : scheme.outline,
-            shape: BoxShape.circle,
-          ),
-        );
-      }),
-    );
-  }
-}
-
 class AikoFeatureRow extends StatelessWidget {
   const AikoFeatureRow({
     required this.icon,

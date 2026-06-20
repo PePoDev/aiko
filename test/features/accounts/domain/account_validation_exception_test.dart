@@ -1,4 +1,4 @@
-import 'package:aiko/features/accounts/domain/account_validation_exception.dart';
+import 'package:aiko/features/accounts/domain/account_validator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

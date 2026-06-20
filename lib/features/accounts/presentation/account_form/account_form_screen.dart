@@ -12,8 +12,6 @@ import '../../../../theme/aiko_colors.dart';
 import '../../../transactions/domain/transaction.dart';
 import '../../domain/account.dart';
 import '../../domain/account_details.dart';
-import '../../domain/account_validation_exception.dart';
-import '../../domain/account_validation_messages.dart';
 import '../../domain/account_validator.dart';
 import 'account_common_fields.dart';
 

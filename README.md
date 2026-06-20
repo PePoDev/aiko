@@ -137,7 +137,7 @@ Core finance data reads/writes locally first via [Brick](https://github.com/GetD
 - **State:** Riverpod for all state; avoid `setState` outside trivial local UI. Top-level providers in `lib/app/providers.dart`; feature providers in-module; shared state in `lib/shared/state/`.
 - **Provider caching:** long-lived list/summary providers call `ref.keepAlive()` *after* a successful load, so switching tabs reuses cached data (no full-screen skeleton flash). A failed load isn't cached and retries. Trade-off: cached screens don't auto-refresh on revisit — screens that go stale own a `RefreshIndicator` calling `ref.refresh(<provider>.future)` (see `_refresh` in `home_dashboard_screen.dart`). Panels watching a notifier update live after writes; `dashboardSummaryProvider`-derived numbers wait for pull-to-refresh.
 - **Routing:** all routes in `lib/app/app_router.dart`. Kebab-case paths. Idea-inspired screens belong to the existing feature owner — add subroutes/menus/inline tools, never duplicate a main screen. Accounts/Categories are primary nav tabs — don't add them as Planning/Menu cards.
-- **Money:** never `double`. Use `Money` (`lib/core/money/money.dart`, wraps `Decimal`); format via `lib/core/formatting/currency_formatter.dart`. Base currency in profile; multi-currency for travel/portfolio.
+- **Money:** never `double`. Use `Money` (`lib/core/money/money.dart`, wraps `Decimal`); format via `lib/core/formatting/money_formatter.dart`. Base currency in profile; multi-currency for travel/portfolio.
 - **Naming:** files `snake_case.dart`, classes `PascalCase`, vars/functions `camelCase`, routes `/kebab-case`, DB `snake_case`.
 - **`super.key` (T-705):** every widget constructor taking `Key?` forwards it as `super.key`.
 - **Notifier / Service / Controller (T-601):** `*Notifier` (reactive Riverpod state, owns in-memory snapshot, `ref.keepAlive()`); `*Service` (pure/near-pure function object, no Riverpod/refs, `const` ctor, unit-testable); `*Controller` (orchestrates Notifier + Service + UI side effects, owns stream/retry/message derivation); `*Repository` in `data/` (wraps a Brick `OfflineStore`, never touches `ref`/`BuildContext`).
@@ -200,36 +200,26 @@ Saved as `SavedCalculatorScenario`, compare side-by-side, convert into budgets/g
 
 ## Ask Aiko Chat Backend (`aiko-chat` Edge Function)
 
-Supabase Edge Function (`supabase/functions/aiko-chat/`) — an SSE proxy streaming Chat Completions from any **OpenAI-compatible provider**, with **automatic fallback across an ordered chain of (provider, model) entries**. Provider keys stay server-side.
+Supabase Edge Function (`supabase/functions/aiko-chat/`) — an SSE proxy streaming Chat Completions from **one configured OpenAI-compatible provider**. Provider key stays server-side.
 
 **Request flow:** (1) validate caller's Supabase JWT (`Authorization: Bearer <jwt>`); (2) build message list (last 20) behind a fixed system prompt defining Aiko's persona, forcing the disclaimer on numeric/recommendation answers, injecting `baseCurrency`; (3) run Layer 2 tool calls; (4) stream the answer (`stream: true`), re-emitting each token as `data: {"delta":"..."}\n\n`, closing with `data: {"done":true}\n\n`. Client: `HttpChatEngine` (`chat_engine.dart`) calls `${SUPABASE_URL}/functions/v1/aiko-chat`.
 
-**Auto-fallback:** walks the chain. On network error, non-2xx, 60s timeout, or a stream dying before any token, silently moves to the next entry. Once tokens flow, a mid-stream error is a final `error` event (can't safely restart). When all fail, the stream ends `data: {"error":"...","code":"PROVIDER_DOWN"}\n\n` summarizing each attempt.
+**Failure handling:** a failure before any token reaches the client (network error, non-2xx, 60s timeout, or an immediate stream break) ends the stream `data: {"error":"...","code":"PROVIDER_DOWN"}\n\n`. Once tokens flow, a mid-stream error is a final `error` event (can't safely restart).
 
 **How Aiko reads your data** (model only sees RLS-scoped data; key never leaves server):
 
 - **Layer 1 — on-device snapshot (always on).** Client assembles a compact `AikoFinancialContext` (net worth, accounts, this-month income/spending, budget pace, goals, recent transactions) from local Brick, sends it in the body; the function folds it into the system prompt. Aggregates only, capped, never the full ledger.
-- **Layer 2 — server-side tools (always on).** Model may first call a fixed allow-list of **read-only** Postgres RPCs (`*_aiko_assistant_read_functions.sql`), each `SECURITY INVOKER` under the caller's JWT (RLS scopes results). Never runs model-supplied SQL, never uses service-role. Tool resolution falls back across the chain.
+- **Layer 2 — server-side tools (always on).** Model may first call a fixed allow-list of **read-only** Postgres RPCs (`*_aiko_assistant_read_functions.sql`), each `SECURITY INVOKER` under the caller's JWT (RLS scopes results). Never runs model-supplied SQL, never uses service-role.
 
-**Configuration** (Supabase secrets — never in app/`.env`). Three code-defined providers, fixed fallback chain. A missing `AI_KEY_<id>` silently drops that entry.
+**Configuration** (Supabase secrets — never in app/`.env`). One provider, set via three secrets; if any is missing the chat endpoint returns `MISSING_PROVIDER_KEY` (and the LINE path replies with a fallback message).
 
 ```sh
-supabase secrets set AI_KEY_DEEPSEEK=sk-...
-supabase secrets set AI_KEY_GEMINI=AIzaSy...
-supabase secrets set AI_KEY_OPENAI=sk-...
+supabase secrets set AI_API_KEY=sk-...
+supabase secrets set AI_MODEL=deepseek-v4-flash
+supabase secrets set AI_BASE_URL=https://api.deepseek.com/v1   # OpenAI-compatible base; the function appends /chat/completions
 ```
 
-`SUPABASE_URL` / `SUPABASE_ANON_KEY` injected by runtime.
-
-**Provider presets** (edit `index.ts` to change):
-
-| `id` | Base URL | Env key | Default models |
-| --- | --- | --- | --- |
-| `deepseek` | `https://api.deepseek.com/v1` | `AI_KEY_DEEPSEEK` | `deepseek-v4-flash`, `deepseek-chat`, `deepseek-reasoner` |
-| `gemini` | `https://generativelanguage.googleapis.com/v1beta/openai` | `AI_KEY_GEMINI` | `gemini-flash`, `gemini-2.0-flash`, `gemini-1.5-pro` |
-| `openai` | `https://api.openai.com/v1` | `AI_KEY_OPENAI` | `gpt-oss-120b`, `gpt-4o-mini`, `gpt-4o` |
-
-**Active chain** (hardcoded `ACTIVE_CHAIN`): 1. DeepSeek `deepseek-v4-flash` → 2. Gemini `gemini-flash` → 3. OpenAI `gpt-oss-120b`. To add a provider: declare `PROVIDER_*`, register in `PROVIDERS`, add to `ACTIVE_CHAIN`.
+`SUPABASE_URL` / `SUPABASE_ANON_KEY` injected by runtime. Any OpenAI-compatible endpoint works — e.g. `https://api.openai.com/v1`, `https://generativelanguage.googleapis.com/v1beta/openai`. To switch providers, change the three secrets and redeploy; no code change.
 
 **LINE bot (merged in):** the LINE webhook lives in this same function — a `POST` with `x-line-signature` routes to the LINE handler, which verifies LINE's HMAC, looks up the linked user (service-role, server-side only), refreshes that user's token, runs the **same chat pipeline in-process**, and replies via the LINE reply API. Linking happens in-app (Profile → Connect LINE) via a pairing code (`line_pairings` / `line_links`, `redeem_line_pairing` RPC). Extra secrets: `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN` (`SUPABASE_SERVICE_ROLE_KEY` injected, used only here). Point the LINE Webhook URL at `…/functions/v1/aiko-chat`.
 
@@ -250,8 +240,8 @@ supabase functions serve aiko-chat --env-file ./supabase/functions/.env.local  #
 | 401 | `BAD_TOKEN` | JWT rejected |
 | 405 | `METHOD_NOT_ALLOWED` | Non-POST |
 | 500 | `MISCONFIGURED` | Missing Supabase env |
-| 500 | `MISSING_PROVIDER_KEY` | No `AI_KEY_*` set for any chain entry |
-| 502 | `PROVIDER_DOWN` | Every chain entry failed |
+| 500 | `MISSING_PROVIDER_KEY` | `AI_API_KEY`, `AI_MODEL`, or `AI_BASE_URL` not set |
+| 502 | `PROVIDER_DOWN` | Provider unreachable / failed before any token |
 | 502 | `PROVIDER_ERROR` | Upstream non-OK before stream |
 
 ---
@@ -417,7 +407,7 @@ Use `AikoScreenState` for loading/empty/error/offline/locked.
 
 `lib/shared/widgets/aiko_data_widgets.dart` for idea-backed supplemental + new detail screens. Prefer shared widgets over one-off cards/painters; don't nest `AikoDataListCard`; sticky bottom actions via `AikoDetailScaffold.bottomBar`.
 
-`AikoDetailScaffold` (detail/tool screens, optional sticky bottom action), `AikoInlineNotice` (tips/warnings/notes), `AikoMetricCard`/`AikoMetricGrid` (summaries), `AikoProgressBar`/`AikoProgressRow` (budget/debt/goal/portfolio/tax), `AikoDataListCard`/`AikoDataRow` (grouped facts/settings rows), `AikoMiniBarChart`/`AikoDonutChart`/`AikoGauge`/`AikoSankeyPreview` (labeled preview charts).
+`AikoDetailScaffold` (detail/tool screens, optional sticky bottom action), `AikoInlineNotice` (tips/warnings/notes), `AikoMetricCard`/`AikoMetricGrid` (summaries), `AikoDataListCard`/`AikoDataRow` (grouped facts/settings rows), `AikoMiniBarChart`/`AikoDonutChart`/`AikoGauge`/`AikoSankeyPreview` (labeled preview charts).
 
 ### Iconography
 

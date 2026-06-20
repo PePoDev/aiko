@@ -1,6 +1,6 @@
 // Aiko Chat — Supabase Edge Function.
-// Streams Chat Completions from OpenAI-compatible providers as SSE, with
-// automatic fallback across a code-defined chain. Validates the caller's
+// Streams Chat Completions from one configured OpenAI-compatible provider as
+// SSE (AI_API_KEY / AI_MODEL / AI_BASE_URL). Validates the caller's
 // Supabase JWT, folds an on-device financial snapshot (Layer 1) into the
 // system prompt, and lets the model call a fixed allow-list of read-only
 // Postgres RPCs (Layer 2). Each chunk is `data: {"delta":"..."}\n\n`, ending
@@ -39,60 +39,23 @@ const SYSTEM_PROMPT = [
   "If the user asks something unrelated to personal finance, gently steer back: 'I'm best with money questions — want to ask me about your spending, budgets, or goals?'",
 ].join(" ");
 
-// ---- Providers & active chain ----
-// Each provider is an OpenAI-compatible Chat Completions endpoint. Add one:
-// declare it below, set its AI_KEY_<id> secret, add an entry to ACTIVE_CHAIN.
-// The runtime tries ACTIVE_CHAIN in order; on a failure (network error,
-// non-2xx, or a stream that dies before any token) it moves to the next.
+// ---- AI provider ----
+// One OpenAI-compatible Chat Completions endpoint, configured via secrets:
+// AI_API_KEY, AI_MODEL, AI_BASE_URL.
 
-interface Provider {
-  readonly id: string;
-  readonly label: string;
+interface AiModel {
   readonly baseUrl: string;
-  readonly apiKeyEnv: string;
-}
-
-interface ActiveModel {
-  readonly provider: Provider;
   readonly model: string;
   readonly apiKey: string;
 }
 
-const PROVIDERS: Record<string, Provider> = {
-  deepseek: {
-    id: "deepseek",
-    label: "DeepSeek",
-    baseUrl: "https://api.deepseek.com/v1",
-    apiKeyEnv: "AI_KEY_DEEPSEEK",
-  },
-  gemini: {
-    id: "gemini",
-    label: "Google Gemini",
-    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-    apiKeyEnv: "AI_KEY_GEMINI",
-  },
-  openai: {
-    id: "openai",
-    label: "OpenAI",
-    baseUrl: "https://api.openai.com/v1",
-    apiKeyEnv: "AI_KEY_OPENAI",
-  },
-};
-
-const ACTIVE_CHAIN: readonly { providerId: string; model: string }[] = [
-  { providerId: "deepseek", model: "deepseek-v4-flash" },
-  { providerId: "gemini", model: "gemini-flash" },
-  { providerId: "openai", model: "gpt-oss-120b" },
-];
-
-// Skip entries whose provider/key isn't configured (missing AI_KEY_* drops
-// the entry silently — runtime just moves to the next).
-function buildActiveChain(): ActiveModel[] {
-  return ACTIVE_CHAIN.flatMap((entry) => {
-    const provider = PROVIDERS[entry.providerId];
-    const apiKey = provider ? Deno.env.get(provider.apiKeyEnv) : undefined;
-    return provider && apiKey ? [{ provider, model: entry.model, apiKey }] : [];
-  });
+// The configured model, or null when AI_API_KEY/AI_MODEL/AI_BASE_URL are missing.
+function buildModel(): AiModel | null {
+  const apiKey = Deno.env.get("AI_API_KEY");
+  const model = Deno.env.get("AI_MODEL");
+  const baseUrl = Deno.env.get("AI_BASE_URL");
+  if (!apiKey || !model || !baseUrl) return null;
+  return { baseUrl, model, apiKey };
 }
 
 const MAX_TOOL_ROUNDS = 4;
@@ -295,7 +258,7 @@ interface ProviderPayload {
 }
 
 function payloadFor(
-  entry: ActiveModel,
+  entry: AiModel,
   messages: ChatMessage[],
   opts: { stream: boolean; tools?: unknown[] },
 ): ProviderPayload {
@@ -318,11 +281,11 @@ function withTimeout(ms: number): { signal: AbortSignal; cancel: () => void } {
 }
 
 function providerFetch(
-  entry: ActiveModel,
+  entry: AiModel,
   payload: ProviderPayload,
   signal?: AbortSignal,
 ): Promise<Response> {
-  return fetch(`${entry.provider.baseUrl}/chat/completions`, {
+  return fetch(`${entry.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -333,14 +296,14 @@ function providerFetch(
   });
 }
 
-// Layer 2 resolution: run a single provider through MAX_TOOL_ROUNDS. Returns
-// true if the provider successfully completed (even with zero tool calls),
-// false on any failure so the caller can try the next entry in the chain.
-async function tryResolveTools(
+// Layer 2 resolution: run the model through up to MAX_TOOL_ROUNDS, appending
+// each tool result to `messages`. Any error abandons tool resolution silently
+// and lets the streamed final answer proceed (existing behavior).
+async function resolveTools(
   supabase: SupabaseClient,
   messages: ChatMessage[],
-  entry: ActiveModel,
-): Promise<boolean> {
+  entry: AiModel,
+): Promise<void> {
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const { signal, cancel } = withTimeout(REQUEST_TIMEOUT_MS);
     let resp: Response;
@@ -352,17 +315,15 @@ async function tryResolveTools(
       );
     } catch {
       cancel();
-      return false;
+      return;
     }
     cancel();
-    if (!resp.ok) return false;
+    if (!resp.ok) return;
 
     const json = await resp.json().catch(() => null);
     const message = json?.choices?.[0]?.message;
     const toolCalls = message?.tool_calls;
-    if (!message || !Array.isArray(toolCalls) || toolCalls.length === 0) {
-      return true;
-    }
+    if (!message || !Array.isArray(toolCalls) || toolCalls.length === 0) return;
 
     messages.push({
       role: "assistant",
@@ -379,20 +340,6 @@ async function tryResolveTools(
       messages.push({ role: "tool", tool_call_id: call.id, content: result });
     }
   }
-  return true;
-}
-
-// Try each provider in the chain in order; the first one that successfully
-// completes a tool round wins. Mid-loop errors abandon tool resolution
-// silently and let the streamed final answer proceed (existing behavior).
-async function resolveToolsWithChain(
-  supabase: SupabaseClient,
-  messages: ChatMessage[],
-  chain: ActiveModel[],
-): Promise<void> {
-  for (const entry of chain) {
-    if (await tryResolveTools(supabase, messages, entry)) return;
-  }
 }
 
 // Where streamed tokens go. The app path wraps a ReadableStream controller
@@ -403,113 +350,74 @@ interface ChatSink {
   fail(message: string, code?: string): void;
 }
 
-// Stream the final answer with automatic fallback. For each entry in the
-// chain we attempt the request and stream its tokens. If the upstream
-// fails before sending any token (network error, non-2xx, or stream break),
-// we silently move to the next entry. Once tokens have flowed to the
-// client we can't safely restart, so a mid-stream error is surfaced as a
-// final `error` event.
-async function streamWithFallback(
-  chain: ActiveModel[],
+// Stream the final answer token-by-token. A failure before any token reaches
+// the client (network error, non-2xx, or an immediate stream break) is a
+// PROVIDER_DOWN error. Once tokens have flowed we can't safely restart, so a
+// mid-stream break is surfaced as a plain final `error` event.
+async function streamAnswer(
+  entry: AiModel,
   messages: ChatMessage[],
   sink: ChatSink,
 ): Promise<void> {
-  const decoder = new TextDecoder();
-  const attempts: { provider: string; model: string; error: string }[] = [];
-
-  for (let i = 0; i < chain.length; i++) {
-    const entry = chain[i];
-    const { signal, cancel } = withTimeout(REQUEST_TIMEOUT_MS);
-    let upstream: Response;
-    try {
-      upstream = await providerFetch(
-        entry,
-        payloadFor(entry, messages, { stream: true }),
-        signal,
-      );
-    } catch (e) {
-      cancel();
-      attempts.push({
-        provider: entry.provider.label,
-        model: entry.model,
-        error: (e as Error).message,
-      });
-      continue;
-    }
+  const { signal, cancel } = withTimeout(REQUEST_TIMEOUT_MS);
+  let upstream: Response;
+  try {
+    upstream = await providerFetch(
+      entry,
+      payloadFor(entry, messages, { stream: true }),
+      signal,
+    );
+  } catch (e) {
     cancel();
+    sink.fail(`Provider unreachable: ${(e as Error).message}`, "PROVIDER_DOWN");
+    return;
+  }
+  cancel();
 
-    if (!upstream.ok || !upstream.body) {
-      const text = await upstream.text().catch(() => "");
-      attempts.push({
-        provider: entry.provider.label,
-        model: entry.model,
-        error: `${upstream.status} ${text.slice(0, 200)}`,
-      });
-      continue;
-    }
-
-    const reader = upstream.body.getReader();
-    let sentAny = false;
-    let buffer = "";
-    let failError: string | null = null;
-    try {
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith("data:")) continue;
-          const payload = trimmed.slice(5).trim();
-          if (payload === "[DONE]") {
-            sink.done();
-            try {
-              reader.releaseLock();
-            } catch { /* noop */ }
-            return;
-          }
-          try {
-            const json = JSON.parse(payload);
-            const delta = json?.choices?.[0]?.delta?.content;
-            if (typeof delta === "string" && delta.length > 0) {
-              sink.delta(delta);
-              sentAny = true;
-            }
-          } catch {
-            continue;
-          }
-        }
-      }
-      sink.done();
-      try {
-        reader.releaseLock();
-      } catch { /* noop */ }
-      return;
-    } catch (e) {
-      failError = (e as Error).message;
-    } finally {
-      try {
-        reader.releaseLock();
-      } catch { /* noop */ }
-    }
-
-    attempts.push({
-      provider: entry.provider.label,
-      model: entry.model,
-      error: `stream broke: ${failError ?? "unknown"}`,
-    });
-    if (!sentAny) continue; // no token sent yet — safe to fall back
-
-    // Tokens already flowed; can't restart cleanly. Surface the error.
-    sink.fail(`Stream failed: ${failError ?? "unknown"}`);
+  if (!upstream.ok || !upstream.body) {
+    const text = await upstream.text().catch(() => "");
+    sink.fail(`Provider error ${upstream.status}: ${text.slice(0, 200)}`, "PROVIDER_DOWN");
     return;
   }
 
-  const summary = attempts.map((a) => `${a.provider}/${a.model}: ${a.error}`)
-    .join(" | ");
-  sink.fail(`All providers failed — ${summary}`, "PROVIDER_DOWN");
+  const decoder = new TextDecoder();
+  const reader = upstream.body.getReader();
+  let sentAny = false;
+  let buffer = "";
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data:")) continue;
+        const payload = trimmed.slice(5).trim();
+        if (payload === "[DONE]") {
+          sink.done();
+          return;
+        }
+        try {
+          const delta = JSON.parse(payload)?.choices?.[0]?.delta?.content;
+          if (typeof delta === "string" && delta.length > 0) {
+            sink.delta(delta);
+            sentAny = true;
+          }
+        } catch { /* skip keepalive / non-JSON lines */ }
+      }
+    }
+    sink.done();
+  } catch (e) {
+    const err = (e as Error).message;
+    if (sentAny) sink.fail(`Stream failed: ${err}`);
+    else sink.fail(`Provider stream broke: ${err}`, "PROVIDER_DOWN");
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch { /* noop */ }
+  }
 }
 
 // ============================================================
@@ -614,7 +522,7 @@ async function freshAccessToken(
 }
 
 // Run the full chat pipeline in-process as the linked user and collect the
-// streamed reply into one string. Same chain/tools/system prompt as the app
+// streamed reply into one string. Same model/tools/system prompt as the app
 // path — just a collecting sink instead of an SSE stream.
 async function runAikoChat(accessToken: string, text: string): Promise<string> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -626,8 +534,8 @@ async function runAikoChat(accessToken: string, text: string): Promise<string> {
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
   });
 
-  const chain = buildActiveChain();
-  if (chain.length === 0) return LINE_FALLBACK;
+  const model = buildModel();
+  if (!model) return LINE_FALLBACK;
 
   // No on-device snapshot over LINE (Layer 1). Pull base currency so money is
   // labelled correctly; Layer 2 tools (when enabled) fetch the rest.
@@ -642,7 +550,7 @@ async function runAikoChat(accessToken: string, text: string): Promise<string> {
     { role: "user", content: text },
   ];
 
-  await resolveToolsWithChain(supabase, messages, chain);
+  await resolveTools(supabase, messages, model);
 
   let answer = "";
   const sink: ChatSink = {
@@ -652,7 +560,7 @@ async function runAikoChat(accessToken: string, text: string): Promise<string> {
     done: () => {},
     fail: () => {},
   };
-  await streamWithFallback(chain, messages, sink);
+  await streamAnswer(model, messages, sink);
 
   return answer.trim() || LINE_FALLBACK;
 }
@@ -819,11 +727,11 @@ serve(async (req) => {
     });
   }
 
-  const chain = buildActiveChain();
-  if (chain.length === 0) {
+  const model = buildModel();
+  if (!model) {
     return jsonResponse(500, {
       error:
-        "Server is missing AI provider configuration. Set at least one AI_KEY_* secret matching an entry in the active chain.",
+        "Server is missing AI provider configuration. Set the AI_API_KEY, AI_MODEL, and AI_BASE_URL secrets.",
       code: "MISSING_PROVIDER_KEY",
     });
   }
@@ -845,11 +753,10 @@ serve(async (req) => {
   ];
 
   // Layer 2: let the model pull deeper data first.
-  await resolveToolsWithChain(supabase, messages, chain);
+  await resolveTools(supabase, messages, model);
 
   // Final answer: always streamed, no tools — forces a prose reply over the
-  // (possibly tool-enriched) message list. Provider/model is selected per
-  // chain entry by the fallback loop.
+  // (possibly tool-enriched) message list.
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const sink: ChatSink = {
@@ -869,7 +776,7 @@ serve(async (req) => {
           } catch { /* noop */ }
         },
       };
-      await streamWithFallback(chain, messages, sink);
+      await streamAnswer(model, messages, sink);
     },
   });
 

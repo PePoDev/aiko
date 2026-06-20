@@ -304,9 +304,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Delete Account?'),
         content: const Text(
-          'Your account will be scheduled for deletion in 3 days, and we\'ll '
-          'email you a confirmation. You can cancel any time before then by '
-          'simply logging back in. You will be signed out now.',
+          'This permanently deletes your account and all your data right now. '
+          'This cannot be undone. You will be signed out.',
         ),
         actions: [
           TextButton(
@@ -318,7 +317,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             style: FilledButton.styleFrom(
               backgroundColor: AikoColors.dangerRed,
             ),
-            child: const Text('Schedule Deletion'),
+            child: const Text('Delete Account'),
           ),
         ],
       ),
@@ -329,23 +328,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     setState(() => _isDeleting = true);
     try {
       await _authRepository.deleteAccount();
-      if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Deletion scheduled'),
-          content: const Text(
-            'Your account will be deleted in 3 days. We\'ve emailed you the '
-            'details. Log back in before then to cancel.',
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
       if (!mounted) return;
       context.go('/');
     } catch (_) {

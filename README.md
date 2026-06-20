@@ -246,28 +246,15 @@ supabase functions serve aiko-chat --env-file ./supabase/functions/.env.local  #
 
 ---
 
-## Account Deletion (3-day grace period)
+## Account Deletion (immediate)
 
-"Delete account" (Profile) does **not** delete immediately — schedules a hard delete 3 days out, emails the user, signs them out. Logging back in within 3 days cancels it. Runs server-side because removing the `auth.users` login needs a secret RLS-bypassing key.
+"Delete account" (Profile) deletes **immediately and permanently** — no grace period. `AuthRepository.deleteAccount` calls the `delete_account` Postgres RPC under the user's JWT, then signs out.
 
-1. **Request** — `AuthRepository.deleteAccount` calls `functions.invoke('delete-account')`, then signs out. The function validates the caller's JWT (user id from *token*, never body), sets `profiles.deletion_scheduled_at = now() + 3 days`, sends the heads-up email over SMTP (`_shared/email.ts`; best-effort). Local Brick data left in place for seamless cancel.
-2. **Cancel** — every successful sign-in/restore (`signIn`, `signUp`, `_restoreSessionDefaults`) calls `_cancelPendingDeletion`, clearing `deletion_scheduled_at` via the user's RLS-scoped client. Idempotent.
-3. **Purge** — hourly `pg_cron` (`…_purge_deleted_accounts_cron.sql`) calls `purge-deleted-accounts` over `pg_net`. That function (guarded by `PURGE_CRON_SECRET`, not a user JWT) **deletes the `profiles` row** (cascades finance data) then the **auth user** for each row past grace. Schema quirk: `profiles.id` is *not* FK'd to `auth.users`, so the profile row must be deleted explicitly.
+`delete_account()` (migration `…_delete_account_rpc.sql`) is a `SECURITY DEFINER` function: it runs as its definer so it can reach `auth.users`. It derives the caller from `auth.uid()` (never a parameter), deletes the `profiles` row (cascades all finance data via `on delete cascade`), then deletes the `auth.users` login. Schema quirk: `profiles.id` is *not* FK'd to `auth.users`, so the profile row must be deleted explicitly. `execute` is granted to `authenticated` only.
 
-Never delete the auth user from the app with the anon/publishable client — `auth.admin.*` always fails there.
+No Edge Function, no `pg_cron`, no service-role key, no email — the privilege lives in the function, not the client. (Replaces the old 3-day grace scheme: `delete-account` / `purge-deleted-accounts` functions and the hourly purge cron.)
 
-**Keys** (new JWT Signing Keys env vars, fallback to legacy): verify caller JWT — `SUPABASE_PUBLISHABLE_KEYS['default']` (`sb_publishable_…`) / legacy `SUPABASE_ANON_KEY`; admin/purge — `SUPABASE_SECRET_KEYS['default']` (`sb_secret_…`) / legacy `SUPABASE_SERVICE_ROLE_KEY`. `SUPABASE_*_KEYS` are JSON maps keyed by name, injected by runtime — never expose to client.
-
-```sh
-supabase functions deploy delete-account
-supabase functions deploy purge-deleted-accounts
-supabase secrets set SMTP_HOST=smtp.example.com SMTP_PORT=465 \
-  SMTP_USERNAME=apikey SMTP_PASSWORD=... SMTP_FROM="Aiko <noreply@yourdomain.com>"
-supabase secrets set PURGE_CRON_SECRET=<random-long-string>
-# pg_cron reads URL + secret from Vault:
-#   select vault.create_secret('https://<ref>.supabase.co/functions/v1', 'edge_base_url');
-#   select vault.create_secret('<same-secret>', 'purge_cron_secret');
-```
+After editing the migration: `supabase db push`.
 
 ---
 

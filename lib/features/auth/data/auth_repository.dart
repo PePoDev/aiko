@@ -78,7 +78,6 @@ class AuthRepository {
 
     if (client.auth.currentSession != null) {
       await _ensureProfileAndDefaultsExist(user.id, user.email ?? email);
-      await _cancelPendingDeletion(user.id);
       await _prepareOfflineDataForSync(user.id);
     }
     await _markKnownAccount();
@@ -102,7 +101,6 @@ class AuthRepository {
     }
 
     await _ensureProfileAndDefaultsExist(user.id, user.email ?? email);
-    await _cancelPendingDeletion(user.id);
     await _prepareOfflineDataForSync(user.id);
     await _markKnownAccount();
     _session = AuthSession(userId: user.id, email: user.email ?? email);
@@ -140,33 +138,13 @@ class AuthRepository {
 
   Future<void> deleteAccount() async {
     final client = AikoSupabase.requireClient();
-    final session = client.auth.currentSession;
-    if (session == null) {
+    if (client.auth.currentSession == null) {
       throw AuthException('No active session found.');
     }
-    final response = await client.functions.invoke('delete-account');
-    if (response.status != 200) {
-      final data = response.data;
-      final message = data is Map && data['error'] is String
-          ? data['error'] as String
-          : 'Failed to delete account. Please try again.';
-      throw AuthException(message);
-    }
+    // Immediate, permanent. The `delete_account` RPC (SECURITY DEFINER) removes
+    // the profile (cascades finance data) and the auth login in one shot.
+    await client.rpc('delete_account');
     await client.auth.signOut();
-  }
-
-  Future<void> _cancelPendingDeletion(String userId) async {
-    try {
-      final client = AikoSupabase.requireClient();
-      await client
-          .from('profiles')
-          .update({'deletion_scheduled_at': null})
-          .eq('id', userId);
-    } catch (error) {
-      if (kDebugMode) {
-        debugPrint('[aiko-auth] cancel pending deletion skipped: $error');
-      }
-    }
   }
 
   Future<AuthSession?> restoreSession() async {
@@ -184,7 +162,6 @@ class AuthRepository {
       // A cached Supabase session is enough to continue offline. Local data
       // will be read from Brick and queued writes will sync when online.
     }
-    await _cancelPendingDeletion(session.userId);
     await _prepareOfflineDataForSync(session.userId);
     try {
       await _markKnownAccount();

@@ -9,21 +9,20 @@ class AppConfig {
   const AppConfig({
     required this.supabaseUrl,
     required this.supabaseAnonKey,
-    this.enableSupabase = true,
   });
 
   factory AppConfig.fromEnvironment() {
     const url = String.fromEnvironment('SUPABASE_URL');
     const anonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
-    return AppConfig(
-      supabaseUrl: url,
-      supabaseAnonKey: anonKey,
-      enableSupabase: url.isNotEmpty && anonKey.isNotEmpty,
-    );
+    return AppConfig(supabaseUrl: url, supabaseAnonKey: anonKey);
   }
 
   final String supabaseUrl;
   final String supabaseAnonKey;
-  final bool enableSupabase;
+
+  /// Whether cloud creds are present. Supabase is always the backend; without
+  /// creds the app runs local-only (SQLite) until they're supplied.
+  bool get hasSupabaseCredentials =>
+      supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 }

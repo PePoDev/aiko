@@ -4,10 +4,6 @@ import 'package:flutter/widgets.dart';
 
 Widget buildTestApp() {
   return const AikoApp(
-    config: AppConfig(
-      supabaseUrl: '',
-      supabaseAnonKey: '',
-      enableSupabase: false,
-    ),
+    config: AppConfig(supabaseUrl: '', supabaseAnonKey: ''),
   );
 }

@@ -66,7 +66,7 @@ class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
       },
     );
 
-    if (config.enableSupabase) {
+    if (config.hasSupabaseCredentials) {
       await AikoSupabase.initialize(config, httpClient: client);
     }
 
@@ -91,7 +91,7 @@ class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
       migrations: migrations,
       offlineRequestQueue: queue,
       memoryCacheProvider: MemoryCacheProvider(),
-      remoteSyncEnabled: config.enableSupabase,
+      remoteSyncEnabled: config.hasSupabaseCredentials,
     );
 
     await _singleton!.initialize();

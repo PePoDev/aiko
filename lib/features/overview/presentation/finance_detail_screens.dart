@@ -6,6 +6,7 @@ import '../../../core/money/money.dart';
 import '../../../shared/widgets/aiko_data_widgets.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../categories/domain/category.dart';
 import '../../categories/presentation/category_visual.dart';
 import '../../dashboard/domain/app_notification.dart';
 import '../domain/monthly_report.dart';
@@ -107,233 +108,317 @@ IconData _severityIcon(AppNotificationSeverity severity) => switch (severity) {
   AppNotificationSeverity.danger => Icons.error_outline,
 };
 
-class PaceOverviewScreen extends StatelessWidget {
+/// Returns a semantic color for how a fraction of budget used compares to how
+/// far through the month we are. Over budget = red, ahead of the calendar =
+/// orange, otherwise green.
+Color _paceColor(double fraction, double daysElapsedRatio) {
+  if (fraction > 1) return AikoColors.dangerRed;
+  if (fraction > daysElapsedRatio) return AikoColors.warningOrange;
+  return AikoColors.successGreen;
+}
+
+class PaceOverviewScreen extends ConsumerWidget {
   const PaceOverviewScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const AikoDetailScaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final paceAsync = ref.watch(budgetPaceProvider);
+    return AikoDetailScaffold(
       title: 'Pace Overview',
       children: [
-        AikoInlineNotice(
-          title: 'You are on track',
-          message: 'You spent \$120 less than planned so far this month.',
-          icon: Icons.speed_outlined,
-          accentColor: AikoColors.successGreen,
-        ),
-        AikoMetricCard(
-          label: 'Overall Pace',
-          value: '92%',
-          change: '\$130 under planned pace',
-          icon: Icons.route_outlined,
-          accentColor: AikoColors.successGreen,
-          progress: 0.92,
-        ),
-        AikoDataListCard(
-          title: 'Category Pace',
-          icon: Icons.category_outlined,
-          rows: [
-            AikoDataRow(
-              label: 'Housing',
-              value: '81%',
-              color: AikoColors.successGreen,
-            ),
-            AikoDataRow(
-              label: 'Food & Dining',
-              value: '95%',
-              color: AikoColors.warningOrange,
-            ),
-            AikoDataRow(
-              label: 'Transport',
-              value: '88%',
-              color: AikoColors.successGreen,
-            ),
-            AikoDataRow(
-              label: 'Lifestyle',
-              value: '110%',
-              color: AikoColors.dangerRed,
-            ),
-            AikoDataRow(
-              label: 'Other',
-              value: '60%',
-              color: AikoColors.successGreen,
-            ),
-          ],
+        paceAsync.when(
+          loading: () => const AikoScreenState.loading(),
+          error: (_, _) => const AikoScreenState.error(
+            title: 'Pace unavailable',
+            message: 'Aiko could not read your budgets right now.',
+          ),
+          data: (pace) {
+            if (!pace.hasBudgets) {
+              return const AikoScreenState.empty(
+                title: 'No budgets yet',
+                message:
+                    'Add a budget limit to a category and Aiko will track your '
+                    'pace against it here.',
+              );
+            }
+            final overall = pace.fraction;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AikoInlineNotice(
+                  title: pace.isAheadOfPace
+                      ? 'Spending ahead of pace'
+                      : 'You are on track',
+                  message: pace.isAheadOfPace
+                      ? 'You have used ${(overall * 100).round()}% of budget '
+                            '${(pace.daysElapsedRatio * 100).round()}% into the '
+                            'month.'
+                      : '${pace.totalSpent.format()} of ${pace.totalBudget.format()} '
+                            'spent so far this month.',
+                  icon: Icons.speed_outlined,
+                  accentColor: pace.isAheadOfPace
+                      ? AikoColors.warningOrange
+                      : AikoColors.successGreen,
+                ),
+                AikoMetricCard(
+                  label: 'Overall Pace',
+                  value: '${(overall * 100).round()}%',
+                  change:
+                      '${pace.totalSpent.format()} of ${pace.totalBudget.format()}',
+                  icon: Icons.route_outlined,
+                  accentColor: _paceColor(overall, pace.daysElapsedRatio),
+                  progress: overall.clamp(0.0, 1.0),
+                ),
+                AikoDataListCard(
+                  title: 'Category Pace',
+                  icon: Icons.category_outlined,
+                  rows: [
+                    for (final c in pace.categories)
+                      AikoDataRow(
+                        label: c.name,
+                        value: '${(c.fraction * 100).round()}%',
+                        subtitle: '${c.spent.format()} of ${c.limit.format()}',
+                        color: _paceColor(c.fraction, pace.daysElapsedRatio),
+                      ),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
   }
 }
 
-class SafeToSpendScreen extends StatelessWidget {
+class SafeToSpendScreen extends ConsumerWidget {
   const SafeToSpendScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const AikoDetailScaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final safeAsync = ref.watch(safeToSpendProvider);
+    return AikoDetailScaffold(
       title: 'Safe to Spend',
       children: [
-        AikoMetricCard(
-          label: 'Safe to Spend',
-          value: '\$1,235.00',
-          change: 'Leftover for 12 days',
-          icon: Icons.savings_outlined,
-          accentColor: AikoColors.primaryBlue,
-        ),
-        AikoDataListCard(
-          title: 'Breakdown',
-          icon: Icons.list_alt_outlined,
-          rows: [
-            AikoDataRow(
-              label: 'Income',
-              value: '\$5,320.00',
-              color: AikoColors.successGreen,
-            ),
-            AikoDataRow(
-              label: 'Recurring payments',
-              value: '-\$1,950.00',
-              color: AikoColors.dangerRed,
-            ),
-            AikoDataRow(
-              label: 'Savings Goals',
-              value: '-\$1,000.00',
-              color: AikoColors.analyticsTeal,
-            ),
-            AikoDataRow(
-              label: 'Planned Spending',
-              value: '-\$1,135.00',
-              color: AikoColors.warningOrange,
-            ),
-            AikoDataRow(
-              label: 'Leftover',
-              value: '\$1,235.00',
-              color: AikoColors.successGreen,
-            ),
-          ],
-        ),
-        AikoMetricCard(
-          label: 'Daily Safe to Spend',
-          value: '\$102.92',
-          change: 'Average per day',
-          icon: Icons.today_outlined,
-        ),
-        Card(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: AikoMiniBarChart(
-              values: [22, 35, 30, 42, 28, 55, 47, 38, 44, 58, 34, 49],
-            ),
+        safeAsync.when(
+          loading: () => const AikoScreenState.loading(),
+          error: (_, _) => const AikoScreenState.error(
+            title: 'Unavailable',
+            message: 'Aiko could not read your income and budgets right now.',
           ),
+          data: (safe) {
+            final leftoverColor = safe.leftover.isNegative
+                ? AikoColors.dangerRed
+                : AikoColors.successGreen;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AikoMetricCard(
+                  label: 'Safe to Spend',
+                  value: safe.leftover.format(),
+                  change: 'Leftover for ${safe.daysRemaining} days',
+                  icon: Icons.savings_outlined,
+                  accentColor: leftoverColor,
+                ),
+                AikoDataListCard(
+                  title: 'Breakdown',
+                  icon: Icons.list_alt_outlined,
+                  rows: [
+                    AikoDataRow(
+                      label: 'Income',
+                      value: safe.income.format(),
+                      color: AikoColors.successGreen,
+                    ),
+                    AikoDataRow(
+                      label: 'Spent so far',
+                      value: '-${safe.spent.format()}',
+                      color: AikoColors.dangerRed,
+                    ),
+                    AikoDataRow(
+                      label: 'Budgeted (unspent)',
+                      value: '-${safe.reserved.format()}',
+                      color: AikoColors.warningOrange,
+                    ),
+                    AikoDataRow(
+                      label: 'Leftover',
+                      value: safe.leftover.format(),
+                      color: leftoverColor,
+                    ),
+                  ],
+                ),
+                AikoMetricCard(
+                  label: 'Daily Safe to Spend',
+                  value: safe.perDay.format(),
+                  change: 'Average for the rest of the month',
+                  icon: Icons.today_outlined,
+                  accentColor: leftoverColor,
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
   }
 }
 
-class CashFlowOverviewScreen extends StatelessWidget {
+class CashFlowOverviewScreen extends ConsumerWidget {
   const CashFlowOverviewScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const AikoDetailScaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final flowAsync = ref.watch(cashFlowOverviewProvider);
+    return AikoDetailScaffold(
       title: 'Cash Flow',
       children: [
-        AikoMetricCard(
-          label: 'Net Cash Flow',
-          value: '\$1,230.00',
-          change: '+\$320 vs last month',
-          icon: Icons.waterfall_chart,
-          accentColor: AikoColors.successGreen,
-        ),
-        Card(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: AikoMiniBarChart(
-              values: [18, 20, 28, 24, 34, 39, 36, 42, 44, 48, 54, 62],
-              color: AikoColors.successGreen,
-            ),
+        flowAsync.when(
+          loading: () => const AikoScreenState.loading(),
+          error: (_, _) => const AikoScreenState.error(
+            title: 'Cash flow unavailable',
+            message: 'Aiko could not read your transactions right now.',
           ),
-        ),
-        AikoDataListCard(
-          title: 'Cash Flow Summary',
-          icon: Icons.account_tree_outlined,
-          rows: [
-            AikoDataRow(
-              label: 'Income',
-              value: '\$5,320.00',
-              color: AikoColors.successGreen,
-            ),
-            AikoDataRow(
-              label: 'Expenses',
-              value: '-\$4,090.00',
-              color: AikoColors.dangerRed,
-            ),
-            AikoDataRow(
-              label: 'Savings & Goals',
-              value: '-\$1,000.00',
-              color: AikoColors.analyticsTeal,
-            ),
-            AikoDataRow(
-              label: 'Investments',
-              value: '-\$1,000.00',
-              color: AikoColors.warningOrange,
-            ),
-            AikoDataRow(
-              label: 'Net Cash Flow',
-              value: '\$1,230.00',
-              color: AikoColors.successGreen,
-            ),
-          ],
+          data: (flow) {
+            if (!flow.hasActivity) {
+              return const AikoScreenState.empty(
+                title: 'Nothing logged yet',
+                message:
+                    'Log income and expenses and your cash flow will appear '
+                    'here.',
+              );
+            }
+            final netColor = flow.net.isNegative
+                ? AikoColors.dangerRed
+                : AikoColors.successGreen;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AikoMetricCard(
+                  label: 'Net Cash Flow',
+                  value: flow.net.format(),
+                  change: 'This month',
+                  icon: Icons.waterfall_chart,
+                  accentColor: netColor,
+                ),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: AikoMiniBarChart(
+                      // Net can dip below zero; the chart shows the trend
+                      // shape, the summary rows carry exact signed figures.
+                      values: flow.monthlyNet
+                          .map((v) => v < 0 ? 0.0 : v)
+                          .toList(),
+                      color: netColor,
+                    ),
+                  ),
+                ),
+                AikoDataListCard(
+                  title: 'This Month',
+                  icon: Icons.account_tree_outlined,
+                  rows: [
+                    AikoDataRow(
+                      label: 'Income',
+                      value: flow.income.format(),
+                      color: AikoColors.successGreen,
+                    ),
+                    AikoDataRow(
+                      label: 'Expenses',
+                      value: '-${flow.expenses.format()}',
+                      color: AikoColors.dangerRed,
+                    ),
+                    AikoDataRow(
+                      label: 'Net Cash Flow',
+                      value: flow.net.format(),
+                      color: netColor,
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
   }
 }
 
-class CashFlowSankeyScreen extends StatelessWidget {
+String _groupLabel(CategoryBudgetGroup group) => switch (group) {
+  CategoryBudgetGroup.needs => 'Needs',
+  CategoryBudgetGroup.wants => 'Wants',
+  CategoryBudgetGroup.savings => 'Savings',
+  CategoryBudgetGroup.debt => 'Debt',
+  CategoryBudgetGroup.investment => 'Investments',
+  CategoryBudgetGroup.tax => 'Tax',
+  CategoryBudgetGroup.business => 'Business',
+  CategoryBudgetGroup.custom => 'Other',
+};
+
+Color _groupColor(CategoryBudgetGroup group) => switch (group) {
+  CategoryBudgetGroup.needs => AikoColors.primaryBlue,
+  CategoryBudgetGroup.wants => AikoColors.warningOrange,
+  CategoryBudgetGroup.savings => AikoColors.analyticsTeal,
+  CategoryBudgetGroup.debt => AikoColors.dangerRed,
+  CategoryBudgetGroup.investment => AikoColors.premiumPurple,
+  CategoryBudgetGroup.tax => AikoColors.deepBlue,
+  CategoryBudgetGroup.business => AikoColors.successGreen,
+  // Neutral grey for the "Other" data-viz slice (matches the report donut).
+  CategoryBudgetGroup.custom => const Color(0xFF778196),
+};
+
+class CashFlowSankeyScreen extends ConsumerWidget {
   const CashFlowSankeyScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const AikoDetailScaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sankeyAsync = ref.watch(cashFlowSankeyProvider);
+    return AikoDetailScaffold(
       title: 'Cash Flow Sankey',
       children: [
-        _SegmentedHeader(labels: ['Sankey View', 'Category View']),
-        Card(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: AikoSankeyPreview(),
+        sankeyAsync.when(
+          loading: () => const AikoScreenState.loading(),
+          error: (_, _) => const AikoScreenState.error(
+            title: 'Unavailable',
+            message: 'Aiko could not read your transactions right now.',
           ),
-        ),
-        AikoDataListCard(
-          title: 'Flow Legend',
-          rows: [
-            AikoDataRow(
-              label: 'Income',
-              value: '\$5,320',
-              color: AikoColors.successGreen,
-            ),
-            AikoDataRow(
-              label: 'Needs',
-              value: '\$2,400',
-              color: AikoColors.primaryBlue,
-            ),
-            AikoDataRow(
-              label: 'Wants',
-              value: '\$1,200',
-              color: AikoColors.warningOrange,
-            ),
-            AikoDataRow(
-              label: 'Savings',
-              value: '\$1,000',
-              color: AikoColors.analyticsTeal,
-            ),
-            AikoDataRow(
-              label: 'Debt',
-              value: '\$700',
-              color: AikoColors.dangerRed,
-            ),
-          ],
+          data: (sankey) {
+            if (!sankey.hasActivity) {
+              return const AikoScreenState.empty(
+                title: 'Nothing to map yet',
+                message:
+                    'Log income and spending and Aiko will map where your '
+                    'money flows.',
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Illustrative flow diagram; the legend below carries the real
+                // per-group figures.
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: AikoSankeyPreview(),
+                  ),
+                ),
+                AikoDataListCard(
+                  title: 'Flow Legend',
+                  rows: [
+                    AikoDataRow(
+                      label: 'Income',
+                      value: sankey.income.format(),
+                      color: AikoColors.successGreen,
+                    ),
+                    for (final slice in sankey.outflowByGroup)
+                      AikoDataRow(
+                        label: _groupLabel(slice.group),
+                        value: '-${slice.amount.format()}',
+                        color: _groupColor(slice.group),
+                      ),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -508,70 +593,85 @@ class MonthlyReportScreen extends ConsumerWidget {
   }
 }
 
-class AssetAllocationScreen extends StatelessWidget {
+/// Fixed palette for allocation slices, cycled by index so the donut and the
+/// list agree on each asset class's color.
+const _allocationPalette = [
+  AikoColors.primaryBlue,
+  AikoColors.analyticsTeal,
+  AikoColors.premiumPurple,
+  AikoColors.successGreen,
+  AikoColors.warningOrange,
+  AikoColors.dangerRed,
+  AikoColors.deepBlue,
+];
+
+class AssetAllocationScreen extends ConsumerWidget {
   const AssetAllocationScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const AikoDetailScaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final allocationAsync = ref.watch(portfolioAllocationProvider);
+    return AikoDetailScaffold(
       title: 'Asset Allocation',
       children: [
-        AikoMetricCard(
-          label: 'Total Portfolio',
-          value: '\$102,450.00',
-          icon: Icons.pie_chart_outline,
-          accentColor: AikoColors.analyticsTeal,
-        ),
-        Card(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: AikoDonutChart(
-              values: [68.5, 18.2, 6.0, 4.5, 2.8],
-              colors: [
-                AikoColors.primaryBlue,
-                AikoColors.analyticsTeal,
-                AikoColors.premiumPurple,
-                AikoColors.successGreen,
-                AikoColors.warningOrange,
-              ],
-              centerLabel: '42\nHoldings',
-            ),
+        allocationAsync.when(
+          loading: () => const AikoScreenState.loading(),
+          error: (_, _) => const AikoScreenState.error(
+            title: 'Allocation unavailable',
+            message: 'Aiko could not read your holdings right now.',
           ),
-        ),
-        AikoDataListCard(
-          title: 'Allocation',
-          rows: [
-            AikoDataRow(
-              label: 'Stocks',
-              value: '68.5%',
-              color: AikoColors.primaryBlue,
-            ),
-            AikoDataRow(
-              label: 'Bonds',
-              value: '18.2%',
-              color: AikoColors.analyticsTeal,
-            ),
-            AikoDataRow(
-              label: 'Cash',
-              value: '6.0%',
-              color: AikoColors.premiumPurple,
-            ),
-            AikoDataRow(
-              label: 'Real Estate',
-              value: '4.5%',
-              color: AikoColors.successGreen,
-            ),
-            AikoDataRow(
-              label: 'Commodities',
-              value: '2.8%',
-              color: AikoColors.warningOrange,
-            ),
-          ],
-        ),
-        AikoInlineNotice(
-          title: 'Great balance',
-          message: 'Your portfolio is well diversified.',
-          icon: Icons.auto_awesome,
+          data: (allocation) {
+            if (!allocation.hasHoldings) {
+              return const AikoScreenState.empty(
+                title: 'No holdings yet',
+                message:
+                    'Add investment holdings and Aiko will break down your '
+                    'allocation here.',
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AikoMetricCard(
+                  label: 'Total Portfolio',
+                  value: allocation.total.format(),
+                  icon: Icons.pie_chart_outline,
+                  accentColor: AikoColors.analyticsTeal,
+                ),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: AikoDonutChart(
+                      values: allocation.slices
+                          .map((s) => s.value.amount.toDouble())
+                          .toList(),
+                      colors: [
+                        for (var i = 0; i < allocation.slices.length; i++)
+                          _allocationPalette[i % _allocationPalette.length],
+                      ],
+                      centerLabel:
+                          '${allocation.holdingCount}\n'
+                          '${allocation.holdingCount == 1 ? 'Holding' : 'Holdings'}',
+                    ),
+                  ),
+                ),
+                AikoDataListCard(
+                  title: 'Allocation',
+                  rows: [
+                    for (var i = 0; i < allocation.slices.length; i++)
+                      AikoDataRow(
+                        label: allocation.slices[i].assetClass,
+                        value:
+                            '${allocation.slices[i].percent.toStringAsFixed(1)}%',
+                        subtitle: allocation.slices[i].value.format(),
+                        color:
+                            _allocationPalette[i % _allocationPalette.length],
+                      ),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -651,24 +751,6 @@ class HoldingDetailScreen extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-class _SegmentedHeader extends StatelessWidget {
-  const _SegmentedHeader({required this.labels});
-
-  final List<String> labels;
-
-  @override
-  Widget build(BuildContext context) {
-    return SegmentedButton<int>(
-      segments: [
-        for (var index = 0; index < labels.length; index++)
-          ButtonSegment(value: index, label: Text(labels[index])),
-      ],
-      selected: const {0},
-      onSelectionChanged: (_) {},
     );
   }
 }

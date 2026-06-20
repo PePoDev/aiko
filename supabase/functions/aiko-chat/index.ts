@@ -60,19 +60,31 @@ function buildModel(): AiModel | null {
 
 const MAX_TOOL_ROUNDS = 4;
 const REQUEST_TIMEOUT_MS = 60_000;
+const MAX_USER_MSG = 1000; // server backstop; UI caps real input at 300 chars.
+
+// Truncate JSON sent to the model, keeping it valid by stuffing the marker
+// inside a string rather than slicing mid-token.
+function cap(json: string, max: number): string {
+  return json.length > max
+    ? `${JSON.stringify(json.slice(0, max))} /*truncated*/`
+    : json;
+}
+
+const encoder = new TextEncoder();
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, content-type",
+} as const;
 
 function sseEvent(payload: Record<string, unknown>): Uint8Array {
-  return new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`);
+  return encoder.encode(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
 function jsonResponse(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "authorization, content-type",
-    },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 }
 
@@ -104,8 +116,7 @@ function isRequestBody(value: unknown): value is RequestBody {
 
 function financialContextBlock(ctx: unknown): string {
   if (!ctx || typeof ctx !== "object") return "";
-  let json = JSON.stringify(ctx);
-  if (json.length > 6000) json = `${json.slice(0, 6000)}…(truncated)`;
+  const json = cap(JSON.stringify(ctx), 6000);
   return [
     "\n\nUser's current financial snapshot (assembled on their device; amounts are in their base currency). Use it to answer. If a needed figure isn't present, say what's missing and which Aiko screen would have it — do not guess:",
     json,
@@ -241,9 +252,7 @@ async function runTool(
   try {
     const { data, error } = await supabase.rpc(name, args);
     if (error) return JSON.stringify({ error: error.message });
-    let out = JSON.stringify(data ?? []);
-    if (out.length > 4000) out = `${out.slice(0, 4000)}…(truncated)`;
-    return out;
+    return cap(JSON.stringify(data ?? []), 4000);
   } catch (e) {
     return JSON.stringify({ error: (e as Error).message });
   }
@@ -423,8 +432,6 @@ async function streamAnswer(
 // ============================================================
 // LINE bot — webhook handling + in-process chat (no second hop)
 // ============================================================
-
-const encoder = new TextEncoder();
 
 // Verify LINE's HMAC-SHA256 signature over the raw body.
 async function verifyLineSignature(
@@ -669,11 +676,7 @@ serve(async (req) => {
 
   if (req.method === "OPTIONS") {
     return new Response("ok", {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "authorization, content-type",
-      },
+      headers: { ...CORS_HEADERS, "Access-Control-Allow-Methods": "POST, OPTIONS" },
     });
   }
 
@@ -746,10 +749,10 @@ serve(async (req) => {
       role: "system",
       content: systemPromptFor(baseCurrency, body.financialContext),
     },
-    ...body.messages.slice(-20).map((m) => ({
-      role: m.role,
-      content: m.content,
-    })),
+    ...body.messages
+      .filter((m) => m.role !== "system") // server owns the system prompt
+      .slice(-10)
+      .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_USER_MSG) })),
   ];
 
   // Layer 2: let the model pull deeper data first.
@@ -785,7 +788,7 @@ serve(async (req) => {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
       "Connection": "keep-alive",
-      "Access-Control-Allow-Origin": "*",
+      ...CORS_HEADERS,
     },
   });
 });

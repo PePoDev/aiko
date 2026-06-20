@@ -12,8 +12,12 @@ import '../features/dashboard/data/dashboard_repository.dart';
 import '../features/dashboard/domain/app_notification.dart';
 import '../features/dashboard/domain/dashboard_due_item.dart';
 import '../features/dashboard/domain/dashboard_summary.dart';
+import '../features/overview/application/allocation_service.dart';
+import '../features/overview/application/budget_insights_service.dart';
+import '../features/overview/application/cash_flow_service.dart';
 import '../features/overview/application/monthly_report_service.dart';
 import '../features/overview/domain/monthly_report.dart';
+import '../features/investments/application/investments_provider.dart';
 import '../features/insights/data/aiko_insight_repository.dart';
 import '../features/insights/domain/aiko_insight.dart';
 import '../features/settings/data/profile_repository.dart';
@@ -602,6 +606,72 @@ final monthlyReportProvider = FutureProvider.autoDispose<MonthlyReport>((
   ref.keepAlive();
   return report;
 });
+
+/// Cash-flow overview (this month's in/out/net + 12-month net trend) from real
+/// transactions.
+final cashFlowOverviewProvider = FutureProvider.autoDispose<CashFlowOverview>((
+  ref,
+) async {
+  final transactions = await ref.watch(transactionsProvider.future);
+  final result = const CashFlowService().overview(
+    transactions: transactions,
+    asOf: DateTime.now(),
+  );
+  ref.keepAlive();
+  return result;
+});
+
+/// Cash-flow Sankey breakdown (income vs outflow grouped by budget group).
+final cashFlowSankeyProvider = FutureProvider.autoDispose<CashFlowSankey>((
+  ref,
+) async {
+  final transactions = await ref.watch(transactionsProvider.future);
+  final categories = await ref.watch(categoriesProvider.future);
+  final result = const CashFlowService().sankey(
+    transactions: transactions,
+    categories: categories,
+    asOf: DateTime.now(),
+  );
+  ref.keepAlive();
+  return result;
+});
+
+/// Budget pace (overall + per-category) from real spending vs category limits.
+final budgetPaceProvider = FutureProvider.autoDispose<BudgetPace>((ref) async {
+  final transactions = await ref.watch(transactionsProvider.future);
+  final categories = await ref.watch(categoriesProvider.future);
+  final result = const BudgetInsightsService().pace(
+    transactions: transactions,
+    categories: categories,
+    asOf: DateTime.now(),
+  );
+  ref.keepAlive();
+  return result;
+});
+
+/// Safe-to-spend leftover breakdown from real income, spending and budgets.
+final safeToSpendProvider = FutureProvider.autoDispose<SafeToSpend>((
+  ref,
+) async {
+  final transactions = await ref.watch(transactionsProvider.future);
+  final categories = await ref.watch(categoriesProvider.future);
+  final result = const BudgetInsightsService().safeToSpend(
+    transactions: transactions,
+    categories: categories,
+    asOf: DateTime.now(),
+  );
+  ref.keepAlive();
+  return result;
+});
+
+/// Portfolio allocation by asset class from real investment holdings.
+final portfolioAllocationProvider =
+    FutureProvider.autoDispose<PortfolioAllocation>((ref) async {
+      final holdings = await ref.watch(investmentsProvider.future);
+      final result = const AllocationService().build(holdings);
+      ref.keepAlive();
+      return result;
+    });
 
 final dashboardDueItemsProvider =
     FutureProvider.autoDispose<List<DashboardDueItem>>((ref) async {

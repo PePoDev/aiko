@@ -172,7 +172,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     setState(() => _avatarBusy = true);
     try {
-      final picked = await _avatarService.pickAndUpload(source: ImageSource.gallery);
+      final picked = await _avatarService.pickAndUpload(
+        source: ImageSource.gallery,
+      );
       if (picked == null) {
         return;
       }
@@ -281,6 +283,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   String _formatDate(DateTime date) {
     return DateFormat.yMMMMd().format(date);
+  }
+
+  Future<void> _handleLinkGoogle() async {
+    try {
+      await _authRepository.linkGoogle();
+      // The OAuth flow opens a browser; googleLinkedProvider flips once the
+      // deep-link callback fires authStateChanges. Nothing to await here.
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to connect Google right now.')),
+      );
+    }
   }
 
   Future<void> _handleLogout() async {
@@ -407,7 +422,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 FilledButton.icon(
                   onPressed: () => ref.invalidate(profileProvider),
                   icon: const Icon(Icons.refresh),
@@ -421,10 +436,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _populateFrom(profile);
 
           return ListView(
-            padding: const EdgeInsets.only(bottom: 112),
+            padding: const EdgeInsets.only(bottom: 88),
             children: [
               _buildHeader(profile),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: FinanceCard(
@@ -437,27 +452,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         label: 'Display name',
                         icon: Icons.badge_outlined,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _buildField(
                         controller: _fullNameController,
                         label: 'Full name',
                         icon: Icons.person_outline,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _buildField(
                         controller: _phoneController,
                         label: 'Phone number',
                         icon: Icons.phone_outlined,
                         keyboardType: TextInputType.phone,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _buildChoiceRow(
                         label: 'Gender',
                         value: _genderLabel(_draft.gender),
                         icon: Icons.wc_outlined,
                         onTap: _pickGender,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _buildChoiceRow(
                         label: 'Date of birth',
                         value: _draft.dateOfBirth != null
@@ -477,7 +492,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               )
                             : null,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _buildChoiceRow(
                         label: 'Base currency',
                         value: _currencyLabel(_draft.baseCurrency),
@@ -558,7 +573,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: FinanceCard(
@@ -576,7 +591,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               Icons.chat_bubble_outline,
                               color: AikoColors.primaryBlue,
                             ),
-                            title: Text(linked ? 'LINE connected' : 'Connect LINE'),
+                            title: Text(
+                              linked ? 'LINE connected' : 'Connect LINE',
+                            ),
                             subtitle: Text(
                               linked
                                   ? 'Aiko can chat with you on LINE'
@@ -597,11 +614,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           );
                         },
                       ),
+                      const Divider(height: 1),
+                      Builder(
+                        builder: (context) {
+                          final linked =
+                              ref.watch(googleLinkedProvider).value ?? false;
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(
+                              Icons.g_mobiledata,
+                              color: AikoColors.primaryBlue,
+                            ),
+                            title: Text(
+                              linked ? 'Google connected' : 'Connect Google',
+                            ),
+                            subtitle: Text(
+                              linked
+                                  ? 'Sign in with Google too'
+                                  : 'Add Google sign-in to this account',
+                            ),
+                            trailing: linked
+                                ? const Icon(
+                                    Icons.check_circle,
+                                    color: AikoColors.successGreen,
+                                  )
+                                : const Icon(Icons.chevron_right),
+                            onTap: linked ? null : _handleLinkGoogle,
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: FinanceCard(
@@ -619,7 +665,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Password flow opened.')),
+                            const SnackBar(
+                              content: Text('Password flow opened.'),
+                            ),
                           );
                         },
                       ),
@@ -647,8 +695,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
-              const SizedBox(height: 32),
+              const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: FinanceCard(
@@ -773,7 +820,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         : _displayNameController.text;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(top: 32, bottom: 24, left: 16, right: 16),
+      padding: const EdgeInsets.only(top: 20, bottom: 16, left: 16, right: 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -818,12 +865,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           Text(
             displayName,
             style: Theme.of(
               context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -842,8 +889,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (file.existsSync()) {
         child = Image.file(
           file,
-          width: 112,
-          height: 112,
+          width: 88,
+          height: 88,
           fit: BoxFit.cover,
           errorBuilder: (_, _, _) => _initialsAvatar(displayName),
         );
@@ -864,7 +911,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ],
       ),
-      child: ClipOval(child: SizedBox(width: 112, height: 112, child: child)),
+      child: ClipOval(child: SizedBox(width: 88, height: 88, child: child)),
     );
   }
 
@@ -872,8 +919,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (url != null && url.isNotEmpty) {
       return Image.network(
         url,
-        width: 112,
-        height: 112,
+        width: 88,
+        height: 88,
         fit: BoxFit.cover,
         errorBuilder: (_, _, _) => _initialsAvatar(displayName),
         loadingBuilder: (context, child, progress) {
@@ -887,8 +934,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _initialsAvatar(String displayName) {
     return Container(
-      width: 112,
-      height: 112,
+      width: 88,
+      height: 88,
       color: AikoColors.primaryBlue,
       alignment: Alignment.center,
       child: Text(

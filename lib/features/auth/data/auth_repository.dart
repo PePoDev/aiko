@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/app_config.dart';
@@ -124,6 +125,25 @@ class AuthRepository {
     );
   }
 
+  /// Links a Google identity to the already signed-in account (e.g. an
+  /// email/password user adding Google sign-in). Opens the OAuth flow; the
+  /// deep-link callback returns to the app and fires [authStateChanges].
+  /// Requires "Manual linking" enabled in Supabase Auth settings.
+  Future<bool> linkGoogle() {
+    final client = AikoSupabase.requireClient();
+    return client.auth.linkIdentity(
+      OAuthProvider.google,
+      redirectTo: kIsWeb ? null : googleOAuthRedirectUrl,
+    );
+  }
+
+  /// Whether the signed-in user already has a Google identity linked. Reads the
+  /// cached user (no network call); false when signed out.
+  bool isGoogleLinked() {
+    final identities = AikoSupabase.tryClient()?.auth.currentUser?.identities;
+    return identities?.any((i) => i.provider == 'google') ?? false;
+  }
+
   Future<void> signOut() async {
     final client = AikoSupabase.tryClient();
     if (client != null) {
@@ -214,3 +234,12 @@ class AuthRepository {
     return _ensureProfileAndDefaultsExist(userId, email);
   }
 }
+
+/// True when the signed-in user has a Google identity linked. Emits the current
+/// state immediately, then re-emits on every auth change so the Profile entry
+/// flips to "connected" once the OAuth link callback returns.
+final googleLinkedProvider = StreamProvider<bool>((ref) async* {
+  final repo = AuthRepository();
+  yield repo.isGoogleLinked();
+  yield* repo.authStateChanges().map((_) => repo.isGoogleLinked());
+});

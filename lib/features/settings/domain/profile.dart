@@ -1,7 +1,5 @@
 enum PreferredTheme { system, light, dark }
 
-enum OnboardingStatus { notStarted, inProgress, completed }
-
 enum SecurityStatus { notConfigured, pinEnabled, biometricEnabled, lockedOut }
 
 enum Gender { preferNotToSay, female, male, nonBinary, other }
@@ -13,7 +11,6 @@ class Profile {
     required this.email,
     required this.baseCurrency,
     required this.country,
-    required this.onboardingStatus,
     required this.securityStatus,
     this.preferredTheme = PreferredTheme.system,
     this.fullName,
@@ -29,7 +26,6 @@ class Profile {
   final String email;
   final String baseCurrency;
   final String country;
-  final OnboardingStatus onboardingStatus;
   final SecurityStatus securityStatus;
   final PreferredTheme preferredTheme;
 
@@ -58,7 +54,6 @@ class Profile {
     String? email,
     String? baseCurrency,
     String? country,
-    OnboardingStatus? onboardingStatus,
     SecurityStatus? securityStatus,
     PreferredTheme? preferredTheme,
     String? fullName,
@@ -74,7 +69,6 @@ class Profile {
       email: email ?? this.email,
       baseCurrency: baseCurrency ?? this.baseCurrency,
       country: country ?? this.country,
-      onboardingStatus: onboardingStatus ?? this.onboardingStatus,
       securityStatus: securityStatus ?? this.securityStatus,
       preferredTheme: preferredTheme ?? this.preferredTheme,
       fullName: fullName ?? this.fullName,

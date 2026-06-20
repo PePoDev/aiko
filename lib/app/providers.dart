@@ -12,6 +12,8 @@ import '../features/dashboard/data/dashboard_repository.dart';
 import '../features/dashboard/domain/app_notification.dart';
 import '../features/dashboard/domain/dashboard_due_item.dart';
 import '../features/dashboard/domain/dashboard_summary.dart';
+import '../features/overview/application/monthly_report_service.dart';
+import '../features/overview/domain/monthly_report.dart';
 import '../features/insights/data/aiko_insight_repository.dart';
 import '../features/insights/domain/aiko_insight.dart';
 import '../features/settings/data/profile_repository.dart';
@@ -584,6 +586,23 @@ final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummary>((
   }
 });
 
+/// Monthly Report figures derived live from the user's real transactions and
+/// categories. No mock data — returns an empty-but-valid report when there is
+/// nothing logged this month.
+final monthlyReportProvider = FutureProvider.autoDispose<MonthlyReport>((
+  ref,
+) async {
+  final transactions = await ref.watch(transactionsProvider.future);
+  final categories = await ref.watch(categoriesProvider.future);
+  final report = const MonthlyReportService().build(
+    transactions: transactions,
+    categories: categories,
+    asOf: DateTime.now(),
+  );
+  ref.keepAlive();
+  return report;
+});
+
 final dashboardDueItemsProvider =
     FutureProvider.autoDispose<List<DashboardDueItem>>((ref) async {
       try {
@@ -601,26 +620,27 @@ final dashboardDueItemsProvider =
 /// Notifications derived live from the user's real local data (budget
 /// breaches, upcoming bills, goal milestones). No notifications table — this
 /// recomputes on each open. Returns an empty list when nothing is noteworthy.
-final notificationsProvider =
-    FutureProvider.autoDispose<List<AppNotification>>((ref) async {
-      try {
-        final transactions = await ref.watch(transactionsProvider.future);
-        final categories = await ref.watch(categoriesProvider.future);
-        final accounts = await ref.watch(accountsProvider.future);
-        final dueItems = await ref.watch(dashboardDueItemsProvider.future);
-        return buildNotifications(
-          transactions: transactions,
-          categories: categories,
-          accounts: accounts,
-          dueItems: dueItems,
-          asOf: DateTime.now(),
-        );
-      } catch (error, stackTrace) {
-        // Surface to `AikoScreenState.error`; a broken offline store renders a
-        // recoverable error widget instead of crashing the provider tree.
-        Error.throwWithStackTrace(error, stackTrace);
-      }
-    });
+final notificationsProvider = FutureProvider.autoDispose<List<AppNotification>>(
+  (ref) async {
+    try {
+      final transactions = await ref.watch(transactionsProvider.future);
+      final categories = await ref.watch(categoriesProvider.future);
+      final accounts = await ref.watch(accountsProvider.future);
+      final dueItems = await ref.watch(dashboardDueItemsProvider.future);
+      return buildNotifications(
+        transactions: transactions,
+        categories: categories,
+        accounts: accounts,
+        dueItems: dueItems,
+        asOf: DateTime.now(),
+      );
+    } catch (error, stackTrace) {
+      // Surface to `AikoScreenState.error`; a broken offline store renders a
+      // recoverable error widget instead of crashing the provider tree.
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Budgets -> Categories and Goals -> Accounts merge (PR2)

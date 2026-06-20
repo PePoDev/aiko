@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/money/money.dart';
 import '../../../shared/widgets/aiko_data_widgets.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../categories/presentation/category_visual.dart';
 import '../../dashboard/domain/app_notification.dart';
+import '../domain/monthly_report.dart';
 
 class NotificationsCenterScreen extends ConsumerWidget {
   const NotificationsCenterScreen({super.key});
@@ -337,8 +340,6 @@ class CashFlowSankeyScreen extends StatelessWidget {
   }
 }
 
-
-
 class ChanceOfSuccessScreen extends StatelessWidget {
   const ChanceOfSuccessScreen({super.key});
 
@@ -373,78 +374,137 @@ class ChanceOfSuccessScreen extends StatelessWidget {
   }
 }
 
-class MonthlyReportScreen extends StatelessWidget {
+class MonthlyReportScreen extends ConsumerWidget {
   const MonthlyReportScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final mutedColor = Theme.of(context).colorScheme.onSurfaceVariant;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reportAsync = ref.watch(monthlyReportProvider);
     return AikoDetailScaffold(
       title: 'Monthly Report',
       children: [
-        AikoInlineNotice(
-          title: 'Great month',
-          message: 'You saved \$320 more than last month.',
-          icon: Icons.celebration_outlined,
-          accentColor: AikoColors.successGreen,
+        reportAsync.when(
+          loading: () => const AikoScreenState.loading(),
+          error: (_, _) => const AikoScreenState.error(
+            title: 'Report unavailable',
+            message: 'Aiko could not read your transactions right now.',
+          ),
+          data: (report) {
+            if (!report.hasActivity) {
+              return const AikoScreenState.empty(
+                title: 'Nothing logged yet',
+                message:
+                    'Add income or expenses this month and your report will '
+                    'build itself here.',
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: _reportBody(context, report),
+            );
+          },
         ),
-        AikoMetricGrid(
-          children: [
-            AikoMetricCard(
-              label: 'Income',
-              value: '\$5,320',
-              change: '+8.5%',
-              icon: Icons.south_west,
-              accentColor: AikoColors.successGreen,
-            ),
-            AikoMetricCard(
-              label: 'Expenses',
-              value: '\$4,090',
-              change: '-5.2%',
-              icon: Icons.north_east,
-              accentColor: AikoColors.dangerRed,
-            ),
-            AikoMetricCard(
-              label: 'Net Cash Flow',
-              value: '\$1,230',
-              change: '+32.0%',
-              icon: Icons.waterfall_chart,
-              accentColor: AikoColors.successGreen,
-            ),
-            AikoMetricCard(
-              label: 'Saved',
-              value: '\$1,000',
-              change: '18.8%',
-              icon: Icons.savings_outlined,
-              accentColor: AikoColors.analyticsTeal,
-            ),
-          ],
-        ),
+      ],
+    );
+  }
+
+  List<Widget> _reportBody(BuildContext context, MonthlyReport report) {
+    final savedMore = report.savedVsLastMonth;
+    final savedAbs = Money(
+      amount: savedMore.amount.abs(),
+      currency: savedMore.currency,
+    );
+    final headline = savedMore.isPositive
+        ? 'You saved ${savedAbs.format()} more than last month.'
+        : savedMore.isNegative
+        ? 'You saved ${savedAbs.format()} less than last month.'
+        : "Here's how this month is shaping up.";
+
+    return [
+      AikoInlineNotice(
+        title: savedMore.isNegative ? 'Watch your pace' : 'This month',
+        message: headline,
+        icon: savedMore.isNegative
+            ? Icons.trending_down
+            : Icons.celebration_outlined,
+        accentColor: savedMore.isNegative
+            ? AikoColors.warningOrange
+            : AikoColors.successGreen,
+      ),
+      AikoMetricGrid(
+        children: [
+          AikoMetricCard(
+            label: 'Income',
+            value: report.income.format(),
+            change: _changeLabel(report.incomeChangePct),
+            icon: Icons.south_west,
+            accentColor: AikoColors.successGreen,
+          ),
+          AikoMetricCard(
+            label: 'Expenses',
+            value: report.expenses.format(),
+            change: _changeLabel(report.expensesChangePct),
+            icon: Icons.north_east,
+            accentColor: AikoColors.dangerRed,
+          ),
+          AikoMetricCard(
+            label: 'Net Cash Flow',
+            value: report.netCashFlow.format(),
+            change: _changeLabel(report.netChangePct),
+            icon: Icons.waterfall_chart,
+            accentColor: report.netCashFlow.isNegative
+                ? AikoColors.dangerRed
+                : AikoColors.successGreen,
+          ),
+          AikoMetricCard(
+            label: 'Saved',
+            value: report.saved.format(),
+            change: '${report.savingsRatePct.toStringAsFixed(1)}% of income',
+            icon: Icons.savings_outlined,
+            accentColor: AikoColors.analyticsTeal,
+          ),
+        ],
+      ),
+      if (report.slices.isNotEmpty) ...[
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: AikoDonutChart(
-              values: [35, 18, 8, 19, 20],
-              colors: [
-                AikoColors.primaryBlue,
-                AikoColors.analyticsTeal,
-                AikoColors.warningOrange,
-                AikoColors.premiumPurple,
-                mutedColor,
-              ],
-              centerLabel: '\$4,090\nTotal Expenses',
+              values: report.slices
+                  .map((s) => s.amount.amount.toDouble())
+                  .toList(),
+              colors: report.slices
+                  .map((s) => aikoHexColor(s.colorHex))
+                  .toList(),
+              centerLabel: '${report.expenses.format()}\nTotal Expenses',
             ),
           ),
+        ),
+        AikoDataListCard(
+          title: 'Where it went',
+          rows: [
+            for (final slice in report.slices)
+              AikoDataRow(label: slice.name, value: slice.amount.format()),
+          ],
         ),
         AikoInlineNotice(
           title: 'Top insight',
           message:
-              'Lifestyle spending increased by 12% compared to last month.',
+              '${report.slices.first.name} was your biggest expense at '
+              '${report.slices.first.amount.format()} this month.',
           icon: Icons.lightbulb_outline,
           accentColor: AikoColors.warningOrange,
         ),
       ],
-    );
+    ];
+  }
+
+  /// Signed percent, or null so the change chip is hidden when there is no
+  /// prior month to compare against.
+  static String? _changeLabel(double? pct) {
+    if (pct == null) return null;
+    final sign = pct >= 0 ? '+' : '';
+    return '$sign${pct.toStringAsFixed(1)}%';
   }
 }
 
@@ -594,8 +654,6 @@ class HoldingDetailScreen extends StatelessWidget {
     );
   }
 }
-
-
 
 class _SegmentedHeader extends StatelessWidget {
   const _SegmentedHeader({required this.labels});

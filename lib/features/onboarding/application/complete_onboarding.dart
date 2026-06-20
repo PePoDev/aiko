@@ -5,7 +5,6 @@ import '../../../core/money/money.dart';
 import '../../accounts/data/account_repository.dart';
 import '../../accounts/domain/account.dart';
 import '../../settings/data/profile_repository.dart';
-import '../../settings/domain/profile.dart';
 
 /// Replaces the old multi-step onboarding flow: there is no onboarding UI
 /// anymore. The first time a user reaches the app we just seed the default
@@ -50,13 +49,5 @@ Future<void> completeOnboarding({
     }
   } catch (error) {
     debugPrint('Seeded default accounts locally: $error');
-  }
-
-  try {
-    await profileRepository.save(
-      profile.copyWith(onboardingStatus: OnboardingStatus.completed),
-    );
-  } catch (error) {
-    debugPrint('Saved onboarding-complete profile locally: $error');
   }
 }

@@ -9,24 +9,17 @@ part of 'schema.g.dart';
 
 // The migration version must **always** mirror the file name
 
+// The generator re-added spurious deleted_at indexes here (see 20260617195026).
+// The model uses hard deletes and the `deleted_at` column was dropped in
+// 20260615211634, so those indexes target columns that don't exist. Removed,
+// keeping only the real reminder_at column.
+
 const List<MigrationCommand> _migration_20260620084032_up = [
   InsertColumn('reminder_at', Column.datetime, onTable: 'OfflineTransaction'),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineAccount', unique: false),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineCategory', unique: false),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineProfile', unique: false),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineTransaction', unique: false),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineInvestmentHolding', unique: false),
-  CreateIndex(columns: ['deleted_at'], onTable: 'OfflineCategoryGroup', unique: false)
 ];
 
 const List<MigrationCommand> _migration_20260620084032_down = [
   DropColumn('reminder_at', onTable: 'OfflineTransaction'),
-  DropIndex('index_OfflineAccount_on_deleted_at'),
-  DropIndex('index_OfflineCategory_on_deleted_at'),
-  DropIndex('index_OfflineProfile_on_deleted_at'),
-  DropIndex('index_OfflineTransaction_on_deleted_at'),
-  DropIndex('index_OfflineInvestmentHolding_on_deleted_at'),
-  DropIndex('index_OfflineCategoryGroup_on_deleted_at')
 ];
 
 //

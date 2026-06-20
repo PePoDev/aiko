@@ -173,11 +173,6 @@ extension OfflineProfileMapper on OfflineProfile {
       email: email,
       baseCurrency: baseCurrency,
       country: country,
-      onboardingStatus: _enumByName(
-        OnboardingStatus.values,
-        onboardingStatus,
-        OnboardingStatus.notStarted,
-      ),
       securityStatus: _enumByName(
         SecurityStatus.values,
         securityStatus,
@@ -207,7 +202,6 @@ extension ProfileOfflineMapper on Profile {
       baseCurrency: baseCurrency,
       country: country,
       preferredTheme: preferredTheme.name,
-      onboardingStatus: onboardingStatus.name,
       securityStatus: securityStatus.name,
       fullName: fullName,
       gender: gender.name,

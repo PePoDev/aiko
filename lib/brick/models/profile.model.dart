@@ -16,7 +16,6 @@ class OfflineProfile extends OfflineFirstWithSupabaseModel {
     this.preferredTheme = 'system',
     this.aikoCharacterVisibility = 'full',
     this.aikoPersonalitySetting = 'supportive',
-    this.onboardingStatus = 'notStarted',
     this.securityStatus = 'notConfigured',
     this.fullName,
     this.gender = 'preferNotToSay',
@@ -40,7 +39,6 @@ class OfflineProfile extends OfflineFirstWithSupabaseModel {
   final String preferredTheme;
   final String aikoCharacterVisibility;
   final String aikoPersonalitySetting;
-  final String onboardingStatus;
   final String securityStatus;
 
   final String? fullName;

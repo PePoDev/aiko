@@ -9,19 +9,90 @@ import '../../../app/providers.dart';
 import '../../../shared/widgets/aiko_idea_widgets.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../onboarding/application/complete_onboarding.dart';
-import '../../settings/domain/profile.dart';
 import '../data/auth_repository.dart';
 
-class WelcomeScreen extends StatelessWidget {
+/// One slide of the intro carousel.
+class _IntroPage {
+  const _IntroPage({
+    required this.image,
+    required this.title,
+    required this.body,
+  });
+
+  final String image;
+  final String title;
+  final String body;
+}
+
+const _introPages = <_IntroPage>[
+  _IntroPage(
+    image: 'assets/images/aiko/aiko_welcome.png',
+    title: "Hi, I'm Aiko 👋",
+    body:
+        'Your calm finance companion — here to help you understand your money '
+        'without the stress or the judgment.',
+  ),
+  _IntroPage(
+    image: 'assets/images/aiko/aiko_happy.png',
+    title: 'Track it all in one place',
+    body:
+        'Log income, expenses, and transfers across every account. I keep the '
+        'numbers tidy so you don\'t have to.',
+  ),
+  _IntroPage(
+    image: 'assets/images/aiko/aiko_thinking.png',
+    title: 'Insights that make sense',
+    body:
+        'Spending trends, budget pace, and friendly nudges — so you always '
+        'know where you stand this month.',
+  ),
+  _IntroPage(
+    image: 'assets/images/aiko/aiko_encouraging.png',
+    title: 'Reach your goals',
+    body:
+        'Set targets, watch your progress, and let me map a realistic plan to '
+        'get you there.',
+  ),
+  _IntroPage(
+    image: 'assets/images/aiko/aiko_celebrating.png',
+    title: "Let's get started",
+    body: 'Your data stays private and works offline. Ready whenever you are.',
+  ),
+];
+
+class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 
   @override
+  State<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends State<WelcomeScreen> {
+  final _controller = PageController();
+  var _page = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  bool get _isLast => _page == _introPages.length - 1;
+
+  void _next() {
+    if (_isLast) {
+      context.go('/auth');
+      return;
+    }
+    _controller.nextPage(
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
-    final compact = MediaQuery.sizeOf(context).height < 720;
-    final imageSize = compact ? 140.0 : 190.0;
-    final sectionGap = compact ? 16.0 : 24.0;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -32,88 +103,39 @@ class WelcomeScreen extends StatelessWidget {
               constraints: BoxConstraints(maxWidth: clampIdeaWidth(context)),
               child: Column(
                 children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Center(child: AikoWordmark(size: 56)),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Your personal\nfinance companion',
-                            textAlign: TextAlign.center,
-                            style: textTheme.titleMedium?.copyWith(
-                              color: colorScheme.onSurface,
-                              fontWeight: FontWeight.w700,
-                              height: 1.15,
-                            ),
-                          ),
-                          SizedBox(height: sectionGap),
-                          Center(
-                            child: AikoCharacterImage(
-                              size: imageSize,
-                              borderRadius: compact ? 32 : 40,
-                              semanticLabel: 'Aiko waving hello',
-                            ),
-                          ),
-                          SizedBox(height: sectionGap),
-                          Text(
-                            "Hi, I'm Aiko! I'm your AI finance assistant — here to help you understand your money, build better habits, and reach your goals.",
-                            textAlign: TextAlign.center,
-                            style: textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurface,
-                              height: 1.45,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          Container(
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surface,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: colorScheme.outlineVariant,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: colorScheme.outline.withValues(
-                                    alpha: 0.18,
-                                  ),
-                                  blurRadius: 18,
-                                  offset: const Offset(0, 10),
-                                ),
-                              ],
-                            ),
-                            child: const Column(
-                              children: [
-                                AikoFeatureRow(
-                                  icon: Icons.psychology_alt_outlined,
-                                  label: 'Personalized insights',
-                                ),
-                                SizedBox(height: 14),
-                                AikoFeatureRow(
-                                  icon: Icons.savings_outlined,
-                                  label: 'Smart budgeting',
-                                ),
-                                SizedBox(height: 14),
-                                AikoFeatureRow(
-                                  icon: Icons.flag_outlined,
-                                  label: 'Goal tracking',
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                  // Skip — hidden on the final slide.
+                  SizedBox(
+                    height: 48,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: AnimatedOpacity(
+                        opacity: _isLast ? 0 : 1,
+                        duration: const Duration(milliseconds: 200),
+                        child: TextButton(
+                          onPressed: _isLast ? null : () => context.go('/auth'),
+                          child: const Text('Skip'),
+                        ),
                       ),
                     ),
                   ),
+                  Expanded(
+                    child: PageView.builder(
+                      controller: _controller,
+                      itemCount: _introPages.length,
+                      onPageChanged: (i) => setState(() => _page = i),
+                      itemBuilder: (context, index) => _IntroSlide(
+                        page: _introPages[index],
+                        controller: _controller,
+                        index: index,
+                      ),
+                    ),
+                  ),
+                  _Dots(count: _introPages.length, active: _page),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(28, 12, 28, 24),
+                    padding: const EdgeInsets.fromLTRB(28, 20, 28, 24),
                     child: AikoPrimaryButton(
-                      label: 'Get Started',
-                      onPressed: () => context.go('/auth'),
+                      label: _isLast ? 'Get Started' : 'Next',
+                      onPressed: _next,
                     ),
                   ),
                 ],
@@ -122,6 +144,124 @@ class WelcomeScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A single slide: image scales/fades with the swipe offset for motion.
+class _IntroSlide extends StatelessWidget {
+  const _IntroSlide({
+    required this.page,
+    required this.controller,
+    required this.index,
+  });
+
+  final _IntroPage page;
+  final PageController controller;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final compact = MediaQuery.sizeOf(context).height < 720;
+    final imageSize = compact ? 180.0 : 240.0;
+
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, child) {
+        // delta is 0 when this page is centered, ±1 at neighbours.
+        final pageValue =
+            controller.hasClients && controller.position.haveDimensions
+            ? controller.page ?? index.toDouble()
+            : index.toDouble();
+        final delta = (pageValue - index).abs().clamp(0.0, 1.0);
+        return Opacity(
+          opacity: 1 - delta * 0.6,
+          child: Transform.scale(scale: 1 - delta * 0.12, child: child),
+        );
+      },
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(28, 8, 28, 8),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (index == 0) ...[
+              const AikoWordmark(size: 52),
+              const SizedBox(height: 24),
+            ],
+            DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AikoColors.primaryBlue.withValues(alpha: 0.16),
+                    blurRadius: 28,
+                    offset: const Offset(0, 14),
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  page.image,
+                  width: imageSize,
+                  height: imageSize,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            Text(
+              page.title,
+              textAlign: TextAlign.center,
+              style: textTheme.headlineSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              page.body,
+              textAlign: TextAlign.center,
+              style: textTheme.bodyLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Dots extends StatelessWidget {
+  const _Dots({required this.count, required this.active});
+
+  final int count;
+  final int active;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(count, (i) {
+        final isActive = i == active;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          width: isActive ? 22 : 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: isActive
+                ? AikoColors.primaryBlue
+                : colorScheme.outlineVariant,
+            borderRadius: BorderRadius.circular(999),
+          ),
+        );
+      }),
     );
   }
 }
@@ -169,16 +309,16 @@ class _LoginScreenState extends State<LoginScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _routeAfterAuth() async {
+  // [seedDefaults] only on brand-new sign-up. On sign-in the local store is
+  // still empty (remote accounts haven't synced down yet), so seeding would
+  // duplicate an existing user's real accounts. ponytail: signup-only gate;
+  // if Google ever needs first-run defaults, detect new users at that callsite.
+  Future<void> _routeAfterAuth({bool seedDefaults = false}) async {
     final container = ProviderScope.containerOf(context);
-    final profileRepo = container.read(profileRepositoryProvider);
-    final profile = await profileRepo.load();
-    // Onboarding is gone: on first entry just seed the default accounts and
-    // mark the profile completed, then go straight to the dashboard.
-    if (profile.onboardingStatus != OnboardingStatus.completed) {
+    if (seedDefaults) {
       await completeOnboarding(
         accountRepository: container.read(accountRepositoryProvider),
-        profileRepository: profileRepo,
+        profileRepository: container.read(profileRepositoryProvider),
       );
     }
     container.invalidate(profileProvider);
@@ -302,7 +442,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (_authRepository.hasActiveSession()) {
-        await _routeAfterAuth();
+        await _routeAfterAuth(seedDefaults: true);
       } else {
         _showMessage('Account created. Check your email, then sign in.');
       }

@@ -16,7 +16,6 @@ Future<OfflineProfile> _$OfflineProfileFromSupabase(
     preferredTheme: data['preferred_theme'] as String,
     aikoCharacterVisibility: data['aiko_character_visibility'] as String,
     aikoPersonalitySetting: data['aiko_personality_setting'] as String,
-    onboardingStatus: data['onboarding_status'] as String,
     securityStatus: data['security_status'] as String,
     fullName: data['full_name'] == null ? null : data['full_name'] as String?,
     gender: genderFromColumn(data['gender']),
@@ -56,7 +55,6 @@ Future<Map<String, dynamic>> _$OfflineProfileToSupabase(
     'preferred_theme': instance.preferredTheme,
     'aiko_character_visibility': instance.aikoCharacterVisibility,
     'aiko_personality_setting': instance.aikoPersonalitySetting,
-    'onboarding_status': instance.onboardingStatus,
     'security_status': instance.securityStatus,
     'full_name': instance.fullName,
     'gender': instance.gender,
@@ -84,7 +82,6 @@ Future<OfflineProfile> _$OfflineProfileFromSqlite(
     preferredTheme: data['preferred_theme'] as String,
     aikoCharacterVisibility: data['aiko_character_visibility'] as String,
     aikoPersonalitySetting: data['aiko_personality_setting'] as String,
-    onboardingStatus: data['onboarding_status'] as String,
     securityStatus: data['security_status'] as String,
     fullName: data['full_name'] == null ? null : data['full_name'] as String?,
     gender: genderFromColumn(data['gender']),
@@ -122,7 +119,6 @@ Future<Map<String, dynamic>> _$OfflineProfileToSqlite(
     'preferred_theme': instance.preferredTheme,
     'aiko_character_visibility': instance.aikoCharacterVisibility,
     'aiko_personality_setting': instance.aikoPersonalitySetting,
-    'onboarding_status': instance.onboardingStatus,
     'security_status': instance.securityStatus,
     'full_name': instance.fullName,
     'gender': instance.gender,
@@ -181,10 +177,6 @@ class OfflineProfileAdapter
     'aikoPersonalitySetting': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'aiko_personality_setting',
-    ),
-    'onboardingStatus': const RuntimeSupabaseColumnDefinition(
-      association: false,
-      columnName: 'onboarding_status',
     ),
     'securityStatus': const RuntimeSupabaseColumnDefinition(
       association: false,
@@ -286,12 +278,6 @@ class OfflineProfileAdapter
     'aikoPersonalitySetting': const RuntimeSqliteColumnDefinition(
       association: false,
       columnName: 'aiko_personality_setting',
-      iterable: false,
-      type: String,
-    ),
-    'onboardingStatus': const RuntimeSqliteColumnDefinition(
-      association: false,
-      columnName: 'onboarding_status',
       iterable: false,
       type: String,
     ),

@@ -1,7 +1,7 @@
 // GENERATED CODE DO NOT EDIT
 // This file should be version controlled
 import 'package:brick_sqlite/db.dart';
-part '20260620084032.migration.dart';
+part '20260620095103.migration.dart';
 part '20260523055312.migration.dart';
 part '20260523183433.migration.dart';
 part '20260603133701.migration.dart';
@@ -18,10 +18,11 @@ part '20260615211634.migration.dart';
 part '20260616180151.migration.dart';
 part '20260616230747.migration.dart';
 part '20260617195026.migration.dart';
+part '20260620084032.migration.dart';
 
 /// All intelligently-generated migrations from all `@Migratable` classes on disk
 final migrations = <Migration>{
-  const Migration20260620084032(),
+  const Migration20260620095103(),
   const Migration20260523055312(),
   const Migration20260523183433(),
   const Migration20260603133701(),
@@ -38,11 +39,12 @@ final migrations = <Migration>{
   const Migration20260616180151(),
   const Migration20260616230747(),
   const Migration20260617195026(),
+  const Migration20260620084032(),
 };
 
 /// A consumable database structure including the latest generated migration.
 final schema = Schema(
-  20260617195026,
+  20260620084032,
   generatorVersion: 1,
   tables: <SchemaTable>{
     SchemaTable(
@@ -182,7 +184,6 @@ final schema = Schema(
         SchemaColumn('preferred_theme', Column.varchar),
         SchemaColumn('aiko_character_visibility', Column.varchar),
         SchemaColumn('aiko_personality_setting', Column.varchar),
-        SchemaColumn('onboarding_status', Column.varchar),
         SchemaColumn('security_status', Column.varchar),
         SchemaColumn('full_name', Column.varchar),
         SchemaColumn('gender', Column.varchar),

@@ -30,7 +30,6 @@ class ProfileRepository {
         email: email,
         baseCurrency: kDefaultBaseCurrency,
         country: kDefaultCountry,
-        onboardingStatus: OnboardingStatus.notStarted,
         securityStatus: SecurityStatus.notConfigured,
         preferredTheme: resolveInitialTheme(),
       );

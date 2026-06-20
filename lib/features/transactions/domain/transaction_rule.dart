@@ -36,22 +36,25 @@ class TransactionRule {
   final int priority;
   final bool isActive;
 
-  factory TransactionRule.fromJson(Map<String, dynamic> json) => TransactionRule(
-    id: json['id'] as String,
-    userId: json['user_id'] as String? ?? '',
-    name: json['name'] as String? ?? 'Rule',
-    conditionType: RuleConditionType.values.byName(
-      json['condition_type'] as String? ?? RuleConditionType.merchant.name,
-    ),
-    operator: RuleConditionOperator.values.byName(
-      json['operator'] as String? ?? RuleConditionOperator.contains.name,
-    ),
-    conditionValue: json['condition_value'] as String? ?? '',
-    targetCategoryId: json['target_category_id'] as String?,
-    tagsToApply: List<String>.from(json['tags_to_apply'] as List? ?? const []),
-    priority: json['priority'] as int? ?? 100,
-    isActive: json['is_active'] as bool? ?? true,
-  );
+  factory TransactionRule.fromJson(Map<String, dynamic> json) =>
+      TransactionRule(
+        id: json['id'] as String,
+        userId: json['user_id'] as String? ?? '',
+        name: json['name'] as String? ?? 'Rule',
+        conditionType: RuleConditionType.values.byName(
+          json['condition_type'] as String? ?? RuleConditionType.merchant.name,
+        ),
+        operator: RuleConditionOperator.values.byName(
+          json['operator'] as String? ?? RuleConditionOperator.contains.name,
+        ),
+        conditionValue: json['condition_value'] as String? ?? '',
+        targetCategoryId: json['target_category_id'] as String?,
+        tagsToApply: List<String>.from(
+          json['tags_to_apply'] as List? ?? const [],
+        ),
+        priority: json['priority'] as int? ?? 100,
+        isActive: json['is_active'] as bool? ?? true,
+      );
 
   Map<String, dynamic> toJson() => {
     'id': id,

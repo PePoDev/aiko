@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../core/notifications/transaction_reminder_service.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
@@ -74,6 +75,7 @@ class _TransactionDetailScreenState
       await ref
           .read(transactionsProvider.notifier)
           .deleteTransaction(_transaction.id);
+      await TransactionReminderService.instance.cancel(_transaction.id);
       if (!mounted) {
         return;
       }
@@ -152,23 +154,22 @@ class _TransactionDetailScreenState
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           FinanceCard(
             title: title,
             icon: categoryIcon ?? fallbackIcon,
             accentColor: accent,
-            prominent: true,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 AmountText(_signedAmount(transaction)),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 Text(
                   '${_labelFor(transaction.type.name)} - $dateTime',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 _DetailRow(
                   label: 'Account',
                   value: accountName,
@@ -204,6 +205,16 @@ class _TransactionDetailScreenState
                 if (transaction.tags.isNotEmpty) ...[
                   const Divider(),
                   _DetailRow(label: 'Tags', value: transaction.tags.join(', ')),
+                ],
+                if (transaction.reminderAt != null) ...[
+                  const Divider(),
+                  _DetailRow(
+                    label: 'Reminder',
+                    value: DateFormat(
+                      'MMM d, yyyy · HH:mm',
+                    ).format(transaction.reminderAt!),
+                    valueIcon: Icons.notifications_active_outlined,
+                  ),
                 ],
               ],
             ),
@@ -321,7 +332,7 @@ class _DetailRow extends StatelessWidget {
     final theme = Theme.of(context);
 
     final row = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

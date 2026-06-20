@@ -26,6 +26,7 @@ class OfflineTransaction extends OfflineFirstWithSupabaseModel {
     this.recurringDayOfWeek,
     this.recurringDayOfMonth,
     this.recurringMonthOfYear,
+    this.reminderAt,
     DateTime? updatedAt,
     this.version = 1,
   }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
@@ -76,6 +77,9 @@ class OfflineTransaction extends OfflineFirstWithSupabaseModel {
 
   /// Annual anchor (1–12). Annually series only.
   final int? recurringMonthOfYear;
+
+  /// Local time to fire a reminder notification. null = no reminder.
+  final DateTime? reminderAt;
 
   @Sqlite(name: 'updated_at')
   @Supabase(name: 'updated_at')

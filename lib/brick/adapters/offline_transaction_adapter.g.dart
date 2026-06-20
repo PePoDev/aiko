@@ -42,6 +42,11 @@ Future<OfflineTransaction> _$OfflineTransactionFromSupabase(
     recurringMonthOfYear: data['recurring_month_of_year'] == null
         ? null
         : data['recurring_month_of_year'] as int?,
+    reminderAt: data['reminder_at'] == null
+        ? null
+        : data['reminder_at'] == null
+        ? null
+        : DateTime.tryParse(data['reminder_at'] as String),
     updatedAt: data['updated_at'] == null
         ? null
         : DateTime.tryParse(data['updated_at'] as String),
@@ -74,6 +79,7 @@ Future<Map<String, dynamic>> _$OfflineTransactionToSupabase(
     'recurring_day_of_week': instance.recurringDayOfWeek,
     'recurring_day_of_month': instance.recurringDayOfMonth,
     'recurring_month_of_year': instance.recurringMonthOfYear,
+    'reminder_at': instance.reminderAt?.toIso8601String(),
     'updated_at': instance.updatedAt.toIso8601String(),
     'version': instance.version,
   };
@@ -120,6 +126,11 @@ Future<OfflineTransaction> _$OfflineTransactionFromSqlite(
     recurringMonthOfYear: data['recurring_month_of_year'] == null
         ? null
         : data['recurring_month_of_year'] as int?,
+    reminderAt: data['reminder_at'] == null
+        ? null
+        : data['reminder_at'] == null
+        ? null
+        : DateTime.tryParse(data['reminder_at'] as String),
     updatedAt: DateTime.parse(data['updated_at'] as String),
     version: data['version'] as int,
   )..primaryKey = data['_brick_id'] as int;
@@ -150,6 +161,7 @@ Future<Map<String, dynamic>> _$OfflineTransactionToSqlite(
     'recurring_day_of_week': instance.recurringDayOfWeek,
     'recurring_day_of_month': instance.recurringDayOfMonth,
     'recurring_month_of_year': instance.recurringMonthOfYear,
+    'reminder_at': instance.reminderAt?.toIso8601String(),
     'updated_at': instance.updatedAt.toIso8601String(),
     'version': instance.version,
   };
@@ -241,6 +253,10 @@ class OfflineTransactionAdapter
     'recurringMonthOfYear': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'recurring_month_of_year',
+    ),
+    'reminderAt': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'reminder_at',
     ),
     'updatedAt': const RuntimeSupabaseColumnDefinition(
       association: false,
@@ -376,6 +392,12 @@ class OfflineTransactionAdapter
       columnName: 'recurring_month_of_year',
       iterable: false,
       type: int,
+    ),
+    'reminderAt': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'reminder_at',
+      iterable: false,
+      type: DateTime,
     ),
     'updatedAt': const RuntimeSqliteColumnDefinition(
       association: false,

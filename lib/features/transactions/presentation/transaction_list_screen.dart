@@ -10,6 +10,7 @@ import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
 import '../../categories/presentation/category_visual.dart';
+import '../application/recurring_projection.dart';
 import '../domain/transaction.dart';
 import 'transaction_detail_screen.dart';
 import 'transaction_form_screen.dart';
@@ -277,7 +278,7 @@ class _MonthlyTransactionTabs extends StatelessWidget {
                     transactions: _transactionsForMonth(month, transactions),
                     allTransactions: transactions,
                     searchState: searchState,
-                    monthLabel: month.label,
+                    month: month,
                     onClearSearch: onClearSearch,
                   ),
               ],
@@ -521,14 +522,14 @@ class _TransactionMonthPage extends ConsumerStatefulWidget {
     required this.transactions,
     required this.allTransactions,
     required this.searchState,
-    required this.monthLabel,
+    required this.month,
     required this.onClearSearch,
   });
 
   final List<FinanceTransaction> transactions;
   final List<FinanceTransaction> allTransactions;
   final _TransactionSearchState searchState;
-  final String monthLabel;
+  final _MonthKey month;
   final VoidCallback onClearSearch;
 
   @override
@@ -537,7 +538,6 @@ class _TransactionMonthPage extends ConsumerStatefulWidget {
 }
 
 class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
-
   @override
   Widget build(BuildContext context) {
     final searchState = widget.searchState;
@@ -563,11 +563,30 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
       );
     }).toList()..sort((a, b) => b.date.compareTo(a.date));
 
-    if (filtered.isEmpty) {
+    // Display-only previews of recurring series falling in this month. Hidden
+    // while searching (they aren't real records to match against).
+    final ghosts = <FinanceTransaction>[];
+    final previewSources = <String, FinanceTransaction>{};
+    if (!searchState.isActive) {
+      const projection = RecurringProjection();
+      for (final tx in widget.allTransactions) {
+        for (final ghost in projection.occurrencesInMonth(
+          tx,
+          widget.month.year,
+          widget.month.month,
+        )) {
+          ghosts.add(ghost);
+          previewSources[ghost.id] = tx;
+        }
+      }
+    }
+    final previewIds = previewSources.keys.toSet();
+
+    if (filtered.isEmpty && ghosts.isEmpty) {
       return AikoScreenState.empty(
         title: searchState.isActive
             ? 'No matching transactions'
-            : 'No transactions in ${widget.monthLabel}',
+            : 'No transactions in ${widget.month.label}',
         message: searchState.isActive
             ? 'Try a different search or clear filters.'
             : 'Add a transaction for this month when you are ready.',
@@ -580,22 +599,30 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
       );
     }
 
-    final groups = _groupTransactionsByDate(filtered);
+    final groups = _groupTransactionsByDate([
+      ...filtered,
+      ...ghosts,
+    ], previewIds);
     final accountLabels = _accountLabelsForTransactions(
       transactions: filtered,
       allTransactions: widget.allTransactions,
       accounts: accounts,
     );
+    for (final ghost in ghosts) {
+      accountLabels[ghost.id] =
+          accountsById[ghost.accountId]?.name ?? 'Upcoming';
+    }
 
     final monthTotal = _monthTotal(filtered);
     final daysInMonth = DateTime(
-      filtered.first.date.year,
-      filtered.first.date.month + 1,
+      widget.month.year,
+      widget.month.month + 1,
       0,
     ).day;
     final averagePerDay = Money(
-      amount: (monthTotal.amount / Decimal.fromInt(daysInMonth))
-          .toDecimal(scaleOnInfinitePrecision: 2),
+      amount: (monthTotal.amount / Decimal.fromInt(daysInMonth)).toDecimal(
+        scaleOnInfinitePrecision: 2,
+      ),
       currency: monthTotal.currency,
     );
 
@@ -603,7 +630,7 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
       children: [
         _MonthSummaryCard(
-          monthLabel: widget.monthLabel,
+          monthLabel: widget.month.label,
           total: monthTotal,
           averagePerDay: averagePerDay,
           onTap: () => context.push('/reports/monthly'),
@@ -614,6 +641,8 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
           _DayTransactionsCard(
             transactions: group.transactions,
             accountLabels: accountLabels,
+            previewIds: previewIds,
+            previewSources: previewSources,
           ),
           const SizedBox(height: 16),
         ],
@@ -694,6 +723,7 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
 
   List<_TransactionDateGroup> _groupTransactionsByDate(
     List<FinanceTransaction> transactions,
+    Set<String> previewIds,
   ) {
     final grouped = <DateTime, List<FinanceTransaction>>{};
     for (final transaction in transactions) {
@@ -708,7 +738,13 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
           date: date,
           transactions: grouped[date]!
             ..sort((a, b) => b.date.compareTo(a.date)),
-          total: _dailyTotal(grouped[date]!),
+          // Preview rows are projections, not money that moved — keep them out
+          // of the day total.
+          total: _dailyTotal(
+            grouped[date]!
+                .where((t) => !previewIds.contains(t.id))
+                .toList(growable: false),
+          ),
         ),
     ];
   }
@@ -951,10 +987,14 @@ class _DayTransactionsCard extends StatelessWidget {
   const _DayTransactionsCard({
     required this.transactions,
     required this.accountLabels,
+    required this.previewIds,
+    required this.previewSources,
   });
 
   final List<FinanceTransaction> transactions;
   final Map<String, String> accountLabels;
+  final Set<String> previewIds;
+  final Map<String, FinanceTransaction> previewSources;
 
   @override
   Widget build(BuildContext context) {
@@ -984,10 +1024,15 @@ class _DayTransactionsCard extends StatelessWidget {
                   ? AikoColors.successGreen
                   : AikoColors.dangerRed,
               sign: transactions[i].type == TransactionType.income ? '+' : '-',
+              isPreview: previewIds.contains(transactions[i].id),
+              // Preview rows open their source recurring transaction so the
+              // user can edit the series; real rows open themselves.
               onTap: () => Navigator.of(context, rootNavigator: true).push(
                 MaterialPageRoute<void>(
-                  builder: (_) =>
-                      TransactionDetailScreen(transaction: transactions[i]),
+                  builder: (_) => TransactionDetailScreen(
+                    transaction:
+                        previewSources[transactions[i].id] ?? transactions[i],
+                  ),
                 ),
               ),
             ),
@@ -1054,6 +1099,7 @@ class _TransactionRow extends ConsumerWidget {
     required this.accent,
     required this.sign,
     required this.onTap,
+    this.isPreview = false,
   });
 
   final FinanceTransaction transaction;
@@ -1061,6 +1107,9 @@ class _TransactionRow extends ConsumerWidget {
   final Color accent;
   final String sign;
   final VoidCallback onTap;
+
+  /// Projected (not-yet-real) occurrence of a recurring series.
+  final bool isPreview;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1082,27 +1131,27 @@ class _TransactionRow extends ConsumerWidget {
         : (transaction.type == TransactionType.income
               ? Icons.south_west
               : Icons.north_east);
-    // A note adds a second descriptive line, but only when it isn't already
-    // the title (which happens when the merchant is missing).
-    final note = transaction.merchant != null ? transaction.note : null;
+    // Tint the icon tile with the category's own color (falling back to the
+    // semantic accent for uncategorized rows).
+    final iconColor = category != null ? aikoHexColor(category.color) : accent;
 
-    return InkWell(
+    final row = InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
+                color: iconColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(categoryIcon, color: accent, size: 22),
+              child: Icon(categoryIcon, color: iconColor, size: 18),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1133,20 +1182,13 @@ class _TransactionRow extends ConsumerWidget {
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ],
+                      if (isPreview) ...[
+                        const SizedBox(width: 6),
+                        const _UpcomingPill(),
+                      ],
                     ],
                   ),
-                  if (note != null && note.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      note,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   _TransactionMeta(
                     time: timeLabel,
                     categoryName: category?.name,
@@ -1186,6 +1228,35 @@ class _TransactionRow extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+
+    // Dim previews so they read as "not yet real" against the posted rows.
+    return isPreview ? Opacity(opacity: 0.6, child: row) : row;
+  }
+}
+
+/// Small badge marking a projected (not-yet-created) recurring occurrence.
+class _UpcomingPill extends StatelessWidget {
+  const _UpcomingPill();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        child: Text(
+          'Upcoming',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );

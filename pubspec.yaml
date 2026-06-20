@@ -60,6 +60,10 @@ dependencies:
   # Android-only auto-capture: read bank SMS + other apps' notifications.
   another_telephony: ^0.4.0
   notification_listener_service: ^0.3.3
+  # Local scheduled notifications for transaction reminders.
+  flutter_local_notifications: ^19.4.2
+  timezone: ^0.10.1
+  flutter_timezone: ^3.0.1
 
 dev_dependencies:
   flutter_test:

@@ -243,6 +243,7 @@ extension OfflineTransactionMapper on OfflineTransaction {
         recurringFrequency,
       ),
       recurringSettings: _buildRecurringSettings(),
+      reminderAt: reminderAt,
     );
   }
 
@@ -282,6 +283,7 @@ extension TransactionOfflineMapper on FinanceTransaction {
       recurringDayOfWeek: recurringSettings?.dayOfWeek,
       recurringDayOfMonth: recurringSettings?.dayOfMonth,
       recurringMonthOfYear: recurringSettings?.monthOfYear,
+      reminderAt: reminderAt,
     );
   }
 }

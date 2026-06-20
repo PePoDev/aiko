@@ -105,6 +105,7 @@ class FinanceTransaction {
     this.isRecurring = false,
     this.recurringFrequency,
     this.recurringSettings,
+    this.reminderAt,
   }) : assert(
          !isRecurring || recurringFrequency != null,
          'A recurring transaction must declare a frequency.',
@@ -133,6 +134,9 @@ class FinanceTransaction {
   /// Cadence-specific knobs (end date, day of week, day of month, etc.).
   /// Always set when [isRecurring] is true; null otherwise.
   final RecurringSettings? recurringSettings;
+
+  /// Local wall-clock time to fire a reminder notification. null = no reminder.
+  final DateTime? reminderAt;
 
   bool get isExpense => type == TransactionType.expense;
 
@@ -169,6 +173,8 @@ class FinanceTransaction {
     bool? isRecurring,
     RecurringFrequency? recurringFrequency,
     RecurringSettings? recurringSettings,
+    DateTime? reminderAt,
+    bool clearReminderAt = false,
   }) {
     return FinanceTransaction(
       id: id,
@@ -186,6 +192,7 @@ class FinanceTransaction {
       isRecurring: isRecurring ?? this.isRecurring,
       recurringFrequency: recurringFrequency ?? this.recurringFrequency,
       recurringSettings: recurringSettings ?? this.recurringSettings,
+      reminderAt: clearReminderAt ? null : (reminderAt ?? this.reminderAt),
     );
   }
 }

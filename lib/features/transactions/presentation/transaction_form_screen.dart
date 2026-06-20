@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../../../app/providers.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/money/money.dart';
+import '../../../core/notifications/transaction_reminder_service.dart';
 import '../../../core/money/supported_currencies.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
@@ -75,6 +76,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   int? _recurringDayOfMonth;
   int? _recurringMonthOfYear;
 
+  // Reminder notification. null = no reminder.
+  DateTime? _reminderAt;
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -123,6 +127,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _recurringDayOfMonth = settings.dayOfMonth;
       _recurringMonthOfYear = settings.monthOfYear;
     }
+    _reminderAt = transaction.reminderAt;
   }
 
   void _addTag(String value) {
@@ -1277,12 +1282,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       isRecurring: _isRecurring,
       recurringFrequency: _isRecurring ? _recurringFrequency : null,
       recurringSettings: _isRecurring ? _buildRecurringSettings() : null,
+      reminderAt: _reminderAt,
     );
 
     final saved = await ref
         .read(transactionsProvider.notifier)
         .saveTransaction(savedTx);
 
+    await _syncReminder(savedTx);
     await _saveAttachmentsFor(txId);
 
     if (!mounted) return;
@@ -1331,6 +1338,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       merchant: itemName.isEmpty ? 'Transfer to $toName' : itemName,
       note: note,
       tags: tags,
+      reminderAt: _reminderAt,
     );
     final inLeg = FinanceTransaction(
       id: const Uuid().v4(),
@@ -1358,7 +1366,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
-    // Receipts/docs attach to the outflow leg.
+    // Reminder + receipts/docs attach to the outflow leg.
+    await _syncReminder(outLeg);
     await _saveAttachmentsFor(outLeg.id);
     if (!mounted) return;
 
@@ -1476,6 +1485,77 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       dayOfMonth: _recurringDayOfMonth,
       monthOfYear: _recurringMonthOfYear,
     );
+  }
+
+  /// Default reminder: 9am on the transaction's date, or an hour from now if
+  /// that's already past.
+  DateTime _defaultReminderTime() {
+    final candidate = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      9,
+    );
+    final now = DateTime.now();
+    return candidate.isAfter(now)
+        ? candidate
+        : now.add(const Duration(hours: 1));
+  }
+
+  /// Schedules (or clears) the OS reminder for [transaction]. Best-effort —
+  /// failures are swallowed inside the service so a save never fails here.
+  Future<void> _syncReminder(FinanceTransaction transaction) async {
+    final service = TransactionReminderService.instance;
+    final when = transaction.reminderAt;
+    if (when == null) {
+      await service.cancel(transaction.id);
+      return;
+    }
+    final label = transaction.merchant?.trim().isNotEmpty == true
+        ? transaction.merchant!.trim()
+        : 'Transaction reminder';
+    // A recurring transaction's reminder recurs with it; a one-off reminds once.
+    final repeat = transaction.isRecurring
+        ? switch (transaction.recurringFrequency) {
+            RecurringFrequency.daily => ReminderRepeat.daily,
+            RecurringFrequency.weekly => ReminderRepeat.weekly,
+            RecurringFrequency.monthly => ReminderRepeat.monthly,
+            RecurringFrequency.annually => ReminderRepeat.yearly,
+            RecurringFrequency.once || null => ReminderRepeat.none,
+          }
+        : ReminderRepeat.none;
+    await service.schedule(
+      transactionId: transaction.id,
+      title: label,
+      body: '${transaction.amount.format()} · ${transaction.type.name}',
+      when: when,
+      repeat: repeat,
+    );
+  }
+
+  Future<void> _pickReminderTime() async {
+    final initial = _reminderAt ?? _defaultReminderTime();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 366 * 5)),
+    );
+    if (pickedDate == null || !mounted) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (pickedTime == null || !mounted) return;
+    setState(() {
+      _reminderAt = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+    });
   }
 
   @override
@@ -1845,6 +1925,19 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 setState(() => _recurringDayOfMonth = value),
             onMonthOfYearChanged: (value) =>
                 setState(() => _recurringMonthOfYear = value),
+          ),
+          const SizedBox(height: 12),
+
+          _ReminderSection(
+            reminderAt: _reminderAt,
+            onToggle: (value) {
+              setState(() {
+                _reminderAt = value
+                    ? (_reminderAt ?? _defaultReminderTime())
+                    : null;
+              });
+            },
+            onPick: _pickReminderTime,
           ),
           const SizedBox(height: 12),
 
@@ -3272,6 +3365,85 @@ class _CategoryMark extends StatelessWidget {
             : _categoryIconFor(category!.icon),
         color: color,
         size: 20,
+      ),
+    );
+  }
+}
+
+/// Toggle + time picker for a reminder notification on this transaction.
+class _ReminderSection extends StatelessWidget {
+  const _ReminderSection({
+    required this.reminderAt,
+    required this.onToggle,
+    required this.onPick,
+  });
+
+  final DateTime? reminderAt;
+  final ValueChanged<bool> onToggle;
+  final VoidCallback onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final enabled = reminderAt != null;
+    final formatted = enabled
+        ? DateFormat('EEE, MMM d, yyyy · HH:mm').format(reminderAt!)
+        : null;
+    return Card(
+      key: const Key('transaction-reminder-section'),
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.notifications_active_outlined),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Reminder',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        enabled
+                            ? 'Aiko will notify you at the time below.'
+                            : 'Get a notification at a time you choose.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  key: const Key('transaction-reminder-toggle'),
+                  value: enabled,
+                  onChanged: onToggle,
+                ),
+              ],
+            ),
+            if (enabled) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: onPick,
+                icon: const Icon(Icons.schedule_outlined),
+                label: Text('Remind at $formatted'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

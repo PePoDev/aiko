@@ -56,9 +56,6 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
   late final TextEditingController _loanPayment;
   late DateTime _loanDue;
 
-  // Investment
-  late final TextEditingController _invLast4;
-
   // Asset
   late AssetClass _assetClass;
   late final TextEditingController _assetPrice;
@@ -141,11 +138,6 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     );
     _loanDue = loan.nextDueDate;
 
-    final inv = a?.details is InvestmentDetails
-        ? a!.details as InvestmentDetails
-        : AccountDetails.defaultFor(AccountType.investment)
-              as InvestmentDetails;
-    _invLast4 = TextEditingController(text: inv.accountNumberLast4 ?? '');
 
     final asset = a?.details is AssetDetails
         ? a!.details as AssetDetails
@@ -194,7 +186,6 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     _loanApr.dispose();
     _loanTerm.dispose();
     _loanPayment.dispose();
-    _invLast4.dispose();
     _assetPrice.dispose();
     _assetNotes.dispose();
     _liabType.dispose();
@@ -251,11 +242,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         monthlyPayment: _moneyOrZero(_loanPayment, _currency),
         nextDueDate: _loanDue,
       ),
-      AccountType.investment => InvestmentDetails(
-        accountNumberLast4: _invLast4.text.trim().isEmpty
-            ? null
-            : _invLast4.text.trim(),
-      ),
+      AccountType.investment => const InvestmentDetails(),
       AccountType.asset => AssetDetails(
         assetClass: _assetClass,
         purchasePrice: _moneyOrNone(_assetPrice, _currency),
@@ -484,7 +471,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           AccountType.eWallet => const SizedBox.shrink(),
           AccountType.creditCard => _creditCardFields(allCards),
           AccountType.loan => _loanFields(),
-          AccountType.investment => _investmentFields(),
+          AccountType.investment => const SizedBox.shrink(),
           AccountType.asset => _assetFields(),
           AccountType.liability => _liabilityFields(),
           AccountType.other => _otherFields(),
@@ -684,17 +671,6 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _investmentFields() {
-    return TextField(
-      controller: _invLast4,
-      maxLength: 4,
-      decoration: const InputDecoration(
-        labelText: 'Account number (last 4)',
-        prefixIcon: Icon(Icons.numbers_outlined),
-      ),
     );
   }
 

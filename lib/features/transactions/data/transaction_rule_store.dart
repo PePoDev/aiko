@@ -21,8 +21,9 @@ class TransactionRuleStore {
       final decoded = jsonDecode(raw) as List;
       return decoded
           .map(
-            (item) =>
-                TransactionRule.fromJson(Map<String, dynamic>.from(item as Map)),
+            (item) => TransactionRule.fromJson(
+              Map<String, dynamic>.from(item as Map),
+            ),
           )
           .toList(growable: false);
     } catch (_) {

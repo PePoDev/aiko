@@ -12,7 +12,9 @@ class AikoSupabase {
     AppConfig config, {
     http.Client? httpClient,
   }) async {
-    if (!config.hasSupabaseCredentials || _initialized) {
+    if (_initialized ||
+        config.supabaseUrl.isEmpty ||
+        config.supabaseAnonKey.isEmpty) {
       return;
     }
     if (!config.supabaseUrl.startsWith('https://')) {

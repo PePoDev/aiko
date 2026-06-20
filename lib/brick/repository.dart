@@ -5,7 +5,6 @@ import 'package:brick_supabase/brick_supabase.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart' show databaseFactory;
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show SupabaseClient;
 
 import '../core/config/app_config.dart';
 import '../core/supabase/supabase_client_provider.dart';
@@ -26,13 +25,10 @@ class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
     required super.sqliteProvider,
     required super.migrations,
     required super.offlineRequestQueue,
-    required this.remoteSyncEnabled,
     super.memoryCacheProvider,
   }) : super(autoHydrate: true);
 
   static AikoBrickRepository? _singleton;
-
-  final bool remoteSyncEnabled;
 
   factory AikoBrickRepository() {
     final instance = _singleton;
@@ -66,21 +62,12 @@ class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
       },
     );
 
-    if (config.hasSupabaseCredentials) {
-      await AikoSupabase.initialize(config, httpClient: client);
-    }
-
-    final supabaseClient =
-        AikoSupabase.tryClient() ??
-        SupabaseClient(
-          'https://offline.aiko.local',
-          'offline-anon-key',
-          httpClient: client,
-        );
+    // Supabase is required; this throws via requireClient() if creds are absent.
+    await AikoSupabase.initialize(config, httpClient: client);
 
     _singleton = AikoBrickRepository._(
       supabaseProvider: SupabaseProvider(
-        supabaseClient,
+        AikoSupabase.requireClient(),
         modelDictionary: supabaseModelDictionary,
       ),
       sqliteProvider: SqliteProvider(
@@ -91,7 +78,6 @@ class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
       migrations: migrations,
       offlineRequestQueue: queue,
       memoryCacheProvider: MemoryCacheProvider(),
-      remoteSyncEnabled: config.hasSupabaseCredentials,
     );
 
     await _singleton!.initialize();

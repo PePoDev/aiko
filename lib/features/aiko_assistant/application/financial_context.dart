@@ -204,18 +204,25 @@ class AikoFinancialContext {
 /// still works, just without pre-loaded context.
 Future<AikoFinancialContext?> buildAikoFinancialContext(Ref ref) async {
   try {
-    final profile = await ref.read(profileRepositoryProvider).load();
-    final accounts = await ref.read(accountRepositoryProvider).list();
-    final categories = await ref.read(categoryRepositoryProvider).list();
-    final transactions = await ref.read(transactionRepositoryProvider).list();
-    return AikoFinancialContext.from(
-      baseCurrency: profile.baseCurrency,
-      accounts: accounts,
-      categories: categories,
-      transactions: transactions,
-      now: DateTime.now(),
-    );
+    // Cap the local snapshot build so a slow/empty offline store (e.g. a fresh
+    // install awaiting a hydrate that never comes) can't hang the chat. On
+    // timeout the chat just proceeds without pre-loaded context.
+    return await _readFinancialContext(ref).timeout(const Duration(seconds: 4));
   } catch (_) {
     return null;
   }
+}
+
+Future<AikoFinancialContext?> _readFinancialContext(Ref ref) async {
+  final profile = await ref.read(profileRepositoryProvider).load();
+  final accounts = await ref.read(accountRepositoryProvider).list();
+  final categories = await ref.read(categoryRepositoryProvider).list();
+  final transactions = await ref.read(transactionRepositoryProvider).list();
+  return AikoFinancialContext.from(
+    baseCurrency: profile.baseCurrency,
+    accounts: accounts,
+    categories: categories,
+    transactions: transactions,
+    now: DateTime.now(),
+  );
 }

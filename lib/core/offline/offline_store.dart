@@ -10,7 +10,6 @@ class OfflineStore {
   final AikoBrickRepository _repository;
 
   bool get canSyncRemote =>
-      _repository.remoteSyncEnabled &&
       AikoSupabase.tryClient()?.auth.currentUser != null;
 
   Future<List<TModel>> get<TModel extends OfflineFirstWithSupabaseModel>({
@@ -80,8 +79,7 @@ class OfflineStore {
     if (kDebugMode) {
       debugPrint(
         '[aiko-sync] upsert $TModel saved LOCAL-ONLY '
-        '(remoteSyncEnabled=${_repository.remoteSyncEnabled}, '
-        'signedIn=${AikoSupabase.tryClient()?.auth.currentUser != null}) — '
+        '(signedIn=${AikoSupabase.tryClient()?.auth.currentUser != null}) — '
         'will not reach Supabase until sign-in',
       );
     }

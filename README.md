@@ -2,13 +2,16 @@
 
 **AI-powered personal finance, guided by Aiko** — a calm, blue-haired AI companion. Track · Budget · Save · Invest · Plan.
 
-> Canonical source of truth for contributors and coding agents. If code conflicts with this file, fix the code (or surface the conflict). **Agents: be brief** — focused diffs, no preamble. **Keep this file current** — when a change alters architecture, design tokens, conventions, or feature ownership, update AGENTS.md in the same change.
+## Rules
+
+- Brief; include risks, assumptions, validation. Recheck this file before repo work; update only for durable conventions.
+- Keep this file compact yet readable — when editing, condense wording without dropping any instruction or detail.
 
 ---
 
 ## What Is Aiko?
 
-Cross-platform (iOS + Android) personal finance app: Flutter + Supabase Cloud. **Aiko** (calm, anime-style, blue hair) gives friendly, non-judgmental money guidance. A data-first financial OS: 13 transaction types, category-owned budget limits (envelope / zero-based / 50-30-20, monthly/weekly/yearly/daily, rollover), goal accounts (SMART target/date/priority, Monte Carlo probability), cash flow + pace, credit/debt/loan payoff, portfolio + net worth, tax organization, ~60 calculators, AI insights, Ask Aiko chat, monthly Review, learning hub, multi-currency Travel Mode.
+Cross-platform (iOS + Android) personal finance app: Flutter + Supabase. **Aiko** (calm, anime-style, blue hair) gives friendly, non-judgmental money guidance. A data-first financial OS: 13 transaction types, category-owned budget limits (envelope / zero-based / 50-30-20, monthly/weekly/yearly/daily, rollover), goal accounts (SMART target/date/priority, Monte Carlo probability), cash flow + pace, credit/debt/loan payoff, portfolio + net worth, tax organization, ~60 calculators, AI insights, Ask Aiko chat, monthly Review, learning hub, multi-currency Travel Mode.
 
 ## Brand Identity & Voice
 
@@ -28,7 +31,7 @@ Cross-platform (iOS + Android) personal finance app: Flutter + Supabase Cloud. *
 | Mobile | Flutter & Dart (SDK ^3.11.5) |
 | State | Riverpod |
 | Navigation | GoRouter |
-| Backend | Supabase Cloud (Auth, Postgres, Storage, RLS) |
+| Backend | Supabase (Auth, Postgres, Storage, RLS) |
 | Offline Store | Brick + SQLite (`sqflite`) |
 | Sync | Brick request queue → Supabase after local writes |
 | Attachments | Supabase Storage (per-user bucket) + client-side WebP compression (`flutter_image_compress`, JPEG fallback on iOS) |
@@ -43,7 +46,7 @@ Cross-platform (iOS + Android) personal finance app: Flutter + Supabase Cloud. *
 
 ## Getting Started
 
-**Prerequisites:** Flutter (stable, ^3.11.5), a Supabase Cloud project, Supabase CLI, Android Studio / Xcode emulators.
+**Prerequisites:** Flutter (stable, ^3.11.5), a Supabase project, Supabase CLI, Android Studio / Xcode emulators.
 
 ```bash
 git clone <repository-url> && cd aiko
@@ -59,7 +62,7 @@ supabase db push                    # all tables + RLS
 
 flutter run -d <android|ios> \
   --dart-define=SUPABASE_URL=https://your-project-ref.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=<your-cloud-anon-key>
+  --dart-define=SUPABASE_ANON_KEY=<your-anon-key>
 ```
 
 > **⚠️ Security:** Never put a service-role key in the app, `.env`, dart-defines, or any client-visible config. Without `SUPABASE_URL`/`SUPABASE_ANON_KEY` the app runs local-only (SQLite via Brick); cloud sync starts once Supabase is configured and the user is authed.
@@ -111,7 +114,7 @@ GoRouter around a bottom-nav shell, 5 primary tabs:
 
 ## Architecture
 
-Optimizes for low backend cost, strong offline, fast UX, low lock-in: remote is standard Postgres behind repository interfaces (Supabase Cloud → self-hosted → custom Postgres without UI changes).
+Optimizes for low backend cost, strong offline, fast UX, low lock-in: remote is standard Postgres behind repository interfaces (Supabase → self-hosted → custom Postgres without UI changes).
 
 ### Feature Module Pattern
 
@@ -227,7 +230,7 @@ supabase secrets set AI_BASE_URL=https://api.deepseek.com/v1   # OpenAI-compatib
 
 ```sh
 supabase functions deploy aiko-chat --no-verify-jwt
-supabase functions serve aiko-chat --env-file ./supabase/functions/.env.local  # git-ignored
+supabase functions serve aiko-chat --env-file ./supabase/functions/.env.local
 ```
 
 **Errors** (before stream = JSON with `code`; after = `data: {"error":"..."}` then close):
@@ -246,7 +249,7 @@ supabase functions serve aiko-chat --env-file ./supabase/functions/.env.local  #
 
 ---
 
-## Account Deletion (immediate)
+## Account Deletion
 
 "Delete account" (Profile) deletes **immediately and permanently** — no grace period. `AuthRepository.deleteAccount` calls the `delete_account` Postgres RPC under the user's JWT, then signs out.
 
@@ -431,7 +434,7 @@ Accessibility: body contrast ≥4.5:1, secondary ≥3:1; targets ≥48x48; visib
 
 ### Flutter Implementation Rules
 
-Shared UI primitives in `lib/shared/widgets/`; feature screens consume them, don't re-create card/button/empty-state/picker styles. Idea-backed detail/tool screens use `AikoDetailScaffold` + `aiko_data_widgets.dart`. Prefer `AikoScreenState` for loading/empty/error/offline/locked. Supplemental route coverage in `test/app/idea_route_coverage_test.dart`.
+Shared UI primitives in `lib/shared/widgets/`; feature screens consume them, don't re-create card/button/empty-state/picker styles. Idea-backed detail/tool screens use `AikoDetailScaffold` + `aiko_data_widgets.dart`. Prefer `AikoScreenState` for loading/empty/error/offline/locked.
 
 ### Route & Idea Coverage
 
@@ -441,7 +444,7 @@ Route rules: don't duplicate an existing feature screen; sticky bottom actions f
 
 ### QA Checklist
 
-Main task in first viewport; primary action obvious + reachable while scrolling; numbers before AI guidance + with context; lists compact/tappable; fields labeled with recovery-oriented validation; empty/loading/error/offline states exist or intentionally inherited; no nested cards/decorative shadows/oversized radii; raw colors limited to theme files or data-viz; no text clipping at small widths; dark contrast sufficient; Aiko only where useful; no main-route duplication; widget tests cover critical rendering/interactions.
+Main task in first viewport; primary action obvious + reachable while scrolling; numbers before AI guidance + with context; lists compact/tappable; fields labeled with recovery-oriented validation; empty/loading/error/offline states exist or intentionally inherited; no nested cards/decorative shadows/oversized radii; raw colors limited to theme files or data-viz; no text clipping at small widths; dark contrast sufficient; Aiko only where useful; no main-route duplication.
 
 Account-type-specific inputs: add each from fresh state (subform appears/validates/saves); edit each (values pre-populate, round-trip identical); toggle shared limit (field appears/disappears, card picker excludes self); delete parent card (child detail shows migration notice); offline add (persists locally, syncs on reconnect, no double-write).
 
@@ -449,9 +452,11 @@ Account-type-specific inputs: add each from fresh state (subform appears/validat
 
 ## Testing
 
+**No UI/widget tests.** Don't write `testWidgets`/`pumpWidget` tests for screens, widgets, rendering, or interaction. Test logic only — `*Service` function objects, `Money`/Decimal math, prediction, parsers, rules, repositories, providers, models. A widget already couples UI + logic; isolate and unit-test the logic underneath instead.
+
 ```bash
 flutter test                       # money types, formatters, prediction, models, providers, rules,
-                                   # feature gating, parsers, idea route coverage, SVG assets
+                                   # feature gating, parsers
 ```
 
 **Quality gates — run all before any release:**

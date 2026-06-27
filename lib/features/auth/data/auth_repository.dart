@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/app_config.dart';
@@ -21,9 +22,26 @@ class AuthRepository {
     : _storage = storage ?? FlutterSecureStorageService();
 
   static const _knownAccountKey = 'aiko_known_account';
+
+  /// Browser-redirect callback for the OAuth flows that still need it:
+  /// `linkGoogle` (identity linking has no native equivalent) and web sign-in.
   static const googleOAuthRedirectUrl = String.fromEnvironment(
     'GOOGLE_OAUTH_REDIRECT_URL',
     defaultValue: 'aiko://login-callback',
+  );
+
+  /// Google "Web application" OAuth client id. Passed as `serverClientId` so
+  /// the native sign-in returns an ID token whose audience Supabase trusts —
+  /// it must match the Client ID configured on Supabase's Google provider.
+  /// Injected at build time: `--dart-define=GOOGLE_WEB_CLIENT_ID=...`.
+  static const googleWebClientId = String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+  );
+
+  /// Google "iOS" OAuth client id. Required on iOS/macOS; ignored on Android.
+  /// Injected at build time: `--dart-define=GOOGLE_IOS_CLIENT_ID=...`.
+  static const googleIosClientId = String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID',
   );
 
   final SecureStorageService _storage;
@@ -117,12 +135,73 @@ class AuthRepository {
     return client?.auth.onAuthStateChange ?? const Stream.empty();
   }
 
-  Future<bool> signInWithGoogle() {
+  /// Signs in with Google using the platform's native account picker (no
+  /// browser hop) on Android/iOS: it obtains a Google ID token and exchanges it
+  /// for a Supabase session via [GoTrueClient.signInWithIdToken].
+  ///
+  /// Returns the established [AuthSession], or `null` when nothing was signed
+  /// in — either the user dismissed the native picker, or (on web) a full-page
+  /// redirect took over and the session will be restored on reload. Throws an
+  /// [AuthException]/[StateError] on a real failure.
+  Future<AuthSession?> signInWithGoogle() async {
     final client = AikoSupabase.requireClient();
-    return client.auth.signInWithOAuth(
-      OAuthProvider.google,
-      redirectTo: kIsWeb ? null : googleOAuthRedirectUrl,
+
+    if (kIsWeb) {
+      // Web has no native picker; fall back to the redirect flow. This
+      // navigates the page away, so nothing after it runs — the session is
+      // detected when the app reloads at the callback URL.
+      await client.auth.signInWithOAuth(OAuthProvider.google);
+      return null;
+    }
+
+    if (googleWebClientId.isEmpty) {
+      throw StateError(
+        'Google sign-in is not configured (missing GOOGLE_WEB_CLIENT_ID).',
+      );
+    }
+
+    final isApplePlatform =
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+    final googleSignIn = GoogleSignIn(
+      serverClientId: googleWebClientId,
+      clientId: isApplePlatform && googleIosClientId.isNotEmpty
+          ? googleIosClientId
+          : null,
+      scopes: const ['email'],
     );
+
+    // Clear any cached Google session so the picker always appears, rather than
+    // silently reusing the last account (which could sign in the wrong user).
+    await googleSignIn.signOut();
+
+    final account = await googleSignIn.signIn();
+    if (account == null) {
+      return null; // User dismissed the account picker.
+    }
+
+    final googleAuth = await account.authentication;
+    final idToken = googleAuth.idToken;
+    if (idToken == null) {
+      throw const AuthException('Google sign-in did not return an ID token.');
+    }
+
+    final response = await client.auth.signInWithIdToken(
+      provider: OAuthProvider.google,
+      idToken: idToken,
+      accessToken: googleAuth.accessToken,
+    );
+    final user = response.user;
+    if (user == null) {
+      throw const AuthException('Google sign-in failed.');
+    }
+
+    final email = user.email ?? '';
+    await _ensureProfileAndDefaultsExist(user.id, email);
+    await _prepareOfflineDataForSync(user.id);
+    await _markKnownAccount();
+    _session = AuthSession(userId: user.id, email: email);
+    return _session!;
   }
 
   /// Links a Google identity to the already signed-in account (e.g. an

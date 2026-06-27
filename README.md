@@ -67,6 +67,26 @@ flutter run -d <android|ios> \
 
 > **⚠️ Security:** Never put a service-role key in the app, `.env`, dart-defines, or any client-visible config. Without `SUPABASE_URL`/`SUPABASE_ANON_KEY` the app runs local-only (SQLite via Brick); cloud sync starts once Supabase is configured and the user is authed.
 
+### Google Sign-In (native)
+
+Login uses the **native** Google account picker (`google_sign_in` → ID token → Supabase `signInWithIdToken`), not a browser redirect. Account **linking** (Profile → Connect Google) still uses the OAuth redirect flow via the `aiko://login-callback` deep link.
+
+1. **Google Cloud → Credentials**, create OAuth client IDs:
+   - **Web application** → its client ID is `GOOGLE_WEB_CLIENT_ID` (passed as `serverClientId`; also set as the Client ID on Supabase's Google provider).
+   - **Android** → package name + your signing SHA-1. Not referenced in code; matched by Play Services at runtime.
+   - **iOS** → its client ID is `GOOGLE_IOS_CLIENT_ID`.
+2. **Supabase → Auth → Providers → Google:** enable it, paste the Web client ID + secret, and turn on **Manual linking** (required by `linkGoogle`).
+3. **iOS only:** in `ios/Runner/Info.plist`, replace the `com.googleusercontent.apps.YOUR_IOS_CLIENT_ID` URL scheme with the *reversed* iOS client ID.
+4. Run with the client-id dart-defines (web id required; iOS id required on iOS):
+
+```bash
+flutter run -d <android|ios> \
+  --dart-define=SUPABASE_URL=https://your-project-ref.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=<your-anon-key> \
+  --dart-define=GOOGLE_WEB_CLIENT_ID=<web-client-id>.apps.googleusercontent.com \
+  --dart-define=GOOGLE_IOS_CLIENT_ID=<ios-client-id>.apps.googleusercontent.com
+```
+
 ---
 
 ## Project Structure

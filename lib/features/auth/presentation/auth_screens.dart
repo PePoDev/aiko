@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -280,24 +278,16 @@ class _LoginScreenState extends State<LoginScreen> {
   late final AuthRepository _authRepository;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  StreamSubscription<AuthState>? _authSubscription;
   var _isSubmitting = false;
-  var _isGoogleSignInPending = false;
 
   @override
   void initState() {
     super.initState();
     _authRepository = widget._authRepository ?? AuthRepository();
-    _authSubscription = _authRepository.authStateChanges().listen((state) {
-      if (state.event == AuthChangeEvent.signedIn && _isGoogleSignInPending) {
-        unawaited(_completeGoogleSignIn());
-      }
-    });
   }
 
   @override
   void dispose() {
-    unawaited(_authSubscription?.cancel());
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -372,56 +362,21 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleGoogleSignIn() async {
-    setState(() {
-      _isSubmitting = true;
-      _isGoogleSignInPending = true;
-    });
-    try {
-      final launched = await _authRepository.signInWithGoogle();
-      if (!mounted) return;
-      if (launched) {
-        _showMessage(
-          'Continue Google sign-in in browser, then return to Aiko.',
-        );
-        setState(() => _isSubmitting = false);
-      } else {
-        _isGoogleSignInPending = false;
-        setState(() => _isSubmitting = false);
-        _showMessage('Unable to open Google sign-in.');
-      }
-    } on AuthException catch (error) {
-      _isGoogleSignInPending = false;
-      _showMessage(error.message);
-      if (mounted) setState(() => _isSubmitting = false);
-    } on StateError catch (error) {
-      _isGoogleSignInPending = false;
-      _showMessage(error.message);
-      if (mounted) setState(() => _isSubmitting = false);
-    } catch (_) {
-      _isGoogleSignInPending = false;
-      _showMessage('Unable to sign in with Google right now.');
-      if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
-  Future<void> _completeGoogleSignIn() async {
-    if (!mounted) return;
-    _isGoogleSignInPending = false;
     setState(() => _isSubmitting = true);
     try {
-      await _authRepository.restoreSession();
+      final session = await _authRepository.signInWithGoogle();
       if (!mounted) return;
-      if (_authRepository.hasActiveSession()) {
+      if (session != null) {
         await _routeAfterAuth();
-      } else {
-        _showMessage('Google sign-in completed, but no session was found.');
       }
+      // A null session means the user dismissed the native picker, or (on web)
+      // the page redirected away — either way there is nothing more to do here.
     } on AuthException catch (error) {
       _showMessage(error.message);
     } on StateError catch (error) {
       _showMessage(error.message);
     } catch (_) {
-      _showMessage('Unable to finish Google sign-in right now.');
+      _showMessage('Unable to sign in with Google right now.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

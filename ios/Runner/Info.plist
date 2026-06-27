@@ -20,6 +20,20 @@
 				<string>aiko</string>
 			</array>
 		</dict>
+		<!-- Native Google Sign-In callback. Replace the scheme below with the
+		     REVERSED iOS OAuth client id (Google Cloud → iOS client →
+		     "iOS URL scheme", e.g. com.googleusercontent.apps.1234567890-abcdef).
+		     Must correspond to GOOGLE_IOS_CLIENT_ID passed via --dart-define. -->
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>google-signin</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.YOUR_IOS_CLIENT_ID</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>

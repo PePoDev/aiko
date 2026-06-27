@@ -160,28 +160,27 @@ class AuthRepository {
       );
     }
 
-    final isApplePlatform =
-        defaultTargetPlatform == TargetPlatform.iOS ||
-        defaultTargetPlatform == TargetPlatform.macOS;
-    final googleSignIn = GoogleSignIn(
-      serverClientId: googleWebClientId,
-      clientId: isApplePlatform && googleIosClientId.isNotEmpty
-          ? googleIosClientId
-          : null,
-      scopes: const ['email'],
-    );
-
-    // Clear any cached Google session so the picker always appears, rather than
-    // silently reusing the last account (which could sign in the wrong user).
-    await googleSignIn.signOut();
-
-    final account = await googleSignIn.signIn();
-    if (account == null) {
-      return null; // User dismissed the account picker.
+    final googleSignIn = GoogleSignIn.instance;
+    await _ensureGoogleSignInInitialized();
+    if (!googleSignIn.supportsAuthenticate()) {
+      throw StateError(
+        'Native Google sign-in is not supported on this platform.',
+      );
     }
 
-    final googleAuth = await account.authentication;
-    final idToken = googleAuth.idToken;
+    final GoogleSignInAccount account;
+    try {
+      // Interactive sign-in; surfaces the native account picker. `scopeHint`
+      // asks Google to include the email so the returned ID token carries it.
+      account = await googleSignIn.authenticate(scopeHint: const ['email']);
+    } on GoogleSignInException catch (error) {
+      if (error.code == GoogleSignInExceptionCode.canceled) {
+        return null; // User dismissed the account picker.
+      }
+      rethrow;
+    }
+
+    final idToken = account.authentication.idToken;
     if (idToken == null) {
       throw const AuthException('Google sign-in did not return an ID token.');
     }
@@ -189,7 +188,6 @@ class AuthRepository {
     final response = await client.auth.signInWithIdToken(
       provider: OAuthProvider.google,
       idToken: idToken,
-      accessToken: googleAuth.accessToken,
     );
     final user = response.user;
     if (user == null) {
@@ -202,6 +200,28 @@ class AuthRepository {
     await _markKnownAccount();
     _session = AuthSession(userId: user.id, email: email);
     return _session!;
+  }
+
+  /// `GoogleSignIn.instance` is a process-wide singleton that must be
+  /// initialized exactly once before [GoogleSignIn.authenticate]. The future is
+  /// memoized so repeated sign-in attempts (or multiple [AuthRepository]
+  /// instances) share a single initialize call; a failed init is cleared so a
+  /// later attempt can retry.
+  static Future<void>? _googleInitFuture;
+
+  Future<void> _ensureGoogleSignInInitialized() {
+    final existing = _googleInitFuture;
+    if (existing != null) return existing;
+
+    final future = GoogleSignIn.instance.initialize(
+      serverClientId: googleWebClientId,
+      clientId: googleIosClientId.isNotEmpty ? googleIosClientId : null,
+    );
+    _googleInitFuture = future;
+    return future.catchError((Object error) {
+      _googleInitFuture = null;
+      throw error;
+    });
   }
 
   /// Links a Google identity to the already signed-in account (e.g. an

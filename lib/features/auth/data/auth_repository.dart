@@ -185,6 +185,10 @@ class AuthRepository {
       throw const AuthException('Google sign-in did not return an ID token.');
     }
 
+    // ponytail: ID token only — Supabase verifies it to mint the session, and
+    // we never call Google APIs, so skip the v7 authorizationClient access-token
+    // step (it can trigger a second consent prompt). Add it here if a feature
+    // ever needs to act on the user's Google data.
     final response = await client.auth.signInWithIdToken(
       provider: OAuthProvider.google,
       idToken: idToken,

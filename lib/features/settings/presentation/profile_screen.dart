@@ -409,7 +409,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   size: 48,
                   color: AikoColors.dangerRed,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Text(
                   'Could not load your profile',
                   style: Theme.of(context).textTheme.titleMedium,
@@ -422,7 +422,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 FilledButton.icon(
                   onPressed: () => ref.invalidate(profileProvider),
                   icon: const Icon(Icons.refresh),
@@ -436,10 +436,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _populateFrom(profile);
 
           return ListView(
-            padding: const EdgeInsets.only(bottom: 88),
+            padding: const EdgeInsets.only(bottom: 72),
             children: [
               _buildHeader(profile),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: FinanceCard(
@@ -452,27 +452,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         label: 'Display name',
                         icon: Icons.badge_outlined,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       _buildField(
                         controller: _fullNameController,
                         label: 'Full name',
                         icon: Icons.person_outline,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       _buildField(
                         controller: _phoneController,
                         label: 'Phone number',
                         icon: Icons.phone_outlined,
                         keyboardType: TextInputType.phone,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       _buildChoiceRow(
                         label: 'Gender',
                         value: _genderLabel(_draft.gender),
                         icon: Icons.wc_outlined,
                         onTap: _pickGender,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       _buildChoiceRow(
                         label: 'Date of birth',
                         value: _draft.dateOfBirth != null
@@ -492,7 +492,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               )
                             : null,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       _buildChoiceRow(
                         label: 'Base currency',
                         value: _currencyLabel(_draft.baseCurrency),
@@ -501,6 +501,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                       const SizedBox(height: 8),
                       ListTile(
+                        dense: true,
+                        visualDensity: VisualDensity.compact,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 4,
                         ),
@@ -529,6 +531,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                       const SizedBox(height: 8),
                       ListTile(
+                        dense: true,
+                        visualDensity: VisualDensity.compact,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 4,
                         ),
@@ -573,7 +577,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: FinanceCard(
@@ -647,7 +651,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: FinanceCard(
@@ -695,7 +699,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: FinanceCard(
@@ -756,7 +760,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+        prefixIcon: Icon(icon, size: 20),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -785,10 +791,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              Icon(icon, color: theme.colorScheme.onSurfaceVariant),
+              Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -800,8 +806,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(value, style: theme.textTheme.bodyLarge),
+                    Text(value, style: theme.textTheme.bodyMedium),
                   ],
                 ),
               ),
@@ -820,7 +825,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         : _displayNameController.text;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(top: 20, bottom: 16, left: 16, right: 16),
+      padding: const EdgeInsets.only(top: 12, bottom: 12, left: 16, right: 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -865,7 +870,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
             displayName,
             style: Theme.of(
@@ -889,8 +894,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (file.existsSync()) {
         child = Image.file(
           file,
-          width: 88,
-          height: 88,
+          width: 72,
+          height: 72,
           fit: BoxFit.cover,
           errorBuilder: (_, _, _) => _initialsAvatar(displayName),
         );
@@ -911,7 +916,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ],
       ),
-      child: ClipOval(child: SizedBox(width: 88, height: 88, child: child)),
+      child: ClipOval(child: SizedBox(width: 72, height: 72, child: child)),
     );
   }
 
@@ -919,8 +924,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (url != null && url.isNotEmpty) {
       return Image.network(
         url,
-        width: 88,
-        height: 88,
+        width: 72,
+        height: 72,
         fit: BoxFit.cover,
         errorBuilder: (_, _, _) => _initialsAvatar(displayName),
         loadingBuilder: (context, child, progress) {
@@ -934,8 +939,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _initialsAvatar(String displayName) {
     return Container(
-      width: 88,
-      height: 88,
+      width: 72,
+      height: 72,
       color: AikoColors.primaryBlue,
       alignment: Alignment.center,
       child: Text(

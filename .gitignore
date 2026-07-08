@@ -26,6 +26,12 @@ Thumbs.db
 supabase/.temp
 .superpowers
 
+# Self-hosted Supabase (docker/) — .env covered above
+docker/volumes/db/data
+docker/volumes/storage
+docker/test.http
+docker/docker-compose.override.yml
+
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
 # is commented out by default.

@@ -4,16 +4,27 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('migrations include RLS and storage ownership policies', () {
-    final rls = File(
-      'supabase/migrations/002_initial_product_rls.sql',
-    ).readAsStringSync();
-    final storage = File(
-      'supabase/migrations/003_storage_buckets_and_policies.sql',
-    ).readAsStringSync();
+    final migrations = _migrationSql().toLowerCase();
 
-    expect(rls, contains('enable row level security'));
-    expect(rls, contains('auth.uid()'));
-    expect(storage, contains('receipts'));
-    expect(storage, contains('storage.foldername'));
+    expect(migrations, contains('enable row level security'));
+    expect(migrations, contains('auth.uid()'));
+    expect(migrations, contains('receipts'));
+    expect(migrations, contains('storage.foldername'));
+    expect(
+      migrations,
+      contains('grant all on table public.transactions to authenticated'),
+    );
   });
+}
+
+String _migrationSql() {
+  final files =
+      Directory('supabase/migrations')
+          .listSync()
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.sql'))
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
+
+  return files.map((file) => file.readAsStringSync()).join('\n');
 }

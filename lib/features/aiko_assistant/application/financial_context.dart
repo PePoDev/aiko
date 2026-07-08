@@ -97,8 +97,16 @@ class AikoFinancialContext {
     }
 
     const progressService = CategoryBudgetProgressService();
+    final monthEndInclusive = monthEnd.subtract(
+      const Duration(microseconds: 1),
+    );
     final budgetRows = categories.where((c) => c.hasBudget).map((c) {
-      final progress = progressService.progressFor(c, transactions);
+      final progress = progressService.progressFor(
+        c,
+        transactions,
+        periodStart: monthStart,
+        periodEnd: monthEndInclusive,
+      );
       final pct = progress.ratio * 100;
       final pace = pct >= 100
           ? 'over'

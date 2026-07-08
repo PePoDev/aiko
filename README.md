@@ -67,6 +67,10 @@ flutter run -d <android|ios> \
 
 > **⚠️ Security:** Never put a service-role key in the app, `.env`, dart-defines, or any client-visible config. Without `SUPABASE_URL`/`SUPABASE_ANON_KEY` the app runs local-only (SQLite via Brick); cloud sync starts once Supabase is configured and the user is authed.
 
+### Self-hosted Supabase (docker compose)
+
+`docker/` holds the official self-hosted stack (from the `supabase/supabase` docker dir) plus `docker-compose.aiko.yml` (mounts `supabase/functions/aiko-chat` into the edge runtime; its `AI_*`/`LINE_*` secrets live in `docker/.env`). Setup: `cp docker/.env.example docker/.env`, then in `docker/` run `sh utils/generate-keys.sh --update-env` and `sh utils/add-new-auth-keys.sh --update-env` (`.env` is gitignored — never commit it). Start with `docker compose up -d`; API + Studio at `http://localhost:8000` (dashboard creds in `.env`). Apply migrations: `PGSSLMODE=disable supabase db push --yes --include-all --db-url "postgresql://postgres.aiko:<POSTGRES_PASSWORD>@localhost:5432/postgres"`. Point the app at it via `--dart-define=SUPABASE_URL=http://localhost:8000` (Android emulator: `http://10.0.2.2:8000`) with the generated `ANON_KEY`.
+
 ### Google Sign-In (native)
 
 Login uses the **native** Google account picker (`google_sign_in` → ID token → Supabase `signInWithIdToken`), not a browser redirect. Account **linking** (Profile → Connect Google) still uses the OAuth redirect flow via the `aiko://login-callback` deep link.
@@ -232,7 +236,7 @@ Supabase Edge Function (`supabase/functions/aiko-chat/`) — an SSE proxy stream
 **How Aiko reads your data** (model only sees RLS-scoped data; key never leaves server):
 
 - **Layer 1 — on-device snapshot (always on).** Client assembles a compact `AikoFinancialContext` (net worth, accounts, this-month income/spending, budget pace, goals, recent transactions) from local Brick, sends it in the body; the function folds it into the system prompt. Aggregates only, capped, never the full ledger.
-- **Layer 2 — server-side tools (always on).** Model may first call a fixed allow-list of **read-only** Postgres RPCs (`*_aiko_assistant_read_functions.sql`), each `SECURITY INVOKER` under the caller's JWT (RLS scopes results). Never runs model-supplied SQL, never uses service-role.
+- **Layer 2 — server-side tools (always on).** Model may first call a fixed allow-list of **read-only** Postgres RPCs (`aiko_*` functions in the squashed initial migration), each `SECURITY INVOKER` under the caller's JWT (RLS scopes results). Never runs model-supplied SQL, never uses service-role.
 
 **Configuration** (Supabase secrets — never in app/`.env`). One provider, set via three secrets; if any is missing the chat endpoint returns `MISSING_PROVIDER_KEY` (and the LINE path replies with a fallback message).
 
@@ -273,7 +277,7 @@ supabase functions serve aiko-chat --env-file ./supabase/functions/.env.local
 
 "Delete account" (Profile) deletes **immediately and permanently** — no grace period. `AuthRepository.deleteAccount` calls the `delete_account` Postgres RPC under the user's JWT, then signs out.
 
-`delete_account()` (migration `…_delete_account_rpc.sql`) is a `SECURITY DEFINER` function: it runs as its definer so it can reach `auth.users`. It derives the caller from `auth.uid()` (never a parameter), deletes the `profiles` row (cascades all finance data via `on delete cascade`), then deletes the `auth.users` login. Schema quirk: `profiles.id` is *not* FK'd to `auth.users`, so the profile row must be deleted explicitly. `execute` is granted to `authenticated` only.
+`delete_account()` (in the squashed initial migration) is a `SECURITY DEFINER` function: it runs as its definer so it can reach `auth.users`. It derives the caller from `auth.uid()` (never a parameter), deletes the `profiles` row (cascades all finance data via `on delete cascade`), then deletes the `auth.users` login. Schema quirk: `profiles.id` is *not* FK'd to `auth.users`, so the profile row must be deleted explicitly. `execute` is granted to `authenticated` only.
 
 No Edge Function, no `pg_cron`, no service-role key, no email — the privilege lives in the function, not the client. (Replaces the old 3-day grace scheme: `delete-account` / `purge-deleted-accounts` functions and the hourly purge cron.)
 

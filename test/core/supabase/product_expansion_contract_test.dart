@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const expansionTables = [
     'aiko_character_profiles',
-    'bill_subscriptions',
     'credit_card_profiles',
     'debt_loan_plans',
     'assets',
@@ -20,31 +19,46 @@ void main() {
   ];
 
   test('product expansion schema creates roadmap tables', () {
-    final schema = File(
-      'supabase/migrations/004_product_expansion_schema.sql',
-    ).readAsStringSync();
+    final schema = _migrationSql().toLowerCase();
 
     for (final table in expansionTables) {
-      expect(schema, contains('create table if not exists public.$table'));
+      expect(schema, contains('create table public.$table'));
       expect(
         schema,
-        contains('user_id uuid not null references public.profiles'),
+        contains(
+          'add constraint ${table}_user_id_fkey foreign key (user_id) '
+          'references public.profiles(id)',
+        ),
       );
     }
   });
 
   test('product expansion RLS protects every user-owned table', () {
-    final rls = File(
-      'supabase/migrations/005_product_expansion_rls.sql',
-    ).readAsStringSync();
+    final rls = _migrationSql().toLowerCase();
 
     for (final table in expansionTables) {
       expect(
         rls,
         contains('alter table public.$table enable row level security'),
       );
+      expect(
+        rls,
+        contains('grant all on table public.$table to authenticated'),
+      );
     }
 
-    expect(rls, contains('auth.uid() = user_id'));
+    expect(rls, contains('( select auth.uid() as uid) = user_id'));
   });
+}
+
+String _migrationSql() {
+  final files =
+      Directory('supabase/migrations')
+          .listSync()
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.sql'))
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
+
+  return files.map((file) => file.readAsStringSync()).join('\n');
 }

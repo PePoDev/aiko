@@ -8,6 +8,28 @@ class AikoSupabase {
 
   static bool _initialized = false;
 
+  static bool isSupportedProjectUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      return false;
+    }
+
+    if (uri.scheme == 'https') {
+      return true;
+    }
+
+    if (uri.scheme != 'http') {
+      return false;
+    }
+
+    final host = uri.host.toLowerCase();
+    return host == 'localhost' ||
+        host == '10.0.2.2' ||
+        host == '::1' ||
+        host == '127.0.0.1' ||
+        host.startsWith('127.');
+  }
+
   static Future<void> initialize(
     AppConfig config, {
     http.Client? httpClient,
@@ -17,9 +39,9 @@ class AikoSupabase {
         config.supabaseAnonKey.isEmpty) {
       return;
     }
-    if (!config.supabaseUrl.startsWith('https://')) {
+    if (!isSupportedProjectUrl(config.supabaseUrl)) {
       throw ArgumentError(
-        'SUPABASE_URL must be a Supabase Cloud HTTPS project URL.',
+        'SUPABASE_URL must be an HTTPS URL or a local self-hosted HTTP URL.',
       );
     }
     await Supabase.initialize(

@@ -1,0 +1,14 @@
+# Aiko-specific overrides for self-hosted Supabase.
+# Activated via COMPOSE_FILE in .env (docker-compose.yml:docker-compose.aiko.yml).
+services:
+  functions:
+    volumes:
+      # Serve the app's Edge Function from the repo instead of copying it.
+      - ../supabase/functions/aiko-chat:/home/deno/functions/aiko-chat:z
+    environment:
+      # aiko-chat secrets (see CLAUDE.md — AI provider + LINE bot). Set in docker/.env.
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET:-}
+      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN:-}

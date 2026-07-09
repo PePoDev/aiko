@@ -56,21 +56,13 @@ class ChatReplyError extends ChatReplyEvent {
   final bool retryable;
 }
 
-abstract class ChatEngine {
-  Stream<ChatReplyEvent> streamReply({
-    required List<ChatMessage> history,
-    AikoFinancialContext? context,
-  });
-}
-
-class HttpChatEngine implements ChatEngine {
+class HttpChatEngine {
   const HttpChatEngine({required this.functionUrl, http.Client? client})
     : _client = client;
 
   final String functionUrl;
   final http.Client? _client;
 
-  @override
   Stream<ChatReplyEvent> streamReply({
     required List<ChatMessage> history,
     AikoFinancialContext? context,

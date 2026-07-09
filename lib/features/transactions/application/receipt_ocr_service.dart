@@ -1,4 +1,3 @@
-import 'dart:async';
 import '../../../core/money/money.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
 
@@ -19,20 +18,6 @@ class ReceiptAutofill {
 
   bool get hasTransactionFields => merchant != null || total != null;
 }
-
-class ReceiptOcrJob {
-  const ReceiptOcrJob({
-    required this.attachmentId,
-    required this.storagePath,
-    this.status = ReceiptOcrJobStatus.queued,
-  });
-
-  final String attachmentId;
-  final String storagePath;
-  final ReceiptOcrJobStatus status;
-}
-
-enum ReceiptOcrJobStatus { queued, processing, completed, failed }
 
 class ReceiptOcrService {
   const ReceiptOcrService();
@@ -58,18 +43,6 @@ class ReceiptOcrService {
     } catch (_) {
       return parseRecognizedText('', currency: currency);
     }
-  }
-
-  ReceiptOcrJob queueServerRecognition({
-    required String attachmentId,
-    required String userId,
-    required String fileName,
-  }) {
-    final cleanName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-    return ReceiptOcrJob(
-      attachmentId: attachmentId,
-      storagePath: 'receipts/$userId/$attachmentId/$cleanName',
-    );
   }
 
   ReceiptAutofill parseRecognizedText(String text, {String currency = 'THB'}) {

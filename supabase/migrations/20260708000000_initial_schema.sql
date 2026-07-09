@@ -70,21 +70,24 @@ CREATE FUNCTION public.aiko_budget_status(start_date date, end_date date) RETURN
     SET search_path TO 'public'
     AS $$
   select
-    b.name,
-    b.amount as budget_limit,
+    c.name,
+    coalesce(nullif(c.budget_amount, '')::numeric, 0) as budget_limit,
     coalesce((
       select sum(t.amount)
       from public.transactions t
       where t.user_id = auth.uid()
         and t.type = 'expense'
-        and t.category_id = b.category_id
+        and t.category_id = c.id
         and t.date >= start_date
         and t.date < (end_date + 1)
     ), 0) as spent
-  from public.budgets b
-  where b.user_id = auth.uid()
-    and b.status = 'active'
-  order by b.name
+  from public.categories c
+  where (c.user_id = auth.uid() or c.user_id is null)
+    and c.is_active
+    and c.budget_enabled
+    and c.budget_amount is not null
+    and c.budget_amount <> ''
+  order by c.name
   limit 50;
 $$;
 
@@ -118,15 +121,22 @@ CREATE FUNCTION public.aiko_goal_progress() RETURNS TABLE(name text, current_amo
     SET search_path TO 'public'
     AS $$
   select
-    g.name,
-    g.current_amount,
-    g.target_amount,
-    case when g.target_amount > 0 then round(g.current_amount / g.target_amount, 4) else 0 end as pct,
-    g.target_date
-  from public.goals g
-  where g.user_id = auth.uid()
-    and g.status = 'active'
-  order by g.priority asc, g.name
+    a.name,
+    a.current_balance as current_amount,
+    nullif(a.goal_target_amount, '')::numeric as target_amount,
+    case
+      when nullif(a.goal_target_amount, '')::numeric > 0
+        then round(a.current_balance / nullif(a.goal_target_amount, '')::numeric, 4)
+      else 0
+    end as pct,
+    a.goal_target_date as target_date
+  from public.accounts a
+  where a.user_id = auth.uid()
+    and a.type = 'goal'
+    and a.is_active
+    and a.goal_target_amount is not null
+    and a.goal_target_amount <> ''
+  order by a.goal_priority asc, a.name
   limit 50;
 $$;
 
@@ -240,23 +250,6 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- Name: accounting_records; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.accounting_records (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    mode text DEFAULT 'simple'::text NOT NULL,
-    account_code text,
-    entry_type text NOT NULL,
-    amount numeric(18,4) DEFAULT 0 NOT NULL,
-    currency character(3) NOT NULL,
-    transaction_id uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
 -- Name: accounts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -285,23 +278,6 @@ CREATE TABLE public.accounts (
 
 
 --
--- Name: aiko_character_profiles; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.aiko_character_profiles (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    visibility text DEFAULT 'full'::text NOT NULL,
-    tone text DEFAULT 'supportive'::text NOT NULL,
-    reduce_motion boolean DEFAULT false NOT NULL,
-    hide_character_art boolean DEFAULT false NOT NULL,
-    serious_warning_style text DEFAULT 'professional'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
 -- Name: aiko_insights; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -325,24 +301,6 @@ CREATE TABLE public.aiko_insights (
 
 
 --
--- Name: assets; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.assets (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    name text NOT NULL,
-    asset_class text NOT NULL,
-    value numeric(18,4) DEFAULT 0 NOT NULL,
-    currency character(3) NOT NULL,
-    liquidity_level text DEFAULT 'medium'::text NOT NULL,
-    risk_level text DEFAULT 'medium'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
 -- Name: attachments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -359,22 +317,6 @@ CREATE TABLE public.attachments (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     is_sensitive boolean DEFAULT false NOT NULL,
     export_policy text DEFAULT 'include'::text NOT NULL
-);
-
-
---
--- Name: backup_snapshots; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.backup_snapshots (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    status text DEFAULT 'ready'::text NOT NULL,
-    snapshot_scope text DEFAULT 'full'::text NOT NULL,
-    storage_path text,
-    checksum text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    restored_at timestamp with time zone
 );
 
 
@@ -427,23 +369,6 @@ CREATE TABLE public.category_groups (
 
 
 --
--- Name: course_lessons; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.course_lessons (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    lesson_key text NOT NULL,
-    title text NOT NULL,
-    category text NOT NULL,
-    progress_status text DEFAULT 'notStarted'::text NOT NULL,
-    quiz_score numeric(5,2),
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
 -- Name: credit_card_profiles; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -461,76 +386,6 @@ CREATE TABLE public.credit_card_profiles (
     annual_fee numeric(18,4) DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: debt_loan_plans; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.debt_loan_plans (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    name text NOT NULL,
-    strategy text DEFAULT 'avalanche'::text NOT NULL,
-    principal_balance numeric(18,4) NOT NULL,
-    interest_rate numeric(7,4) DEFAULT 0 NOT NULL,
-    monthly_payment numeric(18,4) DEFAULT 0 NOT NULL,
-    payoff_forecast_date date,
-    interest_savings_estimate numeric(18,4),
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: device_sessions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.device_sessions (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    device_name text NOT NULL,
-    platform text NOT NULL,
-    trusted boolean DEFAULT false NOT NULL,
-    current_device boolean DEFAULT false NOT NULL,
-    last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
-    revoked_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: export_packages; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.export_packages (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    scope text NOT NULL,
-    format text NOT NULL,
-    sensitivity_acknowledged boolean DEFAULT false NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    storage_path text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    expires_at timestamp with time zone
-);
-
-
---
--- Name: import_jobs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.import_jobs (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    source_type text NOT NULL,
-    status text DEFAULT 'preview'::text NOT NULL,
-    mapping_json jsonb DEFAULT '{}'::jsonb NOT NULL,
-    validation_issues jsonb DEFAULT '[]'::jsonb NOT NULL,
-    duplicate_count integer DEFAULT 0 NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    completed_at timestamp with time zone
 );
 
 
@@ -583,40 +438,6 @@ CREATE TABLE public.line_pairings (
 
 
 --
--- Name: notification_preferences; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.notification_preferences (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    notification_type text NOT NULL,
-    enabled boolean DEFAULT true NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    source_module text DEFAULT 'reports'::text NOT NULL
-);
-
-
---
--- Name: optimization_suggestions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.optimization_suggestions (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    suggestion_type text NOT NULL,
-    title text NOT NULL,
-    recommendation text NOT NULL,
-    confidence_score numeric(4,3) DEFAULT 0.7 NOT NULL,
-    source_summary jsonb DEFAULT '[]'::jsonb NOT NULL,
-    disclaimer_types text[] DEFAULT '{}'::text[] NOT NULL,
-    status text DEFAULT 'new'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    dismissed_at timestamp with time zone
-);
-
-
---
 -- Name: profiles; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -641,76 +462,6 @@ CREATE TABLE public.profiles (
     phone_number text,
     avatar_path text,
     avatar_url text
-);
-
-
---
--- Name: reports; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.reports (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    report_type text NOT NULL,
-    period_start date NOT NULL,
-    period_end date NOT NULL,
-    filters jsonb DEFAULT '{}'::jsonb NOT NULL,
-    summary_json jsonb DEFAULT '{}'::jsonb NOT NULL,
-    export_format text,
-    status text DEFAULT 'draft'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: saved_calculator_scenarios; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.saved_calculator_scenarios (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    calculator_type text NOT NULL,
-    input_json jsonb NOT NULL,
-    result_json jsonb NOT NULL,
-    notes text,
-    converted_entity_type text,
-    converted_entity_id uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: subscription_plans; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.subscription_plans (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    plan_tier text DEFAULT 'free'::text NOT NULL,
-    status text DEFAULT 'active'::text NOT NULL,
-    started_at timestamp with time zone DEFAULT now() NOT NULL,
-    renews_at timestamp with time zone,
-    canceled_at timestamp with time zone
-);
-
-
---
--- Name: tax_records; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.tax_records (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    tax_year integer NOT NULL,
-    income_type text,
-    amount numeric(18,4) DEFAULT 0 NOT NULL,
-    deduction_type text,
-    document_id uuid,
-    estimate_only boolean DEFAULT true NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -792,53 +543,11 @@ CREATE TABLE public.transactions (
 
 
 --
--- Name: trips; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.trips (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    name text NOT NULL,
-    home_currency character(3) NOT NULL,
-    local_currency character(3) NOT NULL,
-    budget_amount numeric(18,4) DEFAULT 0 NOT NULL,
-    starts_on date NOT NULL,
-    ends_on date NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: accounting_records accounting_records_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.accounting_records
-    ADD CONSTRAINT accounting_records_pkey PRIMARY KEY (id);
-
-
---
 -- Name: accounts accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.accounts
     ADD CONSTRAINT accounts_pkey PRIMARY KEY (id);
-
-
---
--- Name: aiko_character_profiles aiko_character_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.aiko_character_profiles
-    ADD CONSTRAINT aiko_character_profiles_pkey PRIMARY KEY (id);
-
-
---
--- Name: aiko_character_profiles aiko_character_profiles_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.aiko_character_profiles
-    ADD CONSTRAINT aiko_character_profiles_user_id_key UNIQUE (user_id);
 
 
 --
@@ -850,27 +559,11 @@ ALTER TABLE ONLY public.aiko_insights
 
 
 --
--- Name: assets assets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.assets
-    ADD CONSTRAINT assets_pkey PRIMARY KEY (id);
-
-
---
 -- Name: attachments attachments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.attachments
     ADD CONSTRAINT attachments_pkey PRIMARY KEY (id);
-
-
---
--- Name: backup_snapshots backup_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.backup_snapshots
-    ADD CONSTRAINT backup_snapshots_pkey PRIMARY KEY (id);
 
 
 --
@@ -890,59 +583,11 @@ ALTER TABLE ONLY public.category_groups
 
 
 --
--- Name: course_lessons course_lessons_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.course_lessons
-    ADD CONSTRAINT course_lessons_pkey PRIMARY KEY (id);
-
-
---
--- Name: course_lessons course_lessons_user_id_lesson_key_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.course_lessons
-    ADD CONSTRAINT course_lessons_user_id_lesson_key_key UNIQUE (user_id, lesson_key);
-
-
---
 -- Name: credit_card_profiles credit_card_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.credit_card_profiles
     ADD CONSTRAINT credit_card_profiles_pkey PRIMARY KEY (id);
-
-
---
--- Name: debt_loan_plans debt_loan_plans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.debt_loan_plans
-    ADD CONSTRAINT debt_loan_plans_pkey PRIMARY KEY (id);
-
-
---
--- Name: device_sessions device_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.device_sessions
-    ADD CONSTRAINT device_sessions_pkey PRIMARY KEY (id);
-
-
---
--- Name: export_packages export_packages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.export_packages
-    ADD CONSTRAINT export_packages_pkey PRIMARY KEY (id);
-
-
---
--- Name: import_jobs import_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.import_jobs
-    ADD CONSTRAINT import_jobs_pkey PRIMARY KEY (id);
 
 
 --
@@ -978,75 +623,11 @@ ALTER TABLE ONLY public.line_pairings
 
 
 --
--- Name: notification_preferences notification_preferences_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.notification_preferences
-    ADD CONSTRAINT notification_preferences_pkey PRIMARY KEY (id);
-
-
---
--- Name: notification_preferences notification_preferences_user_id_notification_type_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.notification_preferences
-    ADD CONSTRAINT notification_preferences_user_id_notification_type_key UNIQUE (user_id, notification_type);
-
-
---
--- Name: optimization_suggestions optimization_suggestions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.optimization_suggestions
-    ADD CONSTRAINT optimization_suggestions_pkey PRIMARY KEY (id);
-
-
---
 -- Name: profiles profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.profiles
     ADD CONSTRAINT profiles_pkey PRIMARY KEY (id);
-
-
---
--- Name: reports reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.reports
-    ADD CONSTRAINT reports_pkey PRIMARY KEY (id);
-
-
---
--- Name: saved_calculator_scenarios saved_calculator_scenarios_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.saved_calculator_scenarios
-    ADD CONSTRAINT saved_calculator_scenarios_pkey PRIMARY KEY (id);
-
-
---
--- Name: subscription_plans subscription_plans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.subscription_plans
-    ADD CONSTRAINT subscription_plans_pkey PRIMARY KEY (id);
-
-
---
--- Name: subscription_plans subscription_plans_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.subscription_plans
-    ADD CONSTRAINT subscription_plans_user_id_key UNIQUE (user_id);
-
-
---
--- Name: tax_records tax_records_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tax_records
-    ADD CONSTRAINT tax_records_pkey PRIMARY KEY (id);
 
 
 --
@@ -1074,28 +655,6 @@ ALTER TABLE ONLY public.transactions
 
 
 --
--- Name: trips trips_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.trips
-    ADD CONSTRAINT trips_pkey PRIMARY KEY (id);
-
-
---
--- Name: accounting_records_transaction_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX accounting_records_transaction_id_idx ON public.accounting_records USING btree (transaction_id);
-
-
---
--- Name: accounting_records_user_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX accounting_records_user_id_idx ON public.accounting_records USING btree (user_id);
-
-
---
 -- Name: accounts_user_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1110,24 +669,10 @@ CREATE INDEX aiko_insights_user_id_idx ON public.aiko_insights USING btree (user
 
 
 --
--- Name: assets_user_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX assets_user_id_idx ON public.assets USING btree (user_id);
-
-
---
 -- Name: attachments_user_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX attachments_user_id_idx ON public.attachments USING btree (user_id);
-
-
---
--- Name: backup_snapshots_user_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX backup_snapshots_user_id_idx ON public.backup_snapshots USING btree (user_id);
 
 
 --
@@ -1173,34 +718,6 @@ CREATE INDEX credit_card_profiles_user_id_idx ON public.credit_card_profiles USI
 
 
 --
--- Name: debt_loan_plans_user_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX debt_loan_plans_user_id_idx ON public.debt_loan_plans USING btree (user_id);
-
-
---
--- Name: device_sessions_user_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX device_sessions_user_id_idx ON public.device_sessions USING btree (user_id);
-
-
---
--- Name: export_packages_user_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX export_packages_user_id_idx ON public.export_packages USING btree (user_id);
-
-
---
--- Name: import_jobs_user_status_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX import_jobs_user_status_idx ON public.import_jobs USING btree (user_id, status);
-
-
---
 -- Name: investment_holdings_user_symbol_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1219,41 +736,6 @@ CREATE INDEX line_links_user_id_idx ON public.line_links USING btree (user_id);
 --
 
 CREATE INDEX line_pairings_code_idx ON public.line_pairings USING btree (code);
-
-
---
--- Name: optimization_suggestions_user_status_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX optimization_suggestions_user_status_idx ON public.optimization_suggestions USING btree (user_id, status);
-
-
---
--- Name: reports_user_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX reports_user_id_idx ON public.reports USING btree (user_id);
-
-
---
--- Name: saved_calculator_scenarios_user_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX saved_calculator_scenarios_user_id_idx ON public.saved_calculator_scenarios USING btree (user_id);
-
-
---
--- Name: tax_records_document_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX tax_records_document_id_idx ON public.tax_records USING btree (document_id);
-
-
---
--- Name: tax_records_user_year_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX tax_records_user_year_idx ON public.tax_records USING btree (user_id, tax_year);
 
 
 --
@@ -1327,42 +809,11 @@ CREATE INDEX transactions_user_date_idx ON public.transactions USING btree (user
 
 
 --
--- Name: trips_user_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX trips_user_id_idx ON public.trips USING btree (user_id);
-
-
---
--- Name: accounting_records accounting_records_transaction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.accounting_records
-    ADD CONSTRAINT accounting_records_transaction_id_fkey FOREIGN KEY (transaction_id) REFERENCES public.transactions(id);
-
-
---
--- Name: accounting_records accounting_records_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.accounting_records
-    ADD CONSTRAINT accounting_records_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
 -- Name: accounts accounts_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.accounts
     ADD CONSTRAINT accounts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
--- Name: aiko_character_profiles aiko_character_profiles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.aiko_character_profiles
-    ADD CONSTRAINT aiko_character_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
 
 
 --
@@ -1374,27 +825,11 @@ ALTER TABLE ONLY public.aiko_insights
 
 
 --
--- Name: assets assets_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.assets
-    ADD CONSTRAINT assets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
 -- Name: attachments attachments_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.attachments
     ADD CONSTRAINT attachments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
--- Name: backup_snapshots backup_snapshots_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.backup_snapshots
-    ADD CONSTRAINT backup_snapshots_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
 
 
 --
@@ -1430,14 +865,6 @@ ALTER TABLE ONLY public.category_groups
 
 
 --
--- Name: course_lessons course_lessons_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.course_lessons
-    ADD CONSTRAINT course_lessons_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
 -- Name: credit_card_profiles credit_card_profiles_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1454,38 +881,6 @@ ALTER TABLE ONLY public.credit_card_profiles
 
 
 --
--- Name: debt_loan_plans debt_loan_plans_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.debt_loan_plans
-    ADD CONSTRAINT debt_loan_plans_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
--- Name: device_sessions device_sessions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.device_sessions
-    ADD CONSTRAINT device_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
--- Name: export_packages export_packages_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.export_packages
-    ADD CONSTRAINT export_packages_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
--- Name: import_jobs import_jobs_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.import_jobs
-    ADD CONSTRAINT import_jobs_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
 -- Name: investment_holdings investment_holdings_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1499,62 +894,6 @@ ALTER TABLE ONLY public.investment_holdings
 
 ALTER TABLE ONLY public.line_links
     ADD CONSTRAINT line_links_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
--- Name: notification_preferences notification_preferences_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.notification_preferences
-    ADD CONSTRAINT notification_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
--- Name: optimization_suggestions optimization_suggestions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.optimization_suggestions
-    ADD CONSTRAINT optimization_suggestions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
--- Name: reports reports_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.reports
-    ADD CONSTRAINT reports_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
--- Name: saved_calculator_scenarios saved_calculator_scenarios_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.saved_calculator_scenarios
-    ADD CONSTRAINT saved_calculator_scenarios_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
--- Name: subscription_plans subscription_plans_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.subscription_plans
-    ADD CONSTRAINT subscription_plans_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
--- Name: tax_records tax_records_document_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tax_records
-    ADD CONSTRAINT tax_records_document_id_fkey FOREIGN KEY (document_id) REFERENCES public.attachments(id);
-
-
---
--- Name: tax_records tax_records_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tax_records
-    ADD CONSTRAINT tax_records_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
 
 
 --
@@ -1630,81 +969,10 @@ ALTER TABLE ONLY public.transactions
 
 
 --
--- Name: trips trips_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.trips
-    ADD CONSTRAINT trips_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
--- Name: accounting_records Users manage own accounting records; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users manage own accounting records" ON public.accounting_records TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-
-
---
--- Name: aiko_character_profiles Users manage own aiko character profiles; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users manage own aiko character profiles" ON public.aiko_character_profiles TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-
-
---
--- Name: assets Users manage own assets; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users manage own assets" ON public.assets TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-
-
---
--- Name: backup_snapshots Users manage own backup snapshots; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users manage own backup snapshots" ON public.backup_snapshots TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-
-
---
--- Name: course_lessons Users manage own course lessons; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users manage own course lessons" ON public.course_lessons TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-
-
---
 -- Name: credit_card_profiles Users manage own credit card profiles; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "Users manage own credit card profiles" ON public.credit_card_profiles TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-
-
---
--- Name: debt_loan_plans Users manage own debt loan plans; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users manage own debt loan plans" ON public.debt_loan_plans TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-
-
---
--- Name: device_sessions Users manage own device sessions; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users manage own device sessions" ON public.device_sessions TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-
-
---
--- Name: export_packages Users manage own export packages; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users manage own export packages" ON public.export_packages TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-
-
---
--- Name: import_jobs Users manage own import jobs; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users manage own import jobs" ON public.import_jobs TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
 
 
 --
@@ -1713,40 +981,6 @@ CREATE POLICY "Users manage own import jobs" ON public.import_jobs TO authentica
 
 CREATE POLICY "Users manage own investment holdings" ON public.investment_holdings TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
 
-
---
--- Name: optimization_suggestions Users manage own optimization suggestions; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users manage own optimization suggestions" ON public.optimization_suggestions TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-
-
---
--- Name: subscription_plans Users manage own subscription plans; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users manage own subscription plans" ON public.subscription_plans TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-
-
---
--- Name: tax_records Users manage own tax records; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users manage own tax records" ON public.tax_records TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-
-
---
--- Name: trips Users manage own trips; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users manage own trips" ON public.trips TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-
-
---
--- Name: accounting_records; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.accounting_records ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: accounts; Type: ROW SECURITY; Schema: public; Owner: -
@@ -1762,12 +996,6 @@ CREATE POLICY "accounts own rows" ON public.accounts TO authenticated USING ((us
 
 
 --
--- Name: aiko_character_profiles; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.aiko_character_profiles ENABLE ROW LEVEL SECURITY;
-
---
 -- Name: aiko_insights; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -1781,12 +1009,6 @@ CREATE POLICY "aiko_insights own rows" ON public.aiko_insights TO authenticated 
 
 
 --
--- Name: assets; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.assets ENABLE ROW LEVEL SECURITY;
-
---
 -- Name: attachments; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -1798,12 +1020,6 @@ ALTER TABLE public.attachments ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "attachments own rows" ON public.attachments TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid))) WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
 
-
---
--- Name: backup_snapshots; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.backup_snapshots ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: categories; Type: ROW SECURITY; Schema: public; Owner: -
@@ -1874,40 +1090,10 @@ CREATE POLICY "category_groups update" ON public.category_groups FOR UPDATE TO a
 
 
 --
--- Name: course_lessons; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.course_lessons ENABLE ROW LEVEL SECURITY;
-
---
 -- Name: credit_card_profiles; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.credit_card_profiles ENABLE ROW LEVEL SECURITY;
-
---
--- Name: debt_loan_plans; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.debt_loan_plans ENABLE ROW LEVEL SECURITY;
-
---
--- Name: device_sessions; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.device_sessions ENABLE ROW LEVEL SECURITY;
-
---
--- Name: export_packages; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.export_packages ENABLE ROW LEVEL SECURITY;
-
---
--- Name: import_jobs; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.import_jobs ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: investment_holdings; Type: ROW SECURITY; Schema: public; Owner: -
@@ -1935,25 +1121,6 @@ CREATE POLICY "line_links own rows" ON public.line_links TO authenticated USING 
 ALTER TABLE public.line_pairings ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: notification_preferences; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
-
---
--- Name: notification_preferences notification_preferences own rows; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "notification_preferences own rows" ON public.notification_preferences TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid))) WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-
-
---
--- Name: optimization_suggestions; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.optimization_suggestions ENABLE ROW LEVEL SECURITY;
-
---
 -- Name: profiles; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -1965,44 +1132,6 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "profiles own rows" ON public.profiles TO authenticated USING ((id = ( SELECT auth.uid() AS uid))) WITH CHECK ((id = ( SELECT auth.uid() AS uid)));
 
-
---
--- Name: reports; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
-
---
--- Name: reports reports own rows; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "reports own rows" ON public.reports TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid))) WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-
-
---
--- Name: saved_calculator_scenarios; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.saved_calculator_scenarios ENABLE ROW LEVEL SECURITY;
-
---
--- Name: saved_calculator_scenarios saved_calculator_scenarios own rows; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "saved_calculator_scenarios own rows" ON public.saved_calculator_scenarios TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid))) WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-
-
---
--- Name: subscription_plans; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.subscription_plans ENABLE ROW LEVEL SECURITY;
-
---
--- Name: tax_records; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.tax_records ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: transaction_rules; Type: ROW SECURITY; Schema: public; Owner: -
@@ -2042,12 +1171,6 @@ ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "transactions own rows" ON public.transactions TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid))) WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
 
-
---
--- Name: trips; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.trips ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
@@ -2132,30 +1255,12 @@ GRANT ALL ON FUNCTION public.redeem_line_pairing(p_code text, p_refresh_token te
 
 
 --
--- Name: TABLE accounting_records; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.accounting_records TO anon;
-GRANT ALL ON TABLE public.accounting_records TO authenticated;
-GRANT ALL ON TABLE public.accounting_records TO service_role;
-
-
---
 -- Name: TABLE accounts; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON TABLE public.accounts TO anon;
 GRANT ALL ON TABLE public.accounts TO authenticated;
 GRANT ALL ON TABLE public.accounts TO service_role;
-
-
---
--- Name: TABLE aiko_character_profiles; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.aiko_character_profiles TO anon;
-GRANT ALL ON TABLE public.aiko_character_profiles TO authenticated;
-GRANT ALL ON TABLE public.aiko_character_profiles TO service_role;
 
 
 --
@@ -2168,30 +1273,12 @@ GRANT ALL ON TABLE public.aiko_insights TO service_role;
 
 
 --
--- Name: TABLE assets; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.assets TO anon;
-GRANT ALL ON TABLE public.assets TO authenticated;
-GRANT ALL ON TABLE public.assets TO service_role;
-
-
---
 -- Name: TABLE attachments; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON TABLE public.attachments TO anon;
 GRANT ALL ON TABLE public.attachments TO authenticated;
 GRANT ALL ON TABLE public.attachments TO service_role;
-
-
---
--- Name: TABLE backup_snapshots; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.backup_snapshots TO anon;
-GRANT ALL ON TABLE public.backup_snapshots TO authenticated;
-GRANT ALL ON TABLE public.backup_snapshots TO service_role;
 
 
 --
@@ -2213,57 +1300,12 @@ GRANT ALL ON TABLE public.category_groups TO service_role;
 
 
 --
--- Name: TABLE course_lessons; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.course_lessons TO anon;
-GRANT ALL ON TABLE public.course_lessons TO authenticated;
-GRANT ALL ON TABLE public.course_lessons TO service_role;
-
-
---
 -- Name: TABLE credit_card_profiles; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON TABLE public.credit_card_profiles TO anon;
 GRANT ALL ON TABLE public.credit_card_profiles TO authenticated;
 GRANT ALL ON TABLE public.credit_card_profiles TO service_role;
-
-
---
--- Name: TABLE debt_loan_plans; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.debt_loan_plans TO anon;
-GRANT ALL ON TABLE public.debt_loan_plans TO authenticated;
-GRANT ALL ON TABLE public.debt_loan_plans TO service_role;
-
-
---
--- Name: TABLE device_sessions; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.device_sessions TO anon;
-GRANT ALL ON TABLE public.device_sessions TO authenticated;
-GRANT ALL ON TABLE public.device_sessions TO service_role;
-
-
---
--- Name: TABLE export_packages; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.export_packages TO anon;
-GRANT ALL ON TABLE public.export_packages TO authenticated;
-GRANT ALL ON TABLE public.export_packages TO service_role;
-
-
---
--- Name: TABLE import_jobs; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.import_jobs TO anon;
-GRANT ALL ON TABLE public.import_jobs TO authenticated;
-GRANT ALL ON TABLE public.import_jobs TO service_role;
 
 
 --
@@ -2294,66 +1336,12 @@ GRANT ALL ON TABLE public.line_pairings TO service_role;
 
 
 --
--- Name: TABLE notification_preferences; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.notification_preferences TO anon;
-GRANT ALL ON TABLE public.notification_preferences TO authenticated;
-GRANT ALL ON TABLE public.notification_preferences TO service_role;
-
-
---
--- Name: TABLE optimization_suggestions; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.optimization_suggestions TO anon;
-GRANT ALL ON TABLE public.optimization_suggestions TO authenticated;
-GRANT ALL ON TABLE public.optimization_suggestions TO service_role;
-
-
---
 -- Name: TABLE profiles; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON TABLE public.profiles TO anon;
 GRANT ALL ON TABLE public.profiles TO authenticated;
 GRANT ALL ON TABLE public.profiles TO service_role;
-
-
---
--- Name: TABLE reports; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.reports TO anon;
-GRANT ALL ON TABLE public.reports TO authenticated;
-GRANT ALL ON TABLE public.reports TO service_role;
-
-
---
--- Name: TABLE saved_calculator_scenarios; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.saved_calculator_scenarios TO anon;
-GRANT ALL ON TABLE public.saved_calculator_scenarios TO authenticated;
-GRANT ALL ON TABLE public.saved_calculator_scenarios TO service_role;
-
-
---
--- Name: TABLE subscription_plans; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.subscription_plans TO anon;
-GRANT ALL ON TABLE public.subscription_plans TO authenticated;
-GRANT ALL ON TABLE public.subscription_plans TO service_role;
-
-
---
--- Name: TABLE tax_records; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.tax_records TO anon;
-GRANT ALL ON TABLE public.tax_records TO authenticated;
-GRANT ALL ON TABLE public.tax_records TO service_role;
 
 
 --
@@ -2381,15 +1369,6 @@ GRANT ALL ON TABLE public.transaction_splits TO service_role;
 GRANT ALL ON TABLE public.transactions TO anon;
 GRANT ALL ON TABLE public.transactions TO authenticated;
 GRANT ALL ON TABLE public.transactions TO service_role;
-
-
---
--- Name: TABLE trips; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.trips TO anon;
-GRANT ALL ON TABLE public.trips TO authenticated;
-GRANT ALL ON TABLE public.trips TO service_role;
 
 
 --

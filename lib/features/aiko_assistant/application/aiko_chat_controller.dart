@@ -55,7 +55,7 @@ class ChatState {
   }
 }
 
-final aikoChatEngineProvider = Provider<ChatEngine>((ref) {
+final aikoChatEngineProvider = Provider<HttpChatEngine>((ref) {
   final config = ref.watch(aikoSupabaseConfigProvider);
   return HttpChatEngine(functionUrl: '${config.url}/functions/v1/aiko-chat');
 });

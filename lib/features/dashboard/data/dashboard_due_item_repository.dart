@@ -1,6 +1,5 @@
 import '../../../core/money/money.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
-import '../../credit_cards/domain/credit_card_detail.dart';
 import '../domain/dashboard_due_item.dart';
 
 class DashboardDueItemRepository {
@@ -23,52 +22,30 @@ class DashboardDueItemRepository {
       return const [];
     }
 
-    final creditCards = cardsResponse
-        .map((row) => _creditCardFromRow(Map<String, dynamic>.from(row), asOf))
-        .toList(growable: false);
-
     final cutoff = asOf.add(const Duration(days: 30));
     final items = <DashboardDueItem>[];
-    for (final card in creditCards) {
-      if (card.statementBalance.isZero) continue;
-      final due = card.paymentDueDate;
+    for (final raw in cardsResponse) {
+      final row = Map<String, dynamic>.from(raw);
+      final currency = row['currency'] as String? ?? 'THB';
+      final statementBalance = Money.parse(
+        '${row['statement_balance'] ?? 0}',
+        currency,
+      );
+      if (statementBalance.isZero) continue;
+      final due = _nextDateForDay(asOf, row['due_day'] as int? ?? 1);
       if (due.isBefore(asOf) || due.isAfter(cutoff)) continue;
       items.add(
         DashboardDueItem(
-          id: card.id,
+          id: row['id'] as String,
           kind: DashboardDueItemKind.creditCard,
           title: 'Credit card payment',
-          amount: card.statementBalance,
+          amount: statementBalance,
           dueDate: due,
         ),
       );
     }
     items.sort((a, b) => a.dueDate.compareTo(b.dueDate));
     return items;
-  }
-
-  static CreditCardDetail _creditCardFromRow(
-    Map<String, dynamic> row,
-    DateTime asOf,
-  ) {
-    final currency = row['currency'] as String? ?? 'THB';
-    final dueDay = row['due_day'] as int? ?? 1;
-    final paymentDueDate = _nextDateForDay(asOf, dueDay);
-
-    return CreditCardDetail(
-      id: row['id'] as String,
-      userId: row['user_id'] as String,
-      accountId: row['account_id'] as String,
-      statementBalance: Money.parse(
-        '${row['statement_balance'] ?? 0}',
-        currency,
-      ),
-      paymentDueDate: paymentDueDate,
-      creditLimit: Money.parse('${row['credit_limit'] ?? 0}', currency),
-      aprPercent: (row['apr'] as num?)?.toDouble(),
-      minimumPayment: Money.parse('${row['minimum_payment'] ?? 0}', currency),
-      annualFee: Money.parse('${row['annual_fee'] ?? 0}', currency),
-    );
   }
 
   static DateTime _nextDateForDay(DateTime asOf, int requestedDay) {

@@ -58,48 +58,6 @@ class AikoWordmark extends StatelessWidget {
   }
 }
 
-class AikoCharacterImage extends StatelessWidget {
-  const AikoCharacterImage({
-    this.size = 180,
-    this.borderRadius = 32,
-    this.semanticLabel = 'Aiko character',
-    super.key,
-  });
-
-  final double size;
-  final double borderRadius;
-  final String semanticLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      image: true,
-      label: semanticLabel,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(borderRadius),
-          boxShadow: [
-            BoxShadow(
-              color: AikoColors.primaryBlue.withValues(alpha: 0.16),
-              blurRadius: 28,
-              offset: const Offset(0, 14),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(borderRadius),
-          child: Image.asset(
-            'assets/icons/app_icon_padded.png',
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class AikoPrimaryButton extends StatelessWidget {
   const AikoPrimaryButton({
     required this.label,
@@ -144,46 +102,6 @@ class AikoPrimaryButton extends StatelessWidget {
       disabledForegroundColor: AikoColors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-    );
-  }
-}
-
-class AikoFeatureRow extends StatelessWidget {
-  const AikoFeatureRow({
-    required this.icon,
-    required this.label,
-    this.color = AikoColors.deepBlue,
-    super.key,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: color, size: 18),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

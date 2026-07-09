@@ -1,6 +1,5 @@
 import '../domain/course_lesson.dart';
 import '../domain/glossary_entry.dart';
-import '../domain/quiz_result.dart';
 
 class LearningHubCatalog {
   const LearningHubCatalog();
@@ -74,16 +73,5 @@ class LearningHubCatalog {
             'Adjusting investments back toward target allocation weights.',
       ),
     ];
-  }
-
-  QuizResult score(CourseLesson lesson, List<int> selectedIndexes) {
-    var correct = 0;
-    for (var index = 0; index < lesson.quizQuestions.length; index++) {
-      if (index < selectedIndexes.length &&
-          lesson.quizQuestions[index].isCorrect(selectedIndexes[index])) {
-        correct++;
-      }
-    }
-    return QuizResult(correct: correct, total: lesson.quizQuestions.length);
   }
 }

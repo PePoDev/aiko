@@ -47,6 +47,7 @@ docker/docker-compose.override.yml
 /build/
 /coverage/
 coverage/
+lib/l10n/app_localizations*.dart
 
 # Symbolication related
 app.*.symbols

@@ -13,7 +13,6 @@ import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../categories/domain/category.dart';
-import '../domain/dashboard_summary.dart';
 import '../domain/dashboard_widget_preference.dart';
 import '../../transactions/domain/transaction.dart';
 import '../../transactions/presentation/transaction_form_screen.dart';
@@ -77,14 +76,14 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               ),
             ],
           ),
-          data: (summary) => ListView(
+          data: (_) => ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
             children: [
-              for (var i = 0; i < _homeRows.length; i++)
+              for (var i = 0; i < _homeWidgets.length; i++)
                 Padding(
                   padding: EdgeInsets.only(top: i == 0 ? 0 : 16),
-                  child: _row(context, _homeRows[i], summary),
+                  child: _buildWidget(context, _homeWidgets[i]),
                 ),
             ],
           ),
@@ -94,50 +93,11 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     );
   }
 
-  /// Lays out a grid row: two half widgets side by side, otherwise full width.
-  Widget _row(
-    BuildContext context,
-    List<DashboardWidgetType> group,
-    DashboardSummary summary,
-  ) {
-    if (group.length == 2) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: _buildWidget(context, group[0], summary)),
-          const SizedBox(width: 16),
-          Expanded(child: _buildWidget(context, group[1], summary)),
-        ],
-      );
-    }
-    final only = group.first;
-    if (only.defaultSize == DashboardWidgetSize.half) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: _buildWidget(context, only, summary)),
-          const SizedBox(width: 16),
-          const Expanded(child: SizedBox.shrink()),
-        ],
-      );
-    }
-    return _buildWidget(context, only, summary);
-  }
-
   Widget _buildWidget(
     BuildContext context,
     DashboardWidgetType type,
-    DashboardSummary summary,
   ) {
-    final l10n = AppLocalizations.of(context);
     return switch (type) {
-      DashboardWidgetType.aikoWelcome => FinanceCard(
-        title: l10n.hiAiko,
-        icon: Icons.auto_awesome,
-        accentColor: AikoColors.premiumPurple,
-        prominent: true,
-        child: Text(l10n.safeToSpendDescription(summary.safeToSpend.format())),
-      ),
       DashboardWidgetType.dailySpending => const _DailySpendingPanel(),
       DashboardWidgetType.dailySummary => const _OverviewAnalyticsWidget(
         kind: _AnalyticsWidgetKind.dailySummary,
@@ -165,28 +125,6 @@ const _homeWidgets = <DashboardWidgetType>[
   DashboardWidgetType.spendingCalendar,
   DashboardWidgetType.cashFlowMapping,
 ];
-
-/// Rows: two consecutive half widgets share a row, everything else is full.
-final _homeRows = _groupHomeRows(_homeWidgets);
-
-List<List<DashboardWidgetType>> _groupHomeRows(
-  List<DashboardWidgetType> types,
-) {
-  final rows = <List<DashboardWidgetType>>[];
-  for (var i = 0; i < types.length;) {
-    final current = types[i];
-    if (current.defaultSize == DashboardWidgetSize.half &&
-        i + 1 < types.length &&
-        types[i + 1].defaultSize == DashboardWidgetSize.half) {
-      rows.add([current, types[i + 1]]);
-      i += 2;
-    } else {
-      rows.add([current]);
-      i += 1;
-    }
-  }
-  return rows;
-}
 
 class _DailySpendingPanel extends ConsumerWidget {
   const _DailySpendingPanel();

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:typed_data';
 import 'package:decimal/decimal.dart';
 import 'package:file_selector/file_selector.dart' as fs;
@@ -23,7 +22,6 @@ import '../domain/transaction_attachment.dart';
 import '../data/transaction_attachment_repository.dart';
 import '../application/receipt_ocr_service.dart';
 import '../application/voice_transaction_parser.dart';
-import '../application/voice_transcription_service.dart';
 import 'transaction_attachment_section.dart';
 
 const _supportedCurrencies = kAikoSupportedCurrencies;
@@ -438,289 +436,54 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       text: 'spent 15.50 at Starbucks yesterday for coffee',
     );
 
-    var isRecording = false;
-    var isTranscribing = false;
-    var recordDuration = 0;
-    Timer? durationTimer;
-    Timer? waveTimer;
-    var waveHeights = List<double>.generate(15, (index) => 6.0);
-
     showDialog<void>(
       context: context,
-      barrierDismissible: false,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            void stopTimers() {
-              durationTimer?.cancel();
-              waveTimer?.cancel();
-            }
-
-            return AlertDialog(
-              backgroundColor: Theme.of(context).colorScheme.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              title: Row(
-                children: [
-                  const Icon(Icons.mic, color: AikoColors.premiumPurple),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Voice Entry Assistant',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AikoColors.deepBlue,
-                    ),
-                  ),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Animated waveform and status
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isRecording
-                          ? AikoColors.dangerRed.withValues(alpha: 0.05)
-                          : AikoColors.premiumPurple.withValues(alpha: 0.03),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isRecording
-                            ? AikoColors.dangerRed.withValues(alpha: 0.2)
-                            : AikoColors.premiumPurple.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        if (isTranscribing) ...[
-                          const SizedBox(
-                            width: 32,
-                            height: 32,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation(
-                                AikoColors.premiumPurple,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Whisper Cloud transcribing audio...',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AikoColors.premiumPurple,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ] else if (isRecording) ...[
-                          // Waveform visualizer
-                          SizedBox(
-                            height: 48,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: List.generate(
-                                waveHeights.length,
-                                (i) => Container(
-                                  width: 4,
-                                  height: waveHeights[i],
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AikoColors.dangerRed,
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Recording... ${recordDuration}s',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AikoColors.dangerRed,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ] else ...[
-                          const Icon(
-                            Icons.mic,
-                            size: 36,
-                            color: AikoColors.premiumPurple,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tap the mic to start speaking',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
-                        // Mic Button
-                        Center(
-                          child: InkWell(
-                            onTap: isTranscribing
-                                ? null
-                                : () {
-                                    if (isRecording) {
-                                      // Stop recording
-                                      stopTimers();
-                                      setModalState(() {
-                                        isRecording = false;
-                                        isTranscribing = true;
-                                      });
-
-                                      // Call service
-                                      const voiceService =
-                                          VoiceTranscriptionService();
-                                      voiceService
-                                          .transcribe(
-                                            audioBytes: [1, 2, 3, 4],
-                                            defaultSimulationText:
-                                                voiceTextController.text.trim(),
-                                          )
-                                          .then((transcription) {
-                                            if (context.mounted) {
-                                              setModalState(() {
-                                                isTranscribing = false;
-                                                voiceTextController.text =
-                                                    transcription;
-                                              });
-                                            }
-                                          })
-                                          .catchError((_) {
-                                            if (context.mounted) {
-                                              setModalState(() {
-                                                isTranscribing = false;
-                                              });
-                                            }
-                                          });
-                                    } else {
-                                      // Start recording
-                                      setModalState(() {
-                                        isRecording = true;
-                                        recordDuration = 0;
-                                      });
-                                      durationTimer = Timer.periodic(
-                                        const Duration(seconds: 1),
-                                        (t) {
-                                          setModalState(() {
-                                            recordDuration++;
-                                          });
-                                        },
-                                      );
-                                      waveTimer = Timer.periodic(
-                                        const Duration(milliseconds: 100),
-                                        (t) {
-                                          setModalState(() {
-                                            waveHeights = List.generate(
-                                              15,
-                                              (_) =>
-                                                  5.0 +
-                                                  (30.0 *
-                                                      (0.1 +
-                                                          0.9 *
-                                                              (1.0 -
-                                                                  (DateTime.now()
-                                                                              .millisecond %
-                                                                          500) /
-                                                                      500.0))),
-                                            );
-                                          });
-                                        },
-                                      );
-                                    }
-                                  },
-                            borderRadius: BorderRadius.circular(40),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              width: 64,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                color: isRecording
-                                    ? AikoColors.dangerRed
-                                    : AikoColors.premiumPurple,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color:
-                                        (isRecording
-                                                ? AikoColors.dangerRed
-                                                : AikoColors.premiumPurple)
-                                            .withValues(alpha: 0.3),
-                                    blurRadius: isRecording ? 16 : 8,
-                                    spreadRadius: isRecording ? 4 : 1,
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                isRecording ? Icons.stop : Icons.mic,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Edit transcription context if needed:',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: voiceTextController,
-                    decoration: const InputDecoration(
-                      labelText: 'Parsed Text Transcript',
-                      hintText: 'e.g. spent 25 dollars at Amazon...',
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 2,
-                    enabled: !isRecording && !isTranscribing,
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isTranscribing || isRecording
-                      ? null
-                      : () {
-                          stopTimers();
-                          Navigator.of(context).pop();
-                        },
-                  child: const Text('Cancel'),
+        return AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.mic, color: AikoColors.premiumPurple),
+              const SizedBox(width: 8),
+              Text(
+                'Voice Entry Assistant',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AikoColors.deepBlue,
                 ),
-                FilledButton(
-                  onPressed: isTranscribing || isRecording
-                      ? null
-                      : () {
-                          stopTimers();
-                          final txt = voiceTextController.text.trim();
-                          Navigator.of(context).pop();
-                          _parseVoiceCommand(txt);
-                        },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AikoColors.premiumPurple,
-                  ),
-                  child: const Text('Parse Draft'),
-                ),
-              ],
-            );
-          },
+              ),
+            ],
+          ),
+          content: TextField(
+            controller: voiceTextController,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Transaction description',
+              hintText: 'e.g. spent 25 dollars at Amazon yesterday',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final text = voiceTextController.text.trim();
+                Navigator.of(context).pop();
+                _parseVoiceCommand(text);
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: AikoColors.premiumPurple,
+              ),
+              child: const Text('Parse Draft'),
+            ),
+          ],
         );
       },
     );

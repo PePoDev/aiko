@@ -12,7 +12,6 @@ import '../features/dashboard/presentation/home_dashboard_screen.dart';
 import '../features/export/presentation/export_screen.dart';
 
 import '../features/learning_hub/presentation/learning_hub_screen.dart';
-import '../features/navigation/presentation/planning_screen.dart';
 import '../features/overview/presentation/finance_detail_screens.dart';
 import '../features/investments/domain/investment_holding.dart';
 import '../features/investments/presentation/investments_screen.dart';
@@ -74,10 +73,8 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             path: '/categories',
             builder: (context, state) => const CategoryManagementScreen(),
           ),
-          // Budget and Goals sub-routes — flat Settings list, no dedicated
-          // top-level tabs (PR4 of the budgets -> categories / goals ->
-          // accounts merge plan). Each route delegates to the existing
-          // detail screen so the data wiring matches the rest of the app.
+          // Planning sub-routes live under Settings and delegate to the
+          // existing detail screens so data wiring stays shared.
           GoRoute(
             path: '/settings/pace',
             builder: (context, state) => const PaceOverviewScreen(),
@@ -103,11 +100,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
                 goal: extra is Account ? extra : null,
               );
             },
-          ),
-          GoRoute(
-            path: '/planning',
-            pageBuilder: (context, state) =>
-                _fadePage(context, state, const PlanningScreen()),
           ),
           GoRoute(
             path: '/reports/monthly',

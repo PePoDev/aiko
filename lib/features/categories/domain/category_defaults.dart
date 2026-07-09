@@ -189,41 +189,6 @@ abstract final class CategoryDefaults {
     supplementsId,
   };
 
-  /// Maps old `default-*` slug ids (used before this migration) to the
-  /// corresponding fixed UUID. Used during the one-time local cleanup that
-  /// remaps legacy transaction category_ids on devices that had the old data.
-  static const Map<String, String> legacySlugToUuid = {
-    'default-income-salary': salaryId,
-    'default-income-bonus': bonusId,
-    'default-income-freelance': freelanceId,
-    'default-income-business': businessId,
-    'default-income-interest': interestId,
-    'default-income-dividends': dividendsId,
-    'default-income-rental': rentalId,
-    'default-income-refunds': refundsId,
-    'default-income-gift': giftId,
-    'default-income-other': otherIncomeId,
-    'default-expense-groceries': groceriesId,
-    'default-expense-dining': diningId,
-    'default-expense-coffee': coffeeId,
-    'default-expense-transport': transportId,
-    'default-expense-fuel': fuelId,
-    'default-expense-rent': rentId,
-    'default-expense-utilities': utilitiesId,
-    'default-expense-phone': phoneId,
-    'default-expense-internet': internetId,
-    'default-expense-subscriptions': subscriptionsId,
-    'default-expense-shopping': shoppingId,
-    'default-expense-health': healthId,
-    'default-expense-insurance': insuranceId,
-    'default-expense-education': educationId,
-    'default-expense-travel': travelId,
-    'default-expense-entertainment': entertainmentId,
-    'default-expense-fees': feesId,
-    'default-expense-taxes': taxesId,
-    'default-expense-other': otherExpenseId,
-  };
-
   /// The 66 system categories as domain objects. userId is empty because
   /// these are global — they belong to no user.
   static List<Category> get all => [..._income, ..._expense];

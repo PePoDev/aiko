@@ -50,9 +50,8 @@ class AikoFinancialContext {
   /// base currency; multi-currency holdings are treated as approximate, which
   /// is acceptable for advisory context.
   ///
-  /// After the budgets -> categories / goals -> accounts merge (PR5) the
-  /// budget shape is sourced from [Category]s that have a `monthlyLimit`,
-  /// and goals are [Account]s with `type = AccountType.goal`.
+  /// Budgets are sourced from [Category]s that have a `monthlyLimit`, and goals
+  /// are [Account]s with `type = AccountType.goal`.
   factory AikoFinancialContext.from({
     required String baseCurrency,
     required List<Account> accounts,

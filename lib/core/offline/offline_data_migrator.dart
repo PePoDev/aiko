@@ -35,8 +35,8 @@ class OfflineDataMigrator {
 
     // Order matters: parents (accounts, categories) are reassigned and queued
     // to Supabase before the rows that reference them (transactions) so
-    // foreign-key constraints are satisfied as the writes sync. Budget and
-    // goal rows are gone (PR5 of the merge plan).
+    // foreign-key constraints are satisfied as the writes sync. Budgets live
+    // on categories and goals live on accounts, so no separate rows are needed.
     var migrated = 0;
     migrated += await _claim<OfflineAccount>(
       realUserId,

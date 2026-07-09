@@ -1,12 +1,12 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/money/money.dart';
+import '../../../core/supabase/supabase_client_provider.dart';
 import '../domain/investment_holding.dart';
-import 'live_market_feed_service.dart';
 
 class InvestmentsNotifier extends AsyncNotifier<List<InvestmentHolding>> {
-  final LiveMarketFeedService _feedService = const LiveMarketFeedService();
-
   @override
   Future<List<InvestmentHolding>> build() async {
     final repo = ref.watch(investmentHoldingRepositoryProvider);
@@ -46,7 +46,7 @@ class InvestmentsNotifier extends AsyncNotifier<List<InvestmentHolding>> {
     final updated = <InvestmentHolding>[];
     for (final holding in current) {
       try {
-        final newPrice = await _feedService.fetchLivePrice(
+        final newPrice = await _fetchLivePrice(
           holding.symbol,
           currency: holding.currency,
         );
@@ -62,6 +62,24 @@ class InvestmentsNotifier extends AsyncNotifier<List<InvestmentHolding>> {
     }
 
     state = await AsyncValue.guard(() => repo.list());
+  }
+
+  Future<Money> _fetchLivePrice(String symbol, {required String currency}) async {
+    final client = AikoSupabase.tryClient();
+    if (client == null) {
+      throw StateError('Supabase is not configured; cannot fetch live prices.');
+    }
+
+    final response = await client.functions.invoke(
+      'market-feed',
+      body: {'symbol': symbol, 'currency': currency},
+    );
+    final data = response.data as Map<String, dynamic>;
+    final price = double.parse(data['price'].toString());
+    return Money(
+      amount: Decimal.parse(price.toStringAsFixed(2)),
+      currency: currency,
+    );
   }
 }
 

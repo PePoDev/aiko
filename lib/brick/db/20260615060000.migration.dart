@@ -3,10 +3,8 @@
 // This file should be version controlled and can be manually edited.
 part of 'schema.g.dart';
 
-// PR5 of the budgets -> categories / goals -> accounts merge: drop the legacy
-// `OfflineBudget` and `OfflineGoal` tables now that the new shape is the
-// only one the app reads. The data was already migrated by
-// `lib/core/sync/budget_goal_migration.dart` on first launch.
+// Drop the legacy `OfflineBudget` and `OfflineGoal` tables now that the new
+// category/account shape is the only one the app reads.
 
 const List<MigrationCommand> _migration_20260615060000_up = [
   DropTable('OfflineBudget'),
@@ -15,8 +13,7 @@ const List<MigrationCommand> _migration_20260615060000_up = [
 
 const List<MigrationCommand> _migration_20260615060000_down = [
   // Down-migration recreates the legacy tables empty. A real restore from a
-  // pre-merge backup is the supported recovery path; the user can run the
-  // BudgetGoalMigrator manually if the legacy rows are still on disk.
+  // pre-merge backup is the supported recovery path.
 ];
 
 //

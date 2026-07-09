@@ -91,10 +91,7 @@ class OfflineStore {
   /// offline queue retries the remote delete when connectivity returns.
   ///
   /// When [localOnly] is true (or there is no Supabase session) the row is
-  /// removed from SQLite only — no remote request is queued. Used both for
-  /// local-only mode and to purge rows that never existed in Supabase (e.g.
-  /// legacy `default-*` slug categories) so the queue is not poisoned with a
-  /// request the server will reject forever.
+  /// removed from SQLite only — no remote request is queued.
   Future<bool> delete<TModel extends OfflineFirstWithSupabaseModel>(
     TModel model, {
     Query? query,

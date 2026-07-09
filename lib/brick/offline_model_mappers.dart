@@ -22,10 +22,7 @@ import 'models/transaction.model.dart';
 //   budget shape now lives on `Category` (`monthlyLimit`, `budgetPeriod`,
 //   `rolloverUnused`, `alertThresholds`); the goal shape now lives on
 //   `Account` with `type == AccountType.goal` (`targetAmount`, `targetDate`,
-//   `priority`). Mappers only read the new shape; the one-time data migration
-//   in `lib/core/sync/budget_goal_migration.dart` is responsible for
-//   rewriting the legacy `budgets` / `goals` rows before the app reads from
-//   them.
+//   `priority`). Mappers only read the current shape.
 
 extension OfflineAccountMapper on OfflineAccount {
   Account toDomain() {

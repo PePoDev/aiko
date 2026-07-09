@@ -20,8 +20,6 @@ class CalculatorDetailScreen extends ConsumerStatefulWidget {
 
 class _CalculatorDetailScreenState
     extends ConsumerState<CalculatorDetailScreen> {
-  static const _service = CalculatorServices();
-
   late _CalculatorConfig _config;
   late Map<String, TextEditingController> _controllers;
   _CalculationResult? _result;
@@ -79,7 +77,7 @@ class _CalculatorDetailScreenState
     final annualRate = _percentage('annualRate');
     final years = _positiveInt('years');
 
-    final futureValue = _service.compoundInterest(
+    final futureValue = CalculatorServices.compoundInterest(
       principal: principal,
       monthlyContribution: monthlyContribution,
       annualRate: annualRate,
@@ -100,7 +98,7 @@ class _CalculatorDetailScreenState
     final annualRate = _percentage('annualRate');
     final months = _positiveInt('months');
 
-    final payment = _service.loanPayment(
+    final payment = CalculatorServices.loanPayment(
       principal: principal,
       annualRate: annualRate,
       months: months,
@@ -165,7 +163,7 @@ class _CalculatorDetailScreenState
     final fees = _number('fees', allowZero: true);
     final income = _number('income', allowZero: true);
 
-    final roi = _service.roi(
+    final roi = CalculatorServices.roi(
       initialInvestment: initialInvestment,
       endingValue: endingValue,
       fees: fees,
@@ -185,7 +183,7 @@ class _CalculatorDetailScreenState
   _CalculationResult _currencyConverter() {
     final sourceAmount = _positiveNumber('sourceAmount');
     final exchangeRate = _positiveNumber('exchangeRate');
-    final converted = _service.convertCurrency(
+    final converted = CalculatorServices.convertCurrency(
       sourceAmount: sourceAmount,
       exchangeRate: exchangeRate,
     );
@@ -201,7 +199,7 @@ class _CalculatorDetailScreenState
 
   _CalculationResult _ruleOf72() {
     final annualRate = _percentage('annualRate');
-    final years = _service.ruleOf72(annualRate: annualRate);
+    final years = CalculatorServices.ruleOf72(annualRate: annualRate);
 
     return _CalculationResult(
       title: 'Years to double',
@@ -218,7 +216,7 @@ class _CalculatorDetailScreenState
     final annualInflationRate = _percentage('annualInflationRate');
     final years = _positiveInt('years');
 
-    final adjusted = _service.inflationAdjustedValue(
+    final adjusted = CalculatorServices.inflationAdjustedValue(
       amount: amount,
       annualInflationRate: annualInflationRate,
       years: years,
@@ -239,7 +237,7 @@ class _CalculatorDetailScreenState
     final hoursPerWeek = _positiveNumber('hoursPerWeek');
     final weeksPerYear = _positiveInt('weeksPerYear');
 
-    final hourly = _service.salaryToHourly(
+    final hourly = CalculatorServices.salaryToHourly(
       annualSalary: annualSalary,
       hoursPerWeek: hoursPerWeek,
       weeksPerYear: weeksPerYear.toDouble(),
@@ -259,7 +257,7 @@ class _CalculatorDetailScreenState
     final taxFreeYield = _percentage('taxFreeYield');
     final marginalTaxRate = _percentage('marginalTaxRate');
 
-    final equivalent = _service.taxEquivalentYield(
+    final equivalent = CalculatorServices.taxEquivalentYield(
       taxFreeYield: taxFreeYield,
       marginalTaxRate: marginalTaxRate,
     );
@@ -294,7 +292,7 @@ class _CalculatorDetailScreenState
       );
     }
 
-    final npv = _service.netPresentValue(
+    final npv = CalculatorServices.netPresentValue(
       discountRate: discountRate,
       cashFlows: cashFlows,
     );
@@ -314,7 +312,7 @@ class _CalculatorDetailScreenState
     final tipRate = _percentage('tipRate');
     final splitCount = _positiveInt('splitCount');
 
-    final tip = _service.tipAmount(bill: bill, tipRate: tipRate);
+    final tip = CalculatorServices.tipAmount(bill: bill, tipRate: tipRate);
     final total = bill + tip;
     final perPerson = total / splitCount;
 

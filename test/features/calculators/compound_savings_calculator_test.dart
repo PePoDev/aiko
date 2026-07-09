@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('compound interest grows with contributions', () {
-    final value = const CalculatorServices().compoundInterest(
+    final value = CalculatorServices.compoundInterest(
       principal: 1000,
       monthlyContribution: 100,
       annualRate: 0.06,

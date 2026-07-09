@@ -1,131 +1,76 @@
-import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/storage/secure_storage_service.dart';
 import '../../../theme/aiko_colors.dart';
-import '../domain/transaction.dart';
+import '../data/transaction_rule_store.dart';
+import '../domain/transaction_rule.dart';
 
-class TransactionRulesScreen extends StatefulWidget {
+class TransactionRulesScreen extends ConsumerStatefulWidget {
   const TransactionRulesScreen({this.storage, super.key});
 
   final SecureStorageService? storage;
 
   @override
-  State<TransactionRulesScreen> createState() => _TransactionRulesScreenState();
+  ConsumerState<TransactionRulesScreen> createState() =>
+      _TransactionRulesScreenState();
 }
 
-class _TransactionRulesScreenState extends State<TransactionRulesScreen> {
-  late final _AutomationRuleStore _store;
-  var _rules = <_AutomationRule>[];
+class _TransactionRulesScreenState extends ConsumerState<TransactionRulesScreen> {
+  late final TransactionRuleStore _store;
+  var _rules = <TransactionRule>[];
 
   @override
   void initState() {
     super.initState();
-    _store = _AutomationRuleStore(
+    _store = TransactionRuleStore(
       storage: widget.storage ?? FlutterSecureStorageService(),
     );
-    _rules = [..._seedRules];
     _restoreRules();
   }
 
   Future<void> _restoreRules() async {
     final rules = await _store.load();
-    if (!mounted || rules.isEmpty) return;
-    setState(() => _rules = rules);
+    if (!mounted) return;
+    setState(() => _rules = _sortRules(rules));
   }
 
-  static final List<_AutomationRule> _seedRules = [
-    _AutomationRule(
-      id: 'email-statement-rule',
-      name: 'Credit card statement imports',
-      source: _RuleSource.emailStatement,
-      matcher: 'Monthly statement PDF from card issuer',
-      action: _RuleAction(
-        transactionType: TransactionType.expense,
-        merchantHint: 'Parse merchant rows',
-        categoryHint: 'Use merchant/category rules',
-        accountHint: 'Credit card account',
-        tags: ['statement', 'credit-card'],
-        reviewBeforeImport: true,
-      ),
-      priority: 10,
-    ),
-    _AutomationRule(
-      id: 'bank-slip-rule',
-      name: 'Mobile banking slip photos',
-      source: _RuleSource.bankSlipImage,
-      matcher: 'Transfer slip screenshots and saved images',
-      action: _RuleAction(
-        transactionType: TransactionType.transfer,
-        merchantHint: 'Read recipient from image',
-        categoryHint: 'Transfer',
-        accountHint: 'Selected bank account',
-        tags: ['bank-slip'],
-        reviewBeforeImport: true,
-      ),
-      priority: 20,
-    ),
-    _AutomationRule(
-      id: 'sms-rule',
-      name: 'Bank SMS alerts',
-      source: _RuleSource.sms,
-      matcher: 'Debit, credit, paid, transferred',
-      action: _RuleAction(
-        transactionType: TransactionType.expense,
-        merchantHint: 'Extract merchant from SMS',
-        categoryHint: 'Auto categorize',
-        accountHint: 'Matched bank account',
-        tags: ['sms'],
-        reviewBeforeImport: false,
-      ),
-      priority: 30,
-    ),
-    _AutomationRule(
-      id: 'notification-rule',
-      name: 'Bank app notifications',
-      source: _RuleSource.appNotification,
-      matcher: 'Payment, transfer, card charged',
-      action: _RuleAction(
-        transactionType: TransactionType.expense,
-        merchantHint: 'Extract notification title/body',
-        categoryHint: 'Auto categorize',
-        accountHint: 'Matched account',
-        tags: ['notification'],
-        reviewBeforeImport: true,
-      ),
-      priority: 40,
-    ),
-  ];
+  Future<void> _saveRules(List<TransactionRule> rules) async {
+    final sorted = _sortRules(rules);
+    setState(() => _rules = sorted);
+    await _store.save(sorted);
+    ref.invalidate(transactionRulesProvider);
+  }
 
   Future<void> _createRule() async {
-    final rule = await Navigator.of(context).push<_AutomationRule>(
+    final rule = await Navigator.of(context).push<TransactionRule>(
       MaterialPageRoute(builder: (_) => const _TransactionRuleFormScreen()),
     );
     if (rule == null) return;
 
-    setState(() {
-      _rules.add(rule);
-      _rules.sort((a, b) => a.priority.compareTo(b.priority));
-    });
-    await _store.save(_rules);
-
+    await _saveRules([..._rules, rule]);
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('${rule.name} rule created')));
   }
 
-  void _toggleRule(_AutomationRule rule, bool value) {
-    setState(() {
-      final index = _rules.indexWhere((item) => item.id == rule.id);
-      if (index == -1) return;
-      _rules[index] = rule.copyWith(isActive: value);
-    });
-    _store.save(_rules);
+  Future<void> _toggleRule(TransactionRule rule, bool value) async {
+    await _saveRules([
+      for (final item in _rules)
+        if (item.id == rule.id) item.copyWith(isActive: value) else item,
+    ]);
+  }
+
+  Future<void> _deleteRule(TransactionRule rule) async {
+    await _saveRules([
+      for (final item in _rules)
+        if (item.id != rule.id) item,
+    ]);
   }
 
   @override
@@ -134,8 +79,6 @@ class _TransactionRulesScreenState extends State<TransactionRulesScreen> {
       appBar: AppBar(
         title: const Text('Transaction rules'),
         actions: [
-          // Auto-capture relies on Android-only OS access — hide the entry
-          // point elsewhere.
           if (Platform.isAndroid)
             IconButton(
               tooltip: 'Auto-capture (SMS & notifications)',
@@ -157,6 +100,7 @@ class _TransactionRulesScreenState extends State<TransactionRulesScreen> {
           return _RuleCard(
             rule: rule,
             onToggle: (value) => _toggleRule(rule, value),
+            onDelete: () => _deleteRule(rule),
           );
         },
       ),
@@ -188,7 +132,7 @@ class _RulesHeader extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
-                Icons.auto_awesome_motion_outlined,
+                Icons.rule_folder_outlined,
                 color: AikoColors.primaryBlue,
               ),
             ),
@@ -198,14 +142,14 @@ class _RulesHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Automatic transaction capture',
+                    'Automatic transaction rules',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Create rules for external data sources so Aiko can read the content, extract transaction details, and import them for review or automatic logging.',
+                    'Rules run after SMS and notification capture. A matching rule can assign a category and add tags before the transaction is saved.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -219,14 +163,22 @@ class _RulesHeader extends StatelessWidget {
 }
 
 class _RuleCard extends StatelessWidget {
-  const _RuleCard({required this.rule, required this.onToggle});
+  const _RuleCard({
+    required this.rule,
+    required this.onToggle,
+    required this.onDelete,
+  });
 
-  final _AutomationRule rule;
+  final TransactionRule rule;
   final ValueChanged<bool> onToggle;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final source = rule.source;
+    final theme = Theme.of(context);
+    final accentColor = rule.isActive
+        ? AikoColors.primaryBlue
+        : theme.colorScheme.onSurfaceVariant;
 
     return Card(
       child: Padding(
@@ -241,10 +193,10 @@ class _RuleCard extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: source.color.withValues(alpha: 0.12),
+                    color: accentColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(source.icon, color: source.color, size: 20),
+                  child: Icon(Icons.rule_outlined, color: accentColor, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -253,15 +205,15 @@ class _RuleCard extends StatelessWidget {
                     children: [
                       Text(
                         rule.name,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        source.label,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        '${rule.conditionType.label} ${rule.operator.label}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -274,42 +226,36 @@ class _RuleCard extends StatelessWidget {
             _RuleInfoRow(
               icon: Icons.manage_search_outlined,
               label: 'Match',
-              value: rule.matcher,
+              value: rule.conditionValue,
             ),
             const SizedBox(height: 8),
             _RuleInfoRow(
-              icon: Icons.receipt_long_outlined,
-              label: 'Log',
-              value:
-                  '${rule.action.transactionType.name} • ${rule.action.accountHint}',
+              icon: Icons.category_outlined,
+              label: 'Category',
+              value: rule.targetCategoryId?.trim().isNotEmpty == true
+                  ? rule.targetCategoryId!
+                  : 'Leave unchanged',
             ),
             const SizedBox(height: 8),
             _RuleInfoRow(
               icon: Icons.sell_outlined,
-              label: 'Apply',
-              value:
-                  '${rule.action.categoryHint} • ${rule.action.tags.join(', ')}',
+              label: 'Tags',
+              value: rule.tagsToApply.isEmpty
+                  ? 'No tags'
+                  : rule.tagsToApply.join(', '),
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Row(
               children: [
-                _RuleChip(
-                  icon: rule.action.reviewBeforeImport
-                      ? Icons.fact_check_outlined
-                      : Icons.flash_on_outlined,
-                  label: rule.action.reviewBeforeImport
-                      ? 'Review before import'
-                      : 'Auto log',
-                ),
                 _RuleChip(
                   icon: Icons.priority_high,
                   label: 'Priority ${rule.priority}',
                 ),
-                _RuleChip(
-                  icon: Icons.security_outlined,
-                  label: source.permissionLabel,
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Delete rule',
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline),
                 ),
               ],
             ),
@@ -343,7 +289,7 @@ class _RuleInfoRow extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         SizedBox(
-          width: 48,
+          width: 64,
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -387,24 +333,19 @@ class _TransactionRuleFormScreenState
     extends State<_TransactionRuleFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _matcherController = TextEditingController();
-  final _merchantController = TextEditingController();
-  final _accountController = TextEditingController();
+  final _valueController = TextEditingController();
   final _categoryController = TextEditingController();
   final _tagsController = TextEditingController();
   final _priorityController = TextEditingController(text: '100');
 
-  _RuleSource _source = _RuleSource.emailStatement;
-  TransactionType _transactionType = TransactionType.expense;
-  bool _reviewBeforeImport = true;
+  RuleConditionType _conditionType = RuleConditionType.merchant;
+  RuleConditionOperator _operator = RuleConditionOperator.contains;
   bool _isActive = true;
 
   @override
   void dispose() {
     _nameController.dispose();
-    _matcherController.dispose();
-    _merchantController.dispose();
-    _accountController.dispose();
+    _valueController.dispose();
     _categoryController.dispose();
     _tagsController.dispose();
     _priorityController.dispose();
@@ -413,30 +354,16 @@ class _TransactionRuleFormScreenState
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
-
-    final rule = _AutomationRule(
+    final categoryId = _categoryController.text.trim();
+    final rule = TransactionRule(
       id: const Uuid().v4(),
+      userId: '',
       name: _nameController.text.trim(),
-      source: _source,
-      matcher: _matcherController.text.trim(),
-      action: _RuleAction(
-        transactionType: _transactionType,
-        merchantHint: _merchantController.text.trim().isEmpty
-            ? 'Extract from source content'
-            : _merchantController.text.trim(),
-        accountHint: _accountController.text.trim().isEmpty
-            ? 'Ask before import'
-            : _accountController.text.trim(),
-        categoryHint: _categoryController.text.trim().isEmpty
-            ? 'Auto categorize'
-            : _categoryController.text.trim(),
-        tags: _tagsController.text
-            .split(',')
-            .map((tag) => tag.trim())
-            .where((tag) => tag.isNotEmpty)
-            .toList(growable: false),
-        reviewBeforeImport: _reviewBeforeImport,
-      ),
+      conditionType: _conditionType,
+      operator: _operator,
+      conditionValue: _valueController.text.trim(),
+      targetCategoryId: categoryId.isEmpty ? null : categoryId,
+      tagsToApply: _splitTags(_tagsController.text),
       priority: int.tryParse(_priorityController.text.trim()) ?? 100,
       isActive: _isActive,
     );
@@ -453,22 +380,6 @@ class _TransactionRuleFormScreenState
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
           children: [
-            DropdownButtonFormField<_RuleSource>(
-              initialValue: _source,
-              decoration: const InputDecoration(
-                labelText: 'External source',
-                prefixIcon: Icon(Icons.source_outlined),
-                border: OutlineInputBorder(),
-              ),
-              items: [
-                for (final source in _RuleSource.values)
-                  DropdownMenuItem(value: source, child: Text(source.label)),
-              ],
-              onChanged: (value) {
-                if (value != null) setState(() => _source = value);
-              },
-            ),
-            const SizedBox(height: 16),
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(
@@ -482,64 +393,56 @@ class _TransactionRuleFormScreenState
                   : null,
             ),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _matcherController,
-              decoration: InputDecoration(
-                labelText: 'Match text or pattern',
-                helperText: _source.helperText,
-                prefixIcon: const Icon(Icons.manage_search_outlined),
-                border: const OutlineInputBorder(),
-              ),
-              minLines: 2,
-              maxLines: 3,
-              validator: (value) => value == null || value.trim().isEmpty
-                  ? 'Match text or pattern is required'
-                  : null,
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<TransactionType>(
-              initialValue: _transactionType,
+            DropdownButtonFormField<RuleConditionType>(
+              initialValue: _conditionType,
               decoration: const InputDecoration(
-                labelText: 'Transaction type to create',
-                prefixIcon: Icon(Icons.receipt_long_outlined),
+                labelText: 'Field to match',
+                prefixIcon: Icon(Icons.source_outlined),
                 border: OutlineInputBorder(),
               ),
               items: [
-                for (final type in TransactionType.values)
-                  DropdownMenuItem(value: type, child: Text(type.name)),
+                for (final type in RuleConditionType.values)
+                  DropdownMenuItem(value: type, child: Text(type.label)),
               ],
               onChanged: (value) {
-                if (value != null) {
-                  setState(() => _transactionType = value);
-                }
+                if (value != null) setState(() => _conditionType = value);
+              },
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<RuleConditionOperator>(
+              initialValue: _operator,
+              decoration: const InputDecoration(
+                labelText: 'Condition',
+                prefixIcon: Icon(Icons.compare_arrows_outlined),
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final operator in RuleConditionOperator.values)
+                  DropdownMenuItem(value: operator, child: Text(operator.label)),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _operator = value);
               },
             ),
             const SizedBox(height: 16),
             TextFormField(
-              controller: _merchantController,
+              controller: _valueController,
               decoration: const InputDecoration(
-                labelText: 'Merchant or payee mapping',
-                hintText: 'Extract from source content',
-                prefixIcon: Icon(Icons.storefront_outlined),
+                labelText: 'Match value',
+                hintText: 'Example: grocery, debit, 7-eleven',
+                prefixIcon: Icon(Icons.manage_search_outlined),
                 border: OutlineInputBorder(),
               ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _accountController,
-              decoration: const InputDecoration(
-                labelText: 'Account mapping',
-                hintText: 'Ask before import',
-                prefixIcon: Icon(Icons.account_balance_wallet_outlined),
-                border: OutlineInputBorder(),
-              ),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'Match value is required'
+                  : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _categoryController,
               decoration: const InputDecoration(
-                labelText: 'Category mapping',
-                hintText: 'Auto categorize',
+                labelText: 'Target category id',
+                hintText: 'Optional',
                 prefixIcon: Icon(Icons.category_outlined),
                 border: OutlineInputBorder(),
               ),
@@ -568,13 +471,6 @@ class _TransactionRuleFormScreenState
             const SizedBox(height: 8),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Review before import'),
-              subtitle: const Text('Show extracted transactions before saving'),
-              value: _reviewBeforeImport,
-              onChanged: (value) => setState(() => _reviewBeforeImport = value),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
               title: const Text('Rule active'),
               value: _isActive,
               onChanged: (value) => setState(() => _isActive = value),
@@ -591,196 +487,38 @@ class _TransactionRuleFormScreenState
   }
 }
 
-enum _RuleSource { emailStatement, bankSlipImage, sms, appNotification }
+List<TransactionRule> _sortRules(List<TransactionRule> rules) {
+  return [...rules]..sort((a, b) => a.priority.compareTo(b.priority));
+}
 
-extension _RuleSourceDetails on _RuleSource {
+List<String> _splitTags(String input) {
+  return input
+      .split(',')
+      .map((tag) => tag.trim())
+      .where((tag) => tag.isNotEmpty)
+      .toList(growable: false);
+}
+
+extension on RuleConditionType {
   String get label {
     return switch (this) {
-      _RuleSource.emailStatement => 'Email statement file',
-      _RuleSource.bankSlipImage => 'Bank slip image',
-      _RuleSource.sms => 'SMS message',
-      _RuleSource.appNotification => 'App notification',
-    };
-  }
-
-  String get helperText {
-    return switch (this) {
-      _RuleSource.emailStatement =>
-        'Example: card issuer sender, PDF file name, or statement keywords',
-      _RuleSource.bankSlipImage =>
-        'Example: transfer complete, recipient name, or bank slip text',
-      _RuleSource.sms => 'Example: debit, credited, payment, available balance',
-      _RuleSource.appNotification =>
-        'Example: notification title/body from banking or wallet apps',
-    };
-  }
-
-  String get permissionLabel {
-    return switch (this) {
-      _RuleSource.emailStatement => 'Email access required',
-      _RuleSource.bankSlipImage => 'Photo access required',
-      _RuleSource.sms => 'SMS access required',
-      _RuleSource.appNotification => 'Notification access required',
-    };
-  }
-
-  IconData get icon {
-    return switch (this) {
-      _RuleSource.emailStatement => Icons.mark_email_read_outlined,
-      _RuleSource.bankSlipImage => Icons.image_search_outlined,
-      _RuleSource.sms => Icons.sms_outlined,
-      _RuleSource.appNotification => Icons.notifications_active_outlined,
-    };
-  }
-
-  Color get color {
-    return switch (this) {
-      _RuleSource.emailStatement => AikoColors.deepBlue,
-      _RuleSource.bankSlipImage => AikoColors.analyticsTeal,
-      _RuleSource.sms => AikoColors.successGreen,
-      _RuleSource.appNotification => AikoColors.warningOrange,
+      RuleConditionType.merchant => 'Merchant',
+      RuleConditionType.keyword => 'Merchant or note',
+      RuleConditionType.amount => 'Amount',
+      RuleConditionType.account => 'Account id',
+      RuleConditionType.category => 'Category id',
+      RuleConditionType.transactionType => 'Transaction type',
     };
   }
 }
 
-class _AutomationRule {
-  const _AutomationRule({
-    required this.id,
-    required this.name,
-    required this.source,
-    required this.matcher,
-    required this.action,
-    required this.priority,
-    this.isActive = true,
-  });
-
-  final String id;
-  final String name;
-  final _RuleSource source;
-  final String matcher;
-  final _RuleAction action;
-  final int priority;
-  final bool isActive;
-
-  factory _AutomationRule.fromJson(Map<String, dynamic> json) {
-    return _AutomationRule(
-      id: json['id'] as String? ?? const Uuid().v4(),
-      name: json['name'] as String? ?? 'Untitled rule',
-      source: _RuleSource.values.byName(
-        json['source'] as String? ?? _RuleSource.emailStatement.name,
-      ),
-      matcher: json['matcher'] as String? ?? '',
-      action: _RuleAction.fromJson(
-        Map<String, dynamic>.from(json['action'] as Map? ?? {}),
-      ),
-      priority: json['priority'] as int? ?? 100,
-      isActive: json['is_active'] as bool? ?? true,
-    );
-  }
-
-  _AutomationRule copyWith({bool? isActive}) {
-    return _AutomationRule(
-      id: id,
-      name: name,
-      source: source,
-      matcher: matcher,
-      action: action,
-      priority: priority,
-      isActive: isActive ?? this.isActive,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'source': source.name,
-      'matcher': matcher,
-      'action': action.toJson(),
-      'priority': priority,
-      'is_active': isActive,
+extension on RuleConditionOperator {
+  String get label {
+    return switch (this) {
+      RuleConditionOperator.contains => 'contains',
+      RuleConditionOperator.equals => 'equals',
+      RuleConditionOperator.startsWith => 'starts with',
+      RuleConditionOperator.endsWith => 'ends with',
     };
-  }
-}
-
-class _RuleAction {
-  const _RuleAction({
-    required this.transactionType,
-    required this.merchantHint,
-    required this.categoryHint,
-    required this.accountHint,
-    required this.tags,
-    required this.reviewBeforeImport,
-  });
-
-  final TransactionType transactionType;
-  final String merchantHint;
-  final String categoryHint;
-  final String accountHint;
-  final List<String> tags;
-  final bool reviewBeforeImport;
-
-  factory _RuleAction.fromJson(Map<String, dynamic> json) {
-    return _RuleAction(
-      transactionType: TransactionType.values.byName(
-        json['transaction_type'] as String? ?? TransactionType.expense.name,
-      ),
-      merchantHint:
-          json['merchant_hint'] as String? ?? 'Extract from source content',
-      categoryHint: json['category_hint'] as String? ?? 'Auto categorize',
-      accountHint: json['account_hint'] as String? ?? 'Ask before import',
-      tags: List<String>.from(json['tags'] as List? ?? []),
-      reviewBeforeImport: json['review_before_import'] as bool? ?? true,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'transaction_type': transactionType.name,
-      'merchant_hint': merchantHint,
-      'category_hint': categoryHint,
-      'account_hint': accountHint,
-      'tags': tags,
-      'review_before_import': reviewBeforeImport,
-    };
-  }
-}
-
-class _AutomationRuleStore {
-  const _AutomationRuleStore({required SecureStorageService storage})
-    : _storage = storage;
-
-  static const _key = 'transaction_automation_rules';
-
-  final SecureStorageService _storage;
-
-  Future<List<_AutomationRule>> load() async {
-    try {
-      final raw = await _storage.read(_key);
-      if (raw == null || raw.isEmpty) return [];
-      final decoded = jsonDecode(raw) as List;
-      return decoded
-          .map(
-            (item) => _AutomationRule.fromJson(
-              Map<String, dynamic>.from(item as Map),
-            ),
-          )
-          .toList(growable: false)
-        ..sort((a, b) => a.priority.compareTo(b.priority));
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Future<void> save(List<_AutomationRule> rules) async {
-    try {
-      await _storage.write(
-        _key,
-        jsonEncode([for (final rule in rules) rule.toJson()]),
-      );
-    } catch (_) {
-      // Rule creation should keep working for the current session even if
-      // secure storage is temporarily unavailable.
-    }
   }
 }

@@ -67,23 +67,4 @@ void main() {
       );
     });
   });
-
-  group('CategoryDefaults.legacySlugToUuid', () {
-    test('every legacy slug maps to a registered system id', () {
-      for (final entry in CategoryDefaults.legacySlugToUuid.entries) {
-        expect(
-          CategoryDefaults.allIds,
-          contains(entry.value),
-          reason: 'Legacy slug "${entry.key}" points at an unknown id '
-              '${entry.value}',
-        );
-      }
-    });
-
-    test('legacy slugs use the historical default-* naming', () {
-      for (final slug in CategoryDefaults.legacySlugToUuid.keys) {
-        expect(slug, startsWith('default-'));
-      }
-    });
-  });
 }

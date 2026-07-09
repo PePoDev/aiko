@@ -64,7 +64,6 @@ void main() {
       title: 'Visa payment',
       amount: usd('200'),
       dueDate: now.add(const Duration(days: 3)),
-      kind: DashboardDueItemKind.creditCard,
     );
     final goal = Account(
       id: 'g1',

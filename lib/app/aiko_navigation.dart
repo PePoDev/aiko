@@ -18,11 +18,8 @@ class AikoNavigationItem {
   final Color accentColor;
 }
 
-/// Flattened Settings list, per the merge plan. The previous grouped layout
-/// (Planning / Insights and AI / Tools and Data / Settings and Security) is
-/// removed; entries are presented as a single ordered list, each with a
-/// leading icon, title, and short description. Order here is the order the
-/// user sees in Settings.
+/// Settings entries are presented as a single ordered list. Order here is the
+/// order the user sees in Settings.
 const aikoNavigationItems = <AikoNavigationItem>[
   // Planning
   AikoNavigationItem(

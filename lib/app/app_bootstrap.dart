@@ -7,7 +7,6 @@ import 'package:logging/logging.dart';
 import '../brick/repository.dart';
 import '../core/config/app_config.dart';
 import '../core/notifications/transaction_reminder_service.dart';
-import '../core/sync/budget_goal_migration.dart';
 import 'aiko_app.dart';
 
 class AppBootstrap {
@@ -24,12 +23,6 @@ class AppBootstrap {
   Future<void> initialize() async {
     _enableBrickSyncLogging();
     await AikoBrickRepository.configure(config);
-    // Budgets -> Categories and Goals -> Accounts one-time merge. Runs after
-    // Brick is configured (so the SQLite store is open) and before any
-    // providers read from the categories/accounts tables, so the new shape
-    // is the only shape the rest of the app sees. No-op once the meta row is
-    // set.
-    await BudgetGoalMigrator().runIfNeeded();
     // Warm up the local-notification plugin + timezone DB so transaction
     // reminders can be scheduled. Best-effort; never blocks startup on failure.
     await TransactionReminderService.instance.init();

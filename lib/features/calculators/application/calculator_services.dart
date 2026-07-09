@@ -1,9 +1,7 @@
 import 'dart:math' as math;
 
-class CalculatorServices {
-  const CalculatorServices();
-
-  double compoundInterest({
+abstract final class CalculatorServices {
+  static double compoundInterest({
     required double principal,
     required double monthlyContribution,
     required double annualRate,
@@ -18,7 +16,7 @@ class CalculatorServices {
     return value;
   }
 
-  double loanPayment({
+  static double loanPayment({
     required double principal,
     required double annualRate,
     required int months,
@@ -35,7 +33,7 @@ class CalculatorServices {
         (math.pow(1 + monthlyRate, months) - 1);
   }
 
-  double roi({
+  static double roi({
     required double initialInvestment,
     required double endingValue,
     double fees = 0,
@@ -48,7 +46,7 @@ class CalculatorServices {
         initialInvestment;
   }
 
-  double convertCurrency({
+  static double convertCurrency({
     required double sourceAmount,
     required double exchangeRate,
   }) {
@@ -58,14 +56,14 @@ class CalculatorServices {
     return sourceAmount * exchangeRate;
   }
 
-  double ruleOf72({required double annualRate}) {
+  static double ruleOf72({required double annualRate}) {
     if (annualRate <= 0) {
       throw ArgumentError('Annual rate must be positive.');
     }
     return 72 / (annualRate * 100);
   }
 
-  double netPresentValue({
+  static double netPresentValue({
     required double discountRate,
     required List<double> cashFlows,
   }) {
@@ -74,7 +72,7 @@ class CalculatorServices {
     });
   }
 
-  double taxEquivalentYield({
+  static double taxEquivalentYield({
     required double taxFreeYield,
     required double marginalTaxRate,
   }) {
@@ -84,7 +82,7 @@ class CalculatorServices {
     return taxFreeYield / (1 - marginalTaxRate);
   }
 
-  double salaryToHourly({
+  static double salaryToHourly({
     required double annualSalary,
     double hoursPerWeek = 40,
     double weeksPerYear = 52,
@@ -92,7 +90,7 @@ class CalculatorServices {
     return annualSalary / (hoursPerWeek * weeksPerYear);
   }
 
-  double inflationAdjustedValue({
+  static double inflationAdjustedValue({
     required double amount,
     required double annualInflationRate,
     required int years,
@@ -100,7 +98,7 @@ class CalculatorServices {
     return amount / math.pow(1 + annualInflationRate, years);
   }
 
-  double tipAmount({required double bill, required double tipRate}) {
+  static double tipAmount({required double bill, required double tipRate}) {
     return bill * tipRate;
   }
 }

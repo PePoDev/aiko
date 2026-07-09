@@ -47,9 +47,8 @@ class CategoryBudgetProgress {
   }
 }
 
-/// Replaces the pre-merge [BudgetProgressService]. Operates on a
-/// `Map<CategoryId, Category>` so the dashboard and detail screens can
-/// derive budget progress without the legacy `Budget` model.
+/// Operates on categories directly so the dashboard and detail screens can
+/// derive budget progress from the current budget fields.
 class CategoryBudgetProgressService {
   const CategoryBudgetProgressService();
 

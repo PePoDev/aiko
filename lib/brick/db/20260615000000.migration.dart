@@ -6,8 +6,7 @@ part of 'schema.g.dart';
 // Budgets -> Categories merge: per-category budget fields added to
 // OfflineCategory. Goals -> Accounts merge: goal fields added to OfflineAccount.
 // The legacy `budgets` and `goals` tables (added by earlier migrations) are
-// not touched here — the one-time data migration in
-// `lib/core/sync/budget_goal_migration.dart` reads them and drops them.
+// dropped by the follow-up 20260615060000 migration.
 
 const List<MigrationCommand> _migration_20260615000000_up = [
   InsertColumn('budget_amount', Column.varchar, onTable: 'OfflineCategory'),

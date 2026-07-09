@@ -528,12 +528,6 @@ final categoryGroupsProvider =
       return CategoryGroupsNotifier();
     });
 
-// PR5 of the budgets -> categories / goals -> accounts merge: the
-// `BudgetsNotifier`, `GoalsNotifier`, `budgetsProvider`, and `goalsProvider`
-// are gone. Budgets are stored on `Category`; goals are accounts with
-// `type = AccountType.goal`. Use `categoriesProvider` / `accountsProvider`
-// (and the derived `goalAccountsDerivedProvider` for the merge-friendly views).
-
 final profileProvider = FutureProvider.autoDispose<Profile>((ref) {
   try {
     final repo = ref.watch(profileRepositoryProvider);
@@ -731,15 +725,6 @@ final notificationsProvider = FutureProvider.autoDispose<List<AppNotification>>(
     }
   },
 );
-
-// ---------------------------------------------------------------------------
-// Budgets -> Categories and Goals -> Accounts merge (PR2)
-// ---------------------------------------------------------------------------
-//
-// The new derived providers below let the dashboard and detail screens read
-// budget / goal data from the `categories` and `accounts` providers without
-// touching the legacy `BudgetRepository` / `GoalRepository`. PR5 removes
-// those repositories entirely.
 
 /// All accounts with `type = goal`. Source of truth for the dashboard's
 /// Aiko Goal Simulator panel and the goal detail screens.

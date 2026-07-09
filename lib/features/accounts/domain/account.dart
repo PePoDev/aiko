@@ -48,8 +48,8 @@ class Account {
       details ?? AccountDetails.defaultFor(type);
 
   /// `true` for accounts that represent a SMART savings goal. Goal accounts
-  /// use [currentBalance] as the saved amount (per the merge plan; no linked
-  /// account required) and require [targetAmount] / [targetDate] to be set.
+  /// use [currentBalance] as the saved amount and require [targetAmount] /
+  /// [targetDate] to be set.
   bool get isGoal => type == AccountType.goal;
 
   /// Money still to save to reach [targetAmount]. Returns [Money.zero] for

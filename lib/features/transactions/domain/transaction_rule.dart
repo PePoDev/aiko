@@ -69,6 +69,32 @@ class TransactionRule {
     'is_active': isActive,
   };
 
+  TransactionRule copyWith({
+    String? id,
+    String? userId,
+    String? name,
+    RuleConditionType? conditionType,
+    RuleConditionOperator? operator,
+    String? conditionValue,
+    String? targetCategoryId,
+    List<String>? tagsToApply,
+    int? priority,
+    bool? isActive,
+  }) {
+    return TransactionRule(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      name: name ?? this.name,
+      conditionType: conditionType ?? this.conditionType,
+      operator: operator ?? this.operator,
+      conditionValue: conditionValue ?? this.conditionValue,
+      targetCategoryId: targetCategoryId ?? this.targetCategoryId,
+      tagsToApply: tagsToApply ?? this.tagsToApply,
+      priority: priority ?? this.priority,
+      isActive: isActive ?? this.isActive,
+    );
+  }
+
   bool matches(FinanceTransaction transaction) {
     final value = switch (conditionType) {
       RuleConditionType.merchant => transaction.merchant ?? '',

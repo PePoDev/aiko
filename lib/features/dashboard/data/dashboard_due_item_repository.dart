@@ -37,7 +37,6 @@ class DashboardDueItemRepository {
       items.add(
         DashboardDueItem(
           id: row['id'] as String,
-          kind: DashboardDueItemKind.creditCard,
           title: 'Credit card payment',
           amount: statementBalance,
           dueDate: due,

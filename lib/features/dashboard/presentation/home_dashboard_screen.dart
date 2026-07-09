@@ -13,7 +13,6 @@ import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../categories/domain/category.dart';
-import '../domain/dashboard_widget_preference.dart';
 import '../../transactions/domain/transaction.dart';
 import '../../transactions/presentation/transaction_form_screen.dart';
 
@@ -83,7 +82,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               for (var i = 0; i < _homeWidgets.length; i++)
                 Padding(
                   padding: EdgeInsets.only(top: i == 0 ? 0 : 16),
-                  child: _buildWidget(context, _homeWidgets[i]),
+                  child: _homeWidgets[i],
                 ),
             ],
           ),
@@ -92,38 +91,16 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       floatingActionButton: const _QuickAddMenu(),
     );
   }
-
-  Widget _buildWidget(
-    BuildContext context,
-    DashboardWidgetType type,
-  ) {
-    return switch (type) {
-      DashboardWidgetType.dailySpending => const _DailySpendingPanel(),
-      DashboardWidgetType.dailySummary => const _OverviewAnalyticsWidget(
-        kind: _AnalyticsWidgetKind.dailySummary,
-      ),
-      DashboardWidgetType.netEarnings => const _OverviewAnalyticsWidget(
-        kind: _AnalyticsWidgetKind.netEarnings,
-      ),
-      DashboardWidgetType.categoryBudgets => const _OverviewAnalyticsWidget(
-        kind: _AnalyticsWidgetKind.categoryBudgets,
-      ),
-      DashboardWidgetType.spendingCalendar => const _OverviewAnalyticsWidget(
-        kind: _AnalyticsWidgetKind.spendingCalendar,
-      ),
-      DashboardWidgetType.cashFlowMapping => const _CashFlowMappingPanel(),
-    };
-  }
 }
 
 /// The fixed set of widgets shown on the home dashboard, in display order.
-const _homeWidgets = <DashboardWidgetType>[
-  DashboardWidgetType.dailySpending,
-  DashboardWidgetType.dailySummary,
-  DashboardWidgetType.netEarnings,
-  DashboardWidgetType.categoryBudgets,
-  DashboardWidgetType.spendingCalendar,
-  DashboardWidgetType.cashFlowMapping,
+const _homeWidgets = <Widget>[
+  _DailySpendingPanel(),
+  _OverviewAnalyticsWidget(kind: _AnalyticsWidgetKind.dailySummary),
+  _OverviewAnalyticsWidget(kind: _AnalyticsWidgetKind.netEarnings),
+  _OverviewAnalyticsWidget(kind: _AnalyticsWidgetKind.categoryBudgets),
+  _OverviewAnalyticsWidget(kind: _AnalyticsWidgetKind.spendingCalendar),
+  _CashFlowMappingPanel(),
 ];
 
 class _DailySpendingPanel extends ConsumerWidget {

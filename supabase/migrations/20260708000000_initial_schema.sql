@@ -466,29 +466,6 @@ CREATE TABLE public.profiles (
 
 
 --
--- Name: transaction_rules; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.transaction_rules (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    rule_name text NOT NULL,
-    condition_type text NOT NULL,
-    condition_operator text DEFAULT 'contains'::text NOT NULL,
-    condition_value text NOT NULL,
-    target_category_id uuid,
-    target_account_id uuid,
-    tags_to_apply text[] DEFAULT '{}'::text[] NOT NULL,
-    split_template jsonb,
-    mark_recurring boolean DEFAULT false NOT NULL,
-    priority integer DEFAULT 100 NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
 -- Name: transaction_splits; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -631,14 +608,6 @@ ALTER TABLE ONLY public.profiles
 
 
 --
--- Name: transaction_rules transaction_rules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.transaction_rules
-    ADD CONSTRAINT transaction_rules_pkey PRIMARY KEY (id);
-
-
---
 -- Name: transaction_splits transaction_splits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -736,27 +705,6 @@ CREATE INDEX line_links_user_id_idx ON public.line_links USING btree (user_id);
 --
 
 CREATE INDEX line_pairings_code_idx ON public.line_pairings USING btree (code);
-
-
---
--- Name: transaction_rules_target_account_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX transaction_rules_target_account_id_idx ON public.transaction_rules USING btree (target_account_id);
-
-
---
--- Name: transaction_rules_target_category_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX transaction_rules_target_category_id_idx ON public.transaction_rules USING btree (target_category_id);
-
-
---
--- Name: transaction_rules_user_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX transaction_rules_user_id_idx ON public.transaction_rules USING btree (user_id);
 
 
 --
@@ -894,30 +842,6 @@ ALTER TABLE ONLY public.investment_holdings
 
 ALTER TABLE ONLY public.line_links
     ADD CONSTRAINT line_links_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
--- Name: transaction_rules transaction_rules_target_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.transaction_rules
-    ADD CONSTRAINT transaction_rules_target_account_id_fkey FOREIGN KEY (target_account_id) REFERENCES public.accounts(id);
-
-
---
--- Name: transaction_rules transaction_rules_target_category_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.transaction_rules
-    ADD CONSTRAINT transaction_rules_target_category_id_fkey FOREIGN KEY (target_category_id) REFERENCES public.categories(id);
-
-
---
--- Name: transaction_rules transaction_rules_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.transaction_rules
-    ADD CONSTRAINT transaction_rules_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
 
 
 --
@@ -1134,19 +1058,6 @@ CREATE POLICY "profiles own rows" ON public.profiles TO authenticated USING ((id
 
 
 --
--- Name: transaction_rules; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.transaction_rules ENABLE ROW LEVEL SECURITY;
-
---
--- Name: transaction_rules transaction_rules own rows; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "transaction_rules own rows" ON public.transaction_rules TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid))) WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-
-
---
 -- Name: transaction_splits; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -1342,15 +1253,6 @@ GRANT ALL ON TABLE public.line_pairings TO service_role;
 GRANT ALL ON TABLE public.profiles TO anon;
 GRANT ALL ON TABLE public.profiles TO authenticated;
 GRANT ALL ON TABLE public.profiles TO service_role;
-
-
---
--- Name: TABLE transaction_rules; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.transaction_rules TO anon;
-GRANT ALL ON TABLE public.transaction_rules TO authenticated;
-GRANT ALL ON TABLE public.transaction_rules TO service_role;
 
 
 --

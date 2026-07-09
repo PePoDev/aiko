@@ -6,9 +6,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/offline/offline_data_migrator.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../../../core/storage/secure_storage_service.dart';
-import '../../../core/sync/post_signin_data_preparer.dart';
 
 class AuthSession {
   const AuthSession({required this.userId, required this.email});
@@ -126,8 +126,14 @@ class AuthRepository {
     return _session!;
   }
 
-  Future<void> _prepareOfflineDataForSync(String userId) {
-    return const PostSigninDataPreparer().prepareForSync(userId);
+  Future<void> _prepareOfflineDataForSync(String userId) async {
+    try {
+      await OfflineDataMigrator().claimAnonymousData(userId);
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('[aiko-sync] offline data prepare skipped: $error');
+      }
+    }
   }
 
   Stream<AuthState> authStateChanges() {

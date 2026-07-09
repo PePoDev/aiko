@@ -1,6 +1,6 @@
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/investments/domain/investment_holding.dart';
-import 'package:aiko/features/overview/application/allocation_service.dart';
+import 'package:aiko/features/investments/application/allocation_service.dart';
 import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 

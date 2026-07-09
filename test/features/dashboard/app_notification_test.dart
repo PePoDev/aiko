@@ -1,6 +1,7 @@
 import 'package:aiko/core/money/money.dart';
 import 'package:decimal/decimal.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
+import 'package:aiko/features/accounts/domain/account_details.dart';
 import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/dashboard/domain/app_notification.dart';
 import 'package:aiko/features/dashboard/domain/dashboard_due_item.dart';
@@ -88,5 +89,27 @@ void main() {
     ]);
     expect(result[0].subtitle, contains('in 3 days'));
     expect(result[1].subtitle, contains('50%'));
+  });
+
+  test('credit-card account details derive upcoming due items', () {
+    final card = Account(
+      id: 'cc1',
+      userId: 'u1',
+      name: 'Visa',
+      type: AccountType.creditCard,
+      currentBalance: usd('1200'),
+      details: CreditCardDetails(
+        statementDay: 10,
+        dueDay: 23,
+        minimumPayment: usd('120'),
+      ),
+    );
+
+    final result = buildDashboardDueItems(accounts: [card], asOf: now);
+
+    expect(result, hasLength(1));
+    expect(result.single.title, 'Visa payment');
+    expect(result.single.amount, usd('120'));
+    expect(result.single.dueDate, DateTime(2026, 6, 23));
   });
 }

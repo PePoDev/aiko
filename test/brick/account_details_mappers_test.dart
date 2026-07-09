@@ -1,7 +1,6 @@
 import 'package:aiko/brick/offline_model_mappers.dart';
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/accounts/domain/account_details.dart';
-import 'package:aiko/features/assets/domain/asset.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

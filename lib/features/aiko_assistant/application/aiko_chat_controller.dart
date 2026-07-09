@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/providers.dart';
 import 'chat_engine.dart';
 import 'financial_context.dart';
 
@@ -12,6 +11,7 @@ const _greeting = ChatMessage(
   content:
       "Hi! I'm Aiko. Ask me anything about your money, budgets, goals, or spending.",
 );
+const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 
 class ChatError {
   const ChatError(this.message, {required this.retryable});
@@ -56,8 +56,9 @@ class ChatState {
 }
 
 final aikoChatEngineProvider = Provider<HttpChatEngine>((ref) {
-  final config = ref.watch(aikoSupabaseConfigProvider);
-  return HttpChatEngine(functionUrl: '${config.url}/functions/v1/aiko-chat');
+  return const HttpChatEngine(
+    functionUrl: '$_supabaseUrl/functions/v1/aiko-chat',
+  );
 });
 
 final aikoChatControllerProvider =
@@ -69,7 +70,7 @@ class AikoChatController extends Notifier<ChatState> {
 
   @override
   ChatState build() {
-    final offline = !ref.watch(aikoSupabaseConfigProvider).isConfigured;
+    final offline = _supabaseUrl.isEmpty;
     ref.onDispose(() {
       _subscription?.cancel();
     });

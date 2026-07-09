@@ -1,10 +1,11 @@
 import '../../../core/money/money.dart';
-import '../../assets/domain/asset.dart';
 import 'account_type.dart';
 
 enum RewardsType { cashback, points, miles, none }
 
 enum LoanType { mortgage, auto, personal, student, other }
+
+enum AssetClass { cash, stocks, realEstate, vehicle, other }
 
 sealed class AccountDetails {
   const AccountDetails();

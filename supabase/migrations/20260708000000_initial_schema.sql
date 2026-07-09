@@ -278,29 +278,6 @@ CREATE TABLE public.accounts (
 
 
 --
--- Name: aiko_insights; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.aiko_insights (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    insight_type text NOT NULL,
-    title text NOT NULL,
-    description text NOT NULL,
-    recommendation text NOT NULL,
-    confidence_score numeric(4,3) DEFAULT 0.7 NOT NULL,
-    source_data_summary jsonb DEFAULT '[]'::jsonb NOT NULL,
-    related_entity_type text,
-    related_entity_id uuid,
-    status text DEFAULT 'new'::text NOT NULL,
-    feedback text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    viewed_at timestamp with time zone,
-    dismissed_at timestamp with time zone
-);
-
-
---
 -- Name: attachments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -365,27 +342,6 @@ CREATE TABLE public.category_groups (
     version integer DEFAULT 1 NOT NULL,
     budget_amount numeric,
     budget_currency text
-);
-
-
---
--- Name: credit_card_profiles; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.credit_card_profiles (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    account_id uuid,
-    credit_limit numeric(18,4) DEFAULT 0 NOT NULL,
-    statement_balance numeric(18,4) DEFAULT 0 NOT NULL,
-    minimum_payment numeric(18,4) DEFAULT 0 NOT NULL,
-    apr numeric(7,4) DEFAULT 0 NOT NULL,
-    rewards_type text,
-    due_day integer DEFAULT 1 NOT NULL,
-    statement_day integer DEFAULT 1 NOT NULL,
-    annual_fee numeric(18,4) DEFAULT 0 NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -528,14 +484,6 @@ ALTER TABLE ONLY public.accounts
 
 
 --
--- Name: aiko_insights aiko_insights_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.aiko_insights
-    ADD CONSTRAINT aiko_insights_pkey PRIMARY KEY (id);
-
-
---
 -- Name: attachments attachments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -557,14 +505,6 @@ ALTER TABLE ONLY public.categories
 
 ALTER TABLE ONLY public.category_groups
     ADD CONSTRAINT category_groups_pkey PRIMARY KEY (id);
-
-
---
--- Name: credit_card_profiles credit_card_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.credit_card_profiles
-    ADD CONSTRAINT credit_card_profiles_pkey PRIMARY KEY (id);
 
 
 --
@@ -631,13 +571,6 @@ CREATE INDEX accounts_user_id_idx ON public.accounts USING btree (user_id);
 
 
 --
--- Name: aiko_insights_user_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX aiko_insights_user_id_idx ON public.aiko_insights USING btree (user_id);
-
-
---
 -- Name: attachments_user_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -670,20 +603,6 @@ CREATE UNIQUE INDEX categories_user_parent_name_idx ON public.categories USING b
 --
 
 CREATE INDEX category_groups_user_id_idx ON public.category_groups USING btree (user_id);
-
-
---
--- Name: credit_card_profiles_account_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX credit_card_profiles_account_id_idx ON public.credit_card_profiles USING btree (account_id);
-
-
---
--- Name: credit_card_profiles_user_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX credit_card_profiles_user_id_idx ON public.credit_card_profiles USING btree (user_id);
 
 
 --
@@ -765,14 +684,6 @@ ALTER TABLE ONLY public.accounts
 
 
 --
--- Name: aiko_insights aiko_insights_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.aiko_insights
-    ADD CONSTRAINT aiko_insights_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
 -- Name: attachments attachments_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -810,22 +721,6 @@ ALTER TABLE ONLY public.categories
 
 ALTER TABLE ONLY public.category_groups
     ADD CONSTRAINT category_groups_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
-
-
---
--- Name: credit_card_profiles credit_card_profiles_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.credit_card_profiles
-    ADD CONSTRAINT credit_card_profiles_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id) ON DELETE CASCADE;
-
-
---
--- Name: credit_card_profiles credit_card_profiles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.credit_card_profiles
-    ADD CONSTRAINT credit_card_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
 
 
 --
@@ -893,13 +788,6 @@ ALTER TABLE ONLY public.transactions
 
 
 --
--- Name: credit_card_profiles Users manage own credit card profiles; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users manage own credit card profiles" ON public.credit_card_profiles TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
-
-
---
 -- Name: investment_holdings Users manage own investment holdings; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -917,19 +805,6 @@ ALTER TABLE public.accounts ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY "accounts own rows" ON public.accounts TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid))) WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-
-
---
--- Name: aiko_insights; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.aiko_insights ENABLE ROW LEVEL SECURITY;
-
---
--- Name: aiko_insights aiko_insights own rows; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "aiko_insights own rows" ON public.aiko_insights TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid))) WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
 
 
 --
@@ -1012,12 +887,6 @@ CREATE POLICY "category_groups select" ON public.category_groups FOR SELECT TO a
 
 CREATE POLICY "category_groups update" ON public.category_groups FOR UPDATE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid))) WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
 
-
---
--- Name: credit_card_profiles; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.credit_card_profiles ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: investment_holdings; Type: ROW SECURITY; Schema: public; Owner: -
@@ -1175,15 +1044,6 @@ GRANT ALL ON TABLE public.accounts TO service_role;
 
 
 --
--- Name: TABLE aiko_insights; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.aiko_insights TO anon;
-GRANT ALL ON TABLE public.aiko_insights TO authenticated;
-GRANT ALL ON TABLE public.aiko_insights TO service_role;
-
-
---
 -- Name: TABLE attachments; Type: ACL; Schema: public; Owner: -
 --
 
@@ -1208,15 +1068,6 @@ GRANT ALL ON TABLE public.categories TO service_role;
 GRANT ALL ON TABLE public.category_groups TO anon;
 GRANT ALL ON TABLE public.category_groups TO authenticated;
 GRANT ALL ON TABLE public.category_groups TO service_role;
-
-
---
--- Name: TABLE credit_card_profiles; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.credit_card_profiles TO anon;
-GRANT ALL ON TABLE public.credit_card_profiles TO authenticated;
-GRANT ALL ON TABLE public.credit_card_profiles TO service_role;
 
 
 --

@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/transactions/data/transaction_repository.dart';
 import '../features/accounts/application/shared_limit_resolver.dart';
@@ -7,20 +8,16 @@ import '../features/categories/data/category_repository.dart';
 import '../features/categories/data/category_group_repository.dart';
 import '../features/categories/domain/category.dart';
 import '../features/categories/domain/category_defaults.dart';
-import '../features/dashboard/data/dashboard_due_item_repository.dart';
-import '../features/dashboard/data/dashboard_repository.dart';
 import '../features/dashboard/domain/app_notification.dart';
 import '../features/dashboard/domain/dashboard_due_item.dart';
 import '../features/dashboard/domain/dashboard_summary.dart';
-import '../features/overview/application/allocation_service.dart';
+import '../features/investments/application/allocation_service.dart';
 import '../features/overview/application/budget_insights_service.dart';
 import '../features/overview/application/cash_flow_service.dart';
 import '../features/overview/application/goal_forecast_service.dart';
 import '../features/overview/application/monthly_report_service.dart';
 import '../features/overview/domain/monthly_report.dart';
 import '../features/investments/application/investments_provider.dart';
-import '../features/insights/data/aiko_insight_repository.dart';
-import '../features/insights/domain/aiko_insight.dart';
 import '../features/settings/data/profile_repository.dart';
 import '../features/settings/domain/profile.dart';
 import '../features/transactions/domain/transaction.dart';
@@ -55,20 +52,6 @@ final categoryGroupRepositoryProvider = Provider<CategoryGroupRepository>((
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
   return const ProfileRepository();
 });
-
-final aikoInsightRepositoryProvider = Provider<AikoInsightRepository>((ref) {
-  return const AikoInsightRepository();
-});
-
-final dashboardRepositoryProvider = Provider<DashboardRepository>((ref) {
-  return const DashboardRepository();
-});
-
-final dashboardDueItemRepositoryProvider = Provider<DashboardDueItemRepository>(
-  (ref) {
-    return const DashboardDueItemRepository();
-  },
-);
 
 final investmentHoldingRepositoryProvider =
     Provider<InvestmentHoldingRepository>((ref) {
@@ -539,41 +522,19 @@ final profileProvider = FutureProvider.autoDispose<Profile>((ref) {
   }
 });
 
-final aikoInsightsProvider = FutureProvider.autoDispose<List<AikoInsight>>((
-  ref,
-) async {
-  try {
-    final repo = ref.watch(aikoInsightRepositoryProvider);
-    return repo.list();
-  } catch (error, stackTrace) {
-    // Surface to `AikoScreenState.error`; offline + secure-storage broken
-    // must render a recoverable error widget, not a provider-tree crash.
-    Error.throwWithStackTrace(error, stackTrace);
-  }
-});
-
-/// Single source of truth for the Supabase runtime configuration that the app
-/// compiled with. `AikoSupabase` (`lib/core/supabase/`) owns the
-/// *initialised* client; this provider only exposes the raw env values so
-/// callers (e.g. the chat engine) can decide between cloud and offline paths
-/// without re-reading `String.fromEnvironment` themselves.
-class AikoSupabaseConfig {
-  const AikoSupabaseConfig({required this.url});
-  final String url;
-  bool get isConfigured => url.isNotEmpty;
-}
-
-final aikoSupabaseConfigProvider = Provider<AikoSupabaseConfig>((ref) {
-  const url = String.fromEnvironment('SUPABASE_URL');
-  return AikoSupabaseConfig(url: url);
-});
-
 final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummary>((
   ref,
 ) async {
   try {
-    final repo = ref.watch(dashboardRepositoryProvider);
-    final summary = await repo.loadSummary();
+    final accounts = await ref.watch(accountsProvider.future);
+    final transactions = await ref.watch(transactionsProvider.future);
+    final categories = await ref.watch(categoriesProvider.future);
+    final summary = _buildDashboardSummary(
+      accounts: accounts,
+      transactions: transactions,
+      categories: categories,
+      now: DateTime.now(),
+    );
     // Keep the computed summary cached across tab switches so the Overview
     // shows instantly on return; pull-to-refresh recomputes it on demand.
     ref.keepAlive();
@@ -584,6 +545,111 @@ final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummary>((
     Error.throwWithStackTrace(error, stackTrace);
   }
 });
+
+DashboardSummary _buildDashboardSummary({
+  required List<Account> accounts,
+  required List<FinanceTransaction> transactions,
+  required List<Category> categories,
+  required DateTime now,
+}) {
+  final periodStart = DateTime(now.year, now.month);
+  final periodEnd = DateTime(now.year, now.month + 1, 0);
+  final activeAccounts = accounts
+      .where((account) => account.isActive)
+      .toList(growable: false);
+  final monthTransactions = transactions
+      .where(
+        (transaction) =>
+            !transaction.date.isBefore(periodStart) &&
+            !transaction.date.isAfter(periodEnd),
+      )
+      .toList(growable: false);
+  final budgetedCategories = categories
+      .where(
+        (category) =>
+            category.monthlyLimit != null &&
+            category.monthlyLimit!.amount > Decimal.zero,
+      )
+      .toList(growable: false);
+
+  final currency = _firstCurrency(
+    activeAccounts,
+    monthTransactions,
+    budgetedCategories,
+  );
+  var netWorth = Decimal.zero;
+  var totalCash = Decimal.zero;
+  for (final account in activeAccounts) {
+    if (account.type == AccountType.goal) continue;
+    final amount = account.currentBalance.amount;
+    if (account.includeInNetWorth) {
+      netWorth += amount;
+    }
+    if (account.type == AccountType.cash || account.type == AccountType.bank) {
+      totalCash += amount;
+    }
+  }
+
+  var monthlyIncome = Decimal.zero;
+  var monthlySpending = Decimal.zero;
+  for (final transaction in monthTransactions) {
+    final amount = transaction.amount.amount;
+    if (transaction.type == TransactionType.income) {
+      monthlyIncome += amount;
+    } else if (transaction.type == TransactionType.expense) {
+      monthlySpending += amount;
+    }
+  }
+
+  var totalBudget = Decimal.zero;
+  for (final category in budgetedCategories) {
+    totalBudget += category.monthlyLimit!.amount;
+  }
+
+  final weeklyFlow = ((monthlyIncome - monthlySpending) / Decimal.parse('4.33'))
+      .toDecimal(scaleOnInfinitePrecision: 2);
+  final safeToSpend = weeklyFlow > Decimal.zero ? weeklyFlow : Decimal.zero;
+  final percentOfBudgetUsed = totalBudget > Decimal.zero
+      ? monthlySpending.toDouble() / totalBudget.toDouble() * 100
+      : 0.0;
+  final daysElapsedRatio = now.day / periodEnd.day;
+
+  return DashboardSummary(
+    netWorth: Money(amount: netWorth, currency: currency),
+    totalCash: Money(amount: totalCash, currency: currency),
+    monthlyIncome: Money(amount: monthlyIncome, currency: currency),
+    monthlySpending: Money(amount: monthlySpending, currency: currency),
+    safeToSpend: Money(amount: safeToSpend, currency: currency),
+    paceStatus: PaceStatus(
+      percentOfBudgetUsed: percentOfBudgetUsed,
+      daysElapsedRatio: daysElapsedRatio,
+    ),
+  );
+}
+
+String _firstCurrency(
+  Iterable<Account> accounts,
+  Iterable<FinanceTransaction> transactions,
+  Iterable<Category> categories,
+) {
+  for (final account in accounts) {
+    if (account.currentBalance.currency.isNotEmpty) {
+      return account.currentBalance.currency;
+    }
+  }
+  for (final transaction in transactions) {
+    if (transaction.amount.currency.isNotEmpty) {
+      return transaction.amount.currency;
+    }
+  }
+  for (final category in categories) {
+    final currency = category.monthlyLimit?.currency;
+    if (currency != null && currency.isNotEmpty) {
+      return currency;
+    }
+  }
+  return 'USD';
+}
 
 /// Monthly Report figures derived live from the user's real transactions and
 /// categories. No mock data — returns an empty-but-valid report when there is
@@ -690,8 +756,11 @@ final goalForecastProvider = FutureProvider.autoDispose
 final dashboardDueItemsProvider =
     FutureProvider.autoDispose<List<DashboardDueItem>>((ref) async {
       try {
-        final repo = ref.watch(dashboardDueItemRepositoryProvider);
-        final items = await repo.loadUpcomingItems(DateTime.now());
+        final accounts = await ref.watch(accountsProvider.future);
+        final items = buildDashboardDueItems(
+          accounts: accounts,
+          asOf: DateTime.now(),
+        );
         ref.keepAlive();
         return items;
       } catch (error, stackTrace) {

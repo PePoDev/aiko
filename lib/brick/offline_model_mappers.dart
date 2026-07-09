@@ -5,7 +5,6 @@ import 'package:decimal/decimal.dart';
 import '../core/money/money.dart';
 import '../features/accounts/domain/account.dart';
 import '../features/accounts/domain/account_details.dart';
-import '../features/assets/domain/asset.dart';
 import '../features/categories/domain/category.dart';
 import '../features/investments/domain/investment_holding.dart';
 import '../features/settings/domain/profile.dart';

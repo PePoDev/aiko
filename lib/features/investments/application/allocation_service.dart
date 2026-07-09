@@ -7,6 +7,40 @@ import '../domain/investment_holding.dart';
 class AllocationService {
   const AllocationService();
 
+  PortfolioAllocation build(List<InvestmentHolding> holdings) {
+    final currency = holdings.isNotEmpty ? holdings.first.currency : 'USD';
+
+    final byClass = <String, Decimal>{};
+    var total = Decimal.zero;
+    for (final holding in holdings) {
+      final value = holding.marketValue.amount;
+      total += value;
+      final label = holding.assetClass.isEmpty ? 'Other' : holding.assetClass;
+      byClass[label] = (byClass[label] ?? Decimal.zero) + value;
+    }
+
+    final totalDouble = total.toDouble();
+    final slices =
+        byClass.entries
+            .map(
+              (entry) => AllocationSlice(
+                assetClass: entry.key,
+                value: Money(amount: entry.value, currency: currency),
+                percent: totalDouble == 0
+                    ? 0
+                    : entry.value.toDouble() / totalDouble * 100,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+
+    return PortfolioAllocation(
+      total: Money(amount: total, currency: currency),
+      holdingCount: holdings.length,
+      slices: slices,
+    );
+  }
+
   double allocationPercent(
     InvestmentHolding holding,
     List<InvestmentHolding> portfolio,
@@ -93,6 +127,34 @@ class AllocationService {
     );
     return classTotal / total * 100;
   }
+}
+
+class AllocationSlice {
+  const AllocationSlice({
+    required this.assetClass,
+    required this.value,
+    required this.percent,
+  });
+
+  final String assetClass;
+  final Money value;
+  final double percent;
+}
+
+class PortfolioAllocation {
+  const PortfolioAllocation({
+    required this.total,
+    required this.holdingCount,
+    required this.slices,
+  });
+
+  final Money total;
+  final int holdingCount;
+
+  /// Allocation by asset class, largest first.
+  final List<AllocationSlice> slices;
+
+  bool get hasHoldings => holdingCount > 0;
 }
 
 class RebalanceAlert {

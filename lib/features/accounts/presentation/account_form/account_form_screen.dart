@@ -6,7 +6,6 @@ import 'package:uuid/uuid.dart';
 import '../../../../app/providers.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/money/money.dart';
-import '../../../../features/assets/domain/asset.dart';
 import '../../../../shared/widgets/aiko_data_widgets.dart';
 import '../../../../theme/aiko_colors.dart';
 import '../../../transactions/domain/transaction.dart';
@@ -137,7 +136,6 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       text: loan.monthlyPayment.amount.toString(),
     );
     _loanDue = loan.nextDueDate;
-
 
     final asset = a?.details is AssetDetails
         ? a!.details as AssetDetails

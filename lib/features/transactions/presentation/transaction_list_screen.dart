@@ -11,6 +11,7 @@ import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
 import '../../categories/presentation/category_visual.dart';
 import '../application/recurring_projection.dart';
+import '../application/transaction_month_range.dart';
 import '../domain/transaction.dart';
 import 'transaction_detail_screen.dart';
 import 'transaction_form_screen.dart';
@@ -238,8 +239,12 @@ class _MonthlyTransactionTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentMonth = _MonthKey.fromDate(DateTime.now());
-    final months = _monthKeysFor(transactions, currentMonth);
+    final now = DateTime.now();
+    final currentMonth = TransactionMonth.fromDate(now);
+    final months = const TransactionMonthRangeService().monthsFor(
+      transactions: transactions,
+      currentDate: now,
+    );
     final initialIndex = months.indexOf(currentMonth);
 
     return DefaultTabController(
@@ -252,7 +257,7 @@ class _MonthlyTransactionTabs extends StatelessWidget {
             child: TabBar(
               isScrollable: true,
               tabAlignment: TabAlignment.center,
-              tabs: [for (final month in months) Tab(text: month.label)],
+              tabs: [for (final month in months) Tab(text: _monthLabel(month))],
             ),
           ),
           if (isSearching) ...[
@@ -289,43 +294,14 @@ class _MonthlyTransactionTabs extends StatelessWidget {
     );
   }
 
-  static List<_MonthKey> _monthKeysFor(
-    List<FinanceTransaction> transactions,
-    _MonthKey currentMonth,
-  ) {
-    // Cap the initial TabBarView to a 13-month window (last 12 + 1
-    // forward) so the first build doesn't allocate 241 pages. The window
-    // still grows automatically when the user scrolls to a transaction
-    // older / newer than the bounds, so no functionality is lost.
-    var firstMonth = currentMonth.addMonths(-12);
-    var lastMonth = currentMonth.addMonths(1);
-
-    for (final transaction in transactions) {
-      final transactionMonth = _MonthKey.fromDate(transaction.date);
-      if (transactionMonth.compareTo(firstMonth) < 0) {
-        firstMonth = transactionMonth.addMonths(-1);
-      }
-      if (transactionMonth.compareTo(lastMonth) > 0) {
-        lastMonth = transactionMonth.addMonths(1);
-      }
-    }
-
-    return [
-      for (
-        var month = firstMonth;
-        month.compareTo(lastMonth) <= 0;
-        month = month.addMonths(1)
-      )
-        month,
-    ];
-  }
-
   static List<FinanceTransaction> _transactionsForMonth(
-    _MonthKey month,
+    TransactionMonth month,
     List<FinanceTransaction> transactions,
   ) {
     return transactions
-        .where((transaction) => _MonthKey.fromDate(transaction.date) == month)
+        .where(
+          (transaction) => TransactionMonth.fromDate(transaction.date) == month,
+        )
         .toList(growable: false);
   }
 }
@@ -529,7 +505,7 @@ class _TransactionMonthPage extends ConsumerStatefulWidget {
   final List<FinanceTransaction> transactions;
   final List<FinanceTransaction> allTransactions;
   final _TransactionSearchState searchState;
-  final _MonthKey month;
+  final TransactionMonth month;
   final VoidCallback onClearSearch;
 
   @override
@@ -591,7 +567,7 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
             AikoScreenState.empty(
               title: searchState.isActive
                   ? 'No matching transactions'
-                  : 'No transactions in ${widget.month.label}',
+                  : 'No transactions in ${_monthLabel(widget.month)}',
               message: searchState.isActive
                   ? 'Try a different search or clear filters.'
                   : 'Add a transaction for this month when you are ready.',
@@ -637,27 +613,27 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
-      children: [
-        _MonthSummaryCard(
-          monthLabel: widget.month.label,
-          total: monthTotal,
-          averagePerDay: averagePerDay,
-          onTap: () => context.push('/reports/monthly'),
-        ),
-        const SizedBox(height: 16),
-        for (final group in groups) ...[
-          _TransactionDateHeader(date: group.date, total: group.total),
-          _DayTransactionsCard(
-            transactions: group.transactions,
-            accountLabels: accountLabels,
-            previewIds: previewIds,
-            previewSources: previewSources,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
+        children: [
+          _MonthSummaryCard(
+            monthLabel: _monthLabel(widget.month),
+            total: monthTotal,
+            averagePerDay: averagePerDay,
+            onTap: () => context.push('/reports/monthly'),
           ),
           const SizedBox(height: 16),
+          for (final group in groups) ...[
+            _TransactionDateHeader(date: group.date, total: group.total),
+            _DayTransactionsCard(
+              transactions: group.transactions,
+              accountLabels: accountLabels,
+              previewIds: previewIds,
+              previewSources: previewSources,
+            ),
+            const SizedBox(height: 16),
+          ],
         ],
-      ],
       ),
     );
   }
@@ -1063,38 +1039,8 @@ class _DayTransactionsCard extends StatelessWidget {
   }
 }
 
-class _MonthKey {
-  const _MonthKey(this.year, this.month);
-
-  factory _MonthKey.fromDate(DateTime date) {
-    return _MonthKey(date.year, date.month);
-  }
-
-  final int year;
-  final int month;
-
-  String get label => '${_monthLabels[month - 1]} $year';
-
-  _MonthKey addMonths(int offset) {
-    final zeroBasedMonth = (year * 12) + (month - 1) + offset;
-    return _MonthKey(zeroBasedMonth ~/ 12, (zeroBasedMonth % 12) + 1);
-  }
-
-  int compareTo(_MonthKey other) {
-    final yearCompare = year.compareTo(other.year);
-    if (yearCompare != 0) {
-      return yearCompare;
-    }
-    return month.compareTo(other.month);
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return other is _MonthKey && other.year == year && other.month == month;
-  }
-
-  @override
-  int get hashCode => Object.hash(year, month);
+String _monthLabel(TransactionMonth month) {
+  return '${_monthLabels[month.month - 1]} ${month.year}';
 }
 
 const _monthLabels = [

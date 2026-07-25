@@ -27,6 +27,7 @@ supabase/.temp
 .superpowers
 
 # Self-hosted Supabase (docker/) — .env covered above
+docker/.certs/
 docker/volumes/db/data
 docker/volumes/storage
 docker/test.http

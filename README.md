@@ -6,6 +6,7 @@
 
 - Brief; include risks, assumptions, validation. Recheck this file before repo work; update only for durable conventions.
 - Keep this file compact yet readable — when editing, condense wording without dropping any instruction or detail.
+- Agent workflow: work directly on `main` and execute inline. Do not create worktrees or feature branches, delegate to subagents, or ask about execution/branch disposition unless the user explicitly requests an exception.
 
 ---
 

@@ -601,18 +601,9 @@ DashboardSummary _buildDashboardSummary({
     }
   }
 
-  var totalBudget = Decimal.zero;
-  for (final category in budgetedCategories) {
-    totalBudget += category.monthlyLimit!.amount;
-  }
-
   final weeklyFlow = ((monthlyIncome - monthlySpending) / Decimal.parse('4.33'))
       .toDecimal(scaleOnInfinitePrecision: 2);
   final safeToSpend = weeklyFlow > Decimal.zero ? weeklyFlow : Decimal.zero;
-  final percentOfBudgetUsed = totalBudget > Decimal.zero
-      ? monthlySpending.toDouble() / totalBudget.toDouble() * 100
-      : 0.0;
-  final daysElapsedRatio = now.day / periodEnd.day;
 
   return DashboardSummary(
     netWorth: Money(amount: netWorth, currency: currency),
@@ -620,10 +611,6 @@ DashboardSummary _buildDashboardSummary({
     monthlyIncome: Money(amount: monthlyIncome, currency: currency),
     monthlySpending: Money(amount: monthlySpending, currency: currency),
     safeToSpend: Money(amount: safeToSpend, currency: currency),
-    paceStatus: PaceStatus(
-      percentOfBudgetUsed: percentOfBudgetUsed,
-      daysElapsedRatio: daysElapsedRatio,
-    ),
   );
 }
 
@@ -689,19 +676,6 @@ final cashFlowSankeyProvider = FutureProvider.autoDispose<CashFlowSankey>((
   final transactions = await ref.watch(transactionsProvider.future);
   final categories = await ref.watch(categoriesProvider.future);
   final result = const CashFlowService().sankey(
-    transactions: transactions,
-    categories: categories,
-    asOf: DateTime.now(),
-  );
-  ref.keepAlive();
-  return result;
-});
-
-/// Budget pace (overall + per-category) from real spending vs category limits.
-final budgetPaceProvider = FutureProvider.autoDispose<BudgetPace>((ref) async {
-  final transactions = await ref.watch(transactionsProvider.future);
-  final categories = await ref.watch(categoriesProvider.future);
-  final result = const BudgetInsightsService().pace(
     transactions: transactions,
     categories: categories,
     asOf: DateTime.now(),

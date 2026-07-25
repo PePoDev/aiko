@@ -4,47 +4,6 @@ import '../../../core/money/money.dart';
 import '../../categories/domain/category.dart';
 import '../../transactions/domain/transaction.dart';
 
-class CategoryPace {
-  const CategoryPace({
-    required this.name,
-    required this.spent,
-    required this.limit,
-  });
-
-  final String name;
-  final Money spent;
-  final Money limit;
-
-  /// 0..>1; fraction of the budget used this month.
-  double get fraction =>
-      limit.isZero ? 0 : spent.amount.toDouble() / limit.amount.toDouble();
-}
-
-class BudgetPace {
-  const BudgetPace({
-    required this.totalSpent,
-    required this.totalBudget,
-    required this.daysElapsedRatio,
-    required this.categories,
-  });
-
-  final Money totalSpent;
-  final Money totalBudget;
-
-  /// 0..1 — how far through the month we are; the bar to beat.
-  final double daysElapsedRatio;
-  final List<CategoryPace> categories;
-
-  double get fraction => totalBudget.isZero
-      ? 0
-      : totalSpent.amount.toDouble() / totalBudget.amount.toDouble();
-
-  /// Spending faster than the calendar — on pace to overspend.
-  bool get isAheadOfPace => fraction > daysElapsedRatio;
-
-  bool get hasBudgets => !totalBudget.isZero;
-}
-
 class SafeToSpend {
   const SafeToSpend({
     required this.income,
@@ -70,42 +29,6 @@ class SafeToSpend {
 /// budget limits that live on categories. Pure function object.
 class BudgetInsightsService {
   const BudgetInsightsService();
-
-  BudgetPace pace({
-    required List<FinanceTransaction> transactions,
-    required List<Category> categories,
-    required DateTime asOf,
-  }) {
-    final currency = _currency(transactions, categories);
-    final spentByCategory = _spentByCategory(transactions, asOf);
-
-    final rows = <CategoryPace>[];
-    var totalSpent = Decimal.zero;
-    var totalBudget = Decimal.zero;
-    for (final category in categories) {
-      if (!category.hasBudget) continue;
-      final limit = category.monthlyLimit!.amount;
-      final spent = spentByCategory[category.id] ?? Decimal.zero;
-      totalBudget += limit;
-      totalSpent += spent;
-      rows.add(
-        CategoryPace(
-          name: category.name,
-          spent: Money(amount: spent, currency: currency),
-          limit: Money(amount: limit, currency: currency),
-        ),
-      );
-    }
-    rows.sort((a, b) => b.fraction.compareTo(a.fraction));
-
-    final periodEnd = DateTime(asOf.year, asOf.month + 1, 0).day;
-    return BudgetPace(
-      totalSpent: Money(amount: totalSpent, currency: currency),
-      totalBudget: Money(amount: totalBudget, currency: currency),
-      daysElapsedRatio: asOf.day / periodEnd,
-      categories: rows,
-    );
-  }
 
   SafeToSpend safeToSpend({
     required List<FinanceTransaction> transactions,

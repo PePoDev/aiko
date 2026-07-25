@@ -7,7 +7,6 @@ class DashboardSummary {
     required this.monthlyIncome,
     required this.monthlySpending,
     required this.safeToSpend,
-    required this.paceStatus,
   });
 
   final Money netWorth;
@@ -15,17 +14,4 @@ class DashboardSummary {
   final Money monthlyIncome;
   final Money monthlySpending;
   final Money safeToSpend;
-  final PaceStatus paceStatus;
-}
-
-class PaceStatus {
-  const PaceStatus({
-    required this.percentOfBudgetUsed,
-    required this.daysElapsedRatio,
-  });
-
-  final double percentOfBudgetUsed;
-  final double daysElapsedRatio;
-
-  bool get isFast => percentOfBudgetUsed > daysElapsedRatio * 100;
 }

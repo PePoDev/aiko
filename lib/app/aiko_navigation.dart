@@ -23,13 +23,6 @@ class AikoNavigationItem {
 const aikoNavigationItems = <AikoNavigationItem>[
   // Planning
   AikoNavigationItem(
-    label: 'Budget: Pace',
-    path: '/settings/pace',
-    icon: Icons.speed_outlined,
-    description: 'See whether this month is on track, per category.',
-    accentColor: AikoColors.warningOrange,
-  ),
-  AikoNavigationItem(
     label: 'Budget: Safe to Spend',
     path: '/settings/safe-to-spend',
     icon: Icons.savings_outlined,

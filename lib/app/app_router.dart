@@ -76,10 +76,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
           // Planning sub-routes live under Settings and delegate to the
           // existing detail screens so data wiring stays shared.
           GoRoute(
-            path: '/settings/pace',
-            builder: (context, state) => const PaceOverviewScreen(),
-          ),
-          GoRoute(
             path: '/settings/safe-to-spend',
             builder: (context, state) => const SafeToSpendScreen(),
           ),

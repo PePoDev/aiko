@@ -1,6 +1,6 @@
 import 'category.dart';
 
-/// Fixed UUIDs for the 66 built-in system categories.
+/// Fixed UUIDs for the 81 built-in system categories.
 ///
 /// These ids are stable constants embedded in the SQL migration that inserts
 /// the system category rows into Supabase with user_id = NULL. Any transaction
@@ -189,7 +189,7 @@ abstract final class CategoryDefaults {
     supplementsId,
   };
 
-  /// The 66 system categories as domain objects. userId is empty because
+  /// The 81 system categories as domain objects. userId is empty because
   /// these are global — they belong to no user.
   static List<Category> get all => [..._income, ..._expense];
 

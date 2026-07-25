@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart' show databaseFactory;
 
 import '../core/config/app_config.dart';
 import '../core/supabase/supabase_client_provider.dart';
+import '../core/supabase/supabase_session_http_client.dart';
 import 'brick.g.dart';
 import 'db/schema.g.dart';
 
@@ -46,6 +47,7 @@ class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
       databaseFactory: databaseFactory,
       databasePath: 'aiko_offline_queue.sqlite',
       ignorePaths: const {'/auth/v1', '/storage/v1', '/functions/v1'},
+      innerClient: SupabaseSessionHttpClient(),
       onReattempt: (request, statusCode) {
         // Surfaces the HTTP status Supabase returned for a queued write that is
         // being retried (e.g. 409 foreign key, 403 RLS), which is otherwise

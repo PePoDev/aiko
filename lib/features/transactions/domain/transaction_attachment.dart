@@ -19,6 +19,13 @@ class TransactionAttachment {
     'application/pdf',
     'image/jpeg',
     'image/png',
+    'image/webp',
+    'image/heic',
+    'text/plain',
+    'text/csv',
+    'text/markdown',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   };
 
   final String id;
@@ -42,5 +49,33 @@ class TransactionAttachment {
 
   bool get isExportable {
     return isValidForUpload && exportPolicy == AttachmentExportPolicy.include;
+  }
+
+  /// True for any image MIME type we can render as a thumbnail with
+  /// [Image.file]. HEIC is excluded — Flutter's default decoders don't read
+  /// it on every platform, so it falls back to the generic file icon.
+  bool get isImagePreviewable {
+    return mimeType == 'image/jpeg' ||
+        mimeType == 'image/png' ||
+        mimeType == 'image/webp';
+  }
+
+  /// True for plain-text-like MIME types we can render as a scrollable
+  /// monospace text block (txt, csv, md).
+  bool get isTextPreviewable {
+    return mimeType == 'text/plain' ||
+        mimeType == 'text/csv' ||
+        mimeType == 'text/markdown';
+  }
+
+  /// True for PDF attachments (rendered page-by-page via pdfrx).
+  bool get isPdf => mimeType == 'application/pdf';
+
+  /// File extension parsed from [fileName], lowercase without the dot.
+  /// Empty string when [fileName] has no extension.
+  String get fileExtension {
+    final dot = fileName.lastIndexOf('.');
+    if (dot < 0 || dot == fileName.length - 1) return '';
+    return fileName.substring(dot + 1).toLowerCase();
   }
 }

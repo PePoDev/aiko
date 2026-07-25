@@ -26,6 +26,30 @@ import 'transaction_attachment_section.dart';
 
 const _supportedCurrencies = kAikoSupportedCurrencies;
 
+/// Reminder lead-time presets offered in the reminder dropdown. `custom`
+/// surfaces the full date+time picker.
+///
+/// The persisted source of truth is still [FinanceTransaction.reminderAt];
+/// this enum is a UI-only convenience that derives `reminderAt` from the
+/// transaction's date minus the lead.
+enum ReminderLead {
+  oneHour._(label: '1 hour before', minutes: 60),
+  twoHours._(label: '2 hours before', minutes: 120),
+  oneDay._(label: '1 day before', minutes: 24 * 60),
+  twoDays._(label: '2 days before', minutes: 2 * 24 * 60),
+  oneWeek._(label: '1 week before', minutes: 7 * 24 * 60),
+  none._(label: 'At time of transaction', minutes: 0),
+  custom._(label: 'Custom date & time', minutes: null);
+
+  const ReminderLead._({
+    required this.label,
+    required this.minutes,
+  });
+
+  final String label;
+  final int? minutes;
+}
+
 class TransactionFormScreen extends ConsumerStatefulWidget {
   const TransactionFormScreen({this.initialTransaction, super.key});
 
@@ -77,6 +101,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   // Reminder notification. null = no reminder.
   DateTime? _reminderAt;
 
+  // UI-only reminder lead selection. Drives [_reminderAt] whenever the
+  // transaction date changes. `custom` hands control to the full picker.
+  ReminderLead _reminderLead = ReminderLead.oneHour;
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -126,6 +154,25 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _recurringMonthOfYear = settings.monthOfYear;
     }
     _reminderAt = transaction.reminderAt;
+    _reminderLead = _inferReminderLead(transaction.date, _reminderAt);
+  }
+
+  /// Picks the [ReminderLead] that matches an existing [reminderAt] relative
+  /// to [transactionDate]. Falls back to [ReminderLead.custom] when the gap
+  /// isn't one of the presets, and to [ReminderLead.oneHour] when there is
+  /// no reminder yet.
+  ReminderLead _inferReminderLead(
+    DateTime transactionDate,
+    DateTime? reminderAt,
+  ) {
+    if (reminderAt == null) return ReminderLead.oneHour;
+    final diffMinutes = transactionDate.difference(reminderAt).inMinutes;
+    for (final lead in ReminderLead.values) {
+      if (lead.minutes != null && lead.minutes == diffMinutes) {
+        return lead;
+      }
+    }
+    return ReminderLead.custom;
   }
 
   void _addTag(String value) {
@@ -388,7 +435,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       );
     } catch (_) {
       if (!mounted) return;
-      Navigator.of(context).pop();
+      Navigator.of(context, rootNavigator: true).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
@@ -403,7 +450,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     }
 
     if (!mounted) return;
-    Navigator.of(context).pop(); // Close spinner
+    Navigator.of(context, rootNavigator: true).pop(); // Close spinner
 
     setState(() {
       _attachments.add(attachment);
@@ -691,8 +738,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   Icons.folder_open,
                   color: AikoColors.deepBlue,
                 ),
-                title: const Text('Browse Files'),
-                subtitle: const Text('PDF, image, and other documents'),
+                title: const Text('Files & Documents'),
+                subtitle: const Text(
+                  'PDFs, docs, and any file from your device',
+                ),
                 onTap: () {
                   Navigator.of(context).pop();
                   _pickAndAttachDocumentFromFiles();
@@ -703,8 +752,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   Icons.photo_library,
                   color: AikoColors.successGreen,
                 ),
-                title: const Text('Choose Photo from Gallery'),
-                subtitle: const Text('Attach an existing receipt image'),
+                title: const Text('Photo Gallery'),
+                subtitle: const Text(
+                  'Pick a receipt photo (compressed)',
+                ),
                 onTap: () {
                   Navigator.of(context).pop();
                   _pickAndAttachImageFromGallery();
@@ -828,7 +879,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     await Future<void>.delayed(const Duration(milliseconds: 350));
 
     if (!mounted) return;
-    Navigator.of(context).pop(); // Close spinner
+    Navigator.of(context, rootNavigator: true).pop(); // Close spinner
 
     final newAttachment = TransactionAttachment(
       id: const Uuid().v4(),
@@ -861,6 +912,18 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     );
   }
 
+  /// Removes an attachment from the local list before the transaction is saved.
+  ///
+  /// This only touches the in-memory [_attachments] list — it does not delete
+  /// the underlying file or any persisted row, since an unsaved attachment has
+  /// neither a cloud row nor a committed local file. Saved attachments are
+  /// managed elsewhere.
+  void _removeAttachment(TransactionAttachment attachment) {
+    setState(() {
+      _attachments.removeWhere((item) => item.id == attachment.id);
+    });
+  }
+
   String _mimeTypeFromFileName(String fileName) {
     final lower = fileName.toLowerCase();
     if (lower.endsWith('.pdf')) return 'application/pdf';
@@ -871,6 +934,15 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     if (lower.endsWith('.webp')) return 'image/webp';
     if (lower.endsWith('.heic')) return 'image/heic';
     if (lower.endsWith('.txt')) return 'text/plain';
+    if (lower.endsWith('.csv')) return 'text/csv';
+    if (lower.endsWith('.md') || lower.endsWith('.markdown')) {
+      return 'text/markdown';
+    }
+    if (lower.endsWith('.doc')) return 'application/msword';
+    if (lower.endsWith('.docx')) {
+      return 'application/vnd.openxmlformats-officedocument'
+          '.wordprocessingml.document';
+    }
     return 'application/octet-stream';
   }
 
@@ -1265,6 +1337,29 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         : now.add(const Duration(hours: 1));
   }
 
+  /// Recomputes [_reminderAt] from [_selectedDate] and [_reminderLead].
+  ///
+  /// Called whenever the transaction date or lead changes. The `custom` lead
+  /// leaves an existing [_reminderAt] untouched; otherwise the reminder is
+  /// pinned to `transactionDate - lead`.
+  void _recomputeReminderForLead() {
+    if (_reminderLead == ReminderLead.custom) return;
+    _reminderAt = _selectedDate
+        .subtract(Duration(minutes: _reminderLead.minutes!));
+  }
+
+  /// Sets the reminder lead and recomputes [_reminderAt] accordingly.
+  void _setReminderLead(ReminderLead lead) {
+    setState(() {
+      _reminderLead = lead;
+      if (lead == ReminderLead.custom) {
+        _reminderAt ??= _defaultReminderTime();
+      } else {
+        _recomputeReminderForLead();
+      }
+    });
+  }
+
   /// Schedules (or clears) the OS reminder for [transaction]. Best-effort —
   /// failures are swallowed inside the service so a save never fails here.
   Future<void> _syncReminder(FinanceTransaction transaction) async {
@@ -1591,29 +1686,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             const SizedBox(height: 12),
           ],
 
-          _TagInput(
-            tags: _tags,
-            suggestions: _tagSuggestionsFrom(
-              transactionsAsync,
-              selectedType: _transactionTypeFromFormType(_type),
-            ),
-            inputController: _tagInputController,
-            focusNode: _tagFocusNode,
-            onAddTag: _addTag,
-            onAddTagsFromInput: _addTagsFromInput,
-            onRemoveTag: _removeTag,
-          ),
-          const SizedBox(height: 12),
-
-          TextField(
-            key: const Key('transaction-note-field'),
-            controller: _noteController,
-            minLines: 3,
-            maxLines: 4,
-            decoration: const InputDecoration(labelText: 'Note'),
-          ),
-          const SizedBox(height: 12),
-
           // Date and time selection tile
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -1649,8 +1721,39 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   pickedTime.hour,
                   pickedTime.minute,
                 );
+                _recomputeReminderForLead();
               });
             },
+          ),
+          const SizedBox(height: 12),
+
+          _TagInput(
+            tags: _tags,
+            suggestions: _tagSuggestionsFrom(
+              transactionsAsync,
+              selectedType: _transactionTypeFromFormType(_type),
+            ),
+            inputController: _tagInputController,
+            focusNode: _tagFocusNode,
+            onAddTag: _addTag,
+            onAddTagsFromInput: _addTagsFromInput,
+            onRemoveTag: _removeTag,
+          ),
+          const SizedBox(height: 12),
+
+          TextField(
+            key: const Key('transaction-note-field'),
+            controller: _noteController,
+            minLines: 3,
+            maxLines: 4,
+            decoration: const InputDecoration(labelText: 'Note'),
+          ),
+          const SizedBox(height: 12),
+
+          TransactionAttachmentSection(
+            attachments: _attachments,
+            onAddAttachment: _showAddAttachmentDialog,
+            onRemoveAttachment: _removeAttachment,
           ),
           const SizedBox(height: 12),
 
@@ -1662,6 +1765,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             dayOfWeek: _recurringDayOfWeek,
             dayOfMonth: _recurringDayOfMonth,
             monthOfYear: _recurringMonthOfYear,
+            occurrenceTime: TimeOfDay.fromDateTime(_selectedDate),
             onToggle: (value) {
               setState(() {
                 _isRecurring = value;
@@ -1688,25 +1792,39 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 setState(() => _recurringDayOfMonth = value),
             onMonthOfYearChanged: (value) =>
                 setState(() => _recurringMonthOfYear = value),
+            onOccurrenceTimeChanged: (value) {
+              setState(() {
+                _selectedDate = DateTime(
+                  _selectedDate.year,
+                  _selectedDate.month,
+                  _selectedDate.day,
+                  value.hour,
+                  value.minute,
+                );
+                _recomputeReminderForLead();
+              });
+            },
           ),
           const SizedBox(height: 12),
 
           _ReminderSection(
             reminderAt: _reminderAt,
+            lead: _reminderLead,
+            transactionDate: _selectedDate,
             onToggle: (value) {
               setState(() {
-                _reminderAt = value
-                    ? (_reminderAt ?? _defaultReminderTime())
-                    : null;
+                if (value) {
+                  _recomputeReminderForLead();
+                  if (_reminderLead == ReminderLead.custom) {
+                    _reminderAt ??= _defaultReminderTime();
+                  }
+                } else {
+                  _reminderAt = null;
+                }
               });
             },
+            onLeadChanged: _setReminderLead,
             onPick: _pickReminderTime,
-          ),
-          const SizedBox(height: 12),
-
-          TransactionAttachmentSection(
-            attachments: _attachments,
-            onAddAttachment: _showAddAttachmentDialog,
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
@@ -3133,23 +3251,34 @@ class _CategoryMark extends StatelessWidget {
   }
 }
 
-/// Toggle + time picker for a reminder notification on this transaction.
+/// Toggle + dropdown of lead presets for a reminder notification.
+///
+/// The persisted source of truth is [FinanceTransaction.reminderAt]; the
+/// dropdown is a UI convenience that derives `reminderAt` from the
+/// transaction's date minus the selected lead. `custom` exposes the full
+/// date+time picker.
 class _ReminderSection extends StatelessWidget {
   const _ReminderSection({
     required this.reminderAt,
+    required this.lead,
+    required this.transactionDate,
     required this.onToggle,
+    required this.onLeadChanged,
     required this.onPick,
   });
 
   final DateTime? reminderAt;
+  final ReminderLead lead;
+  final DateTime transactionDate;
   final ValueChanged<bool> onToggle;
+  final ValueChanged<ReminderLead> onLeadChanged;
   final VoidCallback onPick;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final enabled = reminderAt != null;
-    final formatted = enabled
+    final formatted = enabled && reminderAt != null
         ? DateFormat('EEE, MMM d, yyyy · HH:mm').format(reminderAt!)
         : null;
     return Card(
@@ -3181,8 +3310,8 @@ class _ReminderSection extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         enabled
-                            ? 'Aiko will notify you at the time below.'
-                            : 'Get a notification at a time you choose.',
+                            ? 'Aiko will notify you before the transaction.'
+                            : 'Get a notification before the transaction.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -3199,11 +3328,33 @@ class _ReminderSection extends StatelessWidget {
             ),
             if (enabled) ...[
               const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: onPick,
-                icon: const Icon(Icons.schedule_outlined),
-                label: Text('Remind at $formatted'),
+              DropdownButtonFormField<ReminderLead>(
+                key: const Key('transaction-reminder-lead'),
+                initialValue: lead,
+                decoration: const InputDecoration(
+                  labelText: 'Notify me',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: [
+                  for (final option in ReminderLead.values)
+                    DropdownMenuItem(
+                      value: option,
+                      child: Text(option.label),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) onLeadChanged(value);
+                },
               ),
+              if (lead == ReminderLead.custom && formatted != null) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: onPick,
+                  icon: const Icon(Icons.schedule_outlined),
+                  label: Text('Remind at $formatted'),
+                ),
+              ],
             ],
           ],
         ),
@@ -3221,6 +3372,7 @@ class _RecurringSection extends StatelessWidget {
     required this.dayOfWeek,
     required this.dayOfMonth,
     required this.monthOfYear,
+    required this.occurrenceTime,
     required this.onToggle,
     required this.onFrequencyChanged,
     required this.onEndDateChanged,
@@ -3228,6 +3380,7 @@ class _RecurringSection extends StatelessWidget {
     required this.onDayOfWeekChanged,
     required this.onDayOfMonthChanged,
     required this.onMonthOfYearChanged,
+    required this.onOccurrenceTimeChanged,
   });
 
   final bool isRecurring;
@@ -3237,6 +3390,9 @@ class _RecurringSection extends StatelessWidget {
   final int? dayOfWeek;
   final int? dayOfMonth;
   final int? monthOfYear;
+  /// Time of day the recurring occurrence fires. Derived from the parent
+  /// transaction's date so the two stay in sync.
+  final TimeOfDay occurrenceTime;
   final ValueChanged<bool> onToggle;
   final ValueChanged<RecurringFrequency> onFrequencyChanged;
   final ValueChanged<DateTime?> onEndDateChanged;
@@ -3244,13 +3400,9 @@ class _RecurringSection extends StatelessWidget {
   final ValueChanged<int?> onDayOfWeekChanged;
   final ValueChanged<int?> onDayOfMonthChanged;
   final ValueChanged<int?> onMonthOfYearChanged;
+  final ValueChanged<TimeOfDay> onOccurrenceTimeChanged;
 
   static const _frequencies = <RecurringFrequency, _FrequencyChoiceMeta>{
-    RecurringFrequency.once: _FrequencyChoiceMeta(
-      label: 'Once',
-      icon: Icons.event_outlined,
-      hint: 'Runs only on the picked date.',
-    ),
     RecurringFrequency.daily: _FrequencyChoiceMeta(
       label: 'Daily',
       icon: Icons.today_outlined,
@@ -3329,6 +3481,11 @@ class _RecurringSection extends StatelessWidget {
                 onChanged: onFrequencyChanged,
               ),
               const SizedBox(height: 12),
+              _OccurrenceTimeTile(
+                occurrenceTime: occurrenceTime,
+                onChanged: onOccurrenceTimeChanged,
+              ),
+              const SizedBox(height: 12),
               _FrequencySettingsPanel(
                 frequency: frequency,
                 endDate: endDate,
@@ -3360,6 +3517,71 @@ class _FrequencyChoiceMeta {
   final String label;
   final IconData icon;
   final String hint;
+}
+
+/// Time-of-day picker for the recurring occurrence. Mirrors the parent
+/// transaction's time component so the cadence fires at the right moment.
+class _OccurrenceTimeTile extends StatelessWidget {
+  const _OccurrenceTimeTile({
+    required this.occurrenceTime,
+    required this.onChanged,
+  });
+
+  final TimeOfDay occurrenceTime;
+  final ValueChanged<TimeOfDay> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final formatted = '${occurrenceTime.hour.toString().padLeft(2, '0')}'
+        ':${occurrenceTime.minute.toString().padLeft(2, '0')}';
+    return Material(
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: InkWell(
+        onTap: () async {
+          final picked = await showTimePicker(
+            context: context,
+            initialTime: occurrenceTime,
+          );
+          if (picked != null) onChanged(picked);
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          child: Row(
+            children: [
+              const Icon(Icons.schedule_outlined, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Occurrence time',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      formatted,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _FrequencyPicker extends StatelessWidget {

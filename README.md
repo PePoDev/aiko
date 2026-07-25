@@ -11,7 +11,7 @@
 
 ## What Is Aiko?
 
-Cross-platform (iOS + Android) personal finance app: Flutter + Supabase. **Aiko** (calm, anime-style, blue hair) gives friendly, non-judgmental money guidance. A data-first financial OS: 13 transaction types, category-owned budget limits (envelope / zero-based / 50-30-20, monthly/weekly/yearly/daily, rollover), goal accounts (SMART target/date/priority, Monte Carlo probability), cash flow + pace, credit/debt/loan payoff, portfolio + net worth, tax organization, ~60 calculators, AI guidance, Ask Aiko chat, monthly Review, learning hub, multi-currency Travel Mode.
+Cross-platform (iOS + Android) personal finance app: Flutter + Supabase. **Aiko** (calm, anime-style, blue hair) gives friendly, non-judgmental money guidance. A data-first financial OS: 13 transaction types, category-owned budget limits (envelope / zero-based / 50-30-20, monthly/weekly/yearly/daily, rollover), goal accounts (SMART target/date/priority, Monte Carlo probability), cash flow + Daily Spending reactions, credit/debt/loan payoff, portfolio + net worth, tax organization, ~60 calculators, AI guidance, Ask Aiko chat, monthly Review, learning hub, multi-currency Travel Mode.
 
 This is a single repo for the Aiko product surface: Flutter app, landing page, Supabase/infra, docs, visual references, and tests. Do not remove `landing/`, `screenshots/`, or `docker/` as "unused" unless their workflows are replaced.
 
@@ -153,9 +153,9 @@ GoRouter around a bottom-nav shell, 5 primary tabs:
 4. **Transactions (`/transactions`)** — Search, filters, recurring, auto-categorization rules.
 5. **Aiko (`/aiko`)** — Chat (`/aiko-assistant`), optimize (`/aiko-optimize`), course hub; opens the Settings hub.
 
-**Settings (`/settings`)** — via Aiko tab settings icon. Flat tools list: Budget Pace, Safe to Spend, Cash Flow, Cash Flow Sankey, Chance of Success, Investments, Asset Allocation, Holding Detail, Learning Hub, Calculators, and Export. App preferences include Appearance and Language.
+**Settings (`/settings`)** — via Aiko tab settings icon. Flat tools list: Safe to Spend, Cash Flow, Cash Flow Sankey, Chance of Success, Investments, Asset Allocation, Holding Detail, Learning Hub, Calculators, and Export. App preferences include Appearance and Language.
 
-**Secondary routes:** `/notifications`, `/transaction-rules`, `/transaction-capture`, `/settings/pace`, `/settings/safe-to-spend`, `/settings/cash-flow`, `/settings/cash-flow-sankey`, `/settings/chance-of-success`, `/reports/monthly`, `/export`, `/account-form`, `/profile`, `/connect-line`, `/portfolio`, `/portfolio/allocation`, `/portfolio/holding`, `/calculators`, `/learning-hub`, `/travel-mode`.
+**Secondary routes:** `/notifications`, `/transaction-rules`, `/transaction-capture`, `/settings/safe-to-spend`, `/settings/cash-flow`, `/settings/cash-flow-sankey`, `/settings/chance-of-success`, `/reports/monthly`, `/export`, `/account-form`, `/profile`, `/connect-line`, `/portfolio`, `/portfolio/allocation`, `/portfolio/holding`, `/calculators`, `/learning-hub`, `/travel-mode`.
 
 ---
 
@@ -220,9 +220,9 @@ Keep cost low: reads from local SQLite, dashboards from local summary tables, ba
 
 - **🏠 Dashboard** — static fixed-order panels (above) + quick-add. Not user-customizable.
 - **💰 Money Tracking** — 13 transaction types (income, expense, transfer, refund, investment buy/sell, dividend, interest, loan payment, credit card payment, tax payment, fee, adjustment). Splits, receipts, recurring (Once/Daily/Weekly/Monthly/Annually, each with own end date), duplicate detection. Amount-first quick entry with OCR + voice. Rules auto-apply categories/tags/splits/names by merchant keyword, account, or amount.
-- **📊 Budgeting (in Categories)** — each Category owns an optional budget: monthly/weekly/yearly/daily, envelope / zero-based / 50-30-20, one-period rollover, thresholds (default 50/75/90/100%). Safe-to-Spend: `Leftover = Income − Fixed Bills − Reserves − Debt − Goals − Current Spending`. Pace compares velocity vs limits.
+- **📊 Budgeting (in Categories)** — each Category owns an optional budget: monthly/weekly/yearly/daily, envelope / zero-based / 50-30-20, one-period rollover, thresholds (default 50/75/90/100%). Safe-to-Spend: `Leftover = Income − Fixed Bills − Reserves − Debt − Goals − Current Spending`. Daily Spending compares today's posted expenses with the daily safe amount and shows Aiko's green, orange, or red reaction.
 - **🎯 Goals (in Accounts)** — goal accounts (`Account.type == goal`) carry SMART target, date, priority. `currentBalance` is saved amount; monthly contribution, Monte Carlo probability, saving plan all read the same row.
-- **📈 Insights & Predictions** — spending trends, cash flow + Sankey, pace, leftover/safe-to-spend, end-of-month forecasts, overrun prediction, net worth projection, retirement readiness.
+- **📈 Insights & Predictions** — spending trends, cash flow + Sankey, leftover/safe-to-spend, end-of-month forecasts, overrun prediction, net worth projection, retirement readiness.
 - **🤖 Aiko AI Assistant** — chat, personalized guidance, budget recommendations, debt strategies, monthly reviews.
 - **💳 Credit & Debt** — statement balances, APR, rewards, due dates, utilization; snowball/avalanche payoff with extra-payment + interest-savings simulation.
 - **📱 Portfolio, Assets & Tax** — holdings (performance, allocation, dividends, realized/unrealized gains); allocation by class/currency/geography/risk; net worth trends; tax flagging, capital gains, document storage, estimated tax reports.
@@ -480,7 +480,7 @@ Shared UI primitives in `lib/shared/widgets/`; feature screens consume them, don
 
 ### Route & Idea Coverage
 
-Supplemental routes by owner: `/notifications`, `/transaction-rules`, `/transaction-capture`, `/settings/pace`, `/settings/safe-to-spend`, `/settings/cash-flow`, `/settings/cash-flow-sankey`, `/settings/chance-of-success`, `/reports/monthly`, `/export`, `/account-form`, `/profile`, `/connect-line`, `/portfolio/allocation`, `/portfolio/holding`, `/learning-hub`, `/travel-mode`.
+Supplemental routes by owner: `/notifications`, `/transaction-rules`, `/transaction-capture`, `/settings/safe-to-spend`, `/settings/cash-flow`, `/settings/cash-flow-sankey`, `/settings/chance-of-success`, `/reports/monthly`, `/export`, `/account-form`, `/profile`, `/connect-line`, `/portfolio/allocation`, `/portfolio/holding`, `/learning-hub`, `/travel-mode`.
 
 Route rules: don't duplicate an existing feature screen; sticky bottom actions for filter/save/confirm/result screens; sample data realistic + scoped to preview/offline; real repositories remain the persisted source; Aiko guidance after the primary number/decision (except onboarding/chat); every supplemental route renders without a Supabase session.
 

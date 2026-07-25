@@ -49,9 +49,6 @@
   "monthlyCashFlow": "Monthly cash flow",
   "income": "Income",
   "spending": "Spending",
-  "pace": "Pace",
-  "paceAhead": "Spending is ahead of the current budget pace.",
-  "paceOnTrack": "Spending is on pace for the current budget period.",
   "financialPyramid": "Financial Pyramid",
   "currentHealth": "Current health: {level}",
   "@currentHealth": {

@@ -15,6 +15,8 @@ import '../../../theme/aiko_colors.dart';
 import '../../categories/domain/category.dart';
 import '../../transactions/domain/transaction.dart';
 import '../../transactions/presentation/transaction_form_screen.dart';
+import '../domain/daily_spending_reaction.dart';
+import 'widgets/aiko_spending_reaction_strip.dart';
 
 class HomeDashboardScreen extends ConsumerStatefulWidget {
   const HomeDashboardScreen({super.key});
@@ -136,11 +138,8 @@ class _DailySpendingPanel extends ConsumerWidget {
         final safeToSpend = summary?.safeToSpend ?? Money.zero(baseCurrency);
         final dailySafe = safeToSpend.amount.toDouble() / 7;
         final ratio = dailySafe > 0 ? used.amount.toDouble() / dailySafe : 0.0;
-        final color = ratio >= 1
-            ? AikoColors.dangerRed
-            : ratio >= 0.75
-            ? AikoColors.warningOrange
-            : AikoColors.successGreen;
+        final reaction = DailySpendingReaction.fromRatio(ratio);
+        final color = reaction.color;
 
         // Merged-in summaries (formerly separate panels): the weekly safe
         // figure, what's left to save after it, and the month's net cash flow.
@@ -167,6 +166,8 @@ class _DailySpendingPanel extends ConsumerWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 12),
+              AikoSpendingReactionStrip(reaction: reaction),
               const Divider(height: 24),
               Row(
                 children: [

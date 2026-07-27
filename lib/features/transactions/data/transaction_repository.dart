@@ -6,14 +6,26 @@ import '../../../brick/repository.dart';
 import '../../../brick/models/transaction.model.dart';
 import '../../../core/offline/offline_store.dart';
 import '../../../core/offline/offline_user_context.dart';
+import '../../categories/domain/category_defaults.dart';
 import '../domain/transaction.dart';
 
 class TransactionRepository {
-  const TransactionRepository();
+  const TransactionRepository({
+    OfflineStore? store,
+    OfflineUserContext? userContext,
+  }) : _storeOverride = store,
+       _userContextOverride = userContext;
+
+  final OfflineStore? _storeOverride;
+  final OfflineUserContext? _userContextOverride;
+
+  OfflineStore get _store => _storeOverride ?? OfflineStore();
+  OfflineUserContext get _userContext =>
+      _userContextOverride ?? OfflineUserContext();
 
   Future<List<FinanceTransaction>> list() async {
-    final userId = await OfflineUserContext().resolveUserId();
-    final transactions = await OfflineStore().get<OfflineTransaction>(
+    final userId = await _userContext.resolveUserId();
+    final transactions = await _store.get<OfflineTransaction>(
       query: Query(
         where: [Where.exact('userId', userId)],
         orderBy: const [OrderBy.desc('date')],
@@ -29,22 +41,22 @@ class TransactionRepository {
 
     return transactions
         .map((transaction) => transaction.toDomain())
+        .map((transaction) => _normalizeCategory(transaction, userId))
         .toList(growable: false);
   }
 
   Future<FinanceTransaction> save(FinanceTransaction transaction) async {
     _validate(transaction);
 
-    final userId = await OfflineUserContext().resolveUserId();
-    final saved = await OfflineStore().upsert(
-      transaction.toOffline(userId: userId),
-    );
+    final userId = await _userContext.resolveUserId();
+    final normalized = _normalizeCategory(transaction, userId);
+    final saved = await _store.upsert(normalized.toOffline(userId: userId));
     return saved.toDomain();
   }
 
   Future<void> delete(String id) async {
-    final userId = await OfflineUserContext().resolveUserId();
-    final transactions = await OfflineStore().get<OfflineTransaction>(
+    final userId = await _userContext.resolveUserId();
+    final transactions = await _store.get<OfflineTransaction>(
       query: Query(
         where: [Where.exact('userId', userId), Where.exact('id', id)],
         limit: 1,
@@ -55,7 +67,7 @@ class TransactionRepository {
       return;
     }
 
-    await OfflineStore().delete(transactions.first);
+    await _store.delete(transactions.first);
   }
 
   Future<List<FinanceTransaction>> search(String query) async {
@@ -106,5 +118,21 @@ class TransactionRepository {
         throw ArgumentError('Split total must equal transaction amount.');
       }
     }
+  }
+
+  FinanceTransaction _normalizeCategory(
+    FinanceTransaction transaction,
+    String userId,
+  ) {
+    if (userId.startsWith(OfflineUserContext.localUserIdPrefix)) {
+      return transaction;
+    }
+    final categoryId = CategoryDefaults.categoryIdForUser(
+      userId: userId,
+      categoryId: transaction.categoryId,
+    );
+    return categoryId == transaction.categoryId
+        ? transaction
+        : transaction.copyWith(categoryId: categoryId);
   }
 }

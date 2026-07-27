@@ -3,9 +3,11 @@ import 'package:flutter/foundation.dart';
 
 import '../../brick/models/account.model.dart';
 import '../../brick/models/category.model.dart';
+import '../../brick/models/category_group.model.dart';
 import '../../brick/models/transaction.model.dart';
 import '../../brick/offline_model_mappers.dart';
 import '../../brick/repository.dart' show OfflineFirstGetPolicy;
+import '../../features/categories/domain/category_defaults.dart';
 import 'offline_store.dart';
 import 'offline_user_context.dart';
 
@@ -20,7 +22,7 @@ import 'offline_user_context.dart';
 /// Each reclaimed row is re-upserted, which updates its local `user_id` in place
 /// (matched by its unique `id`) and queues it to sync up to Supabase.
 class OfflineDataMigrator {
-  OfflineDataMigrator() : _store = OfflineStore();
+  OfflineDataMigrator({OfflineStore? store}) : _store = store ?? OfflineStore();
 
   final OfflineStore _store;
 
@@ -33,25 +35,46 @@ class OfflineDataMigrator {
       return 0;
     }
 
-    // Order matters: parents (accounts, categories) are reassigned and queued
-    // to Supabase before the rows that reference them (transactions) so
-    // foreign-key constraints are satisfied as the writes sync. Budgets live
-    // on categories and goals live on accounts, so no separate rows are needed.
+    // Order matters: parents are queued before rows that reference them.
     var migrated = 0;
     migrated += await _claim<OfflineAccount>(
       realUserId,
       (row) => row.userId,
       (row) => row.toDomain().toOffline(userId: realUserId),
+      (row) => row.id,
+    );
+    migrated += await _claim<OfflineCategoryGroup>(
+      realUserId,
+      (row) => row.userId ?? '',
+      (row) => CategoryGroupDefaults.normalizeForUser(
+        row.toDomain(),
+        userId: realUserId,
+      ).toOffline(userId: realUserId),
+      (row) => row.id,
     );
     migrated += await _claim<OfflineCategory>(
       realUserId,
       (row) => row.userId,
-      (row) => row.toDomain().toOffline(userId: realUserId),
+      (row) => CategoryDefaults.normalizeForUser(
+        row.toDomain(),
+        userId: realUserId,
+      ).toOffline(userId: realUserId),
+      (row) => row.id,
     );
     migrated += await _claim<OfflineTransaction>(
       realUserId,
       (row) => row.userId,
-      (row) => row.toDomain().toOffline(userId: realUserId),
+      (row) {
+        final transaction = row.toDomain();
+        final categoryId = CategoryDefaults.categoryIdForUser(
+          userId: realUserId,
+          categoryId: transaction.categoryId,
+        );
+        return transaction
+            .copyWith(categoryId: categoryId)
+            .toOffline(userId: realUserId);
+      },
+      (row) => row.id,
     );
 
     if (kDebugMode) {
@@ -67,6 +90,7 @@ class OfflineDataMigrator {
     String realUserId,
     String Function(TModel row) userIdOf,
     TModel Function(TModel row) reassign,
+    String Function(TModel row) idOf,
   ) async {
     try {
       final rows = await _store.get<TModel>(
@@ -79,7 +103,11 @@ class OfflineDataMigrator {
           )
           .toList(growable: false);
       for (final row in orphans) {
-        await _store.upsert<TModel>(reassign(row));
+        final claimed = reassign(row);
+        await _store.upsert<TModel>(claimed);
+        if (idOf(claimed) != idOf(row)) {
+          await _store.delete<TModel>(row, localOnly: true);
+        }
       }
       return orphans.length;
     } catch (error) {

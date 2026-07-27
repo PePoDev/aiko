@@ -23,28 +23,6 @@ class AikoNavigationItem {
 const aikoNavigationItems = <AikoNavigationItem>[
   // Planning
   AikoNavigationItem(
-    label: 'Budget: Safe to Spend',
-    path: '/settings/safe-to-spend',
-    icon: Icons.savings_outlined,
-    description: 'Leftover after fixed bills, debt, goals, and current spend.',
-    accentColor: AikoColors.primaryBlue,
-  ),
-  AikoNavigationItem(
-    label: 'Budget: Cash Flow',
-    path: '/settings/cash-flow',
-    icon: Icons.waterfall_chart,
-    description: 'Income vs expenses vs savings — month over month.',
-    accentColor: AikoColors.analyticsTeal,
-  ),
-  AikoNavigationItem(
-    label: 'Budget: Cash Flow (Sankey)',
-    path: '/settings/cash-flow-sankey',
-    icon: Icons.account_tree_outlined,
-    description: 'Visual Sankey of where your income flows.',
-    accentColor: AikoColors.analyticsTeal,
-  ),
-
-  AikoNavigationItem(
     label: 'Goals: Chance of Success',
     path: '/settings/chance-of-success',
     icon: Icons.auto_graph_outlined,

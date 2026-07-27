@@ -39,6 +39,7 @@ class Category {
   const Category({
     required this.id,
     required this.userId,
+    this.templateId,
     required this.name,
     required this.type,
     required this.group,
@@ -59,6 +60,7 @@ class Category {
 
   final String id;
   final String userId;
+  final String? templateId;
   final String name;
   final CategoryType type;
   final CategoryBudgetGroup group;
@@ -94,7 +96,10 @@ class Category {
   /// 50, 75, 90, 100. Per category.
   final List<int> alertThresholds;
 
-  bool get isDefault => CategoryDefaults.allIds.contains(id);
+  String? get effectiveTemplateId =>
+      templateId ?? (CategoryDefaults.allIds.contains(id) ? id : null);
+
+  bool get isDefault => effectiveTemplateId != null;
 
   /// True when this category has a usable budget configured (limit > 0 and
   /// [budgetEnabled]).
@@ -104,6 +109,9 @@ class Category {
       monthlyLimit!.amount > Decimal.zero;
 
   Category copyWith({
+    String? id,
+    String? userId,
+    Object? templateId = _unset,
     String? name,
     CategoryType? type,
     CategoryBudgetGroup? group,
@@ -120,8 +128,11 @@ class Category {
     List<int>? alertThresholds,
   }) {
     return Category(
-      id: id,
-      userId: userId,
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      templateId: identical(templateId, _unset)
+          ? this.templateId
+          : templateId as String?,
       name: name ?? this.name,
       type: type ?? this.type,
       group: group ?? this.group,
@@ -152,6 +163,7 @@ class CategoryGroup {
   const CategoryGroup({
     required this.id,
     required this.userId,
+    this.templateId,
     required this.name,
     this.icon = 'category',
     this.color = '#3B82F6',
@@ -162,6 +174,7 @@ class CategoryGroup {
 
   final String id;
   final String userId;
+  final String? templateId;
   final String name;
   final String icon;
   final String color;
@@ -181,9 +194,17 @@ class CategoryGroup {
   /// Whether this is one of the global, read-only default groups (Food &
   /// Drink, Transport, …, Other). System groups cannot be edited, deleted, or
   /// chosen as a target when assigning a category to a group.
-  bool get isSystem => CategoryGroupDefaults.systemIds.contains(id);
+  String? get effectiveTemplateId =>
+      templateId ?? (CategoryGroupDefaults.systemIds.contains(id) ? id : null);
+
+  bool get isDefault => effectiveTemplateId != null;
+
+  bool get isSystem => isDefault;
 
   CategoryGroup copyWith({
+    String? id,
+    String? userId,
+    Object? templateId = _unset,
     String? name,
     String? icon,
     String? color,
@@ -192,8 +213,11 @@ class CategoryGroup {
     Object? budgetLimit = _unset,
   }) {
     return CategoryGroup(
-      id: id,
-      userId: userId,
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      templateId: identical(templateId, _unset)
+          ? this.templateId
+          : templateId as String?,
       name: name ?? this.name,
       icon: icon ?? this.icon,
       color: color ?? this.color,

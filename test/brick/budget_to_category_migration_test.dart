@@ -1,6 +1,7 @@
 import 'package:aiko/brick/models/category.model.dart';
 import 'package:aiko/brick/offline_model_mappers.dart';
 import 'package:aiko/features/categories/domain/category.dart';
+import 'package:aiko/features/categories/domain/category_defaults.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -9,6 +10,7 @@ void main() {
       final source = OfflineCategory(
         id: 'cat-1',
         userId: 'user-1',
+        templateId: CategoryDefaults.coffeeId,
         name: 'Groceries',
         type: 'expense',
         categoryGroup: 'needs',
@@ -25,11 +27,13 @@ void main() {
       final restored = domain.toOffline(userId: 'user-1');
 
       expect(domain.monthlyLimit, isNotNull);
+      expect(domain.templateId, CategoryDefaults.coffeeId);
       expect(domain.monthlyLimit!.amount.toDouble(), 450.0);
       expect(domain.budgetPeriod, CategoryBudgetPeriod.monthly);
       expect(domain.rolloverUnused, isFalse);
       expect(domain.alertThresholds, [50, 75, 90, 100]);
       expect(restored.budgetAmount, '450');
+      expect(restored.templateId, CategoryDefaults.coffeeId);
       expect(restored.budgetCurrency, 'USD');
       expect(restored.budgetPeriod, 'monthly');
     });

@@ -1,4 +1,8 @@
+import 'package:uuid/uuid.dart';
+
 import 'category.dart';
+
+const _defaultCloneNamespace = 'ee336da0-4337-4fa0-b100-ec0dddcb5b95';
 
 /// Fixed UUIDs for the 81 built-in system categories.
 ///
@@ -188,6 +192,76 @@ abstract final class CategoryDefaults {
     fitnessEquipmentId,
     supplementsId,
   };
+
+  static final Map<String, Category> byId = {
+    for (final category in all) category.id: category,
+  };
+
+  static String cloneIdForUser({
+    required String userId,
+    required String templateId,
+  }) {
+    return const Uuid().v5(
+      _defaultCloneNamespace,
+      'category:${userId.toLowerCase()}:${templateId.toLowerCase()}',
+    );
+  }
+
+  static String? categoryIdForUser({
+    required String userId,
+    required String? categoryId,
+  }) {
+    if (categoryId == null || !allIds.contains(categoryId)) return categoryId;
+    return cloneIdForUser(userId: userId, templateId: categoryId);
+  }
+
+  static Category cloneForUser({
+    required String userId,
+    required Category template,
+  }) {
+    return template.copyWith(
+      id: cloneIdForUser(userId: userId, templateId: template.id),
+      userId: userId,
+      templateId: template.id,
+      groupId: CategoryGroupDefaults.groupIdForUser(
+        userId: userId,
+        groupId: template.groupId,
+      ),
+    );
+  }
+
+  static List<Category> forUser(String userId) => [
+    for (final template in all)
+      cloneForUser(userId: userId, template: template),
+  ];
+
+  static Category normalizeForUser(
+    Category category, {
+    required String userId,
+  }) {
+    final templateId = category.effectiveTemplateId;
+    if (templateId == null) {
+      return category.copyWith(
+        userId: userId,
+        groupId: CategoryGroupDefaults.groupIdForUser(
+          userId: userId,
+          groupId: category.groupId,
+        ),
+      );
+    }
+
+    final template = byId[templateId];
+    if (template == null) return category;
+    return cloneForUser(userId: userId, template: template).copyWith(
+      isActive: category.isActive,
+      createdAt: category.createdAt ?? DateTime.now().toUtc(),
+      monthlyLimit: category.monthlyLimit,
+      budgetPeriod: category.budgetPeriod,
+      rolloverUnused: category.rolloverUnused,
+      budgetEnabled: category.budgetEnabled,
+      alertThresholds: category.alertThresholds,
+    );
+  }
 
   /// The 81 system categories as domain objects. userId is empty because
   /// these are global — they belong to no user.
@@ -1048,6 +1122,59 @@ abstract final class CategoryGroupDefaults {
     familyGivingId,
     billsFinancialId,
   };
+
+  static final Map<String, CategoryGroup> byId = {
+    for (final group in all) group.id: group,
+  };
+
+  static String cloneIdForUser({
+    required String userId,
+    required String templateId,
+  }) {
+    return const Uuid().v5(
+      _defaultCloneNamespace,
+      'group:${userId.toLowerCase()}:${templateId.toLowerCase()}',
+    );
+  }
+
+  static String? groupIdForUser({
+    required String userId,
+    required String? groupId,
+  }) {
+    if (groupId == null || !systemIds.contains(groupId)) return groupId;
+    return cloneIdForUser(userId: userId, templateId: groupId);
+  }
+
+  static CategoryGroup cloneForUser({
+    required String userId,
+    required CategoryGroup template,
+  }) {
+    return template.copyWith(
+      id: cloneIdForUser(userId: userId, templateId: template.id),
+      userId: userId,
+      templateId: template.id,
+    );
+  }
+
+  static List<CategoryGroup> forUser(String userId) => [
+    for (final template in all)
+      cloneForUser(userId: userId, template: template),
+  ];
+
+  static CategoryGroup normalizeForUser(
+    CategoryGroup group, {
+    required String userId,
+  }) {
+    final templateId = group.effectiveTemplateId;
+    if (templateId == null) return group.copyWith(userId: userId);
+
+    final template = byId[templateId];
+    if (template == null) return group;
+    return cloneForUser(userId: userId, template: template).copyWith(
+      createdAt: group.createdAt ?? DateTime.now().toUtc(),
+      budgetLimit: group.budgetLimit,
+    );
+  }
 
   /// The 13 default groups as domain objects, in display order. userId is
   /// empty because each is global — they belong to no user.

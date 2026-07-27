@@ -67,4 +67,72 @@ void main() {
       );
     });
   });
+
+  group('per-user default clones', () {
+    const userA = '11111111-1111-4111-8111-111111111111';
+    const userB = '22222222-2222-4222-8222-222222222222';
+
+    test('matches the PostgreSQL UUIDv5 vectors', () {
+      expect(
+        CategoryGroupDefaults.cloneIdForUser(
+          userId: userA,
+          templateId: CategoryGroupDefaults.foodAndDrinkId,
+        ),
+        '35c0421d-5cf3-506c-a571-673b06e355e4',
+      );
+      expect(
+        CategoryDefaults.cloneIdForUser(
+          userId: userA,
+          templateId: CategoryDefaults.coffeeId,
+        ),
+        '72a3b441-4610-5bf3-9df7-ffe1c177faef',
+      );
+    });
+
+    test('creates the complete taxonomy for each user', () {
+      expect(CategoryGroupDefaults.forUser(userA), hasLength(13));
+      expect(CategoryDefaults.forUser(userA), hasLength(81));
+    });
+
+    test('uses different clone ids for different users', () {
+      final userAIds = CategoryDefaults.forUser(
+        userA,
+      ).map((category) => category.id).toSet();
+      final userBIds = CategoryDefaults.forUser(
+        userB,
+      ).map((category) => category.id).toSet();
+      expect(userAIds.intersection(userBIds), isEmpty);
+    });
+
+    test('category clones point to the same user group clone', () {
+      final coffee = CategoryDefaults.forUser(userA).singleWhere(
+        (category) => category.templateId == CategoryDefaults.coffeeId,
+      );
+
+      expect(coffee.isDefault, isTrue);
+      expect(coffee.userId, userA);
+      expect(
+        coffee.groupId,
+        CategoryGroupDefaults.cloneIdForUser(
+          userId: userA,
+          templateId: CategoryGroupDefaults.foodAndDrinkId,
+        ),
+      );
+    });
+
+    test('recognizes templates and clones without marking custom rows', () {
+      expect(CategoryDefaults.all.first.isDefault, isTrue);
+      expect(CategoryDefaults.forUser(userA).first.isDefault, isTrue);
+      expect(
+        const Category(
+          id: 'custom',
+          userId: userA,
+          name: 'Custom',
+          type: CategoryType.expense,
+          group: CategoryBudgetGroup.custom,
+        ).isDefault,
+        isFalse,
+      );
+    });
+  });
 }

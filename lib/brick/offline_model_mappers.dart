@@ -75,6 +75,7 @@ extension OfflineCategoryMapper on OfflineCategory {
     return Category(
       id: id,
       userId: userId,
+      templateId: templateId,
       name: name,
       type: _enumByName(CategoryType.values, type, CategoryType.expense),
       group: _enumByName(
@@ -108,6 +109,7 @@ extension CategoryOfflineMapper on Category {
     return OfflineCategory(
       id: id,
       userId: userId,
+      templateId: templateId,
       name: name,
       type: type.name,
       categoryGroup: group.name,
@@ -132,6 +134,7 @@ extension OfflineCategoryGroupMapper on OfflineCategoryGroup {
     return CategoryGroup(
       id: id,
       userId: userId ?? '',
+      templateId: templateId,
       name: name,
       icon: icon,
       color: color,
@@ -150,6 +153,7 @@ extension CategoryGroupOfflineMapper on CategoryGroup {
     return OfflineCategoryGroup(
       id: id,
       userId: userId,
+      templateId: templateId,
       name: name,
       icon: icon,
       color: color,

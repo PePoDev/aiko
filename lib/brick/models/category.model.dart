@@ -11,6 +11,7 @@ class OfflineCategory extends OfflineFirstWithSupabaseModel {
   OfflineCategory({
     required this.id,
     required this.userId,
+    this.templateId,
     required this.name,
     required this.type,
     required this.categoryGroup,
@@ -36,6 +37,10 @@ class OfflineCategory extends OfflineFirstWithSupabaseModel {
 
   @Sqlite(index: true)
   final String userId;
+
+  @Sqlite(name: 'template_id')
+  @Supabase(name: 'template_id')
+  final String? templateId;
 
   final String name;
   final String type;

@@ -24,6 +24,7 @@ import '../features/transactions/domain/transaction.dart';
 import '../features/investments/data/investment_holding_repository.dart';
 import '../core/money/money.dart';
 import '../core/money/exchange_rate_service.dart';
+import '../core/offline/offline_user_context.dart';
 
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   return TransactionRepository();
@@ -305,12 +306,13 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
   Future<List<Category>> build() async {
     try {
       final repo = ref.watch(categoryRepositoryProvider);
-      final customCategories = await repo.list();
+      final userId = await repo.currentUserId();
+      final storedCategories = await repo.list(userId: userId);
       // Keep the merged category list cached across tab switches so the
       // Overview / Categories screens render instantly on return; pull-to-
       // refresh recomputes it on demand. A failed load is not cached.
       ref.keepAlive();
-      return _combineWithDefaults(customCategories);
+      return _combineWithDefaults(storedCategories, userId: userId);
     } catch (error, stackTrace) {
       // Surface to `AikoScreenState.error`; a broken offline store must
       // render a recoverable empty/error widget, not crash the provider tree.
@@ -318,50 +320,71 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
     }
   }
 
-  List<Category> _combineWithDefaults(List<Category> customCategories) {
-    final nonDefaultCategories = customCategories
-        .where((cat) => !cat.isDefault)
-        .toList(growable: false);
-    final activeCustomCategories = nonDefaultCategories
-        .where((cat) => cat.isActive)
+  List<Category> _combineWithDefaults(
+    List<Category> storedCategories, {
+    required String userId,
+  }) {
+    if (userId.startsWith(OfflineUserContext.localUserIdPrefix)) {
+      final overlays = <String, Category>{
+        for (final category in storedCategories)
+          if (CategoryDefaults.allIds.contains(category.id))
+            category.id: category,
+      };
+      final customCategories =
+          storedCategories
+              .where(
+                (category) => !CategoryDefaults.allIds.contains(category.id),
+              )
+              .where((category) => category.isActive)
+              .toList(growable: false)
+            ..sort(_compareCustomCategories);
+      final defaults = CategoryDefaults.all.map((template) {
+        final overlay = overlays[template.id];
+        return overlay == null
+            ? template
+            : template.copyWith(
+                monthlyLimit: overlay.monthlyLimit,
+                budgetPeriod: overlay.budgetPeriod,
+                rolloverUnused: overlay.rolloverUnused,
+                budgetEnabled: overlay.budgetEnabled,
+                alertThresholds: overlay.alertThresholds,
+              );
+      });
+      return [...defaults, ...customCategories];
+    }
+
+    final clones = <String, Category>{
+      for (final category in storedCategories)
+        if (category.templateId != null) category.templateId!: category,
+    };
+    final legacy = <String, Category>{
+      for (final category in storedCategories)
+        if (category.templateId == null &&
+            CategoryDefaults.allIds.contains(category.id))
+          category.id: category,
+    };
+    final activeCustomCategories = storedCategories
+        .where(
+          (category) =>
+              category.templateId == null &&
+              !CategoryDefaults.allIds.contains(category.id) &&
+              category.isActive,
+        )
+        .map(
+          (category) =>
+              CategoryDefaults.normalizeForUser(category, userId: userId),
+        )
         .toList(growable: false);
     activeCustomCategories.sort(_compareCustomCategories);
 
-    final defaults = CategoryDefaults.all;
+    final defaults = CategoryDefaults.all.map((template) {
+      final stored = clones[template.id] ?? legacy[template.id];
+      return stored == null
+          ? CategoryDefaults.cloneForUser(userId: userId, template: template)
+          : CategoryDefaults.normalizeForUser(stored, userId: userId);
+    });
 
-    // Inactive custom rows act as tombstones so deleted custom categories do not
-    // reappear as generated defaults with the same name/type.
-    final customKeys = nonDefaultCategories
-        .map((cat) => '${cat.name.toLowerCase()}-${cat.type.name}')
-        .toSet();
-
-    // Stored rows carrying a default's id are budget overlays: the default
-    // stays read-only, but the user's limit/period/rollover ride on top.
-    final overlays = <String, Category>{
-      for (final cat in customCategories)
-        if (cat.isDefault) cat.id: cat,
-    };
-
-    final uniqueDefaults = defaults
-        .where((cat) {
-          final key = '${cat.name.toLowerCase()}-${cat.type.name}';
-          return !customKeys.contains(key);
-        })
-        .map((cat) {
-          final overlay = overlays[cat.id];
-          return overlay == null
-              ? cat
-              : cat.copyWith(
-                  monthlyLimit: overlay.monthlyLimit,
-                  budgetPeriod: overlay.budgetPeriod,
-                  rolloverUnused: overlay.rolloverUnused,
-                  budgetEnabled: overlay.budgetEnabled,
-                  alertThresholds: overlay.alertThresholds,
-                );
-        })
-        .toList(growable: false);
-
-    return [...uniqueDefaults, ...activeCustomCategories];
+    return [...defaults, ...activeCustomCategories];
   }
 
   int _compareCustomCategories(Category a, Category b) {
@@ -389,8 +412,9 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(categoryRepositoryProvider);
       await repo.save(category);
-      final customCategories = await repo.list();
-      return _combineWithDefaults(customCategories);
+      final userId = await repo.currentUserId();
+      final storedCategories = await repo.list(userId: userId);
+      return _combineWithDefaults(storedCategories, userId: userId);
     });
     if (state.hasError) {
       Error.throwWithStackTrace(state.error!, state.stackTrace!);
@@ -419,8 +443,9 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
             .where((category) => category.id != id)
             .toList(growable: false);
       }
-      final customCategories = await repo.list();
-      return _combineWithDefaults(customCategories);
+      final userId = await repo.currentUserId();
+      final storedCategories = await repo.list(userId: userId);
+      return _combineWithDefaults(storedCategories, userId: userId);
     });
     if (state.hasError) {
       Error.throwWithStackTrace(state.error!, state.stackTrace!);
@@ -438,7 +463,8 @@ class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
   Future<List<CategoryGroup>> build() async {
     try {
       final repo = ref.watch(categoryGroupRepositoryProvider);
-      return _merge(await repo.list());
+      final userId = await repo.currentUserId();
+      return _merge(await repo.list(userId: userId), userId: userId);
     } catch (error, stackTrace) {
       // Surface to `AikoScreenState.error`; offline + secure-storage broken
       // must render a recoverable error widget, not a provider-tree crash.
@@ -446,23 +472,53 @@ class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
     }
   }
 
-  /// Combines stored groups with the 13 in-memory defaults. A stored row whose
-  /// id matches a default group is a per-user *budget overlay*: the default
-  /// stays read-only but its [CategoryGroup.budgetLimit] rides on top. The 13
-  /// defaults always sort after the user's own groups, in declared order.
-  List<CategoryGroup> _merge(List<CategoryGroup> storedGroups) {
-    final overlays = <String, CategoryGroup>{
+  List<CategoryGroup> _merge(
+    List<CategoryGroup> storedGroups, {
+    required String userId,
+  }) {
+    if (userId.startsWith(OfflineUserContext.localUserIdPrefix)) {
+      final overlays = <String, CategoryGroup>{
+        for (final group in storedGroups)
+          if (CategoryGroupDefaults.systemIds.contains(group.id))
+            group.id: group,
+      };
+      final userGroups = storedGroups
+          .where((group) => !CategoryGroupDefaults.systemIds.contains(group.id))
+          .toList(growable: false);
+      final defaults = CategoryGroupDefaults.all.map((template) {
+        final overlay = overlays[template.id];
+        return overlay == null
+            ? template
+            : template.copyWith(budgetLimit: overlay.budgetLimit);
+      });
+      return [...userGroups, ...defaults];
+    }
+
+    final clones = <String, CategoryGroup>{
       for (final group in storedGroups)
-        if (group.isSystem) group.id: group,
+        if (group.templateId != null) group.templateId!: group,
+    };
+    final legacy = <String, CategoryGroup>{
+      for (final group in storedGroups)
+        if (group.templateId == null &&
+            CategoryGroupDefaults.systemIds.contains(group.id))
+          group.id: group,
     };
     final userGroups = storedGroups
-        .where((group) => !group.isSystem)
+        .where(
+          (group) =>
+              group.templateId == null &&
+              !CategoryGroupDefaults.systemIds.contains(group.id),
+        )
         .toList(growable: false);
-    final defaults = CategoryGroupDefaults.all.map((group) {
-      final overlay = overlays[group.id];
-      return overlay == null
-          ? group
-          : group.copyWith(budgetLimit: overlay.budgetLimit);
+    final defaults = CategoryGroupDefaults.all.map((template) {
+      final stored = clones[template.id] ?? legacy[template.id];
+      return stored == null
+          ? CategoryGroupDefaults.cloneForUser(
+              userId: userId,
+              template: template,
+            )
+          : CategoryGroupDefaults.normalizeForUser(stored, userId: userId);
     });
     return [...userGroups, ...defaults];
   }
@@ -472,7 +528,8 @@ class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(categoryGroupRepositoryProvider);
       await repo.save(group);
-      return _merge(await repo.list());
+      final userId = await repo.currentUserId();
+      return _merge(await repo.list(userId: userId), userId: userId);
     });
     if (state.hasError) {
       Error.throwWithStackTrace(state.error!, state.stackTrace!);
@@ -482,6 +539,11 @@ class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
   /// Deletes a group. Categories assigned to it are moved back to "Ungrouped"
   /// by clearing their `groupId`, then the categories list is refreshed.
   Future<void> deleteGroup(String id) async {
+    final currentGroups = state.value;
+    if (currentGroups != null &&
+        currentGroups.any((group) => group.id == id && group.isDefault)) {
+      throw StateError('Default category groups cannot be deleted.');
+    }
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final categoryRepo = ref.read(categoryRepositoryProvider);
@@ -494,7 +556,8 @@ class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
 
       final groupRepo = ref.read(categoryGroupRepositoryProvider);
       await groupRepo.delete(id);
-      return _merge(await groupRepo.list());
+      final userId = await groupRepo.currentUserId();
+      return _merge(await groupRepo.list(userId: userId), userId: userId);
     });
     if (state.hasError) {
       Error.throwWithStackTrace(state.error!, state.stackTrace!);

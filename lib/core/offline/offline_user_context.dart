@@ -16,6 +16,14 @@ class OfflineUserContext {
 
   final SecureStorageService _storage;
 
+  static Future<String> startAnonymousSession(
+    SecureStorageService storage,
+  ) async {
+    final localUserId = '$localUserIdPrefix${const Uuid().v4()}';
+    await storage.write(_knownUserIdKey, localUserId);
+    return localUserId;
+  }
+
   Future<String> resolveUserId() async {
     final remoteUserId = AikoSupabase.tryClient()?.auth.currentUser?.id;
     if (remoteUserId != null && remoteUserId.isNotEmpty) {
@@ -28,8 +36,6 @@ class OfflineUserContext {
       return cachedUserId;
     }
 
-    final localUserId = '$localUserIdPrefix${const Uuid().v4()}';
-    await _storage.write(_knownUserIdKey, localUserId);
-    return localUserId;
+    return startAnonymousSession(_storage);
   }
 }

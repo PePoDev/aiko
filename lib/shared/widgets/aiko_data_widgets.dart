@@ -337,31 +337,6 @@ class AikoDataRow extends StatelessWidget {
   }
 }
 
-class AikoMiniBarChart extends StatelessWidget {
-  const AikoMiniBarChart({
-    required this.values,
-    this.color = AikoColors.primaryBlue,
-    super.key,
-  });
-
-  final List<double> values;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 96,
-      child: CustomPaint(
-        painter: _BarChartPainter(
-          values: values,
-          color: color,
-          trackColor: Theme.of(context).colorScheme.outlineVariant,
-        ),
-      ),
-    );
-  }
-}
-
 class AikoDonutChart extends StatelessWidget {
   const AikoDonutChart({
     required this.values,
@@ -446,72 +421,6 @@ class AikoGauge extends StatelessWidget {
   }
 }
 
-class AikoSankeyPreview extends StatelessWidget {
-  const AikoSankeyPreview({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 220,
-      child: CustomPaint(
-        painter: _SankeyPainter(
-          colors: const [
-            AikoColors.primaryBlue,
-            AikoColors.warningOrange,
-            AikoColors.successGreen,
-            AikoColors.premiumPurple,
-            AikoColors.dangerRed,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BarChartPainter extends CustomPainter {
-  const _BarChartPainter({
-    required this.values,
-    required this.color,
-    required this.trackColor,
-  });
-
-  final List<double> values;
-  final Color color;
-  final Color trackColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (values.isEmpty) return;
-    final maxValue = values.reduce(math.max).clamp(1, double.infinity);
-    final gap = 4.0;
-    final width = (size.width - gap * (values.length - 1)) / values.length;
-    final trackPaint = Paint()..color = trackColor;
-    final barPaint = Paint()..color = color;
-
-    for (var i = 0; i < values.length; i++) {
-      final left = i * (width + gap);
-      final track = RRect.fromRectAndRadius(
-        Rect.fromLTWH(left, 0, width, size.height),
-        const Radius.circular(4),
-      );
-      final barHeight = size.height * (values[i] / maxValue);
-      final bar = RRect.fromRectAndRadius(
-        Rect.fromLTWH(left, size.height - barHeight, width, barHeight),
-        const Radius.circular(4),
-      );
-      canvas.drawRRect(track, trackPaint);
-      canvas.drawRRect(bar, barPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _BarChartPainter oldDelegate) {
-    return oldDelegate.values != values ||
-        oldDelegate.color != color ||
-        oldDelegate.trackColor != trackColor;
-  }
-}
-
 class _DonutPainter extends CustomPainter {
   const _DonutPainter({required this.values, required this.colors});
 
@@ -586,58 +495,5 @@ class _GaugePainter extends CustomPainter {
     return oldDelegate.value != value ||
         oldDelegate.color != color ||
         oldDelegate.trackColor != trackColor;
-  }
-}
-
-class _SankeyPainter extends CustomPainter {
-  const _SankeyPainter({required this.colors});
-
-  final List<Color> colors;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final source = Rect.fromLTWH(0, size.height * 0.28, 54, size.height * 0.44);
-    final targets = [
-      Rect.fromLTWH(size.width - 56, 18, 56, 32),
-      Rect.fromLTWH(size.width - 56, 62, 56, 32),
-      Rect.fromLTWH(size.width - 56, 106, 56, 32),
-      Rect.fromLTWH(size.width - 56, 150, 56, 32),
-      Rect.fromLTWH(size.width - 56, 194, 56, 26),
-    ];
-    final blockPaint = Paint()
-      ..color = AikoColors.primaryBlue.withValues(alpha: 0.18);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(source, const Radius.circular(8)),
-      blockPaint,
-    );
-
-    for (var i = 0; i < targets.length; i++) {
-      final targetPaint = Paint()..color = colors[i].withValues(alpha: 0.18);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(targets[i], const Radius.circular(8)),
-        targetPaint,
-      );
-      final path = Path()
-        ..moveTo(source.right, source.top + source.height * (0.15 + i * 0.17))
-        ..cubicTo(
-          size.width * 0.35,
-          source.top + i * 16,
-          size.width * 0.55,
-          targets[i].center.dy,
-          targets[i].left,
-          targets[i].center.dy,
-        );
-      final flowPaint = Paint()
-        ..color = colors[i].withValues(alpha: 0.34)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 12.0 - i
-        ..strokeCap = StrokeCap.round;
-      canvas.drawPath(path, flowPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _SankeyPainter oldDelegate) {
-    return oldDelegate.colors != colors;
   }
 }

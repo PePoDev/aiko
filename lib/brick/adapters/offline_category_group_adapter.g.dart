@@ -9,6 +9,9 @@ Future<OfflineCategoryGroup> _$OfflineCategoryGroupFromSupabase(
   return OfflineCategoryGroup(
     id: data['id'] as String,
     userId: data['user_id'] == null ? null : data['user_id'] as String?,
+    templateId: data['template_id'] == null
+        ? null
+        : data['template_id'] as String?,
     name: data['name'] as String,
     icon: data['icon'] as String,
     color: data['color'] as String,
@@ -41,6 +44,7 @@ Future<Map<String, dynamic>> _$OfflineCategoryGroupToSupabase(
   return {
     'id': instance.id,
     'user_id': instance.userId,
+    'template_id': instance.templateId,
     'name': instance.name,
     'icon': instance.icon,
     'color': instance.color,
@@ -61,6 +65,9 @@ Future<OfflineCategoryGroup> _$OfflineCategoryGroupFromSqlite(
   return OfflineCategoryGroup(
     id: data['id'] as String,
     userId: data['user_id'] == null ? null : data['user_id'] as String?,
+    templateId: data['template_id'] == null
+        ? null
+        : data['template_id'] as String?,
     name: data['name'] as String,
     icon: data['icon'] as String,
     color: data['color'] as String,
@@ -89,6 +96,7 @@ Future<Map<String, dynamic>> _$OfflineCategoryGroupToSqlite(
   return {
     'id': instance.id,
     'user_id': instance.userId,
+    'template_id': instance.templateId,
     'name': instance.name,
     'icon': instance.icon,
     'color': instance.color,
@@ -119,6 +127,10 @@ class OfflineCategoryGroupAdapter
     'userId': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'user_id',
+    ),
+    'templateId': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'template_id',
     ),
     'name': const RuntimeSupabaseColumnDefinition(
       association: false,
@@ -178,6 +190,12 @@ class OfflineCategoryGroupAdapter
     'userId': const RuntimeSqliteColumnDefinition(
       association: false,
       columnName: 'user_id',
+      iterable: false,
+      type: String,
+    ),
+    'templateId': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'template_id',
       iterable: false,
       type: String,
     ),

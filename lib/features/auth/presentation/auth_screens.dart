@@ -313,6 +313,10 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     }
     container.invalidate(profileProvider);
+    container.invalidate(accountsProvider);
+    container.invalidate(transactionsProvider);
+    container.invalidate(categoriesProvider);
+    container.invalidate(categoryGroupsProvider);
     if (!mounted) return;
     context.go('/home');
   }

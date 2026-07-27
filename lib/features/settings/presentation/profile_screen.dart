@@ -303,6 +303,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     try {
       await _authRepository.signOut();
       if (!mounted) return;
+      ref.invalidate(profileProvider);
+      ref.invalidate(accountsProvider);
+      ref.invalidate(transactionsProvider);
+      ref.invalidate(categoriesProvider);
+      ref.invalidate(categoryGroupsProvider);
       context.go('/');
     } catch (_) {
       if (!mounted) return;

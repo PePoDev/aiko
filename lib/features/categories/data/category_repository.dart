@@ -7,12 +7,25 @@ import '../domain/category.dart';
 import '../domain/category_defaults.dart';
 
 class CategoryRepository {
-  const CategoryRepository();
+  const CategoryRepository({
+    OfflineStore? store,
+    OfflineUserContext? userContext,
+  }) : _storeOverride = store,
+       _userContextOverride = userContext;
 
-  Future<List<Category>> list() async {
-    final userId = await OfflineUserContext().resolveUserId();
-    final categories = await OfflineStore().get<OfflineCategory>(
-      query: Query(where: [Where.exact('userId', userId)]),
+  final OfflineStore? _storeOverride;
+  final OfflineUserContext? _userContextOverride;
+
+  OfflineStore get _store => _storeOverride ?? OfflineStore();
+  OfflineUserContext get _userContext =>
+      _userContextOverride ?? OfflineUserContext();
+
+  Future<String> currentUserId() => _userContext.resolveUserId();
+
+  Future<List<Category>> list({String? userId}) async {
+    final ownerId = userId ?? await currentUserId();
+    final categories = await _store.get<OfflineCategory>(
+      query: Query(where: [Where.exact('userId', ownerId)]),
     );
 
     return categories
@@ -22,39 +35,27 @@ class CategoryRepository {
 
   Future<Category> save(Category category) async {
     final currentList = await list();
-    // Default categories stay read-only for identity, but a stored row that
-    // carries a default's id acts as a per-user *budget overlay* — the
-    // provider merges only its budget fields onto the canonical default
-    // (see `_combineWithDefaults`). Duplicate/identity checks below are
-    // skipped for overlays since their name/type mirror the default.
-    if (category.isDefault) {
-      final userId = await OfflineUserContext().resolveUserId();
-      final saved = await OfflineStore().upsert(
-        category.toOffline(userId: userId),
+    if (!category.isDefault) {
+      final duplicate = currentList.any(
+        (item) =>
+            item.isActive &&
+            category.isActive &&
+            !item.isDefault &&
+            item.id != category.id &&
+            item.parentId == category.parentId &&
+            item.type == category.type &&
+            item.name.toLowerCase() == category.name.toLowerCase(),
       );
-      return saved.toDomain();
+      if (duplicate) {
+        throw ArgumentError('Category name already exists.');
+      }
     }
 
-    final duplicate = currentList.any(
-      (item) =>
-          item.isActive &&
-          category.isActive &&
-          item.id != category.id &&
-          item.parentId == category.parentId &&
-          item.type == category.type &&
-          item.name.toLowerCase() == category.name.toLowerCase(),
-    );
-    if (duplicate) {
-      throw ArgumentError('Category name already exists.');
-    }
-
-    final userId = await OfflineUserContext().resolveUserId();
-    final categoryToSave = category.createdAt == null && !category.isDefault
-        ? category.copyWith(createdAt: DateTime.now())
+    final userId = await currentUserId();
+    final categoryToSave = category.createdAt == null
+        ? category.copyWith(createdAt: DateTime.now().toUtc())
         : category;
-    final saved = await OfflineStore().upsert(
-      categoryToSave.toOffline(userId: userId),
-    );
+    final saved = await _store.upsert(categoryToSave.toOffline(userId: userId));
     return saved.toDomain();
   }
 
@@ -63,8 +64,8 @@ class CategoryRepository {
       throw StateError('Default categories cannot be deleted.');
     }
 
-    final userId = await OfflineUserContext().resolveUserId();
-    final categories = await OfflineStore().get<OfflineCategory>(
+    final userId = await _userContext.resolveUserId();
+    final categories = await _store.get<OfflineCategory>(
       query: Query(
         where: [Where.exact('id', id), Where.exact('userId', userId)],
         limit: 1,
@@ -73,6 +74,9 @@ class CategoryRepository {
     if (categories.isEmpty) {
       return;
     }
-    await OfflineStore().delete(categories.first);
+    if (categories.first.toDomain().isDefault) {
+      throw StateError('Default categories cannot be deleted.');
+    }
+    await _store.delete(categories.first);
   }
 }

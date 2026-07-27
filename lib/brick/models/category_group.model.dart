@@ -9,6 +9,7 @@ class OfflineCategoryGroup extends OfflineFirstWithSupabaseModel {
   OfflineCategoryGroup({
     required this.id,
     this.userId,
+    this.templateId,
     required this.name,
     this.icon = 'category',
     this.color = '#3B82F6',
@@ -29,6 +30,10 @@ class OfflineCategoryGroup extends OfflineFirstWithSupabaseModel {
   // have a non-null userId. See AGENTS.md "System (default) categories".
   @Sqlite(index: true)
   final String? userId;
+
+  @Sqlite(name: 'template_id')
+  @Supabase(name: 'template_id')
+  final String? templateId;
 
   final String name;
   final String icon;

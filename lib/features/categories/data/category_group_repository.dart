@@ -8,10 +8,12 @@ import '../domain/category.dart';
 class CategoryGroupRepository {
   const CategoryGroupRepository();
 
-  Future<List<CategoryGroup>> list() async {
-    final userId = await OfflineUserContext().resolveUserId();
+  Future<String> currentUserId() => OfflineUserContext().resolveUserId();
+
+  Future<List<CategoryGroup>> list({String? userId}) async {
+    final ownerId = userId ?? await currentUserId();
     final groups = await OfflineStore().get<OfflineCategoryGroup>(
-      query: Query(where: [Where.exact('userId', userId)]),
+      query: Query(where: [Where.exact('userId', ownerId)]),
     );
 
     final domain = groups.map((group) => group.toDomain()).toList();
@@ -20,10 +22,7 @@ class CategoryGroupRepository {
   }
 
   Future<CategoryGroup> save(CategoryGroup group) async {
-    // A stored row carrying a system (default) group's id is a per-user budget
-    // overlay — the group stays read-only for identity, only its limit rides on
-    // top (mirrors the category budget overlay). Skip the duplicate-name check,
-    // since its name mirrors the default's.
+    // Built-in clones keep canonical identity and only their budget is edited.
     if (!group.isSystem) {
       final currentList = await list();
       final duplicate = currentList.any(
@@ -36,9 +35,9 @@ class CategoryGroupRepository {
       }
     }
 
-    final userId = await OfflineUserContext().resolveUserId();
+    final userId = await currentUserId();
     final groupToSave = group.createdAt == null
-        ? group.copyWith(createdAt: DateTime.now())
+        ? group.copyWith(createdAt: DateTime.now().toUtc())
         : group;
     final saved = await OfflineStore().upsert(
       groupToSave.toOffline(userId: userId),
@@ -56,6 +55,9 @@ class CategoryGroupRepository {
     );
     if (groups.isEmpty) {
       return;
+    }
+    if (groups.first.toDomain().isDefault) {
+      throw StateError('Default category groups cannot be deleted.');
     }
     await OfflineStore().delete(groups.first);
   }

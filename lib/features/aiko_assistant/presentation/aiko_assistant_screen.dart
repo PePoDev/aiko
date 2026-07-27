@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/providers.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../aiko_character/presentation/aiko_avatar.dart';
+import '../../aiko_character/presentation/aiko_character.dart';
 import '../../settings/domain/profile.dart';
 import '../application/aiko_chat_controller.dart';
 import '../application/chat_engine.dart';
@@ -630,35 +631,12 @@ class _OfflineNotice extends StatelessWidget {
 }
 
 /// Game-like empty state: Aiko's greeting shown as a thinking bubble above a
-/// large, gently floating character. Replaced by the chat transcript as soon
-/// as the user sends their first message.
-class _AikoStage extends StatefulWidget {
+/// large character. Replaced by the chat transcript as soon as the user sends
+/// their first message.
+class _AikoStage extends StatelessWidget {
   const _AikoStage({required this.greeting});
 
   final String greeting;
-
-  @override
-  State<_AikoStage> createState() => _AikoStageState();
-}
-
-class _AikoStageState extends State<_AikoStage>
-    with SingleTickerProviderStateMixin {
-  static const _expressions = ['aiko_welcome', 'aiko_thinking', 'aiko_happy'];
-
-  /// Randomized once per screen open so Aiko greets with a varied pose.
-  late final String _asset =
-      'assets/images/aiko/${(List.of(_expressions)..shuffle()).first}.png';
-
-  late final AnimationController _float = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 2600),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _float.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -668,22 +646,13 @@ class _AikoStageState extends State<_AikoStage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _ThinkingBubble(text: widget.greeting),
+            _ThinkingBubble(text: greeting),
             const SizedBox(height: 24),
-            AnimatedBuilder(
-              animation: _float,
-              builder: (context, child) => Transform.translate(
-                offset: Offset(0, -6 + _float.value * 12),
-                child: child,
-              ),
-              child: Image.asset(
-                _asset,
-                key: const ValueKey('aiko-stage-character'),
-                width: 220,
-                height: 220,
-                fit: BoxFit.contain,
-                semanticLabel: 'Aiko',
-              ),
+            const AikoCharacter(
+              key: ValueKey('aiko-stage-character'),
+              mood: AikoMood.thinking,
+              semanticLabel: 'Aiko is thinking',
+              size: 220,
             ),
           ],
         ),

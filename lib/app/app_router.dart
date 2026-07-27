@@ -73,21 +73,6 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
             path: '/categories',
             builder: (context, state) => const CategoryManagementScreen(),
           ),
-          // Planning sub-routes live under Settings and delegate to the
-          // existing detail screens so data wiring stays shared.
-          GoRoute(
-            path: '/settings/safe-to-spend',
-            builder: (context, state) => const SafeToSpendScreen(),
-          ),
-          GoRoute(
-            path: '/settings/cash-flow',
-            builder: (context, state) => const CashFlowOverviewScreen(),
-          ),
-          GoRoute(
-            path: '/settings/cash-flow-sankey',
-            builder: (context, state) => const CashFlowSankeyScreen(),
-          ),
-
           GoRoute(
             path: '/settings/chance-of-success',
             builder: (context, state) {

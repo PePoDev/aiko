@@ -112,12 +112,11 @@ class CategoryManagementScreen extends ConsumerWidget {
             );
           }
 
-          // Use the provider's merged list directly: it already combines the
-          // user's own groups with the 13 default groups, and — crucially —
-          // folds any per-user budget overlay onto the (read-only) defaults.
-          // Re-appending raw `CategoryGroupDefaults.all` here would discard
-          // the saved group budget and the header would never show it.
-          final groups = groupsAsync.value ?? CategoryGroupDefaults.all;
+          final groups =
+              groupsAsync.value ??
+              (categories.any((category) => category.templateId != null)
+                  ? CategoryGroupDefaults.forUser(categories.first.userId)
+                  : CategoryGroupDefaults.all);
 
           final incomeCategories = categories
               .where((category) => category.type == CategoryType.income)
@@ -341,7 +340,7 @@ String _spentOverLimit(Money? spent, Money? limit) {
 }
 
 bool _belongsToGroup(Category category, CategoryGroup group) {
-  if (group.id == CategoryGroupDefaults.unfiledGroupId) {
+  if (group.effectiveTemplateId == CategoryGroupDefaults.unfiledGroupId) {
     return category.groupId == group.id ||
         category.groupId == null ||
         category.groupId!.isEmpty;

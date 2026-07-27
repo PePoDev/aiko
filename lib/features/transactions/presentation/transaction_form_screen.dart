@@ -1580,22 +1580,25 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 if (activeCategories.isEmpty) {
                   return const Text('No categories available');
                 }
-                // Section the list by group. User-defined groups first (so a
-                // user-added group is more prominent than the global defaults),
-                // then the 13 system groups in their canonical order. The
-                // "Other" group is moved to the end regardless of source
-                // order so unfiled custom categories stay out of the way.
-                final userGroups =
-                    categoryGroupsAsync
-                        .whenOrNull(data: (groups) => groups)
-                        ?.where((group) => !group.isSystem)
-                        .toList() ??
-                    const <CategoryGroup>[];
+                final loadedGroups = categoryGroupsAsync.value;
+                final fallbackGroups =
+                    activeCategories.any(
+                      (category) => category.templateId != null,
+                    )
+                    ? CategoryGroupDefaults.forUser(
+                        activeCategories.first.userId,
+                      )
+                    : CategoryGroupDefaults.all;
+                final groups = loadedGroups ?? fallbackGroups;
                 final orderedGroups = <CategoryGroup>[
-                  ...userGroups,
-                  for (final group in CategoryGroupDefaults.all)
-                    if (group.id != CategoryGroupDefaults.unfiledGroupId) group,
-                  CategoryGroupDefaults.other,
+                  for (final group in groups)
+                    if (group.effectiveTemplateId !=
+                        CategoryGroupDefaults.unfiledGroupId)
+                      group,
+                  for (final group in groups)
+                    if (group.effectiveTemplateId ==
+                        CategoryGroupDefaults.unfiledGroupId)
+                      group,
                 ];
                 return _CategoryPicker(
                   categories: activeCategories,
@@ -2754,7 +2757,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
 /// Mirrors [CategoryManagementScreen._belongsToGroup] so a custom category
 /// with a null/empty `groupId` is filed under the "Other" catch-all group.
 bool _belongsToGroup(Category category, CategoryGroup group) {
-  if (group.id == CategoryGroupDefaults.unfiledGroupId) {
+  if (group.effectiveTemplateId == CategoryGroupDefaults.unfiledGroupId) {
     return category.groupId == group.id ||
         category.groupId == null ||
         category.groupId!.isEmpty;

@@ -9,6 +9,9 @@ Future<OfflineCategory> _$OfflineCategoryFromSupabase(
   return OfflineCategory(
     id: data['id'] as String,
     userId: data['user_id'] as String,
+    templateId: data['template_id'] == null
+        ? null
+        : data['template_id'] as String?,
     name: data['name'] as String,
     type: data['type'] as String,
     categoryGroup: data['group'] as String,
@@ -49,6 +52,7 @@ Future<Map<String, dynamic>> _$OfflineCategoryToSupabase(
   return {
     'id': instance.id,
     'user_id': instance.userId,
+    'template_id': instance.templateId,
     'name': instance.name,
     'type': instance.type,
     'group': instance.categoryGroup,
@@ -77,6 +81,9 @@ Future<OfflineCategory> _$OfflineCategoryFromSqlite(
   return OfflineCategory(
     id: data['id'] as String,
     userId: data['user_id'] as String,
+    templateId: data['template_id'] == null
+        ? null
+        : data['template_id'] as String?,
     name: data['name'] as String,
     type: data['type'] as String,
     categoryGroup: data['category_group'] as String,
@@ -113,6 +120,7 @@ Future<Map<String, dynamic>> _$OfflineCategoryToSqlite(
   return {
     'id': instance.id,
     'user_id': instance.userId,
+    'template_id': instance.templateId,
     'name': instance.name,
     'type': instance.type,
     'category_group': instance.categoryGroup,
@@ -151,6 +159,10 @@ class OfflineCategoryAdapter
     'userId': const RuntimeSupabaseColumnDefinition(
       association: false,
       columnName: 'user_id',
+    ),
+    'templateId': const RuntimeSupabaseColumnDefinition(
+      association: false,
+      columnName: 'template_id',
     ),
     'name': const RuntimeSupabaseColumnDefinition(
       association: false,
@@ -242,6 +254,12 @@ class OfflineCategoryAdapter
     'userId': const RuntimeSqliteColumnDefinition(
       association: false,
       columnName: 'user_id',
+      iterable: false,
+      type: String,
+    ),
+    'templateId': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'template_id',
       iterable: false,
       type: String,
     ),

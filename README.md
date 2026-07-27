@@ -154,9 +154,9 @@ GoRouter around a bottom-nav shell, 5 primary tabs:
 4. **Transactions (`/transactions`)** — Search, filters, recurring, auto-categorization rules.
 5. **Aiko (`/aiko`)** — Chat (`/aiko-assistant`), optimize (`/aiko-optimize`), course hub; opens the Settings hub.
 
-**Settings (`/settings`)** — via Aiko tab settings icon. Flat tools list: Safe to Spend, Cash Flow, Cash Flow Sankey, Chance of Success, Investments, Asset Allocation, Holding Detail, Learning Hub, Calculators, and Export. App preferences include Appearance and Language.
+**Settings (`/settings`)** — via Aiko tab settings icon. Flat tools list: Chance of Success, Investments, Asset Allocation, Holding Detail, Learning Hub, Calculators, and Export. App preferences include Appearance and Language.
 
-**Secondary routes:** `/notifications`, `/transaction-rules`, `/transaction-capture`, `/settings/safe-to-spend`, `/settings/cash-flow`, `/settings/cash-flow-sankey`, `/settings/chance-of-success`, `/reports/monthly`, `/export`, `/account-form`, `/profile`, `/connect-line`, `/portfolio`, `/portfolio/allocation`, `/portfolio/holding`, `/calculators`, `/learning-hub`, `/travel-mode`.
+**Secondary routes:** `/notifications`, `/transaction-rules`, `/transaction-capture`, `/settings/chance-of-success`, `/reports/monthly`, `/export`, `/account-form`, `/profile`, `/connect-line`, `/portfolio`, `/portfolio/allocation`, `/portfolio/holding`, `/calculators`, `/learning-hub`, `/travel-mode`.
 
 ---
 
@@ -180,7 +180,7 @@ Core finance data reads/writes locally first via [Brick](https://github.com/GetD
 - **⚠️ Known gap (offline, no Supabase config):** `accountsProvider`, `transactionsProvider`, `categoriesProvider`, `dashboardSummaryProvider`, `dashboardDueItemsProvider` (`lib/app/providers.dart`) call repositories without try/catch. If the offline store or `OfflineUserContext` throws (fresh install, secure-storage channel unavailable), the error reaches `AikoScreenState.error` → "X is unavailable". Fix: wrap each provider body in try/catch returning an empty list / default summary.
 - **Brick `details_json` round-trip (regen-safe):** `OfflineAccount.detailsJson` is a local VARCHAR and a Supabase `jsonb` column `details`. Supabase round-trip via `accountDetailsFromSupabase`/`accountDetailsToSupabase` (`account.model.dart`, `@Supabase(fromGenerator/toGenerator)`); local read tolerates legacy NULL via `accountDetailsFromSqlite` (`@Sqlite(fromGenerator)`). Safe to re-run `build_runner`. Coverage: `test/brick/account_details_json_test.dart`.
 - After editing `lib/brick/models/`, run `dart run build_runner build` and commit generated adapters/schema/migrations.
-- **System (default) categories:** global Supabase rows (`user_id = NULL`) injected in-memory via `CategoryDefaults` (`category_defaults.dart`) — never stored per-user in Brick, not user-writable, **fixed stable UUIDs (never change them)**. They belong to 13 global read-only groups (`CategoryGroupDefaults.all`): Income & Earnings, Investments & Savings, Food & Drink, Transport, Housing & Utilities, Health & Fitness, Shopping & Personal, Entertainment & Leisure, Education, Travel, Family & Giving, Bills & Financial, "Other" (catch-all). Each group is a `user_id = NULL` in-memory `category_groups` row with a fixed UUID. Default groups aren't editable/deletable but are assignment targets for custom categories.
+- **System (default) categories:** Supabase keeps 81 category and 13 group templates as immutable global rows (`user_id = NULL`) with fixed stable UUIDs. Account setup creates deterministic per-user UUIDv5 clones with `template_id` pointing to those templates; transactions and budgets reference the user clones, which Brick stores normally but the UI keeps read-only. Anonymous local data may use template IDs temporarily; sign-in rekeys groups, categories, and transaction references to the authenticated user's clone IDs before sync.
 - Use Supabase for Auth, Postgres, RLS, structured finance data, attachment storage. By default avoid Realtime/Edge Functions (unless server logic needed) and large blobs in Postgres.
 
 ### Code Conventions
@@ -440,7 +440,7 @@ Use `AikoScreenState` for loading/empty/error/offline/locked.
 
 `lib/shared/widgets/aiko_data_widgets.dart` for idea-backed supplemental + new detail screens. Prefer shared widgets over one-off cards/painters; don't nest `AikoDataListCard`; sticky bottom actions via `AikoDetailScaffold.bottomBar`.
 
-`AikoDetailScaffold` (detail/tool screens, optional sticky bottom action), `AikoInlineNotice` (tips/warnings/notes), `AikoMetricCard`/`AikoMetricGrid` (summaries), `AikoDataListCard`/`AikoDataRow` (grouped facts/settings rows), `AikoMiniBarChart`/`AikoDonutChart`/`AikoGauge`/`AikoSankeyPreview` (labeled preview charts).
+`AikoDetailScaffold` (detail/tool screens, optional sticky bottom action), `AikoInlineNotice` (tips/warnings/notes), `AikoMetricCard`/`AikoMetricGrid` (summaries), `AikoDataListCard`/`AikoDataRow` (grouped facts/settings rows), `AikoDonutChart`/`AikoGauge` (labeled preview charts).
 
 ### Iconography
 
@@ -481,7 +481,7 @@ Shared UI primitives in `lib/shared/widgets/`; feature screens consume them, don
 
 ### Route & Idea Coverage
 
-Supplemental routes by owner: `/notifications`, `/transaction-rules`, `/transaction-capture`, `/settings/safe-to-spend`, `/settings/cash-flow`, `/settings/cash-flow-sankey`, `/settings/chance-of-success`, `/reports/monthly`, `/export`, `/account-form`, `/profile`, `/connect-line`, `/portfolio/allocation`, `/portfolio/holding`, `/learning-hub`, `/travel-mode`.
+Supplemental routes by owner: `/notifications`, `/transaction-rules`, `/transaction-capture`, `/settings/chance-of-success`, `/reports/monthly`, `/export`, `/account-form`, `/profile`, `/connect-line`, `/portfolio/allocation`, `/portfolio/holding`, `/learning-hub`, `/travel-mode`.
 
 Route rules: don't duplicate an existing feature screen; sticky bottom actions for filter/save/confirm/result screens; sample data realistic + scoped to preview/offline; real repositories remain the persisted source; Aiko guidance after the primary number/decision (except onboarding/chat); every supplemental route renders without a Supabase session.
 

@@ -1,7 +1,7 @@
 // GENERATED CODE DO NOT EDIT
 // This file should be version controlled
 import 'package:brick_sqlite/db.dart';
-part '20260620095103.migration.dart';
+part '20260725185723.migration.dart';
 part '20260523055312.migration.dart';
 part '20260523183433.migration.dart';
 part '20260603133701.migration.dart';
@@ -19,10 +19,11 @@ part '20260616180151.migration.dart';
 part '20260616230747.migration.dart';
 part '20260617195026.migration.dart';
 part '20260620084032.migration.dart';
+part '20260620095103.migration.dart';
 
 /// All intelligently-generated migrations from all `@Migratable` classes on disk
 final migrations = <Migration>{
-  const Migration20260620095103(),
+  const Migration20260725185723(),
   const Migration20260523055312(),
   const Migration20260523183433(),
   const Migration20260603133701(),
@@ -40,11 +41,12 @@ final migrations = <Migration>{
   const Migration20260616230747(),
   const Migration20260617195026(),
   const Migration20260620084032(),
+  const Migration20260620095103(),
 };
 
 /// A consumable database structure including the latest generated migration.
 final schema = Schema(
-  20260620084032,
+  20260725185723,
   generatorVersion: 1,
   tables: <SchemaTable>{
     SchemaTable(
@@ -89,6 +91,7 @@ final schema = Schema(
         ),
         SchemaColumn('id', Column.varchar, unique: true),
         SchemaColumn('user_id', Column.varchar),
+        SchemaColumn('template_id', Column.varchar),
         SchemaColumn('name', Column.varchar),
         SchemaColumn('type', Column.varchar),
         SchemaColumn('category_group', Column.varchar),
@@ -123,6 +126,7 @@ final schema = Schema(
         ),
         SchemaColumn('id', Column.varchar, unique: true),
         SchemaColumn('user_id', Column.varchar),
+        SchemaColumn('template_id', Column.varchar),
         SchemaColumn('name', Column.varchar),
         SchemaColumn('icon', Column.varchar),
         SchemaColumn('color', Column.varchar),

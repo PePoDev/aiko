@@ -20,6 +20,9 @@ export 'package:brick_offline_first/brick_offline_first.dart'
         OfflineFirstUpsertPolicy;
 
 class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
+  static const _templateIdMigrationVersion = 20260725185723;
+  static const _templateIdMigrationPredecessor = 20260620095103;
+
   AikoBrickRepository._({
     required super.supabaseProvider,
     required super.sqliteProvider,
@@ -79,8 +82,51 @@ class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
       memoryCacheProvider: MemoryCacheProvider(),
     );
 
+    await _repairInterruptedTemplateIdMigration(_singleton!.sqliteProvider);
     await _singleton!.initialize();
   }
+
+  static Future<void> _repairInterruptedTemplateIdMigration(
+    SqliteProvider provider,
+  ) async {
+    if (await provider.lastMigrationVersion() !=
+        _templateIdMigrationPredecessor) {
+      return;
+    }
+
+    await provider.transaction((transaction) async {
+      const tables = ['OfflineCategory', 'OfflineCategoryGroup'];
+      final existingTables = await transaction.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'table' "
+        'AND name IN (?, ?)',
+        tables,
+      );
+      if (existingTables.length != tables.length) {
+        return;
+      }
+
+      for (final table in tables) {
+        final columns = await transaction.rawQuery(
+          'PRAGMA table_info(`$table`)',
+        );
+        if (!columns.any((column) => column['name'] == 'template_id')) {
+          await transaction.execute(
+            'ALTER TABLE `$table` ADD `template_id` VARCHAR NULL',
+          );
+        }
+      }
+
+      await transaction.rawInsert(
+        'INSERT OR IGNORE INTO MigrationVersions(version) VALUES(?)',
+        [_templateIdMigrationVersion],
+      );
+    });
+  }
+
+  @visibleForTesting
+  static Future<void> repairInterruptedTemplateIdMigrationForTesting(
+    SqliteProvider provider,
+  ) => _repairInterruptedTemplateIdMigration(provider);
 
   static Future<void> resetLocalData() async {
     final repository = _singleton;

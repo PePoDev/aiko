@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/offline/offline_data_migrator.dart';
+import '../../../core/offline/offline_user_context.dart';
 import '../../../core/supabase/supabase_client_provider.dart';
 import '../../../core/storage/secure_storage_service.dart';
 
@@ -18,8 +19,9 @@ class AuthSession {
 }
 
 class AuthRepository {
-  AuthRepository({SecureStorageService? storage})
-    : _storage = storage ?? FlutterSecureStorageService();
+  AuthRepository({SecureStorageService? storage, SupabaseClient? client})
+    : _storage = storage ?? FlutterSecureStorageService(),
+      _client = client;
 
   static const _knownAccountKey = 'aiko_known_account';
 
@@ -45,7 +47,10 @@ class AuthRepository {
   );
 
   final SecureStorageService _storage;
+  final SupabaseClient? _client;
   AuthSession? _session;
+
+  SupabaseClient get _requiredClient => _client ?? AikoSupabase.requireClient();
 
   Future<bool> hasKnownAccount() async {
     return await _storage.read(_knownAccountKey) == 'true';
@@ -87,7 +92,7 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
-    final client = AikoSupabase.requireClient();
+    final client = _requiredClient;
 
     final response = await client.auth.signUp(email: email, password: password);
     final user = response.user;
@@ -108,7 +113,7 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
-    final client = AikoSupabase.requireClient();
+    final client = _requiredClient;
 
     final response = await client.auth.signInWithPassword(
       email: email,
@@ -150,7 +155,7 @@ class AuthRepository {
   /// redirect took over and the session will be restored on reload. Throws an
   /// [AuthException]/[StateError] on a real failure.
   Future<AuthSession?> signInWithGoogle() async {
-    final client = AikoSupabase.requireClient();
+    final client = _requiredClient;
 
     if (kIsWeb) {
       // Web has no native picker; fall back to the redirect flow. This
@@ -239,7 +244,7 @@ class AuthRepository {
   /// deep-link callback returns to the app and fires [authStateChanges].
   /// Requires "Manual linking" enabled in Supabase Auth settings.
   Future<bool> linkGoogle() {
-    final client = AikoSupabase.requireClient();
+    final client = _requiredClient;
     return client.auth.linkIdentity(
       OAuthProvider.google,
       redirectTo: kIsWeb ? null : googleOAuthRedirectUrl,
@@ -254,26 +259,27 @@ class AuthRepository {
   }
 
   Future<void> signOut() async {
-    final client = AikoSupabase.tryClient();
+    final client = _client ?? AikoSupabase.tryClient();
     if (client != null) {
       await client.auth.signOut();
     }
+    await OfflineUserContext.startAnonymousSession(_storage);
   }
 
   Future<void> resetPassword(String email) async {
-    final client = AikoSupabase.requireClient();
+    final client = _requiredClient;
     await client.auth.resetPasswordForEmail(email);
   }
 
   Future<void> deleteAccount() async {
-    final client = AikoSupabase.requireClient();
+    final client = _requiredClient;
     if (client.auth.currentSession == null) {
       throw AuthException('No active session found.');
     }
     // Immediate, permanent. The `delete_account` RPC (SECURITY DEFINER) removes
     // the profile (cascades finance data) and the auth login in one shot.
     await client.rpc('delete_account');
-    await client.auth.signOut();
+    await signOut();
   }
 
   Future<AuthSession?> restoreSession() async {
@@ -303,7 +309,7 @@ class AuthRepository {
     String userId,
     String email,
   ) async {
-    final client = AikoSupabase.requireClient();
+    final client = _requiredClient;
 
     await client.from('profiles').upsert({
       'id': userId,
@@ -318,6 +324,8 @@ class AuthRepository {
       'onboarding_status': 'inProgress',
       'security_status': 'notConfigured',
     });
+
+    await client.rpc('ensure_default_category_clones');
 
     final List<Map<String, dynamic>> accounts = await client
         .from('accounts')

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
+import 'inline_glossary_text.dart';
 
 class LearningHubScreen extends StatelessWidget {
   const LearningHubScreen({super.key});
@@ -37,24 +38,11 @@ class LearningHubScreen extends StatelessWidget {
                   for (final lesson in _lessons.where(
                     (lesson) => lesson.quizQuestions.isNotEmpty,
                   ))
-                    Text(
-                      '${lesson.title}: ${lesson.quizQuestions.length} question quiz',
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            FinanceCard(
-              title: 'Glossary',
-              icon: Icons.menu_book_outlined,
-              accentColor: AikoColors.analyticsTeal,
-              child: Column(
-                children: [
-                  for (final entry in _glossary)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(entry.term),
-                      subtitle: Text(entry.definition),
+                    InlineGlossaryText(
+                      text:
+                          '${lesson.title}: '
+                          '${lesson.quizQuestions.length} question quiz',
+                      glossary: _glossary,
                     ),
                 ],
               ),
@@ -79,9 +67,12 @@ class _LessonTile extends StatelessWidget {
         value: _completionPercent(lesson.progress),
         strokeWidth: 4,
       ),
-      title: Text(lesson.title),
-      subtitle: Text(
-        '${lesson.category} - ${lesson.estimatedMinutes} min\n${lesson.summary}',
+      title: InlineGlossaryText(text: lesson.title, glossary: _glossary),
+      subtitle: InlineGlossaryText(
+        text:
+            '${lesson.category} - ${lesson.estimatedMinutes} min\n'
+            '${lesson.summary}',
+        glossary: _glossary,
       ),
       isThreeLine: true,
       trailing: const Icon(Icons.chevron_right),
@@ -105,8 +96,6 @@ typedef _LessonQuizQuestion = ({
   int correctOptionIndex,
 });
 
-typedef _GlossaryEntry = ({String term, String definition});
-
 enum _LessonProgress { notStarted, inProgress, completed }
 
 double _completionPercent(_LessonProgress progress) => switch (progress) {
@@ -121,7 +110,7 @@ const _lessons = <_Lesson>[
     title: 'Budgeting without guilt',
     category: 'Budgeting',
     summary:
-        'Build a simple plan for needs, wants, goals, and flexible spending.',
+        'Safe-to-spend helps you balance needs, wants, goals, and flexible spending.',
     estimatedMinutes: 6,
     progress: _LessonProgress.inProgress,
     quizQuestions: [
@@ -153,7 +142,7 @@ const _lessons = <_Lesson>[
     title: 'Credit utilization basics',
     category: 'Credit',
     summary:
-        'Understand balance-to-limit ratios and why paydown timing matters.',
+        'Understand APR, balance-to-limit ratios, and why paydown timing matters.',
     estimatedMinutes: 7,
     progress: _LessonProgress.completed,
     quizQuestions: [
@@ -164,16 +153,27 @@ const _lessons = <_Lesson>[
       ),
     ],
   ),
+  (
+    key: 'portfolio-rebalancing',
+    title: 'Rebalancing your portfolio',
+    category: 'Investing',
+    summary:
+        'Learn when to bring investments back toward target allocation weights.',
+    estimatedMinutes: 6,
+    progress: _LessonProgress.notStarted,
+    quizQuestions: [
+      (
+        prompt: 'What does rebalancing restore?',
+        options: ['Target allocation weights', 'A guaranteed return'],
+        correctOptionIndex: 0,
+      ),
+    ],
+  ),
 ];
 
-const _glossary = <_GlossaryEntry>[
-  (term: 'APR', definition: 'Annual percentage rate.'),
-  (
-    term: 'Safe-to-spend',
-    definition: 'Money left after bills, savings, goals, and posted spending.',
-  ),
-  (
-    term: 'Rebalancing',
-    definition: 'Adjusting investments back toward target allocation weights.',
-  ),
-];
+const _glossary = <String, String>{
+  'APR': 'Annual percentage rate.',
+  'Safe-to-spend':
+      'Money left after bills, savings, goals, and posted spending.',
+  'Rebalancing': 'Adjusting investments back toward target allocation weights.',
+};

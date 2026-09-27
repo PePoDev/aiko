@@ -11,10 +11,15 @@ include: package:flutter_lints/flutter.yaml
 
 analyzer:
   exclude:
-    - lib/brick/brick.g.dart
-    - lib/brick/adapters/*.g.dart
+    - node_modules/**
+    - firebase/functions/node_modules/**
+    - "**/node_modules/**"
     - lib/brick/db/*.g.dart
     - lib/brick/db/*.migration.dart
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
 
 linter:
   # The lint rules applied to this project can be customized in the

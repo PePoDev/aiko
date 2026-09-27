@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -81,7 +81,8 @@ class _TransactionCaptureScreenState
 
     // Capture relies on Android-only OS access; on other platforms the controls
     // render disabled rather than functional.
-    final android = Platform.isAndroid;
+    final android =
+        (!kIsWeb && defaultTargetPlatform == TargetPlatform.android);
     final accounts = ref.watch(accountsProvider).value ?? const <Account>[];
 
     return Scaffold(

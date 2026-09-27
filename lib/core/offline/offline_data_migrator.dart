@@ -1,4 +1,5 @@
-import 'package:brick_offline_first_with_supabase/brick_offline_first_with_supabase.dart';
+import '../../brick/models/investment_holding.model.dart';
+import 'package:brick_sqlite/brick_sqlite.dart' show SqliteModel;
 import 'package:flutter/foundation.dart';
 
 import '../../brick/models/account.model.dart';
@@ -6,13 +7,13 @@ import '../../brick/models/category.model.dart';
 import '../../brick/models/category_group.model.dart';
 import '../../brick/models/transaction.model.dart';
 import '../../brick/offline_model_mappers.dart';
-import '../../brick/repository.dart' show OfflineFirstGetPolicy;
+import '../../brick/repository.dart' show OfflineReadPolicy;
 import '../../features/categories/domain/category_defaults.dart';
 import 'offline_store.dart';
 import 'offline_user_context.dart';
 
 /// Reassigns rows that were created while signed out (under an anonymous
-/// `local:<uuid>` user id) to the real Supabase user id after sign-in.
+/// `local:<uuid>` user id) to the real Firebase user id after sign-in.
 ///
 /// Without this, data captured before signing in is orphaned: every repository
 /// query filters by the currently resolved user id, so once that id flips from
@@ -20,7 +21,7 @@ import 'offline_user_context.dart';
 /// UI even though they are still in the local database.
 ///
 /// Each reclaimed row is re-upserted, which updates its local `user_id` in place
-/// (matched by its unique `id`) and queues it to sync up to Supabase.
+/// (matched by its unique `id`) and queues it to sync up to Firebase.
 class OfflineDataMigrator {
   OfflineDataMigrator({OfflineStore? store}) : _store = store ?? OfflineStore();
 
@@ -77,6 +78,13 @@ class OfflineDataMigrator {
       (row) => row.id,
     );
 
+    migrated += await _claim<OfflineInvestmentHolding>(
+      realUserId,
+      (row) => row.userId,
+      (row) => row.toDomain().toOffline(userId: realUserId),
+      (row) => row.id,
+    );
+
     if (kDebugMode) {
       debugPrint(
         '[aiko-sync] claimAnonymousData reassigned $migrated rows to '
@@ -86,7 +94,7 @@ class OfflineDataMigrator {
     return migrated;
   }
 
-  Future<int> _claim<TModel extends OfflineFirstWithSupabaseModel>(
+  Future<int> _claim<TModel extends SqliteModel>(
     String realUserId,
     String Function(TModel row) userIdOf,
     TModel Function(TModel row) reassign,
@@ -94,7 +102,7 @@ class OfflineDataMigrator {
   ) async {
     try {
       final rows = await _store.get<TModel>(
-        policy: OfflineFirstGetPolicy.localOnly,
+        policy: OfflineReadPolicy.localOnly,
       );
       final orphans = rows
           .where(
@@ -105,7 +113,7 @@ class OfflineDataMigrator {
       for (final row in orphans) {
         final claimed = reassign(row);
         await _store.upsert<TModel>(claimed);
-        if (idOf(claimed) != idOf(row)) {
+        if (_store.canSyncRemote || idOf(claimed) != idOf(row)) {
           await _store.delete<TModel>(row, localOnly: true);
         }
       }

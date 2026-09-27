@@ -1,5 +1,5 @@
 import '../../../core/money/money.dart';
-import '../../../core/supabase/supabase_client_provider.dart';
+import '../../../core/firebase/firebase_backend.dart';
 
 class ReceiptAutofill {
   const ReceiptAutofill({
@@ -27,16 +27,14 @@ class ReceiptOcrService {
     required String fileName,
     String currency = 'THB',
   }) async {
-    final client = AikoSupabase.tryClient();
-    if (client == null) {
+    if (!FirebaseBackend.isConfigured) {
       return parseRecognizedText('', currency: currency);
     }
 
     try {
-      final response = await client.functions.invoke(
-        'ocr-scanner',
-        body: {'fileName': fileName, 'imageBytes': imageBytes},
-      );
+      final response = await FirebaseBackend.functions
+          .httpsCallable('ocrScanner')
+          .call({'fileName': fileName, 'imageBytes': imageBytes});
       final data = response.data as Map<String, dynamic>;
       final recognizedText = data['recognizedText'] as String? ?? '';
       return parseRecognizedText(recognizedText, currency: currency);

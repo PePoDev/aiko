@@ -1,16 +1,14 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/storage/local_file_cache.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../../core/offline/offline_user_context.dart';
-import '../../../core/supabase/supabase_client_provider.dart';
+import '../../../core/firebase/firebase_backend.dart';
 
 /// Result of picking a new avatar: the local cache path is always populated
 /// so the UI can render instantly, and the cloud URL is populated when the
-/// upload to Supabase Storage succeeded.
+/// upload to Firebase Storage succeeded.
 class ProfileAvatar {
   const ProfileAvatar({required this.localPath, this.cloudUrl});
 
@@ -21,13 +19,11 @@ class ProfileAvatar {
 class ProfileAvatarService {
   ProfileAvatarService();
 
-  static const _bucket = 'avatars';
-
   final ImagePicker _picker = ImagePicker();
 
   /// Open the platform camera/gallery picker, persist the chosen image to
   /// the app's documents directory, then attempt to upload it to the
-  /// `avatars` Supabase Storage bucket. Returns `null` when the user
+  /// `avatars` Firebase Storage bucket. Returns `null` when the user
   /// cancelled the picker. Throws when the local write fails; cloud
   /// upload failures are swallowed and the avatar still works offline.
   Future<ProfileAvatar?> pickAndUpload({required ImageSource source}) async {
@@ -56,58 +52,31 @@ class ProfileAvatarService {
     if (localPath == null || localPath.isEmpty) {
       return;
     }
-    final file = File(localPath);
-    if (await file.exists()) {
-      try {
-        await file.delete();
-      } catch (_) {
-        if (kDebugMode) {
-          debugPrint('[aiko] could not delete cached avatar: $localPath');
-        }
-      }
-    }
+    await LocalFileCache.remove(localPath);
   }
 
-  Future<String> _writeToCache(
-    String userId,
-    String ext,
-    List<int> bytes,
-  ) async {
-    final dir = await getApplicationDocumentsDirectory();
-    final avatarDir = Directory('${dir.path}/avatars');
-    if (!await avatarDir.exists()) {
-      await avatarDir.create(recursive: true);
-    }
-    final file = File('${avatarDir.path}/$userId.$ext');
-    await file.writeAsBytes(bytes, flush: true);
-    return file.path;
-  }
+  Future<String> _writeToCache(String userId, String ext, List<int> bytes) =>
+      LocalFileCache.write('avatars/$userId.$ext', bytes);
 
   Future<String?> _uploadToStorage(
     String userId,
     String ext,
     List<int> bytes,
   ) async {
-    final client = AikoSupabase.tryClient();
-    final user = client?.auth.currentUser;
-    if (client == null || user == null) {
-      return null;
-    }
-    final objectPath = '$userId/avatar.$ext';
+    if (FirebaseBackend.userId == null) return null;
+    final objectPath = 'users/$userId/avatars/avatar.$ext';
     final contentType = switch (ext) {
       'png' => 'image/png',
       'webp' => 'image/webp',
       _ => 'image/jpeg',
     };
     try {
-      await client.storage
-          .from(_bucket)
-          .uploadBinary(
-            objectPath,
-            Uint8List.fromList(bytes),
-            fileOptions: FileOptions(contentType: contentType, upsert: true),
-          );
-      return client.storage.from(_bucket).getPublicUrl(objectPath);
+      final reference = FirebaseBackend.storage.ref(objectPath);
+      await reference.putData(
+        Uint8List.fromList(bytes),
+        SettableMetadata(contentType: contentType),
+      );
+      return await reference.getDownloadURL();
     } catch (error) {
       if (kDebugMode) {
         debugPrint('[aiko] avatar upload failed: $error');

@@ -1,3 +1,4 @@
+import 'package:aiko/core/storage/secure_storage_service.dart';
 import 'package:aiko/app/providers.dart';
 import 'package:aiko/core/money/exchange_rate_service.dart';
 import 'package:aiko/core/money/money.dart';
@@ -25,13 +26,36 @@ Trip _trip() => Trip(
 
 ProviderContainer _container(ExchangeRateService service) {
   final container = ProviderContainer(
-    overrides: [exchangeRateServiceProvider.overrideWithValue(service)],
+    overrides: [
+      exchangeRateServiceProvider.overrideWithValue(service),
+      travelStorageProvider.overrideWithValue(MemorySecureStorageService()),
+    ],
   );
   addTearDown(container.dispose);
   return container;
 }
 
 void main() {
+  test('trip and decimal budget survive a new client session', () async {
+    final storage = MemorySecureStorageService();
+    ProviderContainer client() => ProviderContainer(
+      overrides: [
+        travelStorageProvider.overrideWithValue(storage),
+        exchangeRateServiceProvider.overrideWithValue(
+          const _StubRateService(null),
+        ),
+      ],
+    );
+    final first = client();
+    await first.read(travelModeProvider.notifier).createTrip(_trip());
+    first.dispose();
+    final second = client();
+    addTearDown(second.dispose);
+    final restored = await second.read(storedTravelProvider.future);
+    expect(restored.activeTrip!.name, 'Tokyo');
+    expect(restored.activeTrip!.budget, Money.parse('50000', 'THB'));
+    expect(restored.exchangeRate, 4.30);
+  });
   test('createTrip uses the live rate when available', () async {
     final container = _container(_StubRateService(Decimal.parse('4.55')));
     await container.read(travelModeProvider.notifier).createTrip(_trip());

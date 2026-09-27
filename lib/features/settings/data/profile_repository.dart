@@ -6,7 +6,7 @@ import '../../../brick/repository.dart';
 import '../../../brick/models/profile.model.dart';
 import '../../../core/offline/offline_store.dart';
 import '../../../core/offline/offline_user_context.dart';
-import '../../../core/supabase/supabase_client_provider.dart';
+import '../../../core/firebase/firebase_backend.dart';
 import '../domain/profile.dart';
 
 class ProfileRepository {
@@ -18,12 +18,12 @@ class ProfileRepository {
     final profiles = await store.get<OfflineProfile>(
       query: Query.where('id', userId, limit1: true),
       policy: store.canSyncRemote
-          ? OfflineFirstGetPolicy.awaitRemoteWhenNoneExist
-          : OfflineFirstGetPolicy.localOnly,
+          ? OfflineReadPolicy.awaitRemoteWhenNoneExist
+          : OfflineReadPolicy.localOnly,
     );
 
     if (profiles.isEmpty) {
-      final email = AikoSupabase.tryClient()?.auth.currentUser?.email ?? '';
+      final email = FirebaseBackend.auth?.currentUser?.email ?? '';
       final profile = Profile(
         id: userId,
         displayName: email.contains('@') ? email.split('@').first : 'Aiko User',

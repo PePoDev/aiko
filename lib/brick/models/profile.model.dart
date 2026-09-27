@@ -1,11 +1,6 @@
-import 'package:brick_offline_first_with_supabase/brick_offline_first_with_supabase.dart';
 import 'package:brick_sqlite/brick_sqlite.dart';
-import 'package:brick_supabase/brick_supabase.dart';
 
-@ConnectOfflineFirstWithSupabase(
-  supabaseConfig: SupabaseSerializable(tableName: 'profiles'),
-)
-class OfflineProfile extends OfflineFirstWithSupabaseModel {
+class OfflineProfile extends SqliteModel {
   OfflineProfile({
     required this.id,
     required this.displayName,
@@ -28,7 +23,6 @@ class OfflineProfile extends OfflineFirstWithSupabaseModel {
   }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
 
   @Sqlite(unique: true)
-  @Supabase(unique: true)
   final String id;
 
   final String displayName;
@@ -47,29 +41,23 @@ class OfflineProfile extends OfflineFirstWithSupabaseModel {
   // existed, so an upgraded local row has it NULL. A null coalesces to the
   // default instead of throwing on the non-null cast.
   @Sqlite(fromGenerator: 'genderFromColumn(%DATA_PROPERTY%)')
-  @Supabase(fromGenerator: 'genderFromColumn(%DATA_PROPERTY%)')
   final String gender;
 
   @Sqlite(name: 'date_of_birth')
-  @Supabase(name: 'date_of_birth')
   final DateTime? dateOfBirth;
 
   final String? phoneNumber;
 
   @Sqlite(name: 'avatar_path')
-  @Supabase(name: 'avatar_path')
   final String? avatarPath;
 
   @Sqlite(name: 'avatar_url')
-  @Supabase(name: 'avatar_url')
   final String? avatarUrl;
 
   @Sqlite(name: 'updated_at')
-  @Supabase(name: 'updated_at')
   final DateTime updatedAt;
 
   @Sqlite(name: 'version')
-  @Supabase(name: 'version', defaultValue: '1')
   final int version;
 }
 

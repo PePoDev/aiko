@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -44,15 +45,16 @@ class CapturedMessage {
     'received_at': receivedAt.toIso8601String(),
   };
 
-  factory CapturedMessage.fromJson(Map<String, dynamic> json) => CapturedMessage(
-    id: json['id'] as String,
-    source: json['source'] as String? ?? 'sms',
-    sender: json['sender'] as String? ?? '',
-    body: json['body'] as String? ?? '',
-    receivedAt:
-        DateTime.tryParse(json['received_at'] as String? ?? '') ??
-        DateTime.now(),
-  );
+  factory CapturedMessage.fromJson(Map<String, dynamic> json) =>
+      CapturedMessage(
+        id: json['id'] as String,
+        source: json['source'] as String? ?? 'sms',
+        sender: json['sender'] as String? ?? '',
+        body: json['body'] as String? ?? '',
+        receivedAt:
+            DateTime.tryParse(json['received_at'] as String? ?? '') ??
+            DateTime.now(),
+      );
 }
 
 String _newCaptureId() =>
@@ -84,9 +86,11 @@ class CapturedMessageInbox {
   Future<List<CapturedMessage>> drain() async {
     final dir = await _dir();
     final files =
-        (await dir.list().toList()).whereType<File>().where(
-          (f) => f.path.endsWith('.json'),
-        ).toList()..sort((a, b) => a.path.compareTo(b.path));
+        (await dir.list().toList())
+            .whereType<File>()
+            .where((f) => f.path.endsWith('.json'))
+            .toList()
+          ..sort((a, b) => a.path.compareTo(b.path));
     final out = <CapturedMessage>[];
     for (final file in files) {
       try {
@@ -135,20 +139,22 @@ class TransactionCaptureService {
   StreamSubscription<ServiceNotificationEvent>? _notifSub;
 
   Future<bool> notificationsGranted() async =>
-      Platform.isAndroid &&
+      (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) &&
       await NotificationListenerService.isPermissionGranted();
 
   /// Opens the system "notification access" screen for the user to grant.
   Future<bool> requestNotifications() async =>
-      Platform.isAndroid &&
+      (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) &&
       await NotificationListenerService.requestPermission();
 
   Future<bool> requestSms() async =>
-      Platform.isAndroid &&
+      (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) &&
       (await _telephony.requestPhoneAndSmsPermissions ?? false);
 
   Future<void> start() async {
-    if (!Platform.isAndroid) return; // SMS/notification capture is Android-only
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return; // SMS/notification capture is Android-only
+    }
     _telephony.listenIncomingSms(
       onNewMessage: (message) => _inbox.add(
         CapturedMessage(
@@ -202,7 +208,7 @@ class CapturedMessageProcessor {
   final _uuid = const Uuid();
 
   Future<int> processInbox() async {
-    if (!Platform.isAndroid) return 0;
+    if (!(!kIsWeb && defaultTargetPlatform == TargetPlatform.android)) return 0;
     final settings = await TransactionCaptureSettings.load();
     if (!settings.enabled || settings.accountId == null) return 0;
 

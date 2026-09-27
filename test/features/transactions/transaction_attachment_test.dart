@@ -1,8 +1,18 @@
 import 'package:aiko/features/transactions/data/transaction_attachment_repository.dart';
 import 'package:aiko/features/transactions/domain/transaction_attachment.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:sqflite/sqflite.dart' as sqlite;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:aiko/core/storage/local_file_cache.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() {
+    FlutterSecureStorage.setMockInitialValues({'aiko_offline_user_id': 'user'});
+    sqfliteFfiInit();
+    sqlite.databaseFactory = databaseFactoryFfi;
+  });
   test('validates supported attachment metadata', () {
     final attachment = TransactionAttachment(
       id: 'receipt',
@@ -19,7 +29,7 @@ void main() {
     expect(attachment.isExportable, isTrue);
   });
 
-  test('repository falls back offline for attachment metadata', () async {
+  test('offline attachment metadata survives repository recreation', () async {
     const repository = TransactionAttachmentRepository();
     final attachment = TransactionAttachment(
       id: 'receipt',
@@ -35,7 +45,14 @@ void main() {
     final saved = await repository.save(attachment);
 
     expect(saved.userId, 'user');
-    expect(await repository.listForTransaction('txn'), isEmpty);
-    expect(await repository.exportableForTransaction('txn'), isEmpty);
+    final reopened = await const TransactionAttachmentRepository()
+        .listForTransaction('txn');
+    expect(reopened.single.id, 'receipt');
+    expect(reopened.single.storagePath, attachment.storagePath);
+    expect(
+      (await repository.exportableForTransaction('txn')).single.id,
+      'receipt',
+    );
+    await LocalFileCache.remove('aiko-cache:attachment-metadata/user/txn');
   });
 }

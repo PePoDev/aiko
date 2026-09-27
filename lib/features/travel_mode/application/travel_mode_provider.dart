@@ -1,3 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+import '../../../core/storage/secure_storage_service.dart';
+import '../../../core/storage/synced_preferences.dart';
+import '../../../core/offline/offline_store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/trip.dart';
 import '../../../app/providers.dart';
@@ -25,20 +30,40 @@ class TravelState {
   }
 }
 
+final travelStorageProvider = Provider<SecureStorageService>(
+  (ref) => SyncedPreferences(),
+);
+final storedTravelProvider = FutureProvider<TravelState>((ref) async {
+  final raw = await ref.watch(travelStorageProvider).read('travel_mode_v1');
+  if (raw == null) return const TravelState();
+  final data = jsonDecode(raw) as Map<String, dynamic>;
+  return TravelState(
+    activeTrip: data['trip'] == null
+        ? null
+        : Trip.fromJson(Map<String, dynamic>.from(data['trip'] as Map)),
+    exchangeRate: (data['rate'] as num).toDouble(),
+  );
+});
+
 class TravelModeNotifier extends Notifier<TravelState> {
   @override
   TravelState build() {
-    return const TravelState();
+    ref.listen(storedTravelProvider, (previous, next) {
+      if (next.hasValue) state = next.requireValue;
+    });
+    return ref.read(storedTravelProvider).asData?.value ?? const TravelState();
   }
 
   /// Starts a trip immediately with a sensible offline default rate, then
   /// refines it with a live quote when the network is available.
   Future<void> createTrip(Trip trip) async {
+    await ref.read(storedTravelProvider.future);
     state = TravelState(
       activeTrip: trip,
       exchangeRate: _fallbackRate(trip.homeCurrency, trip.localCurrency),
     );
     await refreshRate();
+    await _persist();
   }
 
   /// Fetches a live `1 home = rate local` quote for the active trip. Returns
@@ -52,11 +77,13 @@ class TravelModeNotifier extends Notifier<TravelState> {
         .fetchRate(trip.homeCurrency, trip.localCurrency);
     if (rate == null) return false;
     state = state.copyWith(exchangeRate: rate.toDouble());
+    await _persist();
     return true;
   }
 
   void updateExchangeRate(double newRate) {
     state = state.copyWith(exchangeRate: newRate);
+    unawaited(_persist());
   }
 
   /// Standard reference rates so a trip feels realistic offline / before the
@@ -91,10 +118,28 @@ class TravelModeNotifier extends Notifier<TravelState> {
     final currentFees = [...state.activeTrip!.foreignFees, fee];
     final updatedTrip = state.activeTrip!.copyWith(foreignFees: currentFees);
     state = state.copyWith(activeTrip: updatedTrip);
+    unawaited(_persist());
+  }
+
+  Future<void> _persist() async {
+    try {
+      await ref
+          .read(travelStorageProvider)
+          .write(
+            'travel_mode_v1',
+            jsonEncode({
+              'trip': state.activeTrip?.toJson(),
+              'rate': state.exchangeRate,
+            }),
+          );
+    } catch (error) {
+      OfflineStore.errors.add(error);
+    }
   }
 
   void resetTrip() {
     state = state.copyWith(clearTrip: true, exchangeRate: 1.0);
+    unawaited(_persist());
   }
 }
 

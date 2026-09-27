@@ -5,7 +5,7 @@ import 'package:aiko/brick/repository.dart';
 import 'package:aiko/core/offline/offline_data_migrator.dart';
 import 'package:aiko/core/offline/offline_store.dart';
 import 'package:aiko/features/categories/domain/category_defaults.dart';
-import 'package:brick_offline_first_with_supabase/brick_offline_first_with_supabase.dart';
+import 'package:brick_sqlite/brick_sqlite.dart' show SqliteModel;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -93,21 +93,21 @@ void main() {
 class _ClaimStore implements OfflineStore {
   _ClaimStore(this.rows);
 
-  final List<OfflineFirstWithSupabaseModel> rows;
+  final List<SqliteModel> rows;
   final List<Type> upsertOrder = [];
-  final List<OfflineFirstWithSupabaseModel> localOnlyDeletes = [];
+  final List<SqliteModel> localOnlyDeletes = [];
 
   @override
   bool get canSyncRemote => false;
 
   @override
-  Future<List<TModel>> get<TModel extends OfflineFirstWithSupabaseModel>({
+  Future<List<TModel>> get<TModel extends SqliteModel>({
     Query? query,
-    OfflineFirstGetPolicy? policy,
+    OfflineReadPolicy? policy,
   }) async => rows.whereType<TModel>().toList();
 
   @override
-  Future<TModel> upsert<TModel extends OfflineFirstWithSupabaseModel>(
+  Future<TModel> upsert<TModel extends SqliteModel>(
     TModel model, {
     Query? query,
   }) async {
@@ -119,7 +119,7 @@ class _ClaimStore implements OfflineStore {
   }
 
   @override
-  Future<bool> delete<TModel extends OfflineFirstWithSupabaseModel>(
+  Future<bool> delete<TModel extends SqliteModel>(
     TModel model, {
     Query? query,
     bool localOnly = false,
@@ -128,7 +128,7 @@ class _ClaimStore implements OfflineStore {
     return rows.remove(model);
   }
 
-  String _idOf(OfflineFirstWithSupabaseModel model) {
+  String _idOf(SqliteModel model) {
     if (model is OfflineCategoryGroup) return model.id;
     if (model is OfflineCategory) return model.id;
     if (model is OfflineTransaction) return model.id;

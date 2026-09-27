@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
-import '../../../core/supabase/supabase_client_provider.dart';
+import '../../../core/firebase/firebase_backend.dart';
 import '../domain/investment_holding.dart';
 
 class InvestmentsNotifier extends AsyncNotifier<List<InvestmentHolding>> {
@@ -64,16 +64,17 @@ class InvestmentsNotifier extends AsyncNotifier<List<InvestmentHolding>> {
     state = await AsyncValue.guard(() => repo.list());
   }
 
-  Future<Money> _fetchLivePrice(String symbol, {required String currency}) async {
-    final client = AikoSupabase.tryClient();
-    if (client == null) {
-      throw StateError('Supabase is not configured; cannot fetch live prices.');
+  Future<Money> _fetchLivePrice(
+    String symbol, {
+    required String currency,
+  }) async {
+    if (!FirebaseBackend.isConfigured) {
+      throw StateError('Firebase is not configured; cannot fetch live prices.');
     }
 
-    final response = await client.functions.invoke(
-      'market-feed',
-      body: {'symbol': symbol, 'currency': currency},
-    );
+    final response = await FirebaseBackend.functions
+        .httpsCallable('marketFeed')
+        .call({'symbol': symbol, 'currency': currency});
     final data = response.data as Map<String, dynamic>;
     final price = double.parse(data['price'].toString());
     return Money(

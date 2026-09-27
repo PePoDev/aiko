@@ -1,4 +1,6 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
+import '../data/transaction_attachment_repository.dart';
 
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
@@ -73,72 +75,46 @@ class AttachmentViewerDialog extends StatelessWidget {
   }
 
   Widget _body(BuildContext context, ThemeData theme) {
-    final file = File(attachment.storagePath);
-    if (attachment.isImagePreviewable) {
-      return PhotoView(
-        imageProvider: FileImage(file),
-        backgroundDecoration: const BoxDecoration(color: Colors.black),
-        loadingBuilder: (_, _) => const Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        ),
-        errorBuilder: (_, error, _) => _Fallback(
-          message: 'Could not load image.',
-          error: error,
-        ),
-      );
-    }
-    if (attachment.isPdf) {
-      return PdfViewer.file(
-        attachment.storagePath,
-        params: PdfViewerParams(
-          backgroundColor: Colors.black,
-        ),
-      );
-    }
-    if (attachment.isTextPreviewable) {
-      return _TextPreview(file: file, theme: theme);
-    }
-    return _UnsupportedPreview(attachment: attachment, theme: theme);
-  }
-}
-
-class _TextPreview extends StatelessWidget {
-  const _TextPreview({required this.file, required this.theme});
-
-  final File file;
-  final ThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: theme.colorScheme.surface,
-      padding: const EdgeInsets.fromLTRB(16, 56, 16, 24),
-      child: FutureBuilder<String>(
-        future: file.readAsString(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return _Fallback(
-              message: 'Could not read file.',
-              error: snapshot.error,
-            );
-          }
-          final content = snapshot.data ?? '';
-          return SingleChildScrollView(
-            child: SelectableText(
-              content,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 13,
-                height: 1.4,
-                color: theme.colorScheme.onSurface,
+    return FutureBuilder<Uint8List>(
+      future: const TransactionAttachmentRepository().readBytes(attachment),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const _Fallback(
+            message: 'Could not load attachment. Reconnect and try again.',
+          );
+        }
+        final bytes = snapshot.data;
+        if (bytes == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (attachment.isImagePreviewable) {
+          return PhotoView(
+            imageProvider: MemoryImage(bytes),
+            backgroundDecoration: const BoxDecoration(color: Colors.black),
+            errorBuilder: (_, error, _) =>
+                _Fallback(message: 'Could not load image.', error: error),
+          );
+        }
+        if (attachment.isPdf) {
+          return PdfViewer.data(bytes, sourceName: attachment.fileName);
+        }
+        if (attachment.isTextPreviewable) {
+          return Container(
+            color: theme.colorScheme.surface,
+            padding: const EdgeInsets.fromLTRB(16, 56, 16, 24),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                utf8.decode(bytes, allowMalformed: true),
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
             ),
           );
-        },
-      ),
+        }
+        return _UnsupportedPreview(attachment: attachment, theme: theme);
+      },
     );
   }
 }
@@ -197,16 +173,9 @@ class _Fallback extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.error_outline,
-            color: Colors.white70,
-            size: 48,
-          ),
+          const Icon(Icons.error_outline, color: Colors.white70, size: 48),
           const SizedBox(height: 12),
-          Text(
-            message,
-            style: const TextStyle(color: Colors.white),
-          ),
+          Text(message, style: const TextStyle(color: Colors.white)),
           if (error != null) ...[
             const SizedBox(height: 8),
             Padding(

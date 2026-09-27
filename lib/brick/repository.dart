@@ -1,90 +1,66 @@
-import 'package:brick_offline_first_with_supabase/brick_offline_first_with_supabase.dart';
+import 'package:brick_core/core.dart';
 import 'package:brick_sqlite/brick_sqlite.dart';
-import 'package:brick_sqlite/memory_cache_provider.dart';
-import 'package:brick_supabase/brick_supabase.dart';
 import 'package:flutter/foundation.dart';
-import 'package:sqflite/sqflite.dart' show databaseFactory;
 
+import '../core/storage/database_factory.dart';
 import '../core/config/app_config.dart';
-import '../core/supabase/supabase_client_provider.dart';
-import '../core/supabase/supabase_session_http_client.dart';
-import 'brick.g.dart';
+import 'model_dictionary.dart';
 import 'db/schema.g.dart';
 
 export 'package:brick_core/query.dart'
     show Compare, OrderBy, Query, Where, WhereCondition, WherePhrase;
-export 'package:brick_offline_first/brick_offline_first.dart'
-    show
-        OfflineFirstDeletePolicy,
-        OfflineFirstGetPolicy,
-        OfflineFirstUpsertPolicy;
 
-class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
+enum OfflineReadPolicy {
+  localOnly,
+  awaitRemoteWhenNoneExist,
+  awaitRemote,
+  alwaysHydrate,
+}
+
+/// SQLite retains existing mobile data and supports local-only installations.
+/// Signed-in data and its offline write queue are owned by the Firebase SDK.
+class AikoBrickRepository extends ModelRepository<SqliteModel> {
   static const _templateIdMigrationVersion = 20260725185723;
   static const _templateIdMigrationPredecessor = 20260620095103;
-
-  AikoBrickRepository._({
-    required super.supabaseProvider,
-    required super.sqliteProvider,
-    required super.migrations,
-    required super.offlineRequestQueue,
-    super.memoryCacheProvider,
-  }) : super(autoHydrate: true);
-
+  AikoBrickRepository._(this.sqliteProvider);
+  final SqliteProvider sqliteProvider;
   static AikoBrickRepository? _singleton;
 
-  factory AikoBrickRepository() {
-    final instance = _singleton;
-    if (instance == null) {
-      throw StateError('AikoBrickRepository has not been initialized.');
-    }
-    return instance;
-  }
+  factory AikoBrickRepository() =>
+      _singleton ??
+      (throw StateError('Local data store has not been initialized.'));
 
   static Future<void> configure(AppConfig config) async {
-    if (_singleton != null) {
-      return;
-    }
-
-    final (client, queue) = OfflineFirstWithSupabaseRepository.clientQueue(
+    if (_singleton != null) return;
+    final provider = SqliteProvider(
+      'aiko_offline.sqlite',
       databaseFactory: databaseFactory,
-      databasePath: 'aiko_offline_queue.sqlite',
-      ignorePaths: const {'/auth/v1', '/storage/v1', '/functions/v1'},
-      innerClient: SupabaseSessionHttpClient(),
-      onReattempt: (request, statusCode) {
-        // Surfaces the HTTP status Supabase returned for a queued write that is
-        // being retried (e.g. 409 foreign key, 403 RLS), which is otherwise
-        // swallowed by the optimistic-local upsert policy.
-        if (kDebugMode) {
-          debugPrint(
-            '[aiko-sync] queue reattempt ${request.method} '
-            '${request.url.path} -> HTTP $statusCode',
-          );
-        }
-      },
+      modelDictionary: sqliteModelDictionary,
     );
-
-    // Supabase is required; this throws via requireClient() if creds are absent.
-    await AikoSupabase.initialize(config, httpClient: client);
-
-    _singleton = AikoBrickRepository._(
-      supabaseProvider: SupabaseProvider(
-        AikoSupabase.requireClient(),
-        modelDictionary: supabaseModelDictionary,
-      ),
-      sqliteProvider: SqliteProvider(
-        'aiko_offline.sqlite',
-        databaseFactory: databaseFactory,
-        modelDictionary: sqliteModelDictionary,
-      ),
-      migrations: migrations,
-      offlineRequestQueue: queue,
-      memoryCacheProvider: MemoryCacheProvider(),
+    await _repairInterruptedTemplateIdMigration(provider);
+    await provider.migrate(
+      migrations.toList()..sort((a, b) => a.version.compareTo(b.version)),
     );
-
-    await _repairInterruptedTemplateIdMigration(_singleton!.sqliteProvider);
-    await _singleton!.initialize();
+    _singleton = AikoBrickRepository._(provider);
   }
+
+  @override
+  Future<List<T>> get<T extends SqliteModel>({Query? query}) =>
+      sqliteProvider.get<T>(query: query, repository: this);
+
+  @override
+  Future<T> upsert<T extends SqliteModel>(T model, {Query? query}) async {
+    model.primaryKey = await sqliteProvider.upsert<T>(
+      model,
+      query: query,
+      repository: this,
+    );
+    return model;
+  }
+
+  @override
+  Future<bool> delete<T extends SqliteModel>(T model, {Query? query}) async =>
+      await sqliteProvider.delete<T>(model, query: query, repository: this) > 0;
 
   static Future<void> _repairInterruptedTemplateIdMigration(
     SqliteProvider provider,
@@ -129,15 +105,11 @@ class AikoBrickRepository extends OfflineFirstWithSupabaseRepository {
   ) => _repairInterruptedTemplateIdMigration(provider);
 
   static Future<void> resetLocalData() async {
-    final repository = _singleton;
-    if (repository == null) {
-      return;
-    }
-
-    await repository.reset();
-
-    final queueManager = repository.offlineRequestQueue.client.requestManager;
-    final queueDb = await queueManager.getDb();
-    await queueDb.delete(queueManager.tableName);
+    final instance = _singleton;
+    if (instance == null) return;
+    await instance.sqliteProvider.resetDb();
+    await instance.sqliteProvider.migrate(
+      migrations.toList()..sort((a, b) => a.version.compareTo(b.version)),
+    );
   }
 }

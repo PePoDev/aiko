@@ -1,3 +1,6 @@
+import 'dart:async';
+import '../core/offline/offline_store.dart';
+import 'firebase_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,10 +20,21 @@ class AuthenticatedShell extends ConsumerStatefulWidget {
 
 class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
   late final AppLifecycleListener _lifecycle;
+  StreamSubscription<Object>? _syncErrors;
 
   @override
   void initState() {
     super.initState();
+    _syncErrors = OfflineStore.errors.stream.listen((error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'A change could not sync. Check your connection and sign-in, then try again.',
+          ),
+        ),
+      );
+    });
     // Drain anything captured while we were away (and start listeners if the
     // user enabled capture). Fire-and-forget — failures are non-fatal.
     _lifecycle = AppLifecycleListener(onResume: _processCapture);
@@ -29,6 +43,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
 
   @override
   void dispose() {
+    _syncErrors?.cancel();
     _lifecycle.dispose();
     super.dispose();
   }
@@ -87,26 +102,66 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(firebaseSyncProvider);
     final location = GoRouterState.of(context).uri.path;
     final items = _getNavItems(context);
     final selectedIndex = _indexFor(location);
 
-    return Scaffold(
-      body: SafeArea(bottom: false, child: widget.child),
-      bottomNavigationBar: _AikoBottomNavigation(
-        selectedIndex: selectedIndex,
-        onSelected: (index) {
-          final item = items[index];
-          if (index == selectedIndex && item.path == '/transactions') {
-            context.go(
-              '${item.path}?reset=${DateTime.now().microsecondsSinceEpoch}',
-            );
-            return;
-          }
-          context.go(item.path);
-        },
-        items: items,
-      ),
+    void navigate(int index) {
+      final item = items[index];
+      if (index == selectedIndex && item.path == '/transactions') {
+        context.go(
+          '${item.path}?reset=${DateTime.now().microsecondsSinceEpoch}',
+        );
+      } else {
+        context.go(item.path);
+      }
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 840;
+        return Scaffold(
+          body: SafeArea(
+            bottom: false,
+            child: Row(
+              children: [
+                if (wide) ...[
+                  NavigationRail(
+                    extended: constraints.maxWidth >= 1200,
+                    selectedIndex: selectedIndex,
+                    onDestinationSelected: navigate,
+                    leading: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Text(
+                        'Aiko',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    destinations: [
+                      for (final item in items)
+                        NavigationRailDestination(
+                          icon: Icon(item.icon),
+                          selectedIcon: Icon(item.selectedIcon),
+                          label: Text(item.label),
+                        ),
+                    ],
+                  ),
+                  const VerticalDivider(width: 1),
+                ],
+                Expanded(child: widget.child),
+              ],
+            ),
+          ),
+          bottomNavigationBar: wide
+              ? null
+              : _AikoBottomNavigation(
+                  selectedIndex: selectedIndex,
+                  onSelected: navigate,
+                  items: items,
+                ),
+        );
+      },
     );
   }
 

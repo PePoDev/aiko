@@ -7,7 +7,7 @@ const _defaultCloneNamespace = 'ee336da0-4337-4fa0-b100-ec0dddcb5b95';
 /// Fixed UUIDs for the 81 built-in system categories.
 ///
 /// These ids are stable constants embedded in the SQL migration that inserts
-/// the system category rows into Supabase with user_id = NULL. Any transaction
+/// the system category rows into Firebase with user_id = NULL. Any transaction
 /// referencing one of these ids satisfies the foreign key without per-user
 /// category rows. The UUIDs are intentionally patterned (c100… income,
 /// c200… expense) to be recognisable in query logs.

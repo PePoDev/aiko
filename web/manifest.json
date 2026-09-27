@@ -1,0 +1,10 @@
+{
+  "name": "Aiko Personal Finance",
+  "short_name": "Aiko",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#EFF6FF",
+  "theme_color": "#3B82F6",
+  "description": "Track, budget, save, and plan with Aiko.",
+  "icons": [{"src": "icons/Icon-192.png", "sizes": "any", "type": "image/png"}]
+}

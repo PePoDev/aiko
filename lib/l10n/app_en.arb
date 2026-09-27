@@ -270,7 +270,7 @@
   "noGoals": "No goals yet",
   "noAccounts": "No accounts yet",
   "dashboardUnavailable": "Dashboard is unavailable",
-  "dashboardUnavailableMessage": "Aiko could not load your Supabase workspace.",
+  "dashboardUnavailableMessage": "Aiko could not load your Firebase workspace.",
   "total": "Total",
   "average": "Average",
   "currency": "Currency",

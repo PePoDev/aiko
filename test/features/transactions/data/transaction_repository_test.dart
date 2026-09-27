@@ -6,7 +6,7 @@ import 'package:aiko/core/offline/offline_user_context.dart';
 import 'package:aiko/features/categories/domain/category_defaults.dart';
 import 'package:aiko/features/transactions/data/transaction_repository.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
-import 'package:brick_offline_first_with_supabase/brick_offline_first_with_supabase.dart';
+import 'package:brick_sqlite/brick_sqlite.dart' show SqliteModel;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -111,13 +111,13 @@ class _TransactionStore implements OfflineStore {
   bool get canSyncRemote => false;
 
   @override
-  Future<List<TModel>> get<TModel extends OfflineFirstWithSupabaseModel>({
+  Future<List<TModel>> get<TModel extends SqliteModel>({
     Query? query,
-    OfflineFirstGetPolicy? policy,
+    OfflineReadPolicy? policy,
   }) async => transactions.whereType<TModel>().toList();
 
   @override
-  Future<TModel> upsert<TModel extends OfflineFirstWithSupabaseModel>(
+  Future<TModel> upsert<TModel extends SqliteModel>(
     TModel model, {
     Query? query,
   }) async {
@@ -128,7 +128,7 @@ class _TransactionStore implements OfflineStore {
   }
 
   @override
-  Future<bool> delete<TModel extends OfflineFirstWithSupabaseModel>(
+  Future<bool> delete<TModel extends SqliteModel>(
     TModel model, {
     Query? query,
     bool localOnly = false,

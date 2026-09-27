@@ -1,3 +1,4 @@
+import '../core/storage/synced_preferences.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -34,7 +35,7 @@ final appLocaleControllerProvider =
 
 class AppLocaleController extends AsyncNotifier<AppLocaleState> {
   AppLocaleController({SecureStorageService? storage})
-    : _storage = storage ?? FlutterSecureStorageService();
+    : _storage = storage ?? SyncedPreferences();
 
   static const _languageKey = 'aiko_language_code';
 

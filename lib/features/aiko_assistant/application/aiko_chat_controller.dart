@@ -1,3 +1,4 @@
+import '../../../core/firebase/firebase_backend.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -11,7 +12,6 @@ const _greeting = ChatMessage(
   content:
       "Hi! I'm Aiko. Ask me anything about your money, budgets, goals, or spending.",
 );
-const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 
 class ChatError {
   const ChatError(this.message, {required this.retryable});
@@ -31,7 +31,7 @@ class ChatState {
   final bool isStreaming;
   final ChatError? lastError;
 
-  /// True when Supabase isn't configured, so Aiko answers on-device using the
+  /// True when Firebase isn't configured, so Aiko answers on-device using the
   /// rule-based engine instead of the cloud function.
   final bool offline;
 
@@ -56,9 +56,7 @@ class ChatState {
 }
 
 final aikoChatEngineProvider = Provider<HttpChatEngine>((ref) {
-  return const HttpChatEngine(
-    functionUrl: '$_supabaseUrl/functions/v1/aiko-chat',
-  );
+  return HttpChatEngine(functionUrl: FirebaseBackend.chatUrl);
 });
 
 final aikoChatControllerProvider =
@@ -70,7 +68,7 @@ class AikoChatController extends Notifier<ChatState> {
 
   @override
   ChatState build() {
-    final offline = _supabaseUrl.isEmpty;
+    final offline = !FirebaseBackend.isConfigured;
     ref.onDispose(() {
       _subscription?.cancel();
     });

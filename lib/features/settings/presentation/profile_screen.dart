@@ -1,4 +1,4 @@
-import 'dart:io';
+import '../../../shared/widgets/cached_avatar.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
@@ -888,28 +888,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildAvatar(Profile profile, String displayName) {
-    final localPath = _draft.avatarPath;
-    final cloudUrl = _draft.avatarUrl;
-    final fallbackUrl = localPath == null || localPath.isEmpty
-        ? cloudUrl
-        : null;
-    Widget child;
-    if (localPath != null && localPath.isNotEmpty) {
-      final file = File(localPath);
-      if (file.existsSync()) {
-        child = Image.file(
-          file,
-          width: 72,
-          height: 72,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => _initialsAvatar(displayName),
-        );
-      } else {
-        child = _networkOrInitials(fallbackUrl, displayName);
-      }
-    } else {
-      child = _networkOrInitials(fallbackUrl, displayName);
-    }
+    final child = CachedAvatar(
+      localPath: _draft.avatarPath,
+      cloudUrl: _draft.avatarUrl,
+      fallback: _initialsAvatar(displayName),
+    );
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -923,23 +906,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
       child: ClipOval(child: SizedBox(width: 72, height: 72, child: child)),
     );
-  }
-
-  Widget _networkOrInitials(String? url, String displayName) {
-    if (url != null && url.isNotEmpty) {
-      return Image.network(
-        url,
-        width: 72,
-        height: 72,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _initialsAvatar(displayName),
-        loadingBuilder: (context, child, progress) {
-          if (progress == null) return child;
-          return _initialsAvatar(displayName);
-        },
-      );
-    }
-    return _initialsAvatar(displayName);
   }
 
   Widget _initialsAvatar(String displayName) {

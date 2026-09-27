@@ -1,11 +1,6 @@
-import 'package:brick_offline_first_with_supabase/brick_offline_first_with_supabase.dart';
 import 'package:brick_sqlite/brick_sqlite.dart';
-import 'package:brick_supabase/brick_supabase.dart';
 
-@ConnectOfflineFirstWithSupabase(
-  supabaseConfig: SupabaseSerializable(tableName: 'transactions'),
-)
-class OfflineTransaction extends OfflineFirstWithSupabaseModel {
+class OfflineTransaction extends SqliteModel {
   OfflineTransaction({
     required this.id,
     required this.userId,
@@ -32,7 +27,6 @@ class OfflineTransaction extends OfflineFirstWithSupabaseModel {
   }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
 
   @Sqlite(unique: true)
-  @Supabase(unique: true)
   final String id;
 
   @Sqlite(index: true)
@@ -43,7 +37,6 @@ class OfflineTransaction extends OfflineFirstWithSupabaseModel {
 
   final String type;
 
-  @Supabase(fromGenerator: 'data[\'amount\'].toString()')
   final String amount;
 
   final String currency;
@@ -82,10 +75,8 @@ class OfflineTransaction extends OfflineFirstWithSupabaseModel {
   final DateTime? reminderAt;
 
   @Sqlite(name: 'updated_at')
-  @Supabase(name: 'updated_at')
   final DateTime updatedAt;
 
   @Sqlite(name: 'version')
-  @Supabase(name: 'version', defaultValue: '1')
   final int version;
 }

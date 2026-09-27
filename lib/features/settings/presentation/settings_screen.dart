@@ -1,3 +1,4 @@
+import '../../../core/firebase/firebase_backend.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -182,6 +183,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         children: [
+          if (!FirebaseBackend.isConfigured)
+            const ListTile(
+              leading: Icon(Icons.cloud_off_outlined),
+              title: Text('Local-only mode'),
+              subtitle: Text(
+                'Data is saved on this device. Cloud sync is not connected.',
+              ),
+            ),
           FinanceCard(
             title: 'App preferences',
             icon: Icons.tune_outlined,

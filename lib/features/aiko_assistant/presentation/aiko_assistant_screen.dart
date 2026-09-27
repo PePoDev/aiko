@@ -1,4 +1,4 @@
-import 'dart:io';
+import '../../../shared/widgets/cached_avatar.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -704,7 +704,6 @@ class _UserProfileIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profile = this.profile;
-    final avatar = profile == null ? null : _avatarImage(profile);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       child: IconButton(
@@ -714,31 +713,21 @@ class _UserProfileIcon extends StatelessWidget {
         icon: CircleAvatar(
           radius: 16,
           backgroundColor: AikoColors.primaryBlue,
-          backgroundImage: avatar,
-          child: avatar != null
-              ? null
-              : const Icon(
+          child: ClipOval(
+            child: SizedBox.expand(
+              child: CachedAvatar(
+                localPath: profile?.avatarPath,
+                cloudUrl: profile?.avatarUrl,
+                fallback: const Icon(
                   Icons.person_outline,
                   color: AikoColors.white,
                   size: 18,
                 ),
+              ),
+            ),
+          ),
         ),
       ),
     );
-  }
-
-  ImageProvider? _avatarImage(Profile profile) {
-    final localPath = profile.avatarPath;
-    if (localPath != null && localPath.isNotEmpty) {
-      final file = File(localPath);
-      if (file.existsSync()) {
-        return FileImage(file);
-      }
-    }
-    final cloudUrl = profile.avatarUrl;
-    if (cloudUrl != null && cloudUrl.isNotEmpty) {
-      return NetworkImage(cloudUrl);
-    }
-    return null;
   }
 }

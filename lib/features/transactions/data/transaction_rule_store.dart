@@ -1,3 +1,4 @@
+import '../../../core/storage/synced_preferences.dart';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +8,7 @@ import '../domain/transaction_rule.dart';
 
 /// Persists the user's [TransactionRule]s as JSON in secure storage. Empty
 /// until rules are created. Kept off Brick on purpose — these are small,
-/// local-only matching rules, not synced finance rows.
+/// user preferences synchronized by Firebase.
 class TransactionRuleStore {
   const TransactionRuleStore({required this.storage});
 
@@ -44,5 +45,5 @@ class TransactionRuleStore {
 final transactionRulesProvider = FutureProvider<List<TransactionRule>>((
   ref,
 ) async {
-  return TransactionRuleStore(storage: FlutterSecureStorageService()).load();
+  return TransactionRuleStore(storage: SyncedPreferences()).load();
 });

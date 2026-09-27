@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../app/providers.dart';
 import '../../../shared/widgets/aiko_idea_widgets.dart';
@@ -335,8 +335,8 @@ class _LoginScreenState extends State<LoginScreen> {
       await _authRepository.signIn(email: email, password: password);
       if (!mounted) return;
       await _routeAfterAuth();
-    } on AuthException catch (error) {
-      _showMessage(error.message);
+    } on FirebaseAuthException catch (error) {
+      _showMessage(error.message ?? 'Authentication failed. Please try again.');
     } on StateError catch (error) {
       _showMessage(error.message);
     } catch (_) {
@@ -357,8 +357,8 @@ class _LoginScreenState extends State<LoginScreen> {
       await _authRepository.resetPassword(email);
       if (!mounted) return;
       _showMessage('Reset email sent. Check your inbox.');
-    } on AuthException catch (error) {
-      _showMessage(error.message);
+    } on FirebaseAuthException catch (error) {
+      _showMessage(error.message ?? 'Authentication failed. Please try again.');
     } on StateError catch (error) {
       _showMessage(error.message);
     } catch (_) {
@@ -376,8 +376,8 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       // A null session means the user dismissed the native picker, or (on web)
       // the page redirected away — either way there is nothing more to do here.
-    } on AuthException catch (error) {
-      _showMessage(error.message);
+    } on FirebaseAuthException catch (error) {
+      _showMessage(error.message ?? 'Authentication failed. Please try again.');
     } on StateError catch (error) {
       _showMessage(error.message);
     } catch (_) {
@@ -406,8 +406,8 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         _showMessage('Account created. Check your email, then sign in.');
       }
-    } on AuthException catch (error) {
-      _showMessage(error.message);
+    } on FirebaseAuthException catch (error) {
+      _showMessage(error.message ?? 'Authentication failed. Please try again.');
     } on StateError catch (error) {
       _showMessage(error.message);
     } catch (_) {

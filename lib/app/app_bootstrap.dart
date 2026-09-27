@@ -1,5 +1,11 @@
 import 'dart:async';
 
+import '../core/offline/offline_user_context.dart';
+import '../core/firebase/firebase_backend.dart';
+import '../features/onboarding/application/complete_onboarding.dart';
+import '../features/accounts/data/account_repository.dart';
+import '../features/settings/data/profile_repository.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:logging/logging.dart';
@@ -22,7 +28,17 @@ class AppBootstrap {
 
   Future<void> initialize() async {
     _enableBrickSyncLogging();
+    await FirebaseBackend.initialize(config);
     await AikoBrickRepository.configure(config);
+    // Resolve once before concurrent providers start, so a fresh installation
+    // cannot create multiple anonymous owners for its initial records.
+    await OfflineUserContext().resolveUserId();
+    if (!FirebaseBackend.isConfigured) {
+      await completeOnboarding(
+        accountRepository: AccountRepository(),
+        profileRepository: const ProfileRepository(),
+      );
+    }
     // Warm up the local-notification plugin + timezone DB so transaction
     // reminders can be scheduled. Best-effort; never blocks startup on failure.
     await TransactionReminderService.instance.init();

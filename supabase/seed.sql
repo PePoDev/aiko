@@ -1,2 +1,0 @@
--- Production-style seed intentionally left empty.
--- Real user data is created through Supabase Auth, onboarding, and app flows.

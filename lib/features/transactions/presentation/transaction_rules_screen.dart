@@ -1,4 +1,5 @@
-import 'dart:io' show Platform;
+import '../../../core/storage/synced_preferences.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,7 +21,8 @@ class TransactionRulesScreen extends ConsumerStatefulWidget {
       _TransactionRulesScreenState();
 }
 
-class _TransactionRulesScreenState extends ConsumerState<TransactionRulesScreen> {
+class _TransactionRulesScreenState
+    extends ConsumerState<TransactionRulesScreen> {
   late final TransactionRuleStore _store;
   var _rules = <TransactionRule>[];
 
@@ -28,7 +30,7 @@ class _TransactionRulesScreenState extends ConsumerState<TransactionRulesScreen>
   void initState() {
     super.initState();
     _store = TransactionRuleStore(
-      storage: widget.storage ?? FlutterSecureStorageService(),
+      storage: widget.storage ?? SyncedPreferences(),
     );
     _restoreRules();
   }
@@ -79,7 +81,7 @@ class _TransactionRulesScreenState extends ConsumerState<TransactionRulesScreen>
       appBar: AppBar(
         title: const Text('Transaction rules'),
         actions: [
-          if (Platform.isAndroid)
+          if ((!kIsWeb && defaultTargetPlatform == TargetPlatform.android))
             IconButton(
               tooltip: 'Auto-capture (SMS & notifications)',
               icon: const Icon(Icons.notifications_active_outlined),
@@ -196,7 +198,11 @@ class _RuleCard extends StatelessWidget {
                     color: accentColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.rule_outlined, color: accentColor, size: 20),
+                  child: Icon(
+                    Icons.rule_outlined,
+                    color: accentColor,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -418,7 +424,10 @@ class _TransactionRuleFormScreenState
               ),
               items: [
                 for (final operator in RuleConditionOperator.values)
-                  DropdownMenuItem(value: operator, child: Text(operator.label)),
+                  DropdownMenuItem(
+                    value: operator,
+                    child: Text(operator.label),
+                  ),
               ],
               onChanged: (value) {
                 if (value != null) setState(() => _operator = value);

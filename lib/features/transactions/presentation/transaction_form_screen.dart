@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+import '../../../core/storage/local_file_cache.dart';
 import 'dart:typed_data';
 import 'package:decimal/decimal.dart';
 import 'package:file_selector/file_selector.dart' as fs;
@@ -41,10 +43,7 @@ enum ReminderLead {
   none._(label: 'At time of transaction', minutes: 0),
   custom._(label: 'Custom date & time', minutes: null);
 
-  const ReminderLead._({
-    required this.label,
-    required this.minutes,
-  });
+  const ReminderLead._({required this.label, required this.minutes});
 
   final String label;
   final int? minutes;
@@ -753,9 +752,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   color: AikoColors.successGreen,
                 ),
                 title: const Text('Photo Gallery'),
-                subtitle: const Text(
-                  'Pick a receipt photo (compressed)',
-                ),
+                subtitle: const Text('Pick a receipt photo (compressed)'),
                 onTap: () {
                   Navigator.of(context).pop();
                   _pickAndAttachImageFromGallery();
@@ -886,12 +883,16 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       userId: '',
       transactionId: '',
       fileName: fileName,
-      storagePath: storagePath,
+      storagePath: await LocalFileCache.write(
+        'attachments/${const Uuid().v4()}',
+        await LocalFileCache.read(storagePath),
+      ),
       mimeType: mimeType,
       sizeBytes: sizeBytes,
       createdAt: DateTime.now(),
     );
 
+    if (!mounted) return;
     setState(() {
       _attachments.add(newAttachment);
     });
@@ -1344,8 +1345,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   /// pinned to `transactionDate - lead`.
   void _recomputeReminderForLead() {
     if (_reminderLead == ReminderLead.custom) return;
-    _reminderAt = _selectedDate
-        .subtract(Duration(minutes: _reminderLead.minutes!));
+    _reminderAt = _selectedDate.subtract(
+      Duration(minutes: _reminderLead.minutes!),
+    );
   }
 
   /// Sets the reminder lead and recomputes [_reminderAt] accordingly.
@@ -3312,7 +3314,9 @@ class _ReminderSection extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        enabled
+                        kIsWeb
+                            ? 'Reminder times are saved. Notifications are delivered by the mobile app.'
+                            : enabled
                             ? 'Aiko will notify you before the transaction.'
                             : 'Get a notification before the transaction.',
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -3341,10 +3345,7 @@ class _ReminderSection extends StatelessWidget {
                 ),
                 items: [
                   for (final option in ReminderLead.values)
-                    DropdownMenuItem(
-                      value: option,
-                      child: Text(option.label),
-                    ),
+                    DropdownMenuItem(value: option, child: Text(option.label)),
                 ],
                 onChanged: (value) {
                   if (value != null) onLeadChanged(value);
@@ -3393,6 +3394,7 @@ class _RecurringSection extends StatelessWidget {
   final int? dayOfWeek;
   final int? dayOfMonth;
   final int? monthOfYear;
+
   /// Time of day the recurring occurrence fires. Derived from the parent
   /// transaction's date so the two stay in sync.
   final TimeOfDay occurrenceTime;
@@ -3536,7 +3538,8 @@ class _OccurrenceTimeTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final formatted = '${occurrenceTime.hour.toString().padLeft(2, '0')}'
+    final formatted =
+        '${occurrenceTime.hour.toString().padLeft(2, '0')}'
         ':${occurrenceTime.minute.toString().padLeft(2, '0')}';
     return Material(
       color: theme.colorScheme.surface,

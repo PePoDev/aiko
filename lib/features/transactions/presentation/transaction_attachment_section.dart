@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:typed_data';
+import '../data/transaction_attachment_repository.dart';
 
 import 'package:flutter/material.dart';
 
@@ -92,10 +93,8 @@ class _AttachmentThumb extends StatelessWidget {
             ),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
-              onTap: () => AttachmentViewerDialog.show(
-                context,
-                attachment: attachment,
-              ),
+              onTap: () =>
+                  AttachmentViewerDialog.show(context, attachment: attachment),
               child: _ThumbnailContent(attachment: attachment),
             ),
           ),
@@ -149,14 +148,22 @@ class _ThumbnailContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (attachment.isImagePreviewable) {
-      return Image.file(
-        File(attachment.storagePath),
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => Icon(
-          Icons.broken_image_outlined,
-          color: theme.colorScheme.onSurfaceVariant,
-          size: 32,
-        ),
+      return FutureBuilder<Uint8List>(
+        future: const TransactionAttachmentRepository().readBytes(attachment),
+        builder: (context, snapshot) => snapshot.hasData
+            ? Image.memory(
+                snapshot.data!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) =>
+                    const Icon(Icons.broken_image_outlined),
+              )
+            : Icon(
+                snapshot.hasError
+                    ? Icons.broken_image_outlined
+                    : Icons.image_outlined,
+                color: theme.colorScheme.onSurfaceVariant,
+                size: 32,
+              ),
       );
     }
     return Center(

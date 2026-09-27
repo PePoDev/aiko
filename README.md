@@ -14,9 +14,9 @@
 
 ## What Is Aiko?
 
-Cross-platform (iOS + Android) personal finance app: Flutter + Supabase. **Aiko** (calm, anime-style, blue hair) gives friendly, non-judgmental money guidance. A data-first financial OS: 13 transaction types, category-owned budget limits (envelope / zero-based / 50-30-20, monthly/weekly/yearly/daily, rollover), goal accounts (SMART target/date/priority, Monte Carlo probability), cash flow + Daily Spending reactions, credit/debt/loan payoff, portfolio + net worth, tax organization, ~60 calculators, AI guidance, Ask Aiko chat, monthly Review, learning hub, multi-currency Travel Mode.
+Cross-platform (web + iOS + Android) personal finance app: Flutter + Firebase. **Aiko** (calm, anime-style, blue hair) gives friendly, non-judgmental money guidance. A data-first financial OS: 13 transaction types, category-owned budget limits (envelope / zero-based / 50-30-20, monthly/weekly/yearly/daily, rollover), goal accounts (SMART target/date/priority, Monte Carlo probability), cash flow + Daily Spending reactions, credit/debt/loan payoff, portfolio + net worth, tax organization, ~60 calculators, AI guidance, Ask Aiko chat, monthly Review, learning hub, multi-currency Travel Mode.
 
-This is a single repo for the Aiko product surface: Flutter app, landing page, Supabase/infra, docs, visual references, and tests. Do not remove `landing/`, `screenshots/`, or `docker/` as "unused" unless their workflows are replaced.
+This is a single repo for the Aiko product surface: Flutter app, landing page, Firebase emulators/functions/rules, docs, visual references, and tests. Keep `landing/` and `screenshots/`; Firebase Emulator Suite replaces the former Docker backend workflow.
 
 ## Brand Identity & Voice
 
@@ -33,13 +33,13 @@ This is a single repo for the Aiko product surface: Flutter app, landing page, S
 
 | Component | Technology |
 | --- | --- |
-| Mobile | Flutter & Dart (SDK ^3.11.5) |
+| Web & Mobile | Flutter & Dart (SDK ^3.11.5) |
 | State | Riverpod |
 | Navigation | GoRouter |
-| Backend | Supabase (Auth, Postgres, Storage, RLS) |
-| Offline Store | Brick + SQLite (`sqflite`) |
-| Sync | Brick request queue → Supabase after local writes |
-| Attachments | Supabase Storage (per-user bucket) + Postgres metadata; currently validated uploads are PDF/JPEG/PNG |
+| Backend | Firebase Auth, Firestore, Storage, Cloud Functions, Security Rules |
+| Offline Store | Firestore SDK persistence when signed in; SQLite for local-only data and existing mobile migrations |
+| Sync | Firestore SDK offline queue + shared collection listeners on web/mobile |
+| Attachments | Firebase Storage + Firestore metadata; persistent local byte cache on both platforms |
 | Money | `decimal` (no floating-point) |
 | Charts | `fl_chart` |
 | Security | `flutter_secure_storage` |
@@ -51,69 +51,32 @@ This is a single repo for the Aiko product surface: Flutter app, landing page, S
 
 ## Getting Started
 
-**Prerequisites:** Flutter (stable, ^3.11.5), a Supabase project, Supabase CLI, Android Studio / Xcode emulators.
+**Prerequisites:** Flutter stable (Dart ^3.11.5), Node 22+, Java 21+; Android Studio/Xcode for native builds. No hosted project is needed for emulator development.
 
-```bash
-git clone <repository-url> && cd aiko
+```sh
 flutter pub get
-dart run build_runner build        # regenerate Brick adapters + SQLite migrations after offline model changes
+npm ci
+npm --prefix firebase/functions ci
+npm run functions:build
+dart run sqflite_common_ffi_web:setup
 
-cp .env.example .env                # set SUPABASE_URL and SUPABASE_ANON_KEY (anon key only — never service-role)
+# Build the shared Flutter app
+flutter build web --dart-define=FIREBASE_PROJECT_ID=demo-aiko \
+  --dart-define=FIREBASE_EMULATOR_HOST=127.0.0.1
 
-supabase login
-supabase link --project-ref <your-project-ref>
-supabase db push                    # all tables + RLS
-# Optional dev-only seed: psql <db-url> -f supabase/seed.sql
-
-flutter run -d <android|ios> \
-  --dart-define=SUPABASE_URL=https://your-project-ref.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=<your-anon-key>
+# Auth, Firestore, Storage, Functions, Hosting, emulator UI
+npm run firebase:start
 ```
 
-> **⚠️ Security:** Never put a service-role key in the app, `.env`, dart-defines, or any client-visible config. Without `SUPABASE_URL`/`SUPABASE_ANON_KEY` the app runs local-only (SQLite via Brick); cloud sync starts once Supabase is configured and the user is authed.
+Open **http://localhost:8080**. Emulator UI: **http://127.0.0.1:4000**. Create an email/password account in the app. The emulator exports data to `.firebase-data/` on graceful shutdown and imports it on the next run. These files contain local account/data state and stay gitignored. Use the same host/port to preserve browser storage. Build once before starting Hosting on a fresh clone. For live Flutter development use `flutter run -d chrome --web-port=8082` with the same defines.
 
-### Self-hosted Supabase
+**Mobile against the same backend:** run `flutter run -d <device>` with those defines; Android emulators use `FIREBASE_EMULATOR_HOST=10.0.2.2`. A physical phone needs the development machine's LAN address and emulator hosts explicitly bound to that interface. Share the same `demo-aiko` project and sign in with the same account. Google sign-in requires production Firebase/Google configuration; email/password works locally.
 
-`docker/` is required local infrastructure for self-hosted Supabase. It contains the official `supabase/supabase` Docker stack plus `docker-compose.aiko.yml`, which mounts `supabase/functions/aiko-chat` into the edge runtime. Keep this directory unless the self-hosted workflow is replaced.
+**Local-only mode:** omit Firebase defines. SQLite stores finance data on mobile and in browser IndexedDB through `sqflite_common_ffi_web`. The app opens directly to the dashboard. No cross-device synchronization or cloud functions run in this mode. Browser storage requires HTTPS or localhost and can be removed by clearing site data.
 
-```bash
-cp docker/.env.example docker/.env
-cd docker
-sh utils/generate-keys.sh --update-env
-sh utils/add-new-auth-keys.sh --update-env
-docker compose up -d
-```
+**Production configuration:** register web, Android and iOS apps in one Firebase project. Enable Email/Password and Google Auth; configure authorized web domains, Android signing SHA fingerprints, and the iOS reversed Google client-ID URL scheme. Supply each platform's `FIREBASE_PROJECT_ID`, `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_AUTH_DOMAIN`, and optional `FIREBASE_REGION`. Leave `FIREBASE_EMULATOR_HOST` unset. Native Google login also uses `GOOGLE_WEB_CLIENT_ID` and `GOOGLE_IOS_CLIENT_ID`. These client configuration values are public; provider secrets and Admin credentials never belong in the Flutter build.
 
-`docker/.env` is gitignored and holds local dashboard credentials plus generated keys; never commit it. Store `AI_*` / `LINE_*` secrets there for local self-hosted edge runtime use.
-
-API + Studio run at `http://localhost:8000`. Apply migrations to the local stack:
-
-```bash
-PGSSLMODE=disable supabase db push --yes --include-all \
-  --db-url "postgresql://postgres.aiko:<POSTGRES_PASSWORD>@localhost:5432/postgres"
-```
-
-Run the app against self-hosted Supabase with `--dart-define=SUPABASE_URL=http://localhost:8000` (Android emulator: `http://10.0.2.2:8000`) and the generated `ANON_KEY`.
-
-### Google Sign-In (native)
-
-Login uses the **native** Google account picker (`google_sign_in` → ID token → Supabase `signInWithIdToken`), not a browser redirect. Account **linking** (Profile → Connect Google) still uses the OAuth redirect flow via the `aiko://login-callback` deep link.
-
-1. **Google Cloud → Credentials**, create OAuth client IDs:
-   - **Web application** → its client ID is `GOOGLE_WEB_CLIENT_ID` (passed as `serverClientId`; also set as the Client ID on Supabase's Google provider).
-   - **Android** → package name + your signing SHA-1. Not referenced in code; matched by Play Services at runtime.
-   - **iOS** → its client ID is `GOOGLE_IOS_CLIENT_ID`.
-2. **Supabase → Auth → Providers → Google:** enable it, paste the Web client ID + secret, and turn on **Manual linking** (required by `linkGoogle`).
-3. **iOS only:** in `ios/Runner/Info.plist`, replace the `com.googleusercontent.apps.YOUR_IOS_CLIENT_ID` URL scheme with the *reversed* iOS client ID.
-4. Run with the client-id dart-defines (web id required; iOS id required on iOS):
-
-```bash
-flutter run -d <android|ios> \
-  --dart-define=SUPABASE_URL=https://your-project-ref.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=<your-anon-key> \
-  --dart-define=GOOGLE_WEB_CLIENT_ID=<web-client-id>.apps.googleusercontent.com \
-  --dart-define=GOOGLE_IOS_CLIENT_ID=<ios-client-id>.apps.googleusercontent.com
-```
+No cloud deployment happens automatically. Test rules/functions locally before an explicitly requested production deployment. See [Firebase migration and verification](docs/firebase.md) for data import, service configuration, and platform limits.
 
 ---
 
@@ -125,7 +88,7 @@ lib/
 ├── main.dart     # Entry point
 ├── app/          # App wiring (router, bootstrap, providers)
 ├── core/         # Framework utilities, no UI: config, errors, formatting, monetization,
-│                 #   money, notifications, offline, prediction, security, storage, supabase, sync
+│                 #   money, notifications, offline, prediction, security, storage, firebase, sync
 ├── features/     # 16 feature modules (accounts, aiko_assistant, aiko_character, auth,
 │                 #   calculators, categories, dashboard, export, investments, learning_hub,
 │                 #   onboarding, overview, settings, transaction_capture, transactions,
@@ -134,8 +97,9 @@ lib/
 ├── l10n/         # .arb sources; AppLocalizations is generated by Flutter
 └── theme/        # Design system (colors, typography, spacing, themes)
 
-supabase/         # migrations/ (Postgres + RLS + functions), seed.sql, storage/
-docker/           # self-hosted Supabase stack and Aiko edge-runtime compose overlay
+firebase/         # Firestore/Storage rules, Functions, emulator tests, legacy import tool
+web/              # Flutter web entrypoint and SQLite worker assets
+tool/             # Local emulator startup helpers
 landing/          # standalone Aiko landing page
 screenshots/      # product/idea screenshots and visual references
 assets/           # icons/ (aiko_*.svg), images/aiko/ (6 expression variants)
@@ -164,58 +128,53 @@ GoRouter around a bottom-nav shell, 5 primary tabs:
 
 ## Architecture
 
-Optimizes for low backend cost, strong offline, fast UX, low lock-in: remote is standard Postgres behind repository interfaces (Supabase → self-hosted → custom Postgres without UI changes).
+One Flutter implementation shares domain logic, routes, repositories, and Firebase data across web, iOS and Android. Backend SDKs stay behind repository/service boundaries.
 
 ### Feature Module Pattern
 
 `application/` (services, workflows), `data/` (repositories, DTOs, sync adapters), `domain/` (immutable models), `presentation/` (screens, widgets, controllers).
 
 - Screens compose UI + consume Riverpod providers; application services hold business logic + coordinate repositories.
-- Repositories own persistence/sync — screens never call Supabase, Brick, or SQLite directly.
+- Repositories own persistence/sync — screens never call Firebase, Brick, or SQLite directly.
 - Domain models stay framework-light. Brick models (`lib/brick/models/`) store primitives only, map to domain via `lib/brick/offline_model_mappers.dart`.
 
 ### Offline-First & Sync
 
-Core finance data reads/writes locally first via [Brick](https://github.com/GetDutchie/brick) (SQLite local, Supabase Postgres remote). Brick handles mapping, cache, the Supabase provider, the sync queue, local query subscriptions — no hand-rolled outbox/retry/mappers.
+Signed-in finance data lives at `users/{uid}/{collection}/{id}` in Firestore. The Firebase SDK owns its persistent offline cache, retry queue, and last-write-wins document conflict behavior. `OfflineStore` delegates to that SDK; no custom finance outbox. `firebaseSyncProvider` owns one listener per collection and invalidates shared providers on inserts, updates and deletes, so views on both platforms refresh. Late rejected writes surface a sync error in the app.
 
-- **Optimistic local writes:** profiles/accounts/categories/transactions/category budgets/goal accounts persist to SQLite immediately, UI updates at once. With Supabase + auth, Brick queues writes and syncs in background; when unavailable, repositories return local data or safe empty/default states — never backend errors in normal flows. Prefer `tryClient()` + offline fallback over `AikoSupabase.requireSession()` in user-facing repositories.
-- **⚠️ Known gap (offline, no Supabase config):** `accountsProvider`, `transactionsProvider`, `categoriesProvider`, `dashboardSummaryProvider`, `dashboardDueItemsProvider` (`lib/app/providers.dart`) call repositories without try/catch. If the offline store or `OfflineUserContext` throws (fresh install, secure-storage channel unavailable), the error reaches `AikoScreenState.error` → "X is unavailable". Fix: wrap each provider body in try/catch returning an empty list / default summary.
-- **Brick `details_json` round-trip (regen-safe):** `OfflineAccount.detailsJson` is a local VARCHAR and a Supabase `jsonb` column `details`. Supabase round-trip via `accountDetailsFromSupabase`/`accountDetailsToSupabase` (`account.model.dart`, `@Supabase(fromGenerator/toGenerator)`); local read tolerates legacy NULL via `accountDetailsFromSqlite` (`@Sqlite(fromGenerator)`). Safe to re-run `build_runner`. Coverage: `test/brick/account_details_json_test.dart`.
-- After editing `lib/brick/models/`, run `dart run build_runner build` and commit generated adapters/schema/migrations.
-- **System (default) categories:** Supabase keeps 81 category and 13 group templates as immutable global rows (`user_id = NULL`) with fixed stable UUIDs. Account setup creates deterministic per-user UUIDv5 clones with `template_id` pointing to those templates; transactions and budgets reference the user clones, which Brick stores normally but the UI keeps read-only. Anonymous local data may use template IDs temporarily; sign-in rekeys groups, categories, and transaction references to the authenticated user's clone IDs before sync.
-- Use Supabase for Auth, Postgres, RLS, structured finance data, attachment storage. By default avoid Realtime/Edge Functions (unless server logic needed) and large blobs in Postgres.
+Local-only installations keep the existing Brick SQLite schema. Its models, schema migrations and SQLite/Firestore codecs are in `lib/brick/`. Codecs are maintained source (`model_dictionary.dart`, `adapters/*.dart`): update them and round-trip tests together when adding fields. Existing SQLite migrations remain immutable; add a migration for any local schema change. `details_json` remains a local string while Firestore `details` is a map; legacy local NULL values remain supported.
+
+System templates remain the same 81 categories and 13 groups. Sign-in creates deterministic per-user UUIDv5 clones transactionally only when missing. Existing profile preferences and budgets are never reset. Anonymous account/category/group/transaction/holding data is claimed on sign-in, category references are rekeyed, and successfully queued local rows are removed to avoid repeated imports. Existing cloud exports can be imported with the create-only dry-run tool in `firebase/tools/`.
+
+Appearance/profile data, language, Travel Mode and transaction rules synchronize. OS capture permissions and native notification scheduling remain device-specific. Browser receipt/image/PDF previews and export downloads use bytes instead of native filesystem APIs.
 
 ### Code Conventions
 
 - **State:** Riverpod for all state; avoid `setState` outside trivial local UI. Top-level providers in `lib/app/providers.dart`; feature providers in-module; shared state in `lib/shared/state/`.
-- **Provider caching:** long-lived list/summary providers call `ref.keepAlive()` *after* a successful load, so switching tabs reuses cached data (no full-screen skeleton flash). A failed load isn't cached and retries. Trade-off: cached screens don't auto-refresh on revisit — screens that go stale own a `RefreshIndicator` calling `ref.refresh(<provider>.future)` (see `_refresh` in `home_dashboard_screen.dart`). Panels watching a notifier update live after writes; `dashboardSummaryProvider`-derived numbers wait for pull-to-refresh.
+- **Provider caching:** long-lived list/summary providers call `ref.keepAlive()` *after* a successful load, so switching tabs reuses cached data (no full-screen skeleton flash). A failed load isn't cached and retries. Firebase collection listeners invalidate these providers when data changes on any client. Pull-to-refresh remains available for manual refresh.
 - **Routing:** all routes in `lib/app/app_router.dart`. Kebab-case paths. Idea-inspired screens belong to the existing feature owner — add subroutes/menus/inline tools, never duplicate a main screen. Accounts/Categories are primary nav tabs — don't add them as Planning/Menu cards.
 - **Money:** never `double`. Use `Money` (`lib/core/money/money.dart`, wraps `Decimal`); format via `lib/core/formatting/money_formatter.dart`. Base currency in profile; multi-currency for travel/portfolio.
 - **Naming:** files `snake_case.dart`, classes `PascalCase`, vars/functions `camelCase`, routes `/kebab-case`, DB `snake_case`.
 - **`super.key` (T-705):** every widget constructor taking `Key?` forwards it as `super.key`.
-- **Notifier / Service / Controller (T-601):** `*Notifier` (reactive Riverpod state, owns in-memory snapshot, `ref.keepAlive()`); `*Service` (pure/near-pure function object, no Riverpod/refs, `const` ctor, unit-testable); `*Controller` (orchestrates Notifier + Service + UI side effects, owns stream/retry/message derivation); `*Repository` in `data/` (wraps a Brick `OfflineStore`, never touches `ref`/`BuildContext`).
+- **Notifier / Service / Controller (T-601):** `*Notifier` (reactive Riverpod state, owns in-memory snapshot, `ref.keepAlive()`); `*Service` (pure/near-pure function object, no Riverpod/refs, `const` ctor, unit-testable); `*Controller` (orchestrates Notifier + Service + UI side effects, owns stream/retry/message derivation); `*Repository` in `data/` (wraps `OfflineStore`, never touches `ref`/`BuildContext`).
 
 ### Sync Fields & Conflict Resolution
 
-Most user-owned finance tables carry `id`, `user_id`, timestamps, and `version integer not null default 1`; small metadata tables such as `attachments`, `transaction_splits`, and LINE pairing tables intentionally use narrower shapes. Deletes are **hard deletes** (`OfflineStore.delete` removes local row + queues remote `DELETE`; SQLite-only offline). No `deleted_at` tombstone. **Known gap:** a row deleted while signed out in cloud mode is removed locally but its remote `DELETE` isn't queued (no session), so it won't propagate on next sign-in.
-
-Conflicts: transactions/categories/category budgets — latest `updated_at` wins; important records — compare `version`; summaries — recalculated, never merged; balances — calculated/snapshot; attachments — local file/Storage object plus metadata via Postgres.
+User-owned finance documents retain stable `id`, `user_id`, ISO timestamps and decimal **strings**. Firebase applies last-write-wins per document and handles offline write replay. Deletes are SDK document deletes, reflected by listeners on other clients; no stale SQLite rows are merged back into cloud reads. Default category identity is read-only under Security Rules, while budget fields remain editable. Aggregates are recalculated from source records. Concurrent edits to the same financial record still require user review; this migration does not introduce a transactional double-entry ledger.
 
 ### Summaries
 
-Dashboards/reports calculate summaries from local data and repository projections. No remote summary tables are part of the squashed initial schema yet.
+Dashboards/reports calculate summaries from repository projections. Cloud AI tools also aggregate per currency with `decimal.js`, never binary floating-point money.
 
 ### Receipt & Attachment Strategy
 
-Attachments live in **Supabase Storage** under a per-user RLS-protected path — never Postgres `bytea`; only metadata goes to Postgres. Capture supports camera/gallery/file picker. Receipt OCR, when enabled, runs against the selected image bytes before metadata is saved. The domain currently validates PDF/JPEG/PNG attachment uploads.
+Bytes are cached durably in SQLite (IndexedDB-backed on web) before attachment metadata is saved. Uploads use Firebase Storage paths `users/{uid}/receipts/{id}/{fileName}` and Firestore `attachments` metadata. Remote files download through authenticated Storage access and cache locally. Failed uploads remain local and retry when their transaction's attachments are opened. Avatars use `users/{uid}/avatars/`; the profile contains the returned download URL. Local cache paths are device-specific and fall back to cloud images on other devices.
 
-**No data loss:** the receipt/document file is recorded locally before metadata upload; the `attachments` row stores metadata and the Storage path. Failed remote writes return the local attachment object so the transaction flow can continue offline. Deletes hard-delete the row + Storage object. Local files act as a persistent cache and should be reclaimed only under LRU pressure.
+The domain supports PDF, JPEG, PNG, WebP, HEIC, text/CSV/Markdown and Word files, up to 10 MiB. Images, PDFs and text have browser/native previews; HEIC and Word use an unsupported-preview fallback. Browser scheduled notifications and Android SMS/notification capture are not available; reminder times remain part of the shared transaction.
 
-`attachments`: `id`, `user_id`, `storage_bucket`, `storage_path`, `file_name`, `content_type`, `size_bytes`, `linked_entity_type`, `linked_entity_id`, `is_sensitive`, `export_policy`. Storage behind `RemoteAttachmentStorage` (`upload`/`delete`/`getDownloadUrl`); `SupabaseAttachmentStorage` uploads + serves signed URLs — backend swappable without UI changes.
+### Cost & Boundaries
 
-### Cost & Lock-in
-
-Keep cost low: reads from local SQLite, dashboards from local summary tables, batched writes, compressed attachments. Avoid: loading all transactions from Supabase per screen, Realtime every session, image bytes in `bytea`, Edge Functions for simple CRUD, direct Supabase calls from UI. Low lock-in via standard Postgres schema, repository interfaces, Dart business logic, file storage behind `RemoteAttachmentStorage`.
+Use the SDK cache and shared listeners, not a new listener per widget. Keep files in Storage and structured records in Firestore. Financial calculations stay in Dart/domain services. Cloud Functions own privileged deletion, LINE linking, AI and optional external providers; UI never accesses Admin credentials.
 
 ---
 
@@ -251,92 +210,23 @@ Calculator scenario saving/comparison is not wired yet.
 
 ---
 
-## Ask Aiko Chat Backend (`aiko-chat` Edge Function)
+### Ask Aiko, LINE, and optional providers
 
-Supabase Edge Function (`supabase/functions/aiko-chat/`) — an SSE proxy streaming Chat Completions from **one configured OpenAI-compatible provider**. Provider key stays server-side.
+`HttpChatEngine` streams `data: {"delta":"..."}` events from the `aikoChat` Firebase HTTPS function, ending with `{"done":true}` or an error. The function verifies the Firebase ID token, rate limits the user, and owns the system prompt. It accepts the on-device financial snapshot and six read-only tools for account summaries, budget status, spending by category, cash flow, recent transactions and goal progress. Every tool receives the verified UID and reads only that user's collections; model input cannot choose another owner. Provider failures before or during streaming are reported without inventing an answer.
 
-**Request flow:** (1) validate caller's Supabase JWT (`Authorization: Bearer <jwt>`); (2) build message list (last 20) behind a fixed system prompt defining Aiko's persona, forcing the disclaimer on numeric/recommendation answers, injecting `baseCurrency`; (3) run Layer 2 tool calls; (4) stream the answer (`stream: true`), re-emitting each token as `data: {"delta":"..."}\n\n`, closing with `data: {"done":true}\n\n`. Client: `HttpChatEngine` (`chat_engine.dart`) calls `${SUPABASE_URL}/functions/v1/aiko-chat`.
+Server-only secrets: `AI_API_KEY`, `AI_MODEL`, `AI_BASE_URL` (OpenAI-compatible endpoint). Local values belong in `firebase/functions/.secret.local` (gitignored). Unconfigured cloud AI returns 503; builds without Firebase retain the existing local guidance engine. Production secrets use Firebase Secret Manager.
 
-**Failure handling:** a failure before any token reaches the client (network error, non-2xx, 60s timeout, or an immediate stream break) ends the stream `data: {"error":"...","code":"PROVIDER_DOWN"}\n\n`. Once tokens flow, a mid-stream error is a final `error` event (can't safely restart).
-
-**How Aiko reads your data** (model only sees RLS-scoped data; key never leaves server):
-
-- **Layer 1 — on-device snapshot (always on).** Client assembles a compact `AikoFinancialContext` (net worth, accounts, this-month income/spending, budget pace, goals, recent transactions) from local Brick, sends it in the body; the function folds it into the system prompt. Aggregates only, capped, never the full ledger.
-- **Layer 2 — server-side tools (always on).** Model may first call a fixed allow-list of **read-only** Postgres RPCs (`aiko_*` functions in the squashed initial migration), each `SECURITY INVOKER` under the caller's JWT (RLS scopes results). Never runs model-supplied SQL, never uses service-role.
-
-**Configuration** (Supabase secrets — never in app/`.env`). One provider, set via three secrets; if any is missing the chat endpoint returns `MISSING_PROVIDER_KEY` (and the LINE path replies with a fallback message).
-
-```sh
-supabase secrets set AI_API_KEY=sk-...
-supabase secrets set AI_MODEL=deepseek-v4-flash
-supabase secrets set AI_BASE_URL=https://api.deepseek.com/v1   # OpenAI-compatible base; the function appends /chat/completions
-```
-
-`SUPABASE_URL` / `SUPABASE_ANON_KEY` injected by runtime. Any OpenAI-compatible endpoint works — e.g. `https://api.openai.com/v1`, `https://generativelanguage.googleapis.com/v1beta/openai`. To switch providers, change the three secrets and redeploy; no code change.
-
-**LINE bot (merged in):** the LINE webhook lives in this same function — a `POST` with `x-line-signature` routes to the LINE handler, which verifies LINE's HMAC, looks up the linked user (service-role, server-side only), refreshes that user's token, runs the **same chat pipeline in-process**, and replies via the LINE reply API. Linking happens in-app (Profile → Connect LINE) via a pairing code (`line_pairings` / `line_links`, `redeem_line_pairing` RPC). Extra secrets: `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN` (`SUPABASE_SERVICE_ROLE_KEY` injected, used only here). Point the LINE Webhook URL at `…/functions/v1/aiko-chat`.
-
-**Deploy & local dev** — deploy with `--no-verify-jwt` (LINE calls carry a LINE signature, not a Supabase JWT; safe because the app path validates the JWT in code via `getUser` and the LINE path verifies its own signature):
-
-```sh
-supabase functions deploy aiko-chat --no-verify-jwt
-supabase functions serve aiko-chat --env-file ./supabase/functions/.env.local
-```
-
-**Errors** (before stream = JSON with `code`; after = `data: {"error":"..."}` then close):
-
-| Status | `code` | Meaning |
-| --- | --- | --- |
-| 400 | `BAD_REQUEST` | `messages` missing/malformed |
-| 400 | `BAD_JSON` | Body not valid JSON |
-| 401 | `NO_TOKEN` | Missing `Authorization` |
-| 401 | `BAD_TOKEN` | JWT rejected |
-| 405 | `METHOD_NOT_ALLOWED` | Non-POST |
-| 500 | `MISCONFIGURED` | Missing Supabase env |
-| 500 | `MISSING_PROVIDER_KEY` | `AI_API_KEY`, `AI_MODEL`, or `AI_BASE_URL` not set |
-| 502 | `PROVIDER_DOWN` | Provider unreachable / failed before any token |
-| 502 | `PROVIDER_ERROR` | Upstream non-OK before stream |
-
----
+`lineWebhook` verifies the LINE HMAC; `redeemLinePairing` consumes a hashed, expiring code transactionally under Firebase Auth. Link records are server-only; the profile sees an `integrations/line` status document. Unlike the previous backend, no user refresh token is stored for LINE. Configure `LINE_CHANNEL_SECRET` and `LINE_CHANNEL_ACCESS_TOKEN`, then point LINE to `lineWebhook`. OCR (`ocrScanner`) and price refresh (`marketFeed`) use explicitly configured server providers (`OCR_API_URL`/`OCR_API_KEY`, `MARKET_API_URL`/`MARKET_API_KEY`); they report unavailable when unset.
 
 ## Account Deletion
 
-"Delete account" (Profile) deletes **immediately and permanently** — no grace period. `AuthRepository.deleteAccount` calls the `delete_account` Postgres RPC under the user's JWT, then signs out.
-
-`delete_account()` (in the squashed initial migration) is a `SECURITY DEFINER` function: it runs as its definer so it can reach `auth.users`. It derives the caller from `auth.uid()` (never a parameter), deletes the `profiles` row (cascades all finance data via `on delete cascade`), then deletes the `auth.users` login. Schema quirk: `profiles.id` is *not* FK'd to `auth.users`, so the profile row must be deleted explicitly. `execute` is granted to `authenticated` only.
-
-No Edge Function, no `pg_cron`, no service-role key, no email — the privilege lives in the function, not the client. (Replaces the old 3-day grace scheme: `delete-account` / `purge-deleted-accounts` functions and the hourly purge cron.)
-
-After editing the migration: `supabase db push`.
-
----
+Profile deletion calls the authenticated `deleteAccount` callable. It requires a sign-in from the last five minutes, deletes the user's Firestore subtree, Storage objects and LINE mapping, then deletes the Firebase Auth identity. It is immediate and permanent; no grace period. Privileged server code always derives the UID from verified authentication.
 
 ## Database Schema
 
-10 core tables, all under RLS:
+`users/{uid}` contains `profiles`, `accounts`, `transactions`, `transaction_splits`, `categories`, `category_groups`, `attachments`, `investment_holdings`, `preferences`, and read-only `integrations`. Profiles use the UID as document ID; other entities keep their existing IDs and snake_case fields. Money values are decimal strings. Budgets remain category fields, goals remain account fields, recurring/reminder metadata remains on transactions, and attachment metadata references Storage paths. Global server-only `line_links`, `line_pairings`, and `rate_limits` cannot be read by clients. All other unspecified paths are denied.
 
-`profiles`, `accounts`, `transactions`, `transaction_splits`, `categories`, `category_groups`, `attachments`, `investment_holdings`, `line_links`, `line_pairings`.
-
-`categories` has 81 global system rows (`user_id = NULL`, `is_default = true`) plus user rows. All tables enforce `user_id = auth.uid()` via RLS, **except** `categories`: SELECT allows `user_id IS NULL OR user_id = auth.uid()`; INSERT/UPDATE/DELETE scoped to `auth.uid()`.
-
-### Entity Fields
-
-| Entity | Fields |
-| :--- | :--- |
-| **Profile** | `id`, `display_name`, `email`, `base_currency`, `country`, `timezone`, `preferred_theme`, `onboarding_status`, `security_status`, profile metadata |
-| **Account** | `id`, `user_id`, `name`, `type`, `currency`, `current_balance`, `institution`, `details`, goal fields, `include_in_net_worth`, `is_active` |
-| **Transaction** | `id`, `user_id`, `account_id`, `type`, `amount`, `currency`, `exchange_rate_to_base`, `category_id`, `date`, `merchant`, `note`, `tags`, recurrence fields, `tax_flag`, `status` |
-| **TransactionSplit** | `id`, `user_id`, `transaction_id`, `category_id`, `amount`, `note`, `tax_flag` |
-| **Category** | `id`, `user_id`, `name`, `parent_id`, `type`, `group_id`, `icon`, `color`, `budget_*`, `alert_thresholds`, `is_default`, `is_active` |
-| **CategoryGroup** | `id`, `user_id`, `name`, `icon`, `color`, `sort_order`, optional group budget fields |
-| **Attachment** | `id`, `user_id`, `storage_bucket`, `storage_path`, `file_name`, `content_type`, `size_bytes`, linked entity fields, `is_sensitive`, `export_policy` |
-| **InvestmentHolding** | `id`, `user_id`, `symbol`, `asset_class`, `quantity`, `average_cost`, `current_price`, `currency`, `market_value`, `target_allocation_percent` |
-| **LineLink** | `id`, `user_id`, `line_user_id`, `refresh_token`, `display_name`, timestamps |
-| **LinePairing** | `line_user_id`, `code`, `expires_at`, `created_at` |
-
-**Backend rules:** migrations in `supabase/migrations/` (never edit existing — create new); RLS on every table; never expose service-role client-side; `seed.sql` dev/demo only; push via `supabase link --project-ref <ref>` then `supabase db push`.
-
-**Always ship backend changes:** after editing an Edge Function, `supabase functions deploy <name>` (`--no-verify-jwt` for `aiko-chat`). After a migration, `supabase db push`.
+**Backend changes:** update `firebase/firestore.rules`, `firebase/storage.rules`, Functions and tests together. Run emulator tests and the function build; deployment requires an explicit request. `firebase/tools/import_legacy.cjs` imports existing exported users, records and files with stable IDs; dry run is the default. Historical SQL design notes under `docs/superpowers/` describe the replaced backend, not active deployment instructions.
 
 ---
 
@@ -485,7 +375,7 @@ Shared UI primitives in `lib/shared/widgets/`; feature screens consume them, don
 
 Supplemental routes by owner: `/notifications`, `/transaction-rules`, `/transaction-capture`, `/settings/chance-of-success`, `/reports/monthly`, `/export`, `/account-form`, `/profile`, `/connect-line`, `/portfolio/allocation`, `/portfolio/holding`, `/learning-hub`, `/travel-mode`.
 
-Route rules: don't duplicate an existing feature screen; sticky bottom actions for filter/save/confirm/result screens; sample data realistic + scoped to preview/offline; real repositories remain the persisted source; Aiko guidance after the primary number/decision (except onboarding/chat); every supplemental route renders without a Supabase session.
+Route rules: don't duplicate an existing feature screen; sticky bottom actions for filter/save/confirm/result screens; sample data realistic + scoped to preview/offline; real repositories remain the persisted source; Aiko guidance after the primary number/decision (except onboarding/chat); every supplemental route renders without a Firebase session.
 
 ### QA Checklist
 
@@ -507,9 +397,11 @@ flutter test                       # money types, formatters, prediction, models
 **Quality gates — run all before any release:**
 
 ```bash
-dart run build_runner build        # required after Brick model changes
-dart format --set-exit-if-changed .
-flutter analyze
+npm --prefix firebase/functions test
+npm run test:rules                 # requires the emulators
+flutter build web
+dart format --set-exit-if-changed lib test
+flutter analyze lib test
 flutter test
 ```
 
@@ -533,18 +425,18 @@ Phases 1–6 ✅ (Foundation; Core Finance; Intelligence; Advanced Finance; Weal
 
 ## Common Tasks
 
-- **New feature module:** create `lib/features/<name>/` (4 layers); add routes; new table → migration with RLS by `auth.uid()`; offline → Brick model + `build_runner`; register app-wide providers; add model/repository-fallback/provider tests; use `Money`.
+- **New feature module:** create `lib/features/<name>/` (4 layers); add routes; new collection → owner-scoped Firebase rules; offline → model + both codecs + SQLite migration; register app-wide providers; add model/repository-fallback/provider tests; use `Money`.
 - **New calculator:** add file in `lib/features/calculators/`, register in the hub category list, and add persistence/conversion only when the product flow exists.
-- **New generated insight surface:** add the product screen first, then define the generator, persistence model/table, provider, display states, source-data references, RLS, and tests.
-- **New migration:** `supabase migration new <name>`, edit SQL, `supabase db push`.
+- **New generated insight surface:** add the product screen first, then define the generator, persistence model/table, provider, display states, source-data references, Security Rules, and tests.
+- **New backend field:** extend its document codec, local SQLite migration, Security Rules, and round-trip/emulator coverage.
 
 ## Key Principles
 
-1. Clarity first. 2. Data first, Aiko enhanced. 3. Decimal-safe money (never `double`). 4. Privacy by design (RLS everywhere, encrypted storage, AI acknowledged at onboarding). 5. Offline first. 6. Actionable insights. 7. Warm, non-judgmental tone. 8. Test before ship.
+1. Clarity first. 2. Data first, Aiko enhanced. 3. Decimal-safe money (never `double`). 4. Privacy by design (Security Rules everywhere, encrypted storage, AI acknowledged at onboarding). 5. Offline first. 6. Actionable insights. 7. Warm, non-judgmental tone. 8. Test before ship.
 
 ## Contributing
 
-Use `Money` (never `double`); go through repositories (screens never touch Supabase/Brick/SQLite); add Brick models + regenerate adapters for offline; add RLS to every new table; consume shared widgets/tokens; write unit tests for new models/providers; run the QA checklist + all quality gates; keep Aiko's voice warm and non-judgmental.
+Use `Money` (never `double`); go through repositories (screens never touch Firebase/Brick/SQLite); update local models/codecs for offline; add Security Rules to every new collection; consume shared widgets/tokens; write unit tests for new models/providers; run the QA checklist + all quality gates; keep Aiko's voice warm and non-judgmental.
 
 **License:** Private; not published to pub.dev. See `pubspec.yaml`.
 

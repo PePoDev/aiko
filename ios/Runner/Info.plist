@@ -2,6 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Connect to your local Aiko development server.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -23,7 +30,7 @@
 		<!-- Native Google Sign-In callback. Replace the scheme below with the
 		     REVERSED iOS OAuth client id (Google Cloud → iOS client →
 		     "iOS URL scheme", e.g. com.googleusercontent.apps.1234567890-abcdef).
-		     Must correspond to GOOGLE_IOS_CLIENT_ID passed via --dart-define. -->
+		     Must correspond to GOOGLE_IOS_CLIENT_ID passed via Dart build configuration. -->
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>

@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import '../../../core/supabase/supabase_client_provider.dart';
+import '../../../core/firebase/firebase_backend.dart';
 import 'financial_context.dart';
 
 class ChatMessage {
@@ -79,8 +79,7 @@ class HttpChatEngine {
           ..headers['Content-Type'] = 'application/json'
           ..headers['Accept'] = 'text/event-stream';
 
-        final session = AikoSupabase.tryClient();
-        final token = session?.auth.currentSession?.accessToken;
+        final token = await FirebaseBackend.auth?.currentUser?.getIdToken();
         if (token != null) {
           request.headers['Authorization'] = 'Bearer $token';
         }

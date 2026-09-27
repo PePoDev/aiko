@@ -1,4 +1,4 @@
-import 'package:aiko/brick/brick.g.dart';
+import 'package:aiko/brick/model_dictionary.dart';
 import 'package:aiko/brick/db/schema.g.dart';
 import 'package:aiko/brick/repository.dart';
 import 'package:brick_sqlite/brick_sqlite.dart';

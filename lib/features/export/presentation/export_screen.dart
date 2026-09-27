@@ -1,9 +1,9 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../app/providers.dart';
@@ -50,7 +50,6 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
         return;
       }
 
-      final tempDir = await getTemporaryDirectory();
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
 
       if (_format == 'csv' || _format == 'excel') {
@@ -68,23 +67,22 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
             tx.merchant ?? '',
             cat.name,
             tx.type.name,
-            tx.amount.amount.toDouble(),
+            tx.amount.amount.toString(),
             tx.note ?? '',
           ]);
         }
 
         final csvContent = csv.encode(rows);
-        final file = File('${tempDir.path}/aiko_export_$timestamp.csv');
-
-        if (_format == 'excel') {
-          // UTF-8 BOM character to force Excel to correctly render currency symbols and commas
-          await file.writeAsBytes([0xEF, 0xBB, 0xBF, ...csvContent.codeUnits]);
-        } else {
-          await file.writeAsString(csvContent);
-        }
-
+        final bytes = Uint8List.fromList([
+          if (_format == 'excel') ...[0xEF, 0xBB, 0xBF],
+          ...utf8.encode(csvContent),
+        ]);
         await SharePlus.instance.share(
-          ShareParams(files: [XFile(file.path)], text: 'Aiko Financial Export'),
+          ShareParams(
+            files: [XFile.fromData(bytes, mimeType: 'text/csv')],
+            fileNameOverrides: ['aiko_export_$timestamp.csv'],
+            text: 'Aiko Financial Export',
+          ),
         );
       } else if (_format == 'pdf') {
         // Generate beautiful HTML layout
@@ -191,12 +189,15 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
 </html>
         ''';
 
-        final file = File('${tempDir.path}/aiko_statement_$timestamp.html');
-        await file.writeAsString(htmlContent);
-
         await SharePlus.instance.share(
           ShareParams(
-            files: [XFile(file.path)],
+            files: [
+              XFile.fromData(
+                Uint8List.fromList(utf8.encode(htmlContent)),
+                mimeType: 'text/html',
+              ),
+            ],
+            fileNameOverrides: ['aiko_statement_$timestamp.html'],
             text: 'Aiko PDF / HTML Statement',
           ),
         );
@@ -231,14 +232,23 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Date Range', style: Theme.of(context).textTheme.titleSmall),
+                Text(
+                  'Date Range',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
                 const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
                   child: SegmentedButton<String>(
                     segments: const [
-                      ButtonSegment(value: 'current_month', label: Text('This Month')),
-                      ButtonSegment(value: 'last_month', label: Text('Last Month')),
+                      ButtonSegment(
+                        value: 'current_month',
+                        label: Text('This Month'),
+                      ),
+                      ButtonSegment(
+                        value: 'last_month',
+                        label: Text('Last Month'),
+                      ),
                       ButtonSegment(value: 'all_time', label: Text('All Time')),
                     ],
                     selected: {_dateRange},

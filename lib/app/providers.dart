@@ -251,7 +251,7 @@ class AccountsNotifier extends AsyncNotifier<List<Account>> {
   Future<List<Account>> build() async {
     try {
       final repo = ref.watch(accountRepositoryProvider);
-      return repo.list();
+      return await repo.list();
     } catch (error, stackTrace) {
       // Surface to `AikoScreenState.error`; a recoverable empty state is
       // acceptable for fresh installs even with no secure-storage backend.

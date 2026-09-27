@@ -27,7 +27,7 @@ class TransactionReminderService {
   bool _ready = false;
 
   Future<void> init() async {
-    if (_ready) return;
+    if (kIsWeb || _ready) return;
     try {
       tz_data.initializeTimeZones();
       final name = await FlutterTimezone.getLocalTimezone();

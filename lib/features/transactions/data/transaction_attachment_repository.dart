@@ -1,4 +1,9 @@
-import '../../../core/supabase/supabase_client_provider.dart';
+import 'dart:convert';
+import '../../../core/offline/offline_user_context.dart';
+import 'dart:typed_data';
+import 'package:firebase_storage/firebase_storage.dart';
+import '../../../core/storage/local_file_cache.dart';
+import '../../../core/firebase/firebase_backend.dart';
 import '../domain/transaction_attachment.dart';
 
 class TransactionAttachmentRepository {
@@ -13,15 +18,15 @@ class TransactionAttachmentRepository {
       );
     }
 
-    final client = AikoSupabase.tryClient();
-    final user = client?.auth.currentUser;
-    final userId = user?.id ?? attachment.userId;
+    final userId = await OfflineUserContext().resolveUserId();
+    await _cacheMetadata(attachment, userId);
     final attachmentWithUser = TransactionAttachment(
       id: attachment.id,
       userId: userId,
       transactionId: attachment.transactionId,
       fileName: attachment.fileName,
-      storagePath: attachment.storagePath,
+      storagePath:
+          'users/$userId/receipts/${attachment.id}/${attachment.fileName}',
       mimeType: attachment.mimeType,
       sizeBytes: attachment.sizeBytes,
       createdAt: attachment.createdAt,
@@ -29,41 +34,106 @@ class TransactionAttachmentRepository {
       exportPolicy: attachment.exportPolicy,
     );
 
-    if (client == null || user == null) {
-      return attachmentWithUser;
+    if (FirebaseBackend.userId == null) {
+      return attachment;
     }
     try {
-      await client.from('attachments').upsert(_toRow(attachmentWithUser));
+      if (attachment.storagePath != attachmentWithUser.storagePath) {
+        final bytes = await readBytes(attachment);
+        await FirebaseBackend.storage
+            .ref(attachmentWithUser.storagePath)
+            .putData(bytes, SettableMetadata(contentType: attachment.mimeType));
+      }
+      await FirebaseBackend.collection(
+        'attachments',
+      ).doc(attachment.id).set(_toRow(attachmentWithUser));
+      await _cacheMetadata(attachmentWithUser, userId);
     } catch (_) {
-      return attachmentWithUser;
+      return attachment;
     }
     return attachmentWithUser;
+  }
+
+  Future<Uint8List> readBytes(TransactionAttachment attachment) async {
+    final path = attachment.storagePath;
+    if (path.startsWith('aiko-cache:') ||
+        path.startsWith('/') ||
+        path.startsWith('blob:') ||
+        path.startsWith('file:')) {
+      return LocalFileCache.read(path);
+    }
+    final cacheKey = 'receipts/$path';
+    try {
+      return await LocalFileCache.read('aiko-cache:$cacheKey');
+    } catch (_) {
+      final bytes = await FirebaseBackend.storage
+          .ref(path)
+          .getData(TransactionAttachment.maxUploadBytes);
+      if (bytes == null) throw StateError('Attachment is unavailable.');
+      await LocalFileCache.write(cacheKey, bytes);
+      return bytes;
+    }
   }
 
   Future<List<TransactionAttachment>> listForTransaction(
     String transactionId,
   ) async {
-    final client = AikoSupabase.tryClient();
-    final user = client?.auth.currentUser;
-    if (client == null || user == null) {
-      return const [];
-    }
-    final List<dynamic> response;
+    final userId = await OfflineUserContext().resolveUserId();
+    final local = await _localMetadata(userId, transactionId);
+    if (FirebaseBackend.userId == null) return local;
     try {
-      response = await client
-          .from('attachments')
-          .select()
-          .eq('user_id', user.id)
-          .eq('linked_entity_type', 'transaction')
-          .eq('linked_entity_id', transactionId)
-          .order('created_at', ascending: false);
+      // Retry attachments whose bytes were saved while disconnected.
+      for (final attachment in local) {
+        if (attachment.storagePath.startsWith('aiko-cache:')) {
+          await save(attachment);
+        }
+      }
+      final response = await FirebaseBackend.collection(
+        'attachments',
+      ).where('linked_entity_id', isEqualTo: transactionId).get();
+      final remote = response.docs.map((doc) => _fromRow(doc.data())).toList();
+      for (final attachment in remote) {
+        await _cacheMetadata(attachment, userId);
+      }
+      final merged = {
+        for (final attachment in local) attachment.id: attachment,
+        for (final attachment in remote) attachment.id: attachment,
+      };
+      return merged.values.toList();
     } catch (_) {
-      return const [];
+      return local;
     }
+  }
 
-    return response
-        .map((row) => _fromRow(Map<String, dynamic>.from(row)))
-        .toList(growable: false);
+  Future<List<TransactionAttachment>> _localMetadata(
+    String userId,
+    String transactionId,
+  ) async {
+    try {
+      final bytes = await LocalFileCache.read(
+        'aiko-cache:attachment-metadata/$userId/$transactionId',
+      );
+      return (jsonDecode(utf8.decode(bytes)) as List)
+          .map((row) => _fromRow(Map<String, dynamic>.from(row as Map)))
+          .toList();
+    } on StateError {
+      return [];
+    }
+  }
+
+  Future<void> _cacheMetadata(
+    TransactionAttachment attachment,
+    String userId,
+  ) async {
+    final items = await _localMetadata(userId, attachment.transactionId);
+    final rows = {
+      for (final item in items) item.id: _toRow(item),
+      attachment.id: {..._toRow(attachment), 'user_id': userId},
+    };
+    await LocalFileCache.write(
+      'attachment-metadata/$userId/${attachment.transactionId}',
+      utf8.encode(jsonEncode(rows.values.toList())),
+    );
   }
 
   Future<List<TransactionAttachment>> exportableForTransaction(
@@ -95,6 +165,7 @@ class TransactionAttachmentRepository {
 
   static Map<String, dynamic> _toRow(TransactionAttachment attachment) {
     return {
+      'created_at': attachment.createdAt.toUtc().toIso8601String(),
       'id': attachment.id,
       'user_id': attachment.userId,
       'storage_bucket': 'receipts',

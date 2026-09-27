@@ -1,3 +1,4 @@
+import '../core/firebase/firebase_backend.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,7 +30,9 @@ class _AikoAppState extends State<AikoApp> {
   void initState() {
     super.initState();
     _authRepository = AuthRepository();
-    _router = createAikoRouter(initialLocation: '/');
+    _router = createAikoRouter(
+      initialLocation: !FirebaseBackend.isConfigured ? '/home' : '/',
+    );
     _authRepository.restoreSessionInBackground();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _routeReturningUser();
@@ -37,14 +40,25 @@ class _AikoAppState extends State<AikoApp> {
   }
 
   Future<void> _routeReturningUser() async {
+    if (!FirebaseBackend.isConfigured) return;
     if (_authRepository.hasActiveSession()) {
-      _router.go('/home');
+      if ([
+        '/',
+        '/auth',
+      ].contains(_router.routeInformationProvider.value.uri.path)) {
+        _router.go('/home');
+      }
       return;
     }
     await _authRepository.restoreSession();
     if (!mounted) return;
     if (_authRepository.hasActiveSession()) {
-      _router.go('/home');
+      if ([
+        '/',
+        '/auth',
+      ].contains(_router.routeInformationProvider.value.uri.path)) {
+        _router.go('/home');
+      }
       return;
     }
     if (await _authRepository.hasKnownAccount()) {

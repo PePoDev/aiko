@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+    function decimal(value) { return value is string && value.matches('^-?[0-9]+([.][0-9]+)?$'); }
+    function ownedRecord(uid, id) { return request.resource.data.id == id && request.resource.data.user_id == uid; }
+    function ownedProfile(uid, id) { return id == uid && request.resource.data.id == uid; }
+    function financeCollection(collection) {
+      return collection in ['accounts', 'categories', 'category_groups', 'transactions', 'investment_holdings', 'attachments', 'transaction_splits'];
+    }
+    function validFinance(collection) {
+      return (collection != 'transactions' ||
+        (decimal(request.resource.data.amount) && request.resource.data.currency is string && request.resource.data.account_id is string)) &&
+        (collection != 'accounts' || decimal(request.resource.data.current_balance)) &&
+        (collection != 'investment_holdings' ||
+          (decimal(request.resource.data.quantity) && decimal(request.resource.data.average_cost) && decimal(request.resource.data.current_price)));
+    }
+    function editableTemplate(collection) {
+      return !(collection in ['categories', 'category_groups']) ||
+        resource.data.get('template_id', null) == null ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'budget_amount', 'budget_currency', 'budget_period', 'budget_rollover',
+          'budget_enabled', 'alert_thresholds', 'updated_at', 'version'
+        ]);
+    }
+    match /users/{uid}/{collection}/{id} {
+      allow read: if owner(uid) && (financeCollection(collection) || collection in ['profiles', 'preferences', 'integrations']);
+      allow create: if owner(uid) &&
+        ((financeCollection(collection) && ownedRecord(uid, id) && validFinance(collection)) ||
+         (collection == 'profiles' && ownedProfile(uid, id)) ||
+         (collection == 'preferences' && request.resource.data.keys().hasOnly(['value']) && request.resource.data.value is string));
+      allow update: if owner(uid) &&
+        ((financeCollection(collection) && ownedRecord(uid, id) && validFinance(collection) && editableTemplate(collection)) ||
+         (collection == 'profiles' && ownedProfile(uid, id)) ||
+         (collection == 'preferences' && request.resource.data.keys().hasOnly(['value']) && request.resource.data.value is string));
+      allow delete: if owner(uid) &&
+        ((financeCollection(collection) && (!(collection in ['categories', 'category_groups']) || resource.data.get('template_id', null) == null)) || collection == 'preferences');
+    }
+    // LINE pairing codes, mappings, rate limits and all unspecified paths are server-only.
+    match /{document=**} { allow read, write: if false; }
+  }
+}

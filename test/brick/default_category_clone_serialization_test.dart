@@ -1,18 +1,11 @@
-import 'package:aiko/brick/brick.g.dart';
+import 'package:aiko/brick/model_dictionary.dart';
 import 'package:aiko/brick/models/category.model.dart';
 import 'package:aiko/brick/models/category_group.model.dart';
-import 'package:brick_supabase/brick_supabase.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
-  final provider = SupabaseProvider(
-    SupabaseClient('https://offline.aiko.local', 'offline-anon-key'),
-    modelDictionary: supabaseModelDictionary,
-  );
-
-  test('category clone writes template_id to Supabase', () async {
-    final row = await OfflineCategoryAdapter().toSupabase(
+  test('category clone writes template_id to Firestore', () async {
+    final row = await OfflineCategoryAdapter().toFirestore(
       OfflineCategory(
         id: 'category-clone',
         userId: 'user',
@@ -21,21 +14,21 @@ void main() {
         type: 'expense',
         categoryGroup: 'wants',
       ),
-      provider: provider,
+      provider: null,
     );
 
     expect(row['template_id'], 'category-template');
   });
 
-  test('group clone writes template_id to Supabase', () async {
-    final row = await OfflineCategoryGroupAdapter().toSupabase(
+  test('group clone writes template_id to Firestore', () async {
+    final row = await OfflineCategoryGroupAdapter().toFirestore(
       OfflineCategoryGroup(
         id: 'group-clone',
         userId: 'user',
         templateId: 'group-template',
         name: 'Food & Drink',
       ),
-      provider: provider,
+      provider: null,
     );
 
     expect(row['template_id'], 'group-template');

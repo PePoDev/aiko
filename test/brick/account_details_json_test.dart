@@ -1,10 +1,8 @@
-import 'package:aiko/brick/brick.g.dart';
+import 'package:aiko/brick/model_dictionary.dart';
 import 'package:aiko/brick/models/account.model.dart';
 import 'package:brick_sqlite/brick_sqlite.dart';
-import 'package:brick_supabase/brick_supabase.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// A [DatabaseFactory] that throws on every call. Used to construct a real
 /// [SqliteProvider] for tests that never open the database (e.g. when the
@@ -18,44 +16,44 @@ class _NeverOpenDatabaseFactory implements DatabaseFactory {
 }
 
 void main() {
-  group('accountDetailsFromSupabase', () {
+  group('accountDetailsFromFirestore', () {
     test('null returns empty json object string', () {
-      expect(accountDetailsFromSupabase(null), '{}');
+      expect(accountDetailsFromFirestore(null), '{}');
     });
 
     test('empty string returns empty json object string', () {
-      expect(accountDetailsFromSupabase(''), '{}');
+      expect(accountDetailsFromFirestore(''), '{}');
     });
 
     test('plain string is preserved as-is', () {
-      expect(accountDetailsFromSupabase('{"foo":1}'), '{"foo":1}');
+      expect(accountDetailsFromFirestore('{"foo":1}'), '{"foo":1}');
     });
 
     test('Map is encoded as a json string', () {
       expect(
-        accountDetailsFromSupabase(<String, dynamic>{'foo': 1}),
+        accountDetailsFromFirestore(<String, dynamic>{'foo': 1}),
         '{"foo":1}',
       );
     });
 
     test('non-string/non-Map falls back to empty', () {
-      expect(accountDetailsFromSupabase(42), '{}');
+      expect(accountDetailsFromFirestore(42), '{}');
     });
   });
 
-  group('accountDetailsToSupabase', () {
+  group('accountDetailsToFirestore', () {
     test('empty string returns empty Map', () {
-      expect(accountDetailsToSupabase(''), <String, dynamic>{});
+      expect(accountDetailsToFirestore(''), <String, dynamic>{});
     });
 
     test('valid json string is decoded to Map', () {
-      expect(accountDetailsToSupabase('{"foo":1}'), <String, dynamic>{
+      expect(accountDetailsToFirestore('{"foo":1}'), <String, dynamic>{
         'foo': 1,
       });
     });
 
     test('invalid json falls back to empty Map', () {
-      expect(accountDetailsToSupabase('not json'), <String, dynamic>{});
+      expect(accountDetailsToFirestore('not json'), <String, dynamic>{});
     });
   });
 
@@ -78,10 +76,6 @@ void main() {
       'unused',
       databaseFactory: _NeverOpenDatabaseFactory(),
       modelDictionary: sqliteModelDictionary,
-    );
-    final supabaseProvider = SupabaseProvider(
-      SupabaseClient('https://offline.aiko.local', 'offline-anon-key'),
-      modelDictionary: supabaseModelDictionary,
     );
     final adapter = OfflineAccountAdapter();
 
@@ -108,8 +102,8 @@ void main() {
       expect(account.detailsJson, '{}');
     });
 
-    test('Supabase read tolerates details = NULL (legacy row)', () async {
-      final account = await adapter.fromSupabase(<String, dynamic>{
+    test('Firestore read tolerates details = NULL (legacy row)', () async {
+      final account = await adapter.fromFirestore(<String, dynamic>{
         'id': '11111111-1111-1111-1111-111111111111',
         'user_id': '22222222-2222-2222-2222-222222222222',
         'name': 'Legacy Cash',
@@ -126,12 +120,12 @@ void main() {
         'updated_at': null,
         'deleted_at': null,
         'version': 1,
-      }, provider: supabaseProvider);
+      }, provider: null);
       expect(account.detailsJson, '{}');
     });
 
-    test('Supabase write encodes detailsJson Map as jsonb', () async {
-      final row = await adapter.toSupabase(
+    test('Firestore write encodes detailsJson Map as jsonb', () async {
+      final row = await adapter.toFirestore(
         OfflineAccount(
           id: '11111111-1111-1111-1111-111111111111',
           userId: '22222222-2222-2222-2222-222222222222',
@@ -141,13 +135,13 @@ void main() {
           currentBalance: '0',
           detailsJson: '{"limit":5000}',
         ),
-        provider: supabaseProvider,
+        provider: null,
       );
       expect(row['details'], <String, dynamic>{'limit': 5000});
     });
 
-    test('Supabase write tolerates default detailsJson', () async {
-      final row = await adapter.toSupabase(
+    test('Firestore write tolerates default detailsJson', () async {
+      final row = await adapter.toFirestore(
         OfflineAccount(
           id: '11111111-1111-1111-1111-111111111111',
           userId: '22222222-2222-2222-2222-222222222222',
@@ -156,7 +150,7 @@ void main() {
           currency: 'USD',
           currentBalance: '0',
         ),
-        provider: supabaseProvider,
+        provider: null,
       );
       expect(row['details'], <String, dynamic>{});
     });

@@ -10,7 +10,7 @@ import '../../transactions/domain/transaction.dart';
 /// finances, assembled on-device from the local Brick store and sent with each
 /// chat request. The edge function folds it into the system prompt so the model
 /// can answer "how am I doing" questions in a single round-trip — no server-side
-/// data fetch, no extra Supabase reads, works offline-first.
+/// data fetch, no extra Firebase reads, works offline-first.
 ///
 /// Everything here is an aggregate or a short recent slice. We deliberately do
 /// **not** ship the full ledger: it keeps tokens (and how much raw financial

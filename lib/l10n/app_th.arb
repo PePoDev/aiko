@@ -245,7 +245,7 @@
   "noGoals": "ยังไม่มีเป้าหมาย",
   "noAccounts": "ยังไม่มีบัญชี",
   "dashboardUnavailable": "แดชบอร์ดไม่พร้อมใช้งาน",
-  "dashboardUnavailableMessage": "Aiko ไม่สามารถโหลด Supabase workspace ของคุณได้",
+  "dashboardUnavailableMessage": "Aiko ไม่สามารถโหลด Firebase workspace ของคุณได้",
   "total": "ทั้งหมด",
   "average": "เฉลี่ย",
   "currency": "สกุลเงิน",

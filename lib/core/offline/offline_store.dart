@@ -1,125 +1,108 @@
-import 'package:brick_offline_first_with_supabase/brick_offline_first_with_supabase.dart';
-import 'package:flutter/foundation.dart';
+import 'dart:async';
 
+import 'package:brick_sqlite/brick_sqlite.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' as cloud;
+
+import '../../brick/model_dictionary.dart';
 import '../../brick/repository.dart';
-import '../supabase/supabase_client_provider.dart';
+import '../firebase/firebase_backend.dart';
 
+/// Firebase owns authenticated persistence, cache, retry, and cross-device data.
+/// SQLite remains available for local-only use and migration of existing data.
 class OfflineStore {
   OfflineStore() : _repository = AikoBrickRepository();
-
   final AikoBrickRepository _repository;
+  static final errors = StreamController<Object>.broadcast();
 
-  bool get canSyncRemote =>
-      AikoSupabase.tryClient()?.auth.currentUser != null;
+  bool get canSyncRemote => FirebaseBackend.userId != null;
 
-  Future<List<TModel>> get<TModel extends OfflineFirstWithSupabaseModel>({
+  Future<List<T>> get<T extends SqliteModel>({
     Query? query,
-    OfflineFirstGetPolicy? policy,
+    OfflineReadPolicy? policy,
   }) async {
-    // Honor an explicit policy, and stay local-only when there is no signed-in
-    // Supabase session to sync against.
-    if (policy != null || !canSyncRemote) {
-      return _repository.get<TModel>(
-        query: query,
-        policy: policy ?? OfflineFirstGetPolicy.localOnly,
+    if (!canSyncRemote || policy == OfflineReadPolicy.localOnly) {
+      return _repository.get<T>(query: query);
+    }
+    final adapter = firestoreAdapters[T]!;
+    cloud.Query<Map<String, dynamic>> remote = FirebaseBackend.collection(
+      adapter.collectionName,
+    );
+    for (final condition in query?.where ?? <WhereCondition>[]) {
+      if (condition.conditions != null ||
+          condition.compare != Compare.exact ||
+          !condition.isRequired) {
+        throw UnsupportedError(
+          'This Firestore query requires an explicit repository mapping.',
+        );
+      }
+      if (condition.evaluatedField == 'userId') {
+        if (condition.value != FirebaseBackend.userId) return [];
+        continue;
+      }
+      remote = remote.where(
+        _field(condition.evaluatedField),
+        isEqualTo: condition.value,
       );
     }
-
-    // Signed in: when nothing is cached locally for this query (e.g. a fresh
-    // install signing back into an existing account), await the Supabase fetch
-    // so existing rows are returned on the first read instead of an empty list.
-    // `alwaysHydrate` alone would return the empty local result immediately and
-    // only hydrate in an unawaited background pass, which is why a reinstall
-    // previously showed nothing but locally-seeded data.
-    final hasLocalData = (await _repository.get<TModel>(
-      query: query,
-      policy: OfflineFirstGetPolicy.localOnly,
-    )).isNotEmpty;
-
-    // Once local data exists, return it immediately but keep refreshing from
-    // Supabase in the background so later reads stay in sync across devices.
-    return _repository.get<TModel>(
-      query: query,
-      policy: hasLocalData
-          ? OfflineFirstGetPolicy.alwaysHydrate
-          : OfflineFirstGetPolicy.awaitRemoteWhenNoneExist,
+    for (final order in query?.orderBy ?? <OrderBy>[]) {
+      remote = remote.orderBy(
+        _field(order.evaluatedField),
+        descending: !order.ascending,
+      );
+    }
+    if (query?.limit != null) remote = remote.limit(query!.limit!);
+    final snapshot = await remote.get();
+    return Future.wait(
+      snapshot.docs.map(
+        (doc) async => await adapter.fromFirestore(doc.data()) as T,
+      ),
     );
   }
 
-  Future<TModel> upsert<TModel extends OfflineFirstWithSupabaseModel>(
-    TModel model, {
-    Query? query,
-  }) async {
-    if (canSyncRemote) {
-      try {
-        final saved = await _repository.upsert<TModel>(
-          model,
-          query: query,
-          policy: OfflineFirstUpsertPolicy.optimisticLocal,
-        );
-        if (kDebugMode) {
-          debugPrint('[aiko-sync] upsert $TModel pushed to Supabase');
-        }
-        return saved;
-      } catch (error) {
-        // Brick queues network failures internally; anything surfacing here is
-        // a real rejection (RLS, foreign key, schema) worth seeing.
-        if (kDebugMode) {
-          debugPrint('[aiko-sync] upsert $TModel remote push FAILED: $error');
-        }
-        rethrow;
-      }
-    }
+  static String _field(String name) =>
+      name.replaceAllMapped(RegExp('[A-Z]'), (m) => '_${m[0]!.toLowerCase()}');
 
-    model.primaryKey = await _repository.sqliteProvider.upsert<TModel>(
-      model,
-      query: query,
-      repository: _repository,
-    );
-    if (kDebugMode) {
-      debugPrint(
-        '[aiko-sync] upsert $TModel saved LOCAL-ONLY '
-        '(signedIn=${AikoSupabase.tryClient()?.auth.currentUser != null}) — '
-        'will not reach Supabase until sign-in',
-      );
+  /// SDK writes are persisted before acknowledgement; offline saves should not
+  /// wait indefinitely for a server. Late rejections are surfaced to the shell.
+  static Future<void> acceptWrite(Future<void> write) async {
+    final observed = write.catchError((Object error) {
+      errors.add(error);
+      throw error;
+    });
+    await observed.timeout(const Duration(seconds: 3), onTimeout: () {});
+  }
+
+  Future<T> upsert<T extends SqliteModel>(T model, {Query? query}) async {
+    if (!canSyncRemote) return _repository.upsert<T>(model, query: query);
+    final adapter = firestoreAdapters[T]!;
+    final row = await adapter.toFirestore(model);
+    final uid = FirebaseBackend.userId!;
+    if ((row['user_id'] ?? row['id']) != uid) {
+      throw StateError('Record owner does not match the signed-in user.');
     }
+    await acceptWrite(
+      FirebaseBackend.collection(
+        adapter.collectionName,
+      ).doc(row['id'] as String).set(row),
+    );
     return model;
   }
 
-  /// Hard-deletes [model]: removes the row from SQLite and, when signed in,
-  /// queues a remote `DELETE` so the row is removed from Supabase too. Brick's
-  /// offline queue retries the remote delete when connectivity returns.
-  ///
-  /// When [localOnly] is true (or there is no Supabase session) the row is
-  /// removed from SQLite only — no remote request is queued.
-  Future<bool> delete<TModel extends OfflineFirstWithSupabaseModel>(
-    TModel model, {
+  Future<bool> delete<T extends SqliteModel>(
+    T model, {
     Query? query,
     bool localOnly = false,
   }) async {
     if (localOnly || !canSyncRemote) {
-      final rowsDeleted = await _repository.sqliteProvider.delete<TModel>(
-        model,
-        query: query,
-        repository: _repository,
-      );
-      return rowsDeleted > 0;
+      return _repository.delete<T>(model, query: query);
     }
-
-    try {
-      // requireRemote awaits the Supabase DELETE before removing the local row,
-      // so a follow-up `alwaysHydrate` read can't re-fetch the row before the
-      // server has removed it. With optimisticLocal the queued DELETE raced the
-      // re-hydrate GET, the row reappeared, and the user had to delete twice.
-      return await _repository.delete<TModel>(
-        model,
-        query: query,
-        policy: OfflineFirstDeletePolicy.requireRemote,
-      );
-    } catch (_) {
-      // Offline (signed in but no connectivity) or transient failure: fall back
-      // to the optimistic local delete + queued remote DELETE.
-      return _repository.delete<TModel>(model, query: query);
-    }
+    final adapter = firestoreAdapters[T]!;
+    final row = await adapter.toFirestore(model);
+    await acceptWrite(
+      FirebaseBackend.collection(
+        adapter.collectionName,
+      ).doc(row['id'] as String).delete(),
+    );
+    return true;
   }
 }

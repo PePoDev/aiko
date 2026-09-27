@@ -39,7 +39,7 @@ class Profile {
   /// without re-downloading from storage.
   final String? avatarPath;
 
-  /// Public URL of the avatar in Supabase Storage (`avatars/{userId}/...`).
+  /// Public URL of the avatar in Firebase Storage (`avatars/{userId}/...`).
   /// `null` when the user has never picked a photo, or when the upload has
   /// not yet succeeded. Other devices rely on this URL to render the avatar.
   final String? avatarUrl;

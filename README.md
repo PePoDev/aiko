@@ -76,7 +76,7 @@ Open **http://localhost:8080**. Emulator UI: **http://127.0.0.1:4000**. Create a
 
 **Production configuration:** register web, Android and iOS apps in one Firebase project. Enable Email/Password and Google Auth; configure authorized web domains, Android signing SHA fingerprints, and the iOS reversed Google client-ID URL scheme. Supply each platform's `FIREBASE_PROJECT_ID`, `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_AUTH_DOMAIN`, and optional `FIREBASE_REGION`. Leave `FIREBASE_EMULATOR_HOST` unset. Native Google login also uses `GOOGLE_WEB_CLIENT_ID` and `GOOGLE_IOS_CLIENT_ID`. These client configuration values are public; provider secrets and Admin credentials never belong in the Flutter build.
 
-**Deployment:** GitHub Actions (`.github/workflows/ci.yml`) runs the quality gates on every push and publishes a Vercel preview for non-`main` branches. On `main`, after the gates pass, it deploys Firebase rules/indexes (plus Storage/Functions when enabled) and the production web app. One-time Firebase, Vercel and GitHub setup: [Deployment](docs/deployment.md). Test rules/functions locally first. See [Firebase migration and verification](docs/firebase.md) for data import, service configuration, and platform limits.
+**Deployment:** GitHub Actions (`.github/workflows/ci.yml`) runs the quality gates on every push and publishes a Firebase Hosting preview channel for non-`main` branches. On `main`, after the gates pass, it deploys Firebase rules/indexes (plus Storage/Functions when enabled) and the live web app to Firebase Hosting. One-time Firebase and GitHub setup: [Deployment](docs/deployment.md). Test rules/functions locally first. See [Firebase migration and verification](docs/firebase.md) for data import, service configuration, and platform limits.
 
 ---
 
@@ -100,7 +100,7 @@ lib/
 firebase/         # Firestore/Storage rules, Functions, emulator tests, legacy import tool
 web/              # Flutter web entrypoint and SQLite worker assets
 tool/             # Local emulator startup helpers
-.github/          # CI quality gates; Vercel and Firebase deploy workflows
+.github/          # CI quality gates; Firebase Hosting and backend deploy workflows
 landing/          # standalone Aiko landing page
 screenshots/      # product/idea screenshots and visual references
 assets/           # icons/ (aiko_*.svg), images/aiko/ (6 expression variants)

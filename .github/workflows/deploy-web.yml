@@ -1,48 +1,54 @@
 name: Deploy web
 
 # Called by ci.yml. Builds the Flutter web app against the configured Firebase
-# project and uploads it to Vercel as a prebuilt deployment. Vercel's own Git
-# builds are disabled in vercel.json because its build image has no Flutter.
+# project and publishes it to Firebase Hosting: a per-branch preview channel or
+# the live site.
 on:
   workflow_call:
     inputs:
       target:
-        description: Vercel target, `preview` or `production`.
+        description: "`preview` (branch channel) or `production` (live site)."
         required: true
         type: string
     outputs:
       url:
         description: Deployment URL.
-        value: ${{ jobs.vercel.outputs.url }}
+        value: ${{ jobs.hosting.outputs.url }}
 
 permissions:
   contents: read
   statuses: write
 
 jobs:
-  vercel:
-    name: Vercel ${{ inputs.target }}
+  hosting:
+    name: Hosting ${{ inputs.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
       url: ${{ steps.deploy.outputs.url }}
     env:
       TARGET: ${{ inputs.target }}
-      PROD_FLAG: ${{ inputs.target == 'production' && '--prod' || '' }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      VERCEL_TELEMETRY_DISABLED: '1'
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      # Firebase web options are public client config (see README), so they
+      # are repository variables rather than secrets.
+      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+      FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+      FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
+      FIREBASE_STORAGE_BUCKET: ${{ vars.FIREBASE_STORAGE_BUCKET }}
+      FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
+      FIREBASE_REGION: ${{ vars.FIREBASE_REGION }}
     steps:
       - name: Check configuration
         run: |
           case "$TARGET" in preview|production) ;; *) echo "::error::Unknown target '$TARGET'"; exit 1 ;; esac
           missing=
-          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+          for name in FIREBASE_SERVICE_ACCOUNT FIREBASE_PROJECT_ID FIREBASE_API_KEY FIREBASE_APP_ID \
+              FIREBASE_MESSAGING_SENDER_ID FIREBASE_STORAGE_BUCKET FIREBASE_AUTH_DOMAIN; do
             [ -n "${!name}" ] || missing="$missing $name"
           done
           if [ -n "$missing" ]; then
-            echo "::error::Missing repository secrets:$missing. See docs/deployment.md."
+            echo "::error::Missing GitHub secrets or variables:$missing. See docs/deployment.md."
             exit 1
           fi
 
@@ -52,56 +58,59 @@ jobs:
       - name: Prepare SQLite web worker
         run: dart run sqflite_common_ffi_web:setup
 
-      # Firebase web options are public client config (see README), so they
-      # are repository variables rather than secrets.
-      - name: Write Firebase build config
-        env:
-          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
-          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
-          FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
-          FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
-          FIREBASE_STORAGE_BUCKET: ${{ vars.FIREBASE_STORAGE_BUCKET }}
-          FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
-          FIREBASE_REGION: ${{ vars.FIREBASE_REGION }}
+      - name: Build Flutter web
         run: |
-          if [ -z "$FIREBASE_PROJECT_ID" ]; then
-            echo "::warning::FIREBASE_PROJECT_ID is not set, so this build runs in local-only mode (no sign-in or sync)."
-          else
-            for name in FIREBASE_API_KEY FIREBASE_APP_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_STORAGE_BUCKET FIREBASE_AUTH_DOMAIN; do
-              [ -n "${!name}" ] || { echo "::error::$name is required when FIREBASE_PROJECT_ID is set."; exit 1; }
-            done
-          fi
           # Drop unset values so app defaults (such as the region) still apply.
           # FIREBASE_EMULATOR_HOST is never passed to a deployed build.
           jq -n 'env | with_entries(select((.key | test("^FIREBASE_(PROJECT_ID|API_KEY|APP_ID|MESSAGING_SENDER_ID|STORAGE_BUCKET|AUTH_DOMAIN|REGION)$")) and .value != ""))' \
             > "$RUNNER_TEMP/dart_defines.json"
           echo "Defines: $(jq -c 'keys' "$RUNNER_TEMP/dart_defines.json")"
-
-      - name: Build Flutter web
-        run: flutter build web --release --dart-define-from-file="$RUNNER_TEMP/dart_defines.json"
+          flutter build web --release --dart-define-from-file="$RUNNER_TEMP/dart_defines.json"
 
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
 
-      - name: Install Vercel CLI
-        run: npm install --global vercel@63.1.2
-
-      - name: Package for Vercel
-        run: |
-          vercel pull --yes --environment="$TARGET" --token="$VERCEL_TOKEN"
-          vercel build ${PROD_FLAG:+"$PROD_FLAG"} --token="$VERCEL_TOKEN"
+      - uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Deploy
         id: deploy
+        env:
+          BRANCH: ${{ github.ref_name }}
         run: |
-          url=$(vercel deploy --prebuilt ${PROD_FLAG:+"$PROD_FLAG"} --token="$VERCEL_TOKEN" | grep -E '^https://' | tail -n 1)
-          if [ -z "$url" ]; then echo "::error::Vercel did not return a deployment URL."; exit 1; fi
+          firebase() {
+            npx firebase "$@" --project "$FIREBASE_PROJECT_ID" --non-interactive --json
+          }
+          if [ "$TARGET" = production ]; then
+            if ! out=$(firebase deploy --only hosting --message "CI ${GITHUB_SHA::7}"); then
+              echo "$out"; exit 1
+            fi
+            # result.hosting is "sites/<site>/versions/<id>".
+            site=$(jq -r '.result.hosting | if type == "array" then .[0] else . end | split("/")[1]' <<<"$out")
+            url="https://$site.web.app"
+          else
+            # One stable channel per branch: lowercase letters, digits and
+            # hyphens, at most 20 characters, starting with a letter.
+            channel=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g' | cut -c1-20 | sed -E 's/^-+//; s/-+$//')
+            case "$channel" in [a-z]*) ;; *) channel="b-$channel" ;; esac
+            # Channels expire after 7 days without a push. The CLI also adds the
+            # channel domain to Firebase Auth's authorized domains.
+            if ! out=$(firebase hosting:channel:deploy "${channel%-}" --expires 7d); then
+              echo "$out"; exit 1
+            fi
+            url=$(jq -r '.result | to_entries[0].value.url' <<<"$out")
+          fi
+          case "$url" in https://*) ;; *) echo "::error::Could not read the Hosting URL."; echo "$out"; exit 1 ;; esac
           echo "url=$url" >> "$GITHUB_OUTPUT"
-          echo "::notice title=Vercel $TARGET::$url"
-          echo "### Vercel $TARGET: $url" >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Firebase Hosting $TARGET::$url"
+          echo "### Firebase Hosting $TARGET: $url" >> "$GITHUB_STEP_SUMMARY"
 
-      # Adds a "Vercel (preview|production)" check with a Details link on the
+      # Adds a "Hosting (preview|production)" check with a Details link on the
       # commit, branch and any pull request.
       - name: Link deployment on commit
         env:
@@ -109,5 +118,5 @@ jobs:
           URL: ${{ steps.deploy.outputs.url }}
         run: |
           gh api "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
-            -f state=success -f context="Vercel ($TARGET)" \
+            -f state=success -f context="Hosting ($TARGET)" \
             -f target_url="$URL" -f description="Open the $TARGET deployment"

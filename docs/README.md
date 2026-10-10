@@ -14,7 +14,7 @@ Start with the project [README](../README.md) for the product, brand, rules and 
 | [Testing](testing.md) | Run the suites, see what they cover, write new tests |
 | [Deployment](deployment.md) | Set up Firebase Hosting and CI, configure secrets, enable Storage and Functions |
 | [Cost](cost.md) | See what each action costs in Firebase, the optimizations in place, and the guardrails to set |
-| [Design system implementation](design-system.md) | Find the theme token or shared widget for a design rule |
+| [Design system implementation](design-system.md) | Find the theme token or shared widget for a design rule; how one UI adapts to web and mobile |
 | [Localization](localization.md) | Add strings or languages |
 | [Contributing](contributing.md) | Follow the workflow, conventions and step-by-step recipes |
 | [Firebase development and migration](firebase.md) | Emulator details and importing a legacy data export |
@@ -27,7 +27,8 @@ Docs change in the **same commit** as the behavior they describe. Before you fin
 
 | If you change… | Update |
 | --- | --- |
-| A route, screen, tab or Settings entry | [Architecture → Navigation](architecture.md#navigation), [Features](features.md) |
+| A route, screen, tab, sidebar or Settings entry | [Architecture → Navigation](architecture.md#navigation), [Features](features.md) |
+| Breakpoints, the sidebar, or how panels and pages open on wide screens | [Design system → Web and mobile](design-system.md#web-and-mobile) |
 | A feature's behavior, or fix a known gap | [Features](features.md) (including [Known gaps](features.md#known-gaps)) |
 | A persisted field, collection, preference key or Storage path | [Data model](data-model.md); [Backend → Security Rules](backend.md#security-rules) if rules change |
 | A formula, threshold or derived figure | [Calculations](calculations.md) |

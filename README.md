@@ -9,6 +9,7 @@
 - Agent workflow: work directly on `main` and execute inline. Do not create worktrees or feature branches, delegate to subagents, or ask about execution/branch disposition unless the user explicitly requests an exception.
 - The user owns Git integration. Agents must not commit, push, merge, create pull requests, or offer branch-handoff options unless explicitly requested.
 - Learning Hub definitions belong inline through `InlineGlossaryText`; agents must not restore a standalone Glossary section.
+- One UI for web and mobile: window width picks the layout (`AikoBreakpoints`: bottom bar < 840px, sidebar ≥ 840px), never the platform. Add destinations/tools only to `aikoPrimaryDestinations`/`aikoNavigationItems` (`lib/app/aiko_navigation.dart`), which feed both layouts; open panels with `showAikoSheet` and route-less pages with `openAikoPage` or a route, never `showModalBottomSheet`/`MaterialPageRoute` (a guard test fails the build). Check UI changes at 390px and 1440px wide. See [Web and mobile](docs/design-system.md#web-and-mobile).
 - Always keep docs current: any change to code, config, CI, schema, rules or behavior updates the affected `docs/` pages in the same change (map: [Keeping docs current](docs/README.md#keeping-docs-current)); fix stale docs you find, and run `npm run docs:check`.
 
 ---
@@ -115,11 +116,11 @@ Each feature module is layered: `application/` (services, orchestration), `data/
 
 ## Navigation
 
-GoRouter around a bottom-nav shell, 5 primary tabs:
+GoRouter around an adaptive shell, 5 primary destinations: a bottom tab bar on phones (order below); on wide screens a sidebar with Overview first, then the Tools list and Settings/Profile, and a **New transaction** button.
 
 1. **Accounts (`/accounts`)** — Cash, bank, e-wallet, credit card, loan, investment, asset, liability and goal accounts; assets/liabilities summary.
 2. **Categories (`/categories`)** — 81 default categories in 13 groups + custom categories/groups; each category owns its budget.
-3. **Overview (`/home`)** — Static dashboard, fixed panel set/order: Daily spending (with safe this week, net cash flow, left to save), Daily summary, Net earnings, Category budgets, Spending calendar, Cash flow mapping. App bar: Notifications and Settings; floating quick-add. Set/order defined by `_homeWidgets` in `home_dashboard_screen.dart`, **not** user-customizable.
+3. **Overview (`/home`)** — Static dashboard, fixed panel set/order: Daily spending (with safe this week, net cash flow, left to save), Daily summary, Net earnings, Category budgets, Spending calendar, Cash flow mapping. App bar: Notifications and Settings; floating quick-add (sidebar button on wide screens); two panel columns on wide screens. Set/order defined by `_homeWidgets` in `home_dashboard_screen.dart`, **not** user-customizable.
 4. **Transactions (`/transactions`)** — Month view, search, recurring previews; app bar opens Rules (→ Auto-capture) and Travel Mode; the month card opens the Monthly report.
 5. **Aiko (`/aiko`)** — Ask Aiko chat (needs Firebase); app-bar Profile button (`/profile`).
 
@@ -314,8 +315,8 @@ Shape: cards/rows/inputs/chips/segmented 8px radius; bottom sheets 20px top; FAB
 - **Inputs/pickers:** visible labels, 54px min height, 8px radius, pale-blue fill, thin blue-gray border, leading search icon, primary focus border, danger error border, muted placeholder, helper/validation below. Pickers show selected value + context; bottom-sheet pickers use compact rows with checkmarks.
 - **Lists:** compact `ListTile`, 48px tap target, single-line titles, aligned trailing, dividers/card borders not nested containers.
 - **Chips/badges:** short labels; status color matches semantic meaning + text.
-- **Navigation:** shell tabs Accounts/Categories/Overview/Transactions/Aiko; flush compact 60dp bar (1px top border, surface bg, no pill/shadow); active = 3dp top indicator in primary blue (purple for Aiko) with icon + label; Aiko's unselected label muted purple. Aiko tab opens Settings hub.
-- **Sheets/dialogs:** bottom sheets for mobile create/edit (drag handle, safe area, scrollable, 20px top radius); dialogs for destructive confirmation (name object + effect).
+- **Navigation:** shell tabs Accounts/Categories/Overview/Transactions/Aiko (`aikoPrimaryDestinations`); wide screens: sidebar (icon rail < 1200px, labeled ≥ 1200px) with the same destinations + Tools, selected = 12% tint + 3px leading indicator; flush compact 60dp bar (1px top border, surface bg, no pill/shadow); active = 3dp top indicator in primary blue (purple for Aiko) with icon + label; Aiko's unselected label muted purple. Aiko tab opens Settings hub.
+- **Sheets/dialogs:** bottom sheets for mobile create/edit (drag handle, safe area, scrollable, 20px top radius), shown as centered dialogs on wide screens via `showAikoSheet`; detail/form pages full-screen on phones, dialogs on wide screens via `openAikoPage`; dialogs for destructive confirmation (name object + effect).
 - **Charts/progress:** every chart needs a text summary; every progress bar shows current/target/period with semantic color + label (8px compact, 10–12px dashboards).
 
 | Interactive state | Treatment |
@@ -379,7 +380,7 @@ Route rules: don't duplicate an existing feature screen; sticky bottom actions f
 
 ### QA Checklist
 
-Main task in first viewport; primary action obvious + reachable while scrolling; numbers before AI guidance + with context; lists compact/tappable; fields labeled with recovery-oriented validation; empty/loading/error/offline states exist or intentionally inherited; no nested cards/decorative shadows/oversized radii; raw colors limited to theme files or data-viz; no text clipping at small widths; dark contrast sufficient; Aiko only where useful; no main-route duplication.
+Works at 390px and 1440px wide; main task in first viewport; primary action obvious + reachable while scrolling; numbers before AI guidance + with context; lists compact/tappable; fields labeled with recovery-oriented validation; empty/loading/error/offline states exist or intentionally inherited; no nested cards/decorative shadows/oversized radii; raw colors limited to theme files or data-viz; no text clipping at small widths; dark contrast sufficient; Aiko only where useful; no main-route duplication.
 
 Account-type-specific inputs: add each from fresh state (subform appears/validates/saves); edit each (values pre-populate, round-trip identical); toggle shared limit (field appears/disappears, card picker excludes self); delete parent card (child detail shows migration notice); offline add (persists locally, syncs on reconnect, no double-write).
 

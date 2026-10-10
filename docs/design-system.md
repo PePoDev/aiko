@@ -71,6 +71,32 @@ Charts elsewhere use `fl_chart`. Every chart needs a text summary (README rule).
 
 Use the character where it helps (onboarding, chat, encouragement, gentle warnings), never over numbers, charts, forms or critical actions.
 
+## Web and mobile
+
+Web, Android and iOS run one Flutter UI. The **window width** picks the layout (`AikoBreakpoints` in `lib/shared/layout/aiko_breakpoints.dart`), never the platform, so a phone browser gets the phone layout and a tablet or desktop window gets the wide one. A change to a screen, destination or panel therefore lands on every platform at once.
+
+| | Compact (< 840px) | Expanded (≥ 840px) |
+| --- | --- | --- |
+| Navigation | 60dp bottom bar: Accounts, Categories, Overview, Transactions, Aiko | `AikoSidebar`: brand, **New transaction**, the same five destinations (Overview first), Tools, then Settings and Profile. Icon rail with tooltips under 1200px, labeled from 1200px |
+| Content | Full width | Centered column: Overview 1320px, Aiko chat 960px, Settings/Profile/forms 880px, everything else 1120px (`AikoBreakpoints.contentWidthFor`) |
+| Overview | One column of panels | Two columns once the column is 960px wide (`AikoAdaptiveColumns`, panels dealt left/right in `_homeWidgets` order) |
+| Add transaction | Floating **+** on Overview and Transactions | Sidebar **New transaction**; the floating buttons are hidden |
+| Panels (pickers, editors) | Bottom sheet | Centered dialog, 560px wide (`showAikoSheet`) |
+| Detail and form pages | Full-screen page | Dialog over the current screen, 760px wide, close (×) instead of back (`openAikoPage`) |
+
+How to keep both layouts in sync:
+
+| Do | Instead of |
+| --- | --- |
+| Add a primary destination to `aikoPrimaryDestinations` (and its slot in `aikoBottomBarPaths`) | Editing the bottom bar or sidebar directly |
+| Add a tool to `aikoNavigationItems` (Settings list and sidebar Tools) | A second list for one layout |
+| `showAikoSheet(...)` | `showModalBottomSheet(...)` |
+| `openAikoPage(context, page)`, or a GoRouter route | `Navigator.push(MaterialPageRoute(...))` |
+| `const AikoSheetHandle()` in a custom sheet body | A hand-drawn drag handle (it would show inside the dialog) |
+| `AikoBreakpoints.isExpanded(context)` for a layout switch | Checking `kIsWeb`, `Platform.isX`, or a new pixel threshold |
+
+`test/shared/layout/adaptive_presentation_guard_test.dart` fails the build if code outside `lib/shared/layout/` calls `showModalBottomSheet`, `MaterialPageRoute` or `CupertinoPageRoute`, or if navigation widgets (`NavigationRail`, `NavigationBar`, `BottomNavigationBar`) appear outside `lib/app/`. `test/app/aiko_navigation_test.dart` checks that the bottom bar and sidebar list the same destinations and that every destination and tool is a registered route. Before finishing UI work, look at it at a phone width (390px) and a desktop width (1440px).
+
 ## Navigation chrome
 
-`AuthenticatedShell` implements the README's navigation spec: a flush 60dp bottom bar with a 1px top border and a 3dp top indicator (primary blue, purple for Aiko), switching to a `NavigationRail` at 840px and an extended rail at 1200px.
+The compact bottom bar follows the README's navigation spec: flush 60dp, 1px top border, 3dp top indicator in primary blue (purple for Aiko, from the destination's `accentColor`). Sidebar entries use the same colors: a 12% tint behind the selected entry and a 3px leading indicator.

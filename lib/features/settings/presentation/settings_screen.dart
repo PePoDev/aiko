@@ -7,6 +7,7 @@ import '../../../app/aiko_navigation.dart';
 import '../../../app/providers.dart';
 import '../../../app/locale_controller.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/profile.dart';
@@ -20,7 +21,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _showLanguageSettings(AppLocaleState localeState) async {
-    await showModalBottomSheet<void>(
+    await showAikoSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -108,7 +109,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _showAppearanceSettings(Profile profile) async {
     PreferredTheme selectedTheme = profile.preferredTheme;
 
-    await showModalBottomSheet<void>(
+    await showAikoSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),

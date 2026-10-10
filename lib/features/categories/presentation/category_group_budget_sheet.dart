@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/category.dart';
 
@@ -15,7 +16,7 @@ Future<bool?> showCategoryGroupBudgetSheet(
   BuildContext context, {
   required CategoryGroup group,
 }) {
-  return showModalBottomSheet<bool>(
+  return showAikoSheet<bool>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
@@ -109,17 +110,7 @@ class _GroupBudgetSheetState extends ConsumerState<_GroupBudgetSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: Container(
-                  width: 48,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.outline,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+              const AikoSheetHandle(),
               Text(
                 'Group budget · ${widget.group.name}',
                 style: theme.textTheme.titleLarge?.copyWith(

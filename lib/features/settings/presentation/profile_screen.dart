@@ -1,3 +1,4 @@
+import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/cached_avatar.dart';
 
 import 'package:flutter/material.dart';
@@ -127,7 +128,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     AvatarAction? source;
 
     if (_draft.hasAvatar) {
-      source = await showModalBottomSheet<AvatarAction>(
+      source = await showAikoSheet<AvatarAction>(
         context: context,
         showDragHandle: true,
         builder: (sheetContext) => SafeArea(
@@ -211,7 +212,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _pickGender() async {
-    final picked = await showModalBottomSheet<Gender>(
+    final picked = await showAikoSheet<Gender>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
@@ -236,7 +237,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _pickBaseCurrency() async {
-    final picked = await showModalBottomSheet<String>(
+    final picked = await showAikoSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(

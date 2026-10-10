@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/money/money.dart';
+import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/trip.dart';
@@ -16,7 +17,7 @@ class TravelModeScreen extends ConsumerStatefulWidget {
 
 class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
   void _showAddTripBottomSheet() {
-    showModalBottomSheet<void>(
+    showAikoSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -25,7 +26,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
   }
 
   void _showLogFeeBottomSheet(Trip trip) {
-    showModalBottomSheet<void>(
+    showAikoSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,

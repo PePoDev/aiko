@@ -41,7 +41,7 @@ What each feature module does, where to find it, and how it behaves today. Modul
 5. **Spending calendar**
 6. **Cash flow mapping**
 
-The app bar opens **Notifications** (`/notifications`) and **Settings** (`/settings`). The floating **+** button opens the transaction form. Notifications are computed live from your data (budget thresholds, upcoming bills, goal milestones); there is no notifications collection.
+The app bar opens **Notifications** (`/notifications`) and **Settings** (`/settings`). The floating **+** button (sidebar **New transaction** on wide screens) opens the transaction form. On wide screens the panels sit in two columns ([Web and mobile](design-system.md#web-and-mobile)). Notifications are computed live from your data (budget thresholds, upcoming bills, goal milestones); there is no notifications collection.
 
 ## Accounts and goals
 
@@ -93,7 +93,7 @@ Opt-in. With SMS and/or notification access granted, incoming bank messages are 
 
 ## Aiko character
 
-`lib/features/aiko_character/`. `AikoCharacter` plays `aiko.riv` from `assets/rive/` (artboard `Aiko`, state machine `AikoState`, view model `mood`/`active`/`motionEnabled`) and respects reduced motion. If the Rive file is missing it shows the matching PNG from `assets/images/aiko/` (welcome, thinking, happy, warning, celebrating, encouraging). `AikoAvatar` renders the SVG mark.
+`lib/features/aiko_character/`. `AikoCharacter` plays `aiko.riv` from `assets/rive/` (artboard `Aiko`, state machine `AikoState`, view model `mood`/`active`/`motionEnabled`) and respects reduced motion. Until the Rive runtime is ready it shows the matching PNG from `assets/images/aiko/` (welcome, thinking, happy, warning, celebrating, encouraging). `AikoRiveRuntime` (`application/aiko_rive_runtime.dart`) starts Rive in the background and only when `aiko.riv` is bundled; on the web that is a WebAssembly download from a CDN, so startup never waits on it and a failed download keeps the PNGs. `AikoAvatar` renders the SVG mark.
 
 ## Reports and planning
 

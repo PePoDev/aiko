@@ -8,6 +8,9 @@ import '../../../app/providers.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/money/money.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/layout/adaptive_presentation.dart';
+import '../../../shared/layout/aiko_adaptive_columns.dart';
+import '../../../shared/layout/aiko_breakpoints.dart';
 import '../../../shared/widgets/aiko_data_widgets.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
@@ -40,6 +43,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   Widget build(BuildContext context) {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
     final l10n = AppLocalizations.of(context);
+    final expanded = AikoBreakpoints.isExpanded(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -79,23 +83,19 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           ),
           data: (_) => ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
-            children: [
-              for (var i = 0; i < _homeWidgets.length; i++)
-                Padding(
-                  padding: EdgeInsets.only(top: i == 0 ? 0 : 16),
-                  child: _homeWidgets[i],
-                ),
-            ],
+            padding: EdgeInsets.fromLTRB(16, 16, 16, expanded ? 32 : 112),
+            children: const [AikoAdaptiveColumns(children: _homeWidgets)],
           ),
         ),
       ),
-      floatingActionButton: const _QuickAddMenu(),
+      // Wide layouts add transactions from the sidebar instead.
+      floatingActionButton: expanded ? null : const _QuickAddMenu(),
     );
   }
 }
 
-/// The fixed set of widgets shown on the home dashboard, in display order.
+/// The fixed set of widgets shown on the home dashboard, in display order
+/// (dealt into two columns on wide screens; see [AikoAdaptiveColumns]).
 const _homeWidgets = <Widget>[
   _DailySpendingPanel(),
   _OverviewAnalyticsWidget(kind: _AnalyticsWidgetKind.dailySummary),
@@ -537,9 +537,8 @@ class _QuickAddMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return FloatingActionButton(
       heroTag: 'quick-add-main',
-      onPressed: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const TransactionFormScreen()),
-      ),
+      onPressed: () =>
+          openAikoPage<void>(context, const TransactionFormScreen()),
       child: const Icon(Icons.add),
     );
   }
@@ -635,14 +634,13 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
     required List<Category> categories,
     required String currencySymbol,
   }) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => _AnalyticsDetailScreen(
-          kind: kind,
-          transactions: transactions,
-          categories: categories,
-          currencySymbol: currencySymbol,
-        ),
+    openAikoPage<void>(
+      context,
+      _AnalyticsDetailScreen(
+        kind: kind,
+        transactions: transactions,
+        categories: categories,
+        currencySymbol: currencySymbol,
       ),
     );
   }

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/storage/secure_storage_service.dart';
+import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../theme/aiko_colors.dart';
 import '../data/transaction_rule_store.dart';
 import '../domain/transaction_rule.dart';
@@ -49,8 +50,9 @@ class _TransactionRulesScreenState
   }
 
   Future<void> _createRule() async {
-    final rule = await Navigator.of(context).push<TransactionRule>(
-      MaterialPageRoute(builder: (_) => const _TransactionRuleFormScreen()),
+    final rule = await openAikoPage<TransactionRule>(
+      context,
+      const _TransactionRuleFormScreen(),
     );
     if (rule == null) return;
 

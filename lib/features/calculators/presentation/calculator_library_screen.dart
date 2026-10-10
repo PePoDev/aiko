@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import 'calculator_detail_screen.dart';
 
@@ -38,10 +39,9 @@ class _CalculatorLibraryScreenState extends State<CalculatorLibraryScreen> {
   }
 
   void _openCalculator(_CalculatorItem calculator) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CalculatorDetailScreen(title: calculator.title),
-      ),
+    openAikoPage<void>(
+      context,
+      CalculatorDetailScreen(title: calculator.title),
     );
   }
 

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
 import '../../../core/notifications/transaction_reminder_service.dart';
+import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
@@ -35,10 +36,9 @@ class _TransactionDetailScreenState
   }
 
   Future<void> _editTransaction() async {
-    final updated = await Navigator.of(context).push<FinanceTransaction>(
-      MaterialPageRoute(
-        builder: (_) => TransactionFormScreen(initialTransaction: _transaction),
-      ),
+    final updated = await openAikoPage<FinanceTransaction>(
+      context,
+      TransactionFormScreen(initialTransaction: _transaction),
     );
 
     if (updated == null || !mounted) return;
@@ -175,11 +175,9 @@ class _TransactionDetailScreenState
                   value: accountName,
                   onTap: account == null
                       ? null
-                      : () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) =>
-                                AccountDetailScreen(account: account),
-                          ),
+                      : () => openAikoPage<void>(
+                          context,
+                          AccountDetailScreen(account: account),
                         ),
                 ),
                 if (categoryName != null) ...[

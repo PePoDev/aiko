@@ -53,7 +53,7 @@ sequenceDiagram
   participant F as FirebaseBackend
   participant L as AikoBrickRepository
   participant U as OfflineUserContext
-  M->>M: RiveNative.init()
+  M-->>M: AikoRiveRuntime.initialize() (background)
   M->>B: AppBootstrap.fromEnvironment()
   B->>F: initialize(config)
   Note over F: skip when no Firebase defines.<br/>Web emulator: prepare JS Auth first.<br/>Wait for the first auth state.<br/>Enable Firestore persistence.
@@ -72,14 +72,16 @@ sequenceDiagram
 
 ## Navigation
 
-All routes live in `lib/app/app_router.dart` (GoRouter, hash URL strategy on the web, for example `/#/home`). Every screen except Welcome and Login renders inside `AuthenticatedShell` (`lib/app/authenticated_shell.dart`). The shell shows a 60dp bottom bar under 840px wide, a `NavigationRail` from 840px, and an extended rail from 1200px.
+All routes live in `lib/app/app_router.dart` (GoRouter, hash URL strategy on the web, for example `/#/home`). Every screen except Welcome and Login renders inside `AuthenticatedShell` (`lib/app/authenticated_shell.dart`). The window width picks the layout, not the platform ([Web and mobile](design-system.md#web-and-mobile)): under 840px a 60dp bottom bar; from 840px `AikoSidebar` (`lib/app/aiko_sidebar.dart`, an icon rail, labeled from 1200px) beside a centered content column.
+
+Both are built from `aikoPrimaryDestinations` in `lib/app/aiko_navigation.dart`. The bottom bar orders them by `aikoBottomBarPaths` (Overview in the middle); the sidebar lists Overview first, then the Tools from `aikoNavigationItems`, then Settings and Profile. `aikoSelectedPath` picks the highlighted entry: the longest matching path, else the route's owner (for example `/transaction-rules` → Transactions, `/profile` → Aiko), else Overview.
 
 | Tab | Path | Screen |
 | --- | --- | --- |
 | Accounts | `/accounts` | `AccountsScreen` |
 | Categories | `/categories` | `CategoryManagementScreen` |
 | Overview | `/home` | `HomeDashboardScreen` |
-| Transactions | `/transactions` | `TransactionListScreen` (tapping the active tab again resets filters via `?reset=`) |
+| Transactions | `/transactions` | `TransactionListScreen` (tapping the active tab or sidebar entry again resets filters via `?reset=`, `aikoNavigationTarget`) |
 | Aiko | `/aiko` | `AikoAssistantScreen` (also opens Settings) |
 
 | Secondary route | Screen | Owner |
@@ -103,7 +105,7 @@ All routes live in `lib/app/app_router.dart` (GoRouter, hash URL strategy on the
 | `/learning-hub` | `LearningHubScreen` | learning_hub |
 | `/travel-mode` | `TravelModeScreen` | travel_mode |
 
-Unknown paths render `AikoScreenState.error` ("Route not found"). Detail screens such as `TransactionFormScreen`, `TransactionDetailScreen` and `CalculatorDetailScreen` are pushed with `Navigator` and have no path of their own. The Settings list is defined in `aikoNavigationItems` (`lib/app/aiko_navigation.dart`); its order is the on-screen order.
+Unknown paths render `AikoScreenState.error` ("Route not found"). Detail screens such as `TransactionFormScreen`, `TransactionDetailScreen`, `AccountDetailScreen`, `AccountFormScreen` and `CalculatorDetailScreen` have no path of their own: they open with `openAikoPage` (`lib/shared/layout/adaptive_presentation.dart`), a full-screen page on phones and a dialog on wide screens. The Tools list is defined in `aikoNavigationItems`; its order is the on-screen order in Settings and in the sidebar.
 
 ## State management
 

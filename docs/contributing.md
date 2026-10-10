@@ -40,10 +40,11 @@ npm run docs:check
 ### Adding a screen or route
 
 1. Put the screen in the owning feature's `presentation/`. Extend an existing feature rather than duplicating a main screen.
-2. Register the path in `lib/app/app_router.dart` (kebab-case). If it belongs under a tab, add its prefix to `_isSecondaryRoute` or `_indexFor` in `authenticated_shell.dart`.
-3. For a Settings tool, add an entry to `aikoNavigationItems` in `lib/app/aiko_navigation.dart`.
-4. Handle loading, empty and error states with `AikoScreenState`.
-5. Update [Architecture → Navigation](architecture.md#navigation) and [Features](features.md).
+2. Register the path in `lib/app/app_router.dart` (kebab-case). If it belongs under a destination other than Overview, add it to `_routeOwners` in `lib/app/aiko_navigation.dart` so the right tab and sidebar entry stay highlighted.
+3. For a tool, add an entry to `aikoNavigationItems` in `lib/app/aiko_navigation.dart`; it appears in Settings and in the sidebar. A new primary destination goes in `aikoPrimaryDestinations` and `aikoBottomBarPaths`.
+4. Open panels with `showAikoSheet` and route-less pages with `openAikoPage`, and check the screen at 390px and 1440px wide ([Web and mobile](design-system.md#web-and-mobile)).
+5. Handle loading, empty and error states with `AikoScreenState`.
+6. Update [Architecture → Navigation](architecture.md#navigation) and [Features](features.md).
 
 ### Adding a field
 

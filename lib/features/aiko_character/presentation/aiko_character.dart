@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:rive/rive.dart' as rive;
 
+import '../application/aiko_rive_runtime.dart';
+
 enum AikoMood { neutral, thinking, happy, worried, celebrating }
 
 extension AikoMoodContract on AikoMood {
@@ -40,8 +42,8 @@ class AikoCharacter extends StatefulWidget {
 }
 
 class _AikoCharacterState extends State<AikoCharacter> {
-  late final rive.FileLoader _fileLoader;
-  late final Future<rive.File> _fileLoad;
+  rive.FileLoader? _fileLoader;
+  Future<rive.File>? _fileLoad;
   rive.ViewModelInstance? _viewModelInstance;
   bool _hasValidViewModel = false;
   bool _motionEnabled = true;
@@ -49,13 +51,23 @@ class _AikoCharacterState extends State<AikoCharacter> {
   @override
   void initState() {
     super.initState();
-    _fileLoader = rive.FileLoader.fromAsset(
-      'assets/rive/aiko.riv',
+    _createLoaderIfReady();
+    AikoRiveRuntime.ready.addListener(_onRuntimeReady);
+  }
+
+  void _onRuntimeReady() => setState(_createLoaderIfReady);
+
+  /// The animation loads only once the Rive runtime is ready; until then (or
+  /// if it never is) the PNG fallback shows.
+  void _createLoaderIfReady() {
+    if (!AikoRiveRuntime.ready.value || _fileLoader != null) return;
+    final loader = rive.FileLoader.fromAsset(
+      AikoRiveRuntime.asset,
       riveFactory: rive.Factory.rive,
     );
-    _fileLoad = _fileLoader.file();
+    _fileLoader = loader;
     // RiveWidgetBuilder observes the shared load and renders any failure.
-    _fileLoad.ignore();
+    _fileLoad = loader.file()..ignore();
   }
 
   @override
@@ -95,39 +107,46 @@ class _AikoCharacterState extends State<AikoCharacter> {
 
   @override
   void dispose() {
-    _fileLoad.whenComplete(_fileLoader.dispose).ignore();
+    AikoRiveRuntime.ready.removeListener(_onRuntimeReady);
+    final loader = _fileLoader;
+    if (loader != null) _fileLoad!.whenComplete(loader.dispose).ignore();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final fileLoader = _fileLoader;
     return Semantics(
       label: widget.semanticLabel,
       image: true,
       child: ExcludeSemantics(
         child: SizedBox.square(
           dimension: widget.size,
-          child: rive.RiveWidgetBuilder(
-            fileLoader: _fileLoader,
-            artboardSelector: rive.ArtboardSelector.byName('Aiko'),
-            stateMachineSelector: rive.StateMachineSelector.byName('AikoState'),
-            dataBind: rive.DataBind.auto(),
-            onLoaded: _handleLoaded,
-            builder: (context, state) => switch (state) {
-              rive.RiveLoaded() when !_hasValidViewModel => Image.asset(
-                widget.mood.fallbackAsset,
-                fit: BoxFit.contain,
-              ),
-              rive.RiveLoaded(:final controller) => rive.RiveWidget(
-                controller: controller,
-                fit: rive.Fit.contain,
-              ),
-              rive.RiveLoading() || rive.RiveFailed() => Image.asset(
-                widget.mood.fallbackAsset,
-                fit: BoxFit.contain,
-              ),
-            },
-          ),
+          child: fileLoader == null
+              ? Image.asset(widget.mood.fallbackAsset, fit: BoxFit.contain)
+              : rive.RiveWidgetBuilder(
+                  fileLoader: fileLoader,
+                  artboardSelector: rive.ArtboardSelector.byName('Aiko'),
+                  stateMachineSelector: rive.StateMachineSelector.byName(
+                    'AikoState',
+                  ),
+                  dataBind: rive.DataBind.auto(),
+                  onLoaded: _handleLoaded,
+                  builder: (context, state) => switch (state) {
+                    rive.RiveLoaded() when !_hasValidViewModel => Image.asset(
+                      widget.mood.fallbackAsset,
+                      fit: BoxFit.contain,
+                    ),
+                    rive.RiveLoaded(:final controller) => rive.RiveWidget(
+                      controller: controller,
+                      fit: rive.Fit.contain,
+                    ),
+                    rive.RiveLoading() || rive.RiveFailed() => Image.asset(
+                      widget.mood.fallbackAsset,
+                      fit: BoxFit.contain,
+                    ),
+                  },
+                ),
         ),
       ),
     );

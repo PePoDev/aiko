@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../shared/layout/adaptive_presentation.dart';
+import '../../../shared/layout/aiko_breakpoints.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
@@ -15,7 +17,6 @@ import '../application/transaction_month_range.dart';
 import '../domain/transaction.dart';
 import 'transaction_detail_screen.dart';
 import 'transaction_form_screen.dart';
-import 'transaction_rules_screen.dart';
 
 class TransactionListScreen extends ConsumerStatefulWidget {
   const TransactionListScreen({super.key});
@@ -119,11 +120,7 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
             ),
           IconButton(
             tooltip: 'Rules',
-            onPressed: () => Navigator.of(context, rootNavigator: true).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const TransactionRulesScreen(),
-              ),
-            ),
+            onPressed: () => context.push('/transaction-rules'),
             icon: Icon(Icons.rule, color: actionColor),
           ),
           IconButton(
@@ -158,14 +155,17 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.of(context, rootNavigator: true).push(
-          MaterialPageRoute<void>(
-            builder: (_) => const TransactionFormScreen(),
-          ),
-        ),
-        child: const Icon(Icons.add),
-      ),
+      // Wide layouts add transactions from the sidebar instead.
+      floatingActionButton: AikoBreakpoints.isExpanded(context)
+          ? null
+          : FloatingActionButton(
+              onPressed: () => openAikoPage<void>(
+                context,
+                const TransactionFormScreen(),
+                rootNavigator: true,
+              ),
+              child: const Icon(Icons.add),
+            ),
     );
   }
 }
@@ -1023,13 +1023,13 @@ class _DayTransactionsCard extends StatelessWidget {
               isPreview: previewIds.contains(transactions[i].id),
               // Preview rows open their source recurring transaction so the
               // user can edit the series; real rows open themselves.
-              onTap: () => Navigator.of(context, rootNavigator: true).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => TransactionDetailScreen(
-                    transaction:
-                        previewSources[transactions[i].id] ?? transactions[i],
-                  ),
+              onTap: () => openAikoPage<void>(
+                context,
+                TransactionDetailScreen(
+                  transaction:
+                      previewSources[transactions[i].id] ?? transactions[i],
                 ),
+                rootNavigator: true,
               ),
             ),
           ],

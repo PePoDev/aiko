@@ -40,6 +40,6 @@ Settings → Language offers System default, English and Thai. `followSystemLoca
 
 ## Coverage today
 
-Only the navigation shell (`authenticated_shell.dart`), Settings and parts of the Overview read from `AppLocalizations`. Most screens still hard-code English. When you touch a screen, move its user-facing strings into the ARB files ([Known gaps](features.md#known-gaps)).
+Only the five destination labels (`aikoPrimaryDestinations`, used by the bottom bar and the sidebar), Settings and parts of the Overview read from `AppLocalizations`; the sidebar's Tools, **New transaction** and Profile labels are still English. Most screens still hard-code English. When you touch a screen, move its user-facing strings into the ARB files ([Known gaps](features.md#known-gaps)).
 
 Money and dates use `intl` with the active locale. Money is formatted by `MoneyFormatter.format` (`lib/core/formatting/money_formatter.dart`), which picks the symbol from the currency code.

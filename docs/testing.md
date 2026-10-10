@@ -38,12 +38,13 @@ Previews deploy in parallel. `main` deploys only after the Flutter and Firebase 
 | Offline core | `test/core/offline/`, `test/core/storage/` | Anonymous IDs, claiming local data on sign-in, cache-first read routing (`firestore_sync_state_test.dart`), file cache |
 | Prediction | `test/core/prediction/monte_carlo_test.dart` | Probability and percentile behavior |
 | Local schema | `test/brick/` | Codec round-trips, migration chain integrity, fresh database, budget→category and goal→account migrations, template-ID repair, default clone serialization |
-| App wiring | `test/app/` | Providers, navigation items, locale controller, theme mode |
+| App wiring | `test/app/` | Providers, locale controller, theme mode; navigation (`aiko_navigation_test.dart`): bottom bar and sidebar list the same destinations, every destination and tool is a registered route, selected-entry and reset rules |
+| Layout | `test/shared/layout/` | Breakpoints, content widths and Overview column split (`aiko_layout_test.dart`); a static scan fails if code bypasses `showAikoSheet`/`openAikoPage` or builds navigation chrome outside `lib/app/` (`adaptive_presentation_guard_test.dart`) |
 | Accounts | `test/features/accounts/` | Validator rules, details JSON, shared-limit resolution |
 | Transactions | `test/features/transactions/` | Validation, transfer balance math, recurring projection, month ranges, rule matching, attachments, OCR and voice parsing, repository |
 | Categories | `test/features/categories/` | Defaults and clone IDs, repository, budget progress |
 | Overview and dashboard | `test/features/overview/`, `test/features/dashboard/` | Safe-to-spend, cash flow, goal forecast, monthly report, allocation, notifications, daily spending reaction |
-| Other features | `test/features/` (`aiko_assistant`, `investments`, `calculators`, `transaction_capture`, `travel_mode`, `settings`, `auth`) | Financial context, SSE chat engine, allocation and tax rebalance, calculator math, bank SMS parsing, travel state, profile repository, auth repository and the once-per-device defaults marker |
+| Other features | `test/features/` (`aiko_assistant`, `aiko_character`, `investments`, `calculators`, `transaction_capture`, `travel_mode`, `settings`, `auth`) | Financial context, SSE chat engine, Rive runtime loading only when `aiko.riv` is bundled, allocation and tax rebalance, calculator math, bank SMS parsing, travel state, profile repository, auth repository and the once-per-device defaults marker |
 | Platform and theme | `test/android/android_manifest_test.dart`, `test/theme/dark_theme_guard_test.dart` | The release manifest declares the internet permission; a static scan fails if UI code hard-codes neutral `AikoColors` (`darkNavy`, `neutralInk`, `mutedText`, surfaces, borders, `appBackground`) instead of theme tokens |
 
 Five older files still use `testWidgets`: `aiko_character_test.dart`, `inline_glossary_text_test.dart`, `learning_hub_screen_test.dart`, `aiko_assistant_screen_test.dart` and `aiko_spending_reaction_strip_test.dart`. Keep them passing, but don't add new widget tests.
@@ -67,3 +68,4 @@ Five older files still use `testWidgets`: `aiko_character_test.dart`, `inline_gl
 - **Schema changes.** Add a codec round-trip test and keep `brick_migration_integrity_test.dart` green ([Data model](data-model.md#local-sqlite-schema)).
 - **Rules changes.** Add allow and deny cases to `firebase/test/rules.test.cjs` and run the emulator suite.
 - **Manual browser check** for sync work: sign up, add a transaction, reload, confirm a second signed-in browser sees the edit, then check a narrow viewport.
+- **Manual layout check** for UI work: look at the screen at 390px and 1440px wide (browser dev tools, or a resized desktop window), including any panel or page it opens ([Web and mobile](design-system.md#web-and-mobile)).

@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/category.dart';
 import 'category_group_editor_sheet.dart';
@@ -24,7 +25,7 @@ Future<bool?> showCategoryEditorSheet(
     return Future.value(false);
   }
 
-  return showModalBottomSheet<bool>(
+  return showAikoSheet<bool>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
@@ -279,17 +280,7 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: Container(
-                  width: 48,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.outline,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+              const AikoSheetHandle(),
               Row(
                 children: [
                   Container(

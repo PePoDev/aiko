@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:aiko/features/aiko_character/application/aiko_rive_runtime.dart';
 import 'package:aiko/features/aiko_character/presentation/aiko_character.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rive/rive.dart' as rive;
 
 void main() {
+  // These cases exercise the Rive path, which runs once the runtime is ready.
+  setUp(() => AikoRiveRuntime.ready.value = true);
+  tearDown(AikoRiveRuntime.resetForTesting);
+
   test('maps Aiko moods to stable Rive values and fallback assets', () {
     expect(AikoMood.neutral.riveValue, 0.0);
     expect(AikoMood.thinking.riveValue, 1.0);

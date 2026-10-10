@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/category.dart';
 import 'widgets/category_budget_section.dart';
@@ -15,7 +16,7 @@ Future<bool?> showCategoryBudgetSheet(
   BuildContext context, {
   required Category category,
 }) {
-  return showModalBottomSheet<bool>(
+  return showAikoSheet<bool>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
@@ -118,17 +119,7 @@ class _CategoryBudgetSheetState extends ConsumerState<_CategoryBudgetSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: Container(
-                  width: 48,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.outline,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+              const AikoSheetHandle(),
               Text(
                 'Budget · ${widget.category.name}',
                 style: theme.textTheme.titleLarge?.copyWith(

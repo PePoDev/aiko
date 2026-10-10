@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../../core/storage/local_file_cache.dart';
+import '../../../shared/layout/adaptive_presentation.dart';
 import 'dart:typed_data';
 import 'package:decimal/decimal.dart';
 import 'package:file_selector/file_selector.dart' as fs;
@@ -670,7 +671,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   Future<void> _showAmountCalculator() async {
     final currentAmount = _amountController.text.trim();
 
-    final result = await showModalBottomSheet<Decimal>(
+    final result = await showAikoSheet<Decimal>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -702,7 +703,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   void _showAddAttachmentDialog() {
-    showModalBottomSheet<void>(
+    showAikoSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -2305,7 +2306,7 @@ class _AccountPicker extends StatelessWidget {
   }
 
   void _showAccountPickerSheet(BuildContext context) {
-    showModalBottomSheet<void>(
+    showAikoSheet<void>(
       context: context,
       showDragHandle: true,
       shape: const RoundedRectangleBorder(
@@ -2536,7 +2537,7 @@ class _CategoryPicker extends StatelessWidget {
   }
 
   void _showCategoryPickerSheet(BuildContext context) {
-    showModalBottomSheet<void>(
+    showAikoSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

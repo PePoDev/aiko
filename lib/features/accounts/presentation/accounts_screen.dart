@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
@@ -141,11 +142,9 @@ class AccountsScreen extends ConsumerWidget {
                                   account,
                                   transactions,
                                 ),
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        AccountDetailScreen(account: account),
-                                  ),
+                                onTap: () => openAikoPage<void>(
+                                  context,
+                                  AccountDetailScreen(account: account),
                                 ),
                               ),
                           ],
@@ -368,11 +367,9 @@ void _showAccountForm(
   Account? account,
   AccountType? initialType,
 }) {
-  Navigator.of(context).push<Account>(
-    MaterialPageRoute(
-      builder: (_) =>
-          AccountFormScreen(account: account, initialType: initialType),
-    ),
+  openAikoPage<Account>(
+    context,
+    AccountFormScreen(account: account, initialType: initialType),
   );
 }
 
@@ -541,8 +538,9 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
   }
 
   Future<void> _editAccount() async {
-    final updated = await Navigator.of(context).push<Account>(
-      MaterialPageRoute(builder: (_) => AccountFormScreen(account: _account)),
+    final updated = await openAikoPage<Account>(
+      context,
+      AccountFormScreen(account: _account),
     );
 
     if (updated == null || !mounted) {
@@ -762,10 +760,9 @@ class _RelatedTransactionTile extends StatelessWidget {
           fontWeight: FontWeight.w800,
         ),
       ),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => TransactionDetailScreen(transaction: transaction),
-        ),
+      onTap: () => openAikoPage<void>(
+        context,
+        TransactionDetailScreen(transaction: transaction),
       ),
     );
   }

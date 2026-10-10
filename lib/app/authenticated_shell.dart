@@ -1,14 +1,21 @@
+import '../shared/layout/aiko_breakpoints.dart';
 import 'dart:async';
-import '../core/offline/offline_store.dart';
-import 'firebase_sync.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/offline/offline_store.dart';
 import '../features/transaction_capture/transaction_capture.dart';
 import '../l10n/app_localizations.dart';
-import '../theme/aiko_colors.dart';
+import 'aiko_navigation.dart';
+import 'aiko_sidebar.dart';
+import 'firebase_sync.dart';
 
+/// The signed-in frame shared by web, Android and iOS. The window width picks
+/// the layout ([AikoBreakpoints]): a sidebar with a centered content column on
+/// wide windows, a bottom tab bar on phones. Both are built from
+/// [aikoPrimaryDestinations], so navigation changes land in both.
 class AuthenticatedShell extends ConsumerStatefulWidget {
   const AuthenticatedShell({required this.child, super.key});
 
@@ -64,139 +71,65 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     }
   }
 
-  List<_AikoNavItem> _getNavItems(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return [
-      _AikoNavItem(
-        label: l10n.accountsTab,
-        path: '/accounts',
-        icon: Icons.account_balance_wallet_outlined,
-        selectedIcon: Icons.account_balance_wallet_rounded,
-      ),
-      _AikoNavItem(
-        label: l10n.categoriesTab,
-        path: '/categories',
-        icon: Icons.category_outlined,
-        selectedIcon: Icons.category_rounded,
-      ),
-      _AikoNavItem(
-        label: l10n.homeTab,
-        path: '/home',
-        icon: Icons.home_outlined,
-        selectedIcon: Icons.home_rounded,
-      ),
-      _AikoNavItem(
-        label: l10n.transactionsTab,
-        path: '/transactions',
-        icon: Icons.receipt_long_outlined,
-        selectedIcon: Icons.receipt_long,
-      ),
-      _AikoNavItem(
-        label: l10n.aikoTab,
-        path: '/aiko',
-        icon: Icons.face_retouching_natural_outlined,
-        selectedIcon: Icons.face_retouching_natural,
-      ),
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
     ref.watch(firebaseSyncProvider);
     final location = GoRouterState.of(context).uri.path;
-    final items = _getNavItems(context);
-    final selectedIndex = _indexFor(location);
+    final width = MediaQuery.sizeOf(context).width;
 
-    void navigate(int index) {
-      final item = items[index];
-      if (index == selectedIndex && item.path == '/transactions') {
-        context.go(
-          '${item.path}?reset=${DateTime.now().microsecondsSinceEpoch}',
-        );
-      } else {
-        context.go(item.path);
-      }
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 840;
-        return Scaffold(
-          body: SafeArea(
-            bottom: false,
-            child: Row(
-              children: [
-                if (wide) ...[
-                  NavigationRail(
-                    extended: constraints.maxWidth >= 1200,
-                    selectedIndex: selectedIndex,
-                    onDestinationSelected: navigate,
-                    leading: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Text(
-                        'Aiko',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
+    if (AikoBreakpoints.layoutFor(width) == AikoLayout.expanded) {
+      return Scaffold(
+        body: SafeArea(
+          bottom: false,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AikoSidebar(
+                location: location,
+                labeled: width >= AikoBreakpoints.labeledSidebar,
+              ),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: AikoBreakpoints.contentWidthFor(location),
                     ),
-                    destinations: [
-                      for (final item in items)
-                        NavigationRailDestination(
-                          icon: Icon(item.icon),
-                          selectedIcon: Icon(item.selectedIcon),
-                          label: Text(item.label),
-                        ),
-                    ],
+                    child: widget.child,
                   ),
-                  const VerticalDivider(width: 1),
-                ],
-                Expanded(child: widget.child),
-              ],
-            ),
-          ),
-          bottomNavigationBar: wide
-              ? null
-              : _AikoBottomNavigation(
-                  selectedIndex: selectedIndex,
-                  onSelected: navigate,
-                  items: items,
                 ),
-        );
-      },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final l10n = AppLocalizations.of(context);
+    final destinations = [
+      for (final path in aikoBottomBarPaths)
+        aikoPrimaryDestinations.firstWhere((item) => item.path == path),
+    ];
+    final selectedPath = aikoSelectedPath(location, aikoBottomBarPaths);
+    return Scaffold(
+      body: SafeArea(bottom: false, child: widget.child),
+      bottomNavigationBar: _AikoBottomNavigation(
+        items: [
+          for (final destination in destinations)
+            _AikoNavItem(
+              label: destination.label(l10n),
+              path: destination.path,
+              icon: destination.icon,
+              selectedIcon: destination.selectedIcon,
+              accentColor: destination.accentColor,
+            ),
+        ],
+        selectedPath: selectedPath,
+        onSelected: (path) => context.go(
+          aikoNavigationTarget(path, reselected: path == selectedPath),
+        ),
+      ),
     );
-  }
-
-  int _indexFor(String location) {
-    if (location.startsWith('/accounts') ||
-        location.startsWith('/credit-cards')) {
-      return 0;
-    }
-    if (location.startsWith('/categories')) {
-      return 1;
-    }
-    if (location.startsWith('/home') ||
-        location.startsWith('/dashboard') ||
-        location.startsWith('/settings') ||
-        _isSecondaryRoute(location)) {
-      return 2;
-    }
-    if (location.startsWith('/transactions')) {
-      return 3;
-    }
-    if (location.startsWith('/aiko')) {
-      return 4;
-    }
-    return 2;
-  }
-
-  bool _isSecondaryRoute(String location) {
-    return location.startsWith('/transaction-rules') ||
-        location.startsWith('/transaction-capture') ||
-        location.startsWith('/reports/monthly') ||
-        location.startsWith('/export') ||
-        location.startsWith('/calculators') ||
-        location.startsWith('/notifications') ||
-        location.startsWith('/profile-security') ||
-        location.startsWith('/learning-hub');
   }
 }
 
@@ -206,23 +139,25 @@ class _AikoNavItem {
     required this.path,
     required this.icon,
     required this.selectedIcon,
+    this.accentColor,
   });
 
   final String label;
   final String path;
   final IconData icon;
   final IconData selectedIcon;
+  final Color? accentColor;
 }
 
 class _AikoBottomNavigation extends StatelessWidget {
   const _AikoBottomNavigation({
-    required this.selectedIndex,
+    required this.selectedPath,
     required this.onSelected,
     required this.items,
   });
 
-  final int selectedIndex;
-  final ValueChanged<int> onSelected;
+  final String selectedPath;
+  final ValueChanged<String> onSelected;
   final List<_AikoNavItem> items;
 
   static const double _barHeight = 60;
@@ -248,12 +183,12 @@ class _AikoBottomNavigation extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Row(
                 children: [
-                  for (var index = 0; index < items.length; index++)
+                  for (final item in items)
                     Expanded(
                       child: _AikoBottomNavigationItem(
-                        item: items[index],
-                        selected: index == selectedIndex,
-                        onTap: () => onSelected(index),
+                        item: item,
+                        selected: item.path == selectedPath,
+                        onTap: () => onSelected(item.path),
                       ),
                     ),
                 ],
@@ -287,17 +222,14 @@ class _AikoBottomNavigationItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isAiko = item.path == '/aiko';
-
-    final Color activeColor = isAiko
-        ? AikoColors.premiumPurple
-        : colorScheme.primary;
+    final accent = item.accentColor;
+    final Color activeColor = accent ?? colorScheme.primary;
 
     final Color foreground;
     if (selected) {
       foreground = activeColor;
-    } else if (isAiko) {
-      foreground = AikoColors.premiumPurple.withValues(alpha: 0.6);
+    } else if (accent != null) {
+      foreground = accent.withValues(alpha: 0.6);
     } else {
       foreground = colorScheme.onSurfaceVariant;
     }

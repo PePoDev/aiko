@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/money/money.dart';
+import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
@@ -78,7 +79,7 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
   }
 
   void _showAddHoldingBottomSheet() {
-    showModalBottomSheet<void>(
+    showAikoSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

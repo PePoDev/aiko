@@ -1,4 +1,5 @@
 import '../../../core/money/money.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../categories/domain/category.dart';
 import '../../transactions/domain/transaction.dart';
 
@@ -66,21 +67,26 @@ class CategoryBudgetProgressService {
     return CategoryBudgetProgress(category: category, used: used);
   }
 
-  /// A warm tone message. Non-judgmental (per AGENTS.md brand voice).
-  String recommendation(CategoryBudgetProgress progress, int daysLeft) {
+  /// A warm tone message in [l10n]'s language. Non-judgmental (per
+  /// AGENTS.md brand voice).
+  String recommendation(
+    CategoryBudgetProgress progress,
+    int daysLeft,
+    AppLocalizations l10n,
+  ) {
     if (!progress.category.hasBudget) {
-      return 'No budget set for this category yet.';
+      return l10n.budgetAdviceNone;
     }
     if (progress.isOverBudget) {
-      return 'You are above target. Let us adjust together for the next period.';
+      return l10n.budgetAdviceOver;
     }
     final limit = progress.limit;
     final remaining = progress.remaining;
     if (limit == null || remaining == null || daysLeft <= 0) {
-      return 'Stay mindful of this category for the rest of the period.';
+      return l10n.budgetAdviceMindful;
     }
     final daily = remaining.amount.toDouble() / daysLeft.clamp(1, 31);
-    return 'Keep this category under ${daily.toStringAsFixed(0)} ${limit.currency}/day to stay on track.';
+    return l10n.budgetAdviceDaily(daily.toStringAsFixed(0), limit.currency);
   }
 
   DateTime _defaultStart(Category category) {

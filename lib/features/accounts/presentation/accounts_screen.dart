@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../l10n/domain_labels.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
@@ -25,14 +28,14 @@ class AccountsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Accounts'),
+        title: Text(context.l10n.accountsTab),
         actions: [
           Padding(
             padding: const EdgeInsetsDirectional.only(end: 8),
             child: TextButton.icon(
               onPressed: () => _showAccountForm(context),
               icon: const Icon(Icons.add),
-              label: const Text('Add'),
+              label: Text(context.l10n.add),
             ),
           ),
         ],
@@ -53,8 +56,8 @@ class AccountsScreen extends ConsumerWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               AikoScreenState.error(
-                title: 'Accounts are unavailable',
-                message: 'Aiko could not load your accounts right now. $err',
+                title: context.l10n.accountsUnavailableTitle,
+                message: context.l10n.accountsUnavailableMessage,
               ),
             ],
           ),
@@ -69,11 +72,10 @@ class AccountsScreen extends ConsumerWidget {
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   AikoScreenState.empty(
-                    title: 'No accounts yet',
-                    message:
-                        'Add your cash, bank, card, or investment accounts.',
+                    title: context.l10n.accountsEmptyTitle,
+                    message: context.l10n.accountsEmptyMessage,
                     action: PrimaryActionButton(
-                      label: 'Add account',
+                      label: context.l10n.accountsAddAccount,
                       icon: Icons.add_card_outlined,
                       onPressed: () => _showAccountForm(context),
                     ),
@@ -181,7 +183,7 @@ class _AccountsSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return FinanceCard(
-      title: 'Account summary',
+      title: context.l10n.accountsSummary,
       icon: Icons.account_balance_wallet_outlined,
       accentColor: AikoColors.primaryBlue,
       child: Column(
@@ -197,14 +199,14 @@ class _AccountsSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '$accountCount ${accountCount == 1 ? 'account' : 'accounts'} · total balance in $baseCurrency',
+            context.l10n.accountsSummaryCount(accountCount, baseCurrency),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Net worth ${netWorth?.format() ?? '—'}',
+            context.l10n.accountsNetWorthValue(netWorth?.format() ?? '—'),
             key: const ValueKey('account-summary-net-worth'),
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w700,
@@ -218,7 +220,7 @@ class _AccountsSummaryCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _MetricTile(
-                    label: 'Assets',
+                    label: context.l10n.accountsAssets,
                     value: (assets ?? Money.zero(baseCurrency)).format(),
                     icon: Icons.add_chart,
                     color: AikoColors.successGreen,
@@ -227,7 +229,7 @@ class _AccountsSummaryCard extends StatelessWidget {
                 const SizedBox(width: 16),
                 Expanded(
                   child: _MetricTile(
-                    label: 'Liabilities',
+                    label: context.l10n.accountsLiabilities,
                     value: (liabilities ?? Money.zero(baseCurrency)).format(),
                     icon: Icons.remove_circle_outline,
                     color: AikoColors.dangerRed,
@@ -337,7 +339,7 @@ class _AccountTypeHeader extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '${_accountTypeLabel(type)} ($accountCount)',
+              '${type.label(context.l10n)} ($accountCount)',
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w800,
                 color: theme.colorScheme.onSurface,
@@ -460,7 +462,7 @@ class _AccountListItem extends StatelessWidget {
         ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
-        _accountSubtitle(account),
+        _accountSubtitle(account, context.l10n),
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
@@ -504,7 +506,7 @@ class _AddAccountPlaceholder extends StatelessWidget {
         child: Icon(Icons.add, color: accent.withValues(alpha: 0.5), size: 19),
       ),
       title: Text(
-        'Add ${_accountTypeLabel(type).toLowerCase()}',
+        context.l10n.accountsAddType(type.label(context.l10n).toLowerCase()),
         style: theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
         ),
@@ -553,19 +555,17 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete account?'),
-        content: Text(
-          'Are you sure you want to delete "${_account.name}"? This action cannot be undone.',
-        ),
+        title: Text(context.l10n.accountsDeleteQuestion),
+        content: Text(context.l10n.accountsDeleteConfirm(_account.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton.icon(
             onPressed: () => Navigator.of(context).pop(true),
             icon: const Icon(Icons.delete_outline),
-            label: const Text('Delete'),
+            label: Text(context.l10n.delete),
           ),
         ],
       ),
@@ -580,13 +580,16 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
       if (!mounted) {
         return;
       }
-      _showAccountSnackBar(context, 'Account "${_account.name}" deleted.');
+      _showAccountSnackBar(
+        context,
+        context.l10n.accountsDeleted(_account.name),
+      );
       Navigator.of(context).pop();
     } catch (_) {
       if (!mounted) {
         return;
       }
-      _showAccountSnackBar(context, 'Unable to delete account right now.');
+      _showAccountSnackBar(context, context.l10n.accountsDeleteFailed);
     }
   }
 
@@ -607,15 +610,15 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Account details'),
+        title: Text(context.l10n.accountsDetailsTitle),
         actions: [
           IconButton(
-            tooltip: 'Delete account',
+            tooltip: context.l10n.accountsDeleteTooltip,
             onPressed: _deleteAccount,
             icon: const Icon(Icons.delete_outline),
           ),
           IconButton(
-            tooltip: 'Edit account',
+            tooltip: context.l10n.accountsEditTooltip,
             onPressed: _editAccount,
             icon: const Icon(Icons.edit_outlined),
           ),
@@ -654,7 +657,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                               style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(fontWeight: FontWeight.w700),
                             ),
-                            Text(_accountSubtitle(_account)),
+                            Text(_accountSubtitle(_account, context.l10n)),
                           ],
                         ),
                       ),
@@ -670,18 +673,22 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                   ),
                   const SizedBox(height: 16),
                   _AccountDetailRow(
-                    label: 'Type',
-                    value: _accountTypeLabel(_account.type),
+                    label: context.l10n.accountsDetailType,
+                    value: _account.type.label(context.l10n),
                   ),
                   const Divider(),
                   _AccountDetailRow(
-                    label: 'Net worth',
-                    value: _account.includeInNetWorth ? 'Included' : 'Hidden',
+                    label: context.l10n.accountsNetWorth,
+                    value: _account.includeInNetWorth
+                        ? context.l10n.accountsIncluded
+                        : context.l10n.accountsHidden,
                   ),
                   const Divider(),
                   _AccountDetailRow(
-                    label: 'Status',
-                    value: _account.isActive ? 'Active' : 'Inactive',
+                    label: context.l10n.accountsStatus,
+                    value: _account.isActive
+                        ? context.l10n.accountsActive
+                        : context.l10n.accountsInactive,
                   ),
                 ],
               ),
@@ -705,12 +712,12 @@ class _RelatedTransactionsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FinanceCard(
-      title: 'Related transactions',
+      title: context.l10n.accountsRelatedTransactions,
       icon: Icons.receipt_long_outlined,
       accentColor: AikoColors.analyticsTeal,
       child: transactions.isEmpty
           ? Text(
-              'No transactions recorded for this account yet.',
+              context.l10n.accountsNoTransactions,
               style: Theme.of(context).textTheme.bodyMedium,
             )
           : Column(
@@ -738,7 +745,7 @@ class _RelatedTransactionTile extends StatelessWidget {
         ? transaction.merchant!.trim()
         : transaction.note?.trim().isNotEmpty == true
         ? transaction.note!.trim()
-        : _transactionTypeLabel(transaction.type);
+        : transaction.type.label(context.l10n);
     final color = isIncome ? AikoColors.successGreen : AikoColors.dangerRed;
 
     return ListTile(
@@ -752,7 +759,7 @@ class _RelatedTransactionTile extends StatelessWidget {
         ),
       ),
       title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(_transactionTypeLabel(transaction.type)),
+      subtitle: Text(transaction.type.label(context.l10n)),
       trailing: Text(
         amount,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -772,60 +779,74 @@ class _AccountTypeDetailsCard extends StatelessWidget {
   const _AccountTypeDetailsCard({required this.details});
   final AccountDetails details;
 
-  List<(String, String)> _rowsFor(AccountDetails d) {
+  List<(String, String)> _rowsFor(AccountDetails d, AppLocalizations l10n) {
+    String day(DateTime date) => DateFormat.yMMMd().format(date);
     return switch (d) {
       CashDetails() => const [],
       BankDetails() => const [],
       EWalletDetails() => const [],
       CreditCardDetails() => [
-        ('Statement day', '${d.statementDay}'),
-        ('Due day', '${d.dueDay}'),
-        if (d.creditLimit != null) ('Credit limit', d.creditLimit!.format()),
+        (l10n.accountsDetailStatementDay, '${d.statementDay}'),
+        (l10n.accountsDetailDueDay, '${d.dueDay}'),
+        if (d.creditLimit != null)
+          (l10n.accountsDetailCreditLimit, d.creditLimit!.format()),
         if (d.aprPercent != null)
-          ('APR', '${d.aprPercent!.toStringAsFixed(2)}%'),
-        if (d.rewardsType != null) ('Rewards', d.rewardsType!.name),
-        if (d.annualFee != null) ('Annual fee', d.annualFee!.format()),
+          (l10n.accountsDetailApr, '${d.aprPercent!.toStringAsFixed(2)}%'),
+        if (d.rewardsType != null)
+          (l10n.accountsDetailRewards, d.rewardsType!.label(l10n)),
+        if (d.annualFee != null)
+          (l10n.accountsDetailAnnualFee, d.annualFee!.format()),
         if (d.minimumPayment != null)
-          ('Min payment', d.minimumPayment!.format()),
-        ('Shares limit', d.sharesLimit ? 'Yes' : 'No'),
+          (l10n.accountsDetailMinPayment, d.minimumPayment!.format()),
+        (l10n.accountsDetailSharesLimit, d.sharesLimit ? l10n.yes : l10n.no),
         if (d.sharedLimitAccountId != null)
-          ('Shared with', d.sharedLimitAccountId!),
+          (l10n.accountsDetailSharedWith, d.sharedLimitAccountId!),
       ],
       LoanDetails() => [
-        ('Type', d.loanType.name),
-        ('Principal', d.principal.format()),
-        ('Rate', '${d.interestRatePercent.toStringAsFixed(2)}%'),
-        ('Term', '${d.termMonths} mo'),
-        ('Monthly', d.monthlyPayment.format()),
-        ('Next due', d.nextDueDate.toIso8601String().substring(0, 10)),
+        (l10n.accountsDetailType, d.loanType.label(l10n)),
+        (l10n.accountsDetailPrincipal, d.principal.format()),
+        (
+          l10n.accountsDetailRate,
+          '${d.interestRatePercent.toStringAsFixed(2)}%',
+        ),
+        (l10n.accountsDetailTerm, l10n.accountsDetailTermMonths(d.termMonths)),
+        (l10n.accountsDetailMonthly, d.monthlyPayment.format()),
+        (l10n.accountsDetailNextDue, day(d.nextDueDate)),
       ],
       InvestmentDetails() => [
-        if (d.accountNumberLast4 != null) ('Last 4', d.accountNumberLast4!),
+        if (d.accountNumberLast4 != null)
+          (l10n.accountsDetailLast4, d.accountNumberLast4!),
       ],
       AssetDetails() => [
-        ('Class', d.assetClass.name),
+        (l10n.accountsDetailClass, d.assetClass.label(l10n)),
         if (d.purchasePrice != null)
-          ('Purchase price', d.purchasePrice!.format()),
+          (l10n.accountsDetailPurchasePrice, d.purchasePrice!.format()),
         if (d.purchaseDate != null)
-          ('Purchased', d.purchaseDate!.toIso8601String().substring(0, 10)),
-        if (d.notes != null) ('Notes', d.notes!),
+          (l10n.accountsDetailPurchased, day(d.purchaseDate!)),
+        if (d.notes != null) (l10n.accountsDetailNotes, d.notes!),
       ],
       LiabilityDetails() => [
-        if (d.liabilityType != null) ('Type', d.liabilityType!),
+        if (d.liabilityType != null)
+          (l10n.accountsDetailType, d.liabilityType!),
         if (d.interestRatePercent != null)
-          ('Rate', '${d.interestRatePercent!.toStringAsFixed(2)}%'),
-        if (d.notes != null) ('Notes', d.notes!),
+          (
+            l10n.accountsDetailRate,
+            '${d.interestRatePercent!.toStringAsFixed(2)}%',
+          ),
+        if (d.notes != null) (l10n.accountsDetailNotes, d.notes!),
       ],
-      OtherDetails() => [if (d.notes != null) ('Notes', d.notes!)],
+      OtherDetails() => [
+        if (d.notes != null) (l10n.accountsDetailNotes, d.notes!),
+      ],
     };
   }
 
   @override
   Widget build(BuildContext context) {
-    final rows = _rowsFor(details);
+    final rows = _rowsFor(details, context.l10n);
     if (rows.isEmpty) return const SizedBox.shrink();
     return FinanceCard(
-      title: 'Type details',
+      title: context.l10n.accountsTypeDetails,
       icon: Icons.list_alt_outlined,
       accentColor: AikoColors.deepBlue,
       child: Column(
@@ -943,26 +964,6 @@ Money? _computeTotalBalance({
   );
 }
 
-String _transactionTypeLabel(TransactionType type) {
-  return switch (type) {
-    TransactionType.income => 'Income',
-    TransactionType.expense => 'Expense',
-    TransactionType.transfer => 'Transfer',
-    TransactionType.transferOut => 'Transfer out',
-    TransactionType.transferIn => 'Transfer in',
-    TransactionType.refund => 'Refund',
-    TransactionType.investmentBuy => 'Investment buy',
-    TransactionType.investmentSell => 'Investment sell',
-    TransactionType.dividend => 'Dividend',
-    TransactionType.interest => 'Interest',
-    TransactionType.loanPayment => 'Loan payment',
-    TransactionType.creditCardPayment => 'Credit card payment',
-    TransactionType.taxPayment => 'Tax payment',
-    TransactionType.fee => 'Fee',
-    TransactionType.adjustment => 'Adjustment',
-  };
-}
-
 class _AccountDetailRow extends StatelessWidget {
   const _AccountDetailRow({required this.label, required this.value});
 
@@ -1030,20 +1031,9 @@ Color _colorForAccount(AccountType type) {
   };
 }
 
-String _accountSubtitle(Account account) {
+String _accountSubtitle(Account account, AppLocalizations l10n) {
   return account.institution ??
-      (account.type == AccountType.cash ? 'Cash wallet' : 'Manual entry');
-}
-
-String _accountTypeLabel(AccountType type) {
-  final name = type.name;
-  final buffer = StringBuffer();
-  for (var i = 0; i < name.length; i++) {
-    final char = name[i];
-    if (i > 0 && char.toUpperCase() == char) {
-      buffer.write(' ');
-    }
-    buffer.write(i == 0 ? char.toUpperCase() : char);
-  }
-  return buffer.toString();
+      (account.type == AccountType.cash
+          ? l10n.accountCashWallet
+          : l10n.accountManualEntry);
 }

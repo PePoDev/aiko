@@ -1,3 +1,4 @@
+import '../../../l10n/l10n.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import '../data/transaction_attachment_repository.dart';
@@ -60,7 +61,7 @@ class AttachmentViewerDialog extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Close',
+                      tooltip: context.l10n.close,
                       icon: const Icon(Icons.close, color: Colors.white),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
@@ -79,9 +80,7 @@ class AttachmentViewerDialog extends StatelessWidget {
       future: const TransactionAttachmentRepository().readBytes(attachment),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return const _Fallback(
-            message: 'Could not load attachment. Reconnect and try again.',
-          );
+          return _Fallback(message: context.l10n.attachmentLoadFailed);
         }
         final bytes = snapshot.data;
         if (bytes == null) {
@@ -91,8 +90,10 @@ class AttachmentViewerDialog extends StatelessWidget {
           return PhotoView(
             imageProvider: MemoryImage(bytes),
             backgroundDecoration: const BoxDecoration(color: Colors.black),
-            errorBuilder: (_, error, _) =>
-                _Fallback(message: 'Could not load image.', error: error),
+            errorBuilder: (_, error, _) => _Fallback(
+              message: context.l10n.attachmentImageLoadFailed,
+              error: error,
+            ),
           );
         }
         if (attachment.isPdf) {
@@ -140,7 +141,7 @@ class _UnsupportedPreview extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Preview not available',
+            context.l10n.attachmentPreviewUnavailable,
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.onSurface,
               fontWeight: FontWeight.w600,
@@ -148,8 +149,7 @@ class _UnsupportedPreview extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Aiko can preview images, PDFs, and plain-text files (txt, csv, '
-            'md). Open "${attachment.fileName}" in another app to view it.',
+            context.l10n.attachmentPreviewUnsupported(attachment.fileName),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,

@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/providers.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/category.dart';
+import 'category_names.dart';
 import 'category_visual.dart';
 
 /// Shows the bottom sheet for creating or editing a [CategoryGroup].
@@ -47,12 +49,16 @@ class _CategoryGroupEditorSheetState
 
   bool get _isEditing => widget.initial != null;
 
+  /// The name shown when editing started; null for a new group.
+  String? _shownName;
+
   @override
   void initState() {
     super.initState();
     final initial = widget.initial;
     if (initial != null) {
-      _nameController.text = initial.name;
+      _shownName = initial.displayName(currentL10n());
+      _nameController.text = _shownName!;
       _selectedColorHex = initial.color;
       _selectedIconKey = initial.icon;
     } else {
@@ -81,14 +87,17 @@ class _CategoryGroupEditorSheetState
       final duplicate = groups.any(
         (g) =>
             g.id != widget.initial?.id &&
-            g.name.toLowerCase() == _nameController.text.trim().toLowerCase(),
+            (g.name.toLowerCase() ==
+                    _nameController.text.trim().toLowerCase() ||
+                g.displayName(context.l10n).toLowerCase() ==
+                    _nameController.text.trim().toLowerCase()),
       );
       if (duplicate) {
         if (mounted) {
           setState(() => _isSubmitting = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('A group with this name already exists.'),
+            SnackBar(
+              content: Text(context.l10n.groupNameExists),
               backgroundColor: AikoColors.dangerRed,
             ),
           );
@@ -106,7 +115,11 @@ class _CategoryGroupEditorSheetState
               sortOrder: groups.where((g) => !g.isSystem).length,
             )
           : widget.initial!.copyWith(
-              name: _nameController.text.trim(),
+              name: storedCategoryName(
+                original: widget.initial!.name,
+                shown: _shownName ?? widget.initial!.name,
+                edited: _nameController.text,
+              ),
               color: _selectedColorHex,
               icon: _selectedIconKey,
             );
@@ -119,8 +132,8 @@ class _CategoryGroupEditorSheetState
           SnackBar(
             content: Text(
               _isEditing
-                  ? 'Group "${group.name}" updated.'
-                  : 'Group "${group.name}" created.',
+                  ? context.l10n.groupUpdated(group.displayName(context.l10n))
+                  : context.l10n.groupCreated(group.displayName(context.l10n)),
             ),
             backgroundColor: AikoColors.successGreen,
           ),
@@ -131,7 +144,7 @@ class _CategoryGroupEditorSheetState
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save group: $e'),
+            content: Text(context.l10n.groupSaveFailed),
             backgroundColor: AikoColors.dangerRed,
           ),
         );
@@ -149,19 +162,20 @@ class _CategoryGroupEditorSheetState
         .length;
 
     final message = assigned == 0
-        ? 'This permanently removes the group. Existing categories keep their saved details.'
-        : 'This removes the group. $assigned categor${assigned == 1 ? "y" : "ies"} '
-              'assigned to it will be moved back to "Ungrouped".';
+        ? context.l10n.groupDeleteMessageEmpty
+        : context.l10n.groupDeleteMessageAssigned(assigned);
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Delete "${group.name}"?'),
+        title: Text(
+          context.l10n.categoryDeleteQuestion(group.displayName(context.l10n)),
+        ),
         content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -169,7 +183,7 @@ class _CategoryGroupEditorSheetState
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            child: Text(context.l10n.delete),
           ),
         ],
       ),
@@ -186,7 +200,9 @@ class _CategoryGroupEditorSheetState
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Group "${group.name}" deleted.'),
+            content: Text(
+              context.l10n.groupDeleted(group.displayName(context.l10n)),
+            ),
             backgroundColor: AikoColors.successGreen,
           ),
         );
@@ -196,7 +212,7 @@ class _CategoryGroupEditorSheetState
         setState(() => _isDeleting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to delete group: $e'),
+            content: Text(context.l10n.groupDeleteFailed),
             backgroundColor: AikoColors.dangerRed,
           ),
         );
@@ -244,7 +260,9 @@ class _CategoryGroupEditorSheetState
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      _isEditing ? 'Edit Group' : 'New Group',
+                      _isEditing
+                          ? context.l10n.groupEditTitle
+                          : context.l10n.groupNewTitle,
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -252,7 +270,7 @@ class _CategoryGroupEditorSheetState
                   ),
                   if (_isEditing)
                     IconButton(
-                      tooltip: 'Delete group',
+                      tooltip: context.l10n.groupDeleteTooltip,
                       color: AikoColors.dangerRed,
                       onPressed: _isSubmitting || _isDeleting
                           ? null
@@ -272,9 +290,7 @@ class _CategoryGroupEditorSheetState
               ),
               const SizedBox(height: 8),
               Text(
-                'Groups bundle related categories together on the Categories '
-                'screen. They are purely organisational and do not change '
-                'your budgets or reports.',
+                context.l10n.groupExplanation,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -285,8 +301,8 @@ class _CategoryGroupEditorSheetState
                 controller: _nameController,
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
-                  labelText: 'Group name',
-                  hintText: 'e.g., Household, Car, Kids, Travel',
+                  labelText: context.l10n.groupNameLabel,
+                  hintText: context.l10n.groupNameHint,
                   prefixIcon: const Icon(Icons.folder_outlined),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -294,14 +310,14 @@ class _CategoryGroupEditorSheetState
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a group name';
+                    return context.l10n.groupNameRequired;
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
               Text(
-                'Color',
+                context.l10n.colorLabel,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -351,7 +367,7 @@ class _CategoryGroupEditorSheetState
               ),
               const SizedBox(height: 16),
               Text(
-                'Icon',
+                context.l10n.iconLabel,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -461,8 +477,10 @@ class _CategoryGroupEditorSheetState
                     : const Icon(Icons.check),
                 label: Text(
                   _isSubmitting
-                      ? 'Saving...'
-                      : (_isEditing ? 'Save Group' : 'Create Group'),
+                      ? context.l10n.savingEllipsis
+                      : (_isEditing
+                            ? context.l10n.groupSave
+                            : context.l10n.groupCreate),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

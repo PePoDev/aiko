@@ -43,8 +43,9 @@ npm run docs:check
 2. Register the path in `lib/app/app_router.dart` (kebab-case). If it belongs under a destination other than Overview, add it to `_routeOwners` in `lib/app/aiko_navigation.dart` so the right tab and sidebar entry stay highlighted.
 3. For a tool, add an entry to `aikoNavigationItems` in `lib/app/aiko_navigation.dart`; it appears in Settings and in the sidebar. A new primary destination goes in `aikoPrimaryDestinations` and `aikoBottomBarPaths`.
 4. Open panels with `showAikoSheet` and route-less pages with `openAikoPage`, and check the screen at 390px and 1440px wide ([Web and mobile](design-system.md#web-and-mobile)).
-5. Handle loading, empty and error states with `AikoScreenState`.
-6. Update [Architecture → Navigation](architecture.md#navigation) and [Features](features.md).
+5. Put every user-facing string in both ARB files and read it through `context.l10n`; check the screen in Thai too ([Localization](localization.md#writing-strings-in-code)).
+6. Handle loading, empty and error states with `AikoScreenState`.
+7. Update [Architecture → Navigation](architecture.md#navigation) and [Features](features.md).
 
 ### Adding a field
 
@@ -77,9 +78,10 @@ All of [Adding a field](#adding-a-field), plus:
 ### Adding a calculator
 
 1. Add a `_CalculatorItem` to `lib/features/calculators/presentation/calculator_library_screen.dart`.
-2. Add a `_CalculatorKind`, a `_CalculatorConfig.fromTitle` case and the math in `calculator_detail_screen.dart`, with pure formulas in `CalculatorServices`. Without a config case, the entry falls back to compound interest.
-3. Add tests in `test/features/calculators/`.
-4. Update [Features → Calculators](features.md#calculators) and the known-gaps list.
+2. Add its English and Thai title, category and description to the ARB files and to `_calculatorText`; the English title is the calculator's stable id.
+3. Add a `_CalculatorKind`, a `_CalculatorConfig.fromId` case (labels from `l10n`, `money: true` for amounts) and the math in `calculator_detail_screen.dart`, with pure formulas in `CalculatorServices`. Without a config case, the entry falls back to compound interest.
+4. Add tests in `test/features/calculators/`.
+5. Update [Features → Calculators](features.md#calculators) and the known-gaps list.
 
 ### Adding a Cloud Function
 

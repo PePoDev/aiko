@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../l10n/l10n.dart';
 import '../../../../theme/aiko_colors.dart';
 import '../../domain/category.dart';
 
@@ -48,7 +49,7 @@ class CategoryBudgetSection extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Budget',
+                  context.l10n.budgetSectionTitle,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -57,7 +58,7 @@ class CategoryBudgetSection extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Optional. Leave the amount empty for no budget.',
+              context.l10n.budgetSectionOptional,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -70,7 +71,7 @@ class CategoryBudgetSection extends StatelessWidget {
                 decimal: true,
               ),
               decoration: InputDecoration(
-                labelText: 'Limit',
+                labelText: context.l10n.budgetLimit,
                 prefixText: '$currency ',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -81,7 +82,7 @@ class CategoryBudgetSection extends StatelessWidget {
                 if (trimmed.isEmpty) return null;
                 final parsed = num.tryParse(trimmed);
                 if (parsed == null || parsed <= 0) {
-                  return 'Enter a positive amount';
+                  return context.l10n.enterPositiveAmount;
                 }
                 return null;
               },
@@ -91,27 +92,27 @@ class CategoryBudgetSection extends StatelessWidget {
               key: const Key('category-budget-period'),
               initialValue: period,
               decoration: InputDecoration(
-                labelText: 'Period',
+                labelText: context.l10n.budgetPeriodLabel,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              items: const [
+              items: [
                 DropdownMenuItem(
                   value: CategoryBudgetPeriod.daily,
-                  child: Text('Daily'),
+                  child: Text(context.l10n.budgetPeriodDaily),
                 ),
                 DropdownMenuItem(
                   value: CategoryBudgetPeriod.weekly,
-                  child: Text('Weekly'),
+                  child: Text(context.l10n.budgetPeriodWeekly),
                 ),
                 DropdownMenuItem(
                   value: CategoryBudgetPeriod.monthly,
-                  child: Text('Monthly'),
+                  child: Text(context.l10n.budgetPeriodMonthly),
                 ),
                 DropdownMenuItem(
                   value: CategoryBudgetPeriod.yearly,
-                  child: Text('Yearly'),
+                  child: Text(context.l10n.budgetPeriodYearly),
                 ),
               ],
               onChanged: (v) {
@@ -128,9 +129,9 @@ class CategoryBudgetSection extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 value: rolloverUnused,
                 onChanged: onRolloverChanged,
-                title: const Text('Roll over unused budget'),
+                title: Text(context.l10n.budgetRollover),
                 subtitle: Text(
-                  'Carries leftover into the next period only.',
+                  context.l10n.budgetRolloverHint,
                   style: theme.textTheme.bodySmall,
                 ),
               ),

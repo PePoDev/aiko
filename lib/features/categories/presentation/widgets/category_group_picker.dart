@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../l10n/l10n.dart';
 import '../../domain/category.dart';
+import '../category_names.dart';
 import '../category_visual.dart';
 
 /// Group selector embedded in the category editor sheet. Lets the
@@ -31,7 +33,7 @@ class CategoryGroupPicker extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Group',
+          context.l10n.groupPickerLabel,
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
@@ -46,11 +48,11 @@ class CategoryGroupPicker extends StatelessWidget {
             prefixIcon: const Icon(Icons.folder_outlined),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          hint: const Text('Ungrouped'),
+          hint: Text(context.l10n.groupUngrouped),
           items: <DropdownMenuItem<String?>>[
-            const DropdownMenuItem<String?>(
+            DropdownMenuItem<String?>(
               value: null,
-              child: Text('Ungrouped'),
+              child: Text(context.l10n.groupUngrouped),
             ),
             for (final group in groups)
               DropdownMenuItem<String?>(
@@ -68,7 +70,7 @@ class CategoryGroupPicker extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        group.name,
+                        group.displayName(context.l10n),
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyMedium,
                       ),
@@ -83,7 +85,7 @@ class CategoryGroupPicker extends StatelessWidget {
                   Icon(Icons.add, color: accentColor, size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    'Create new group...',
+                    context.l10n.groupCreateNew,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: accentColor,
                       fontWeight: FontWeight.w600,

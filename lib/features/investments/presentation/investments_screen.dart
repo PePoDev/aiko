@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/money/money.dart';
+import '../../../l10n/domain_labels.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
@@ -93,14 +95,12 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Remove ${holding.symbol}?'),
-          content: Text(
-            'This removes ${holding.symbol} from your portfolio. It will not create a sell transaction.',
-          ),
+          title: Text(context.l10n.holdingRemoveQuestion(holding.symbol)),
+          content: Text(context.l10n.holdingRemoveMessage(holding.symbol)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(context.l10n.cancel),
             ),
             FilledButton(
               onPressed: () {
@@ -110,7 +110,7 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('${holding.symbol} removed.'),
+                    content: Text(context.l10n.holdingRemoved(holding.symbol)),
                     backgroundColor: AikoColors.successGreen,
                     behavior: SnackBarBehavior.floating,
                   ),
@@ -119,7 +119,7 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
               style: FilledButton.styleFrom(
                 backgroundColor: AikoColors.dangerRed,
               ),
-              child: const Text('Remove'),
+              child: Text(context.l10n.remove),
             ),
           ],
         );
@@ -138,8 +138,8 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'Search symbol or asset class',
+                decoration: InputDecoration(
+                  hintText: context.l10n.holdingSearchHint,
                   prefixIcon: Icon(Icons.search),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
@@ -147,22 +147,22 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
                   contentPadding: EdgeInsets.zero,
                 ),
               )
-            : const Text('Investments'),
+            : Text(context.l10n.toolInvestments),
         actions: [
           if (_isSearching)
             IconButton(
-              tooltip: 'Close search',
+              tooltip: context.l10n.txCloseSearch,
               onPressed: _stopSearch,
               icon: Icon(Icons.close, color: actionColor),
             )
           else
             IconButton(
-              tooltip: 'Search holdings',
+              tooltip: context.l10n.holdingSearchTooltip,
               onPressed: _startSearch,
               icon: Icon(Icons.search, color: actionColor),
             ),
           IconButton(
-            tooltip: 'Refresh prices',
+            tooltip: context.l10n.holdingRefreshPrices,
             onPressed: _isRefreshing ? null : _refreshPrices,
             icon: _isRefreshing
                 ? SizedBox.square(
@@ -179,12 +179,12 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
       body: holdingsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => AikoScreenState.error(
-          title: 'Could not load portfolio',
+          title: context.l10n.portfolioLoadFailed,
           message: error.toString(),
           action: FilledButton.icon(
             onPressed: () => ref.invalidate(investmentsProvider),
             icon: const Icon(Icons.refresh),
-            label: const Text('Retry'),
+            label: Text(context.l10n.retry),
           ),
         ),
         data: (holdings) => _buildHoldingsBody(holdings),
@@ -198,6 +198,7 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
       targets: InvestmentsScreen._targetAllocation,
     );
     final summary = _PortfolioSummary.fromHoldings(
+      l10n: context.l10n,
       holdings: holdings,
       alerts: alerts,
     );
@@ -226,10 +227,13 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
             ),
             const SizedBox(height: 16),
             _SectionHeader(
-              title: 'Holdings',
+              title: context.l10n.holdingsTitle,
               trailing: holdings.isEmpty
                   ? null
-                  : '${filteredHoldings.length} of ${holdings.length}',
+                  : context.l10n.holdingsFilteredCount(
+                      filteredHoldings.length,
+                      holdings.length,
+                    ),
             ),
             const SizedBox(height: 8),
             _HoldingsList(
@@ -273,7 +277,11 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
       return true;
     }
     return holding.symbol.toLowerCase().contains(query) ||
-        holding.assetClass.toLowerCase().contains(query);
+        holding.assetClass.toLowerCase().contains(query) ||
+        investmentAssetClassLabel(
+          holding.assetClass,
+          context.l10n,
+        ).toLowerCase().contains(query);
   }
 }
 
@@ -287,7 +295,7 @@ class _PortfolioSummaryCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return FinanceCard(
-      title: 'Investments value',
+      title: context.l10n.investmentsValue,
       icon: Icons.account_balance_wallet_outlined,
       accentColor: AikoColors.primaryBlue,
       prominent: true,
@@ -302,15 +310,18 @@ class _PortfolioSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _SummaryLine(
-            label: 'Total gain/loss',
+            label: context.l10n.investmentsTotalGainLoss,
             value: summary.totalGain,
             valueColor: summary.gainColor,
           ),
           const SizedBox(height: 8),
-          _SummaryLine(label: 'Holding count', value: summary.holdingsLabel),
+          _SummaryLine(
+            label: context.l10n.investmentsHoldingCount,
+            value: summary.holdingsLabel,
+          ),
           const SizedBox(height: 8),
           _SummaryLine(
-            label: 'Allocation status',
+            label: context.l10n.investmentsAllocationStatus,
             value: summary.allocationStatus,
             valueColor: summary.allocationColor,
           ),
@@ -388,7 +399,11 @@ class _AssetClassFilters extends StatelessWidget {
         children: [
           for (final assetClass in _assetClasses) ...[
             ChoiceChip(
-              label: Text(assetClass),
+              label: Text(
+                assetClass == 'All'
+                    ? context.l10n.txFilterAll
+                    : investmentAssetClassLabel(assetClass, context.l10n),
+              ),
               selected: selectedAssetClass == assetClass,
               onSelected: (_) => onSelected(assetClass),
             ),
@@ -456,12 +471,12 @@ class _HoldingsList extends StatelessWidget {
       return SizedBox(
         height: 360,
         child: AikoScreenState.empty(
-          title: 'No investments yet',
-          message: 'Add your first holding to track value and allocation.',
+          title: context.l10n.investmentsEmptyTitle,
+          message: context.l10n.investmentsEmptyMessage,
           action: FilledButton.icon(
             onPressed: onAddHolding,
             icon: const Icon(Icons.add),
-            label: const Text('Add holding'),
+            label: Text(context.l10n.holdingAdd),
           ),
         ),
       );
@@ -471,12 +486,12 @@ class _HoldingsList extends StatelessWidget {
       return SizedBox(
         height: 240,
         child: AikoScreenState.empty(
-          title: 'No matching holdings',
-          message: 'Try another symbol, asset class, or clear the filters.',
+          title: context.l10n.holdingsNoMatches,
+          message: context.l10n.holdingsNoMatchesMessage,
           action: hasActiveFilters
               ? TextButton(
                   onPressed: onClearFilters,
-                  child: const Text('Clear filters'),
+                  child: Text(context.l10n.clearFilters),
                 )
               : null,
         ),
@@ -553,14 +568,20 @@ class _HoldingCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       _AssetClassBadge(
-                        label: holding.assetClass,
+                        label: investmentAssetClassLabel(
+                          holding.assetClass,
+                          context.l10n,
+                        ),
                         color: accent,
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${_formatQuantity(holding.quantity)} shares x ${holding.currentPrice.format()}',
+                    context.l10n.holdingSharesAtPrice(
+                      _formatQuantity(holding.quantity),
+                      holding.currentPrice.format(),
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -601,7 +622,7 @@ class _HoldingCard extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             IconButton(
-              tooltip: 'Remove ${holding.symbol}',
+              tooltip: context.l10n.holdingRemoveTooltip(holding.symbol),
               onPressed: onDelete,
               icon: const Icon(Icons.delete_outline, size: 20),
               color: theme.colorScheme.onSurfaceVariant,
@@ -648,12 +669,12 @@ class _AllocationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FinanceCard(
-      title: 'Allocation',
+      title: context.l10n.allocationTitle,
       icon: Icons.donut_large_outlined,
       accentColor: AikoColors.analyticsTeal,
       child: rows.isEmpty
           ? Text(
-              'Add holdings to see your asset mix.',
+              context.l10n.allocationAddHoldings,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -685,7 +706,7 @@ class _AllocationRow extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                row.assetClass,
+                investmentAssetClassLabel(row.assetClass, context.l10n),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -724,8 +745,12 @@ class _RebalanceNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     final alert = alerts.first;
     final extraCount = alerts.length - 1;
-    final message =
-        '${alert.assetClass} is ${alert.direction} by ${alert.driftPercent.abs().toStringAsFixed(0)}%';
+    final l10n = context.l10n;
+    final assetClass = investmentAssetClassLabel(alert.assetClass, l10n);
+    final percent = alert.driftPercent.abs().toStringAsFixed(0);
+    final message = alert.driftPercent > 0
+        ? l10n.rebalanceOverweight(assetClass, percent)
+        : l10n.rebalanceUnderweight(assetClass, percent);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -747,7 +772,9 @@ class _RebalanceNotice extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                extraCount > 0 ? '$message, plus $extraCount more.' : message,
+                extraCount > 0
+                    ? l10n.rebalancePlusMore(message, extraCount)
+                    : message,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
@@ -781,6 +808,7 @@ class _PortfolioSummary {
   factory _PortfolioSummary.fromHoldings({
     required List<InvestmentHolding> holdings,
     required List<RebalanceAlert> alerts,
+    required AppLocalizations l10n,
   }) {
     final currency = _portfolioCurrency(holdings);
     final totalValue = _sumMoney(
@@ -799,9 +827,10 @@ class _PortfolioSummary {
       gainColor: totalGain.isNegative
           ? AikoColors.dangerRed
           : AikoColors.successGreen,
-      holdingsLabel:
-          '${holdings.length} ${holdings.length == 1 ? 'holding' : 'holdings'}',
-      allocationStatus: isBalanced ? 'On track' : 'Needs rebalance',
+      holdingsLabel: l10n.holdingsCount(holdings.length),
+      allocationStatus: isBalanced
+          ? l10n.allocationOnTrack
+          : l10n.allocationNeedsRebalance,
       allocationColor: isBalanced
           ? AikoColors.successGreen
           : AikoColors.warningOrange,
@@ -974,7 +1003,7 @@ class _AddHoldingBottomSheetState
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$symbol added to portfolio.'),
+          content: Text(context.l10n.holdingAdded(symbol)),
           backgroundColor: AikoColors.successGreen,
           behavior: SnackBarBehavior.floating,
         ),
@@ -983,7 +1012,7 @@ class _AddHoldingBottomSheetState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not add holding: $error'),
+            content: Text(context.l10n.holdingAddFailed),
             backgroundColor: AikoColors.dangerRed,
             behavior: SnackBarBehavior.floating,
           ),
@@ -1024,12 +1053,12 @@ class _AddHoldingBottomSheetState
                   children: [
                     Expanded(
                       child: Text(
-                        'Add holding',
+                        context.l10n.holdingAdd,
                         style: theme.textTheme.titleLarge,
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Close',
+                      tooltip: context.l10n.close,
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(context),
                     ),
@@ -1038,15 +1067,17 @@ class _AddHoldingBottomSheetState
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _selectedAssetClass,
-                  decoration: const InputDecoration(
-                    labelText: 'Asset class',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.holdingAssetClass,
                     prefixIcon: Icon(Icons.category_outlined),
                   ),
                   items: [
                     for (final assetClass in _assetClasses)
                       DropdownMenuItem(
                         value: assetClass,
-                        child: Text(assetClass),
+                        child: Text(
+                          investmentAssetClassLabel(assetClass, context.l10n),
+                        ),
                       ),
                   ],
                   onChanged: (value) {
@@ -1060,14 +1091,14 @@ class _AddHoldingBottomSheetState
                   controller: _symbolController,
                   textCapitalization: TextCapitalization.characters,
                   inputFormatters: [LengthLimitingTextInputFormatter(10)],
-                  decoration: const InputDecoration(
-                    labelText: 'Symbol',
-                    hintText: 'AAPL, VTI, BTC',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.holdingSymbol,
+                    hintText: context.l10n.holdingSymbolHint,
                     prefixIcon: Icon(Icons.label_outline),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Enter a symbol';
+                      return context.l10n.holdingSymbolRequired;
                     }
                     return null;
                   },
@@ -1078,11 +1109,11 @@ class _AddHoldingBottomSheetState
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  decoration: const InputDecoration(
-                    labelText: 'Quantity',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.holdingQuantity,
                     prefixIcon: Icon(Icons.pin_outlined),
                   ),
-                  validator: _positiveNumberValidator,
+                  validator: _positiveNumberValidator(context.l10n),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -1090,11 +1121,11 @@ class _AddHoldingBottomSheetState
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  decoration: const InputDecoration(
-                    labelText: 'Average cost',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.holdingAverageCost,
                     prefixIcon: Icon(Icons.attach_money_outlined),
                   ),
-                  validator: _positiveNumberValidator,
+                  validator: _positiveNumberValidator(context.l10n),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -1102,16 +1133,16 @@ class _AddHoldingBottomSheetState
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  decoration: const InputDecoration(
-                    labelText: 'Current price',
-                    hintText: 'Optional',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.holdingCurrentPrice,
+                    hintText: context.l10n.optional,
                     prefixIcon: Icon(Icons.price_change_outlined),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return null;
                     }
-                    return _positiveNumberValidator(value);
+                    return _positiveNumberValidator(context.l10n)(value);
                   },
                 ),
                 const SizedBox(height: 20),
@@ -1123,7 +1154,7 @@ class _AddHoldingBottomSheetState
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.add),
-                  label: const Text('Save holding'),
+                  label: Text(context.l10n.holdingSave),
                 ),
               ],
             ),
@@ -1134,10 +1165,12 @@ class _AddHoldingBottomSheetState
   }
 }
 
-String? _positiveNumberValidator(String? value) {
-  final number = double.tryParse(value?.trim() ?? '');
-  if (number == null || number <= 0) {
-    return 'Enter a positive number';
-  }
-  return null;
+FormFieldValidator<String> _positiveNumberValidator(AppLocalizations l10n) {
+  return (value) {
+    final number = double.tryParse(value?.trim() ?? '');
+    if (number == null || number <= 0) {
+      return l10n.enterPositiveNumber;
+    }
+    return null;
+  };
 }

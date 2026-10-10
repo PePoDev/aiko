@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/category.dart';
+import 'category_names.dart';
 
 /// Compact bottom sheet for setting a [CategoryGroup]'s own monthly budget —
 /// an envelope across the whole group, separate from its categories' limits.
@@ -69,8 +71,12 @@ class _GroupBudgetSheetState extends ConsumerState<_GroupBudgetSheet> {
           SnackBar(
             content: Text(
               amount.isEmpty
-                  ? 'Budget removed from "${widget.group.name}".'
-                  : 'Budget set for "${widget.group.name}".',
+                  ? context.l10n.budgetRemovedFrom(
+                      widget.group.displayName(context.l10n),
+                    )
+                  : context.l10n.budgetSetFor(
+                      widget.group.displayName(context.l10n),
+                    ),
             ),
             backgroundColor: AikoColors.successGreen,
           ),
@@ -81,7 +87,7 @@ class _GroupBudgetSheetState extends ConsumerState<_GroupBudgetSheet> {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save budget: $e'),
+            content: Text(context.l10n.budgetSaveFailed),
             backgroundColor: AikoColors.dangerRed,
           ),
         );
@@ -112,15 +118,16 @@ class _GroupBudgetSheetState extends ConsumerState<_GroupBudgetSheet> {
             children: [
               const AikoSheetHandle(),
               Text(
-                'Group budget · ${widget.group.name}',
+                context.l10n.groupBudgetSheetTitle(
+                  widget.group.displayName(context.l10n),
+                ),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'A monthly limit for the whole group, separate from each '
-                'category’s own budget.',
+                context.l10n.groupBudgetExplanation,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -135,8 +142,10 @@ class _GroupBudgetSheetState extends ConsumerState<_GroupBudgetSheet> {
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                 ],
                 decoration: InputDecoration(
-                  labelText: 'Monthly limit ($_baseCurrency)',
-                  hintText: 'Leave empty to remove the budget',
+                  labelText: context.l10n.groupBudgetMonthlyLimit(
+                    _baseCurrency,
+                  ),
+                  hintText: context.l10n.groupBudgetLeaveEmpty,
                   prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
                 ),
                 validator: (value) {
@@ -144,7 +153,7 @@ class _GroupBudgetSheetState extends ConsumerState<_GroupBudgetSheet> {
                   if (text.isEmpty) return null; // empty == remove budget
                   final parsed = double.tryParse(text);
                   if (parsed == null || parsed < 0) {
-                    return 'Enter a valid amount';
+                    return context.l10n.enterValidAmount;
                   }
                   return null;
                 },
@@ -171,7 +180,9 @@ class _GroupBudgetSheetState extends ConsumerState<_GroupBudgetSheet> {
                       )
                     : const Icon(Icons.check),
                 label: Text(
-                  _saving ? 'Saving...' : 'Save Budget',
+                  _saving
+                      ? context.l10n.savingEllipsis
+                      : context.l10n.budgetSave,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/offline/offline_store.dart';
 import '../features/transaction_capture/transaction_capture.dart';
-import '../l10n/app_localizations.dart';
+import '../l10n/l10n.dart';
 import 'aiko_navigation.dart';
 import 'aiko_sidebar.dart';
 import 'firebase_sync.dart';
@@ -34,13 +34,9 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     super.initState();
     _syncErrors = OfflineStore.errors.stream.listen((error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'A change could not sync. Check your connection and sign-in, then try again.',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.syncFailedMessage)));
     });
     // Drain anything captured while we were away (and start listeners if the
     // user enabled capture). Fire-and-forget — failures are non-fatal.
@@ -105,7 +101,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
       );
     }
 
-    final l10n = AppLocalizations.of(context);
+    final l10n = context.l10n;
     final destinations = [
       for (final path in aikoBottomBarPaths)
         aikoPrimaryDestinations.firstWhere((item) => item.path == path),

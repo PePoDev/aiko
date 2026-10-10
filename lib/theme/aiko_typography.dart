@@ -6,11 +6,9 @@ class AikoTypography {
 
   /// Thai-capable fallback for Latin display/body fonts (Hanken Grotesk and
   /// Manrope have no Thai glyphs, so Thai text would render as tofu boxes).
-  /// Referencing [GoogleFonts.notoSansThai] registers the family so the name
-  /// in [TextStyle.fontFamilyFallback] resolves at render time.
-  static final List<String> _thaiFallback = <String>[
-    GoogleFonts.notoSansThai().fontFamily!,
-  ];
+  /// Noto Sans Thai is bundled (pubspec `fonts:`), so Thai never depends on a
+  /// runtime font download.
+  static const List<String> _thaiFallback = <String>['NotoSansThai'];
 
   /// Headline text style using Hanken Grotesk (geometric, friendly).
   static TextStyle _headline({

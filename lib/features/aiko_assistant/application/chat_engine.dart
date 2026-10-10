@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../core/firebase/firebase_backend.dart';
@@ -50,8 +51,20 @@ class ChatReplyDone extends ChatReplyEvent {
   final String fullText;
 }
 
+/// Known chat failures; the controller shows them in the user's language.
+enum ChatFailure {
+  signInExpired,
+  forbidden,
+  rateLimited,
+  unavailable,
+  badResponse,
+  offline,
+}
+
 class ChatReplyError extends ChatReplyEvent {
   const ChatReplyError(this.error, {this.retryable = true});
+
+  /// A [ChatFailure], or the underlying exception for anything else.
   final Object error;
   final bool retryable;
 }
@@ -63,9 +76,11 @@ class HttpChatEngine {
   final String functionUrl;
   final http.Client? _client;
 
+  /// [locale] (for example `th`) tells Aiko which language to answer in.
   Stream<ChatReplyEvent> streamReply({
     required List<ChatMessage> history,
     AikoFinancialContext? context,
+    String? locale,
   }) {
     final controller = StreamController<ChatReplyEvent>();
     final client = _client ?? http.Client();
@@ -86,43 +101,35 @@ class HttpChatEngine {
 
         request.body = jsonEncode({
           'messages': messages,
+          if (locale != null) 'systemContext': {'locale': locale},
           if (context != null) 'financialContext': context.toJson(),
         });
 
         final response = await client.send(request);
         if (response.statusCode == 401) {
           controller.add(
-            const ChatReplyError('Sign-in expired.', retryable: false),
+            const ChatReplyError(ChatFailure.signInExpired, retryable: false),
           );
           await controller.close();
           return;
         }
         if (response.statusCode == 403) {
           controller.add(
-            const ChatReplyError(
-              "Aiko can't access this right now.",
-              retryable: false,
-            ),
+            const ChatReplyError(ChatFailure.forbidden, retryable: false),
           );
           await controller.close();
           return;
         }
         if (response.statusCode == 429) {
           controller.add(
-            const ChatReplyError(
-              'Slow down a bit — too many messages in a row.',
-              retryable: true,
-            ),
+            const ChatReplyError(ChatFailure.rateLimited, retryable: true),
           );
           await controller.close();
           return;
         }
         if (response.statusCode >= 400) {
-          controller.add(
-            ChatReplyError(
-              'Aiko service is unavailable (HTTP ${response.statusCode}).',
-            ),
-          );
+          debugPrint('[aiko-chat] HTTP ${response.statusCode}');
+          controller.add(const ChatReplyError(ChatFailure.unavailable));
           await controller.close();
           return;
         }
@@ -145,7 +152,8 @@ class HttpChatEngine {
             final json = jsonDecode(payload);
             if (json is Map<String, dynamic>) {
               if (json['error'] is String) {
-                controller.add(ChatReplyError(json['error'] as String));
+                debugPrint('[aiko-chat] ${json['error']}');
+                controller.add(const ChatReplyError(ChatFailure.unavailable));
                 break;
               }
               final delta = json['delta'];
@@ -158,7 +166,7 @@ class HttpChatEngine {
               }
             }
           } on FormatException {
-            controller.add(const ChatReplyError('Bad response from Aiko.'));
+            controller.add(const ChatReplyError(ChatFailure.badResponse));
             break;
           }
         }

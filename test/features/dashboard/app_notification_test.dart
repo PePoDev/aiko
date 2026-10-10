@@ -6,9 +6,12 @@ import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/dashboard/domain/app_notification.dart';
 import 'package:aiko/features/dashboard/domain/dashboard_due_item.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
+import 'package:aiko/l10n/app_localizations.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  final english = lookupAppLocalizations(const Locale('en'));
   final now = DateTime(2026, 6, 20);
   Money usd(String v) => Money(amount: Decimal.parse(v), currency: 'USD');
 
@@ -38,6 +41,7 @@ void main() {
       accounts: const [],
       dueItems: const [],
       asOf: now,
+      l10n: english,
     );
 
     expect(result, hasLength(1));
@@ -54,6 +58,7 @@ void main() {
         accounts: const [],
         dueItems: const [],
         asOf: now,
+        l10n: english,
       ),
       isEmpty,
     );
@@ -81,6 +86,7 @@ void main() {
       accounts: [goal],
       dueItems: [bill],
       asOf: now,
+      l10n: english,
     );
 
     expect(result.map((n) => n.group), [
@@ -105,11 +111,34 @@ void main() {
       ),
     );
 
-    final result = buildDashboardDueItems(accounts: [card], asOf: now);
+    final result = buildDashboardDueItems(
+      accounts: [card],
+      asOf: now,
+      l10n: english,
+    );
 
     expect(result, hasLength(1));
     expect(result.single.title, 'Visa payment');
     expect(result.single.amount, usd('120'));
     expect(result.single.dueDate, DateTime(2026, 6, 23));
+  });
+
+  test('notifications follow the selected language', () {
+    final thai = lookupAppLocalizations(const Locale('th'));
+    final bill = DashboardDueItem(
+      id: 'cc1',
+      title: 'Visa',
+      amount: usd('200'),
+      dueDate: now.add(const Duration(days: 1)),
+    );
+    final result = buildNotifications(
+      transactions: const [],
+      categories: const [],
+      accounts: const [],
+      dueItems: [bill],
+      asOf: now,
+      l10n: thai,
+    );
+    expect(result.single.subtitle, contains('พรุ่งนี้'));
   });
 }

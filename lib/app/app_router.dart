@@ -22,6 +22,7 @@ import '../features/transactions/presentation/transaction_list_screen.dart';
 import '../features/transactions/presentation/transaction_rules_screen.dart';
 import '../features/transaction_capture/transaction_capture_screen.dart';
 import '../features/travel_mode/presentation/travel_mode_screen.dart';
+import '../l10n/l10n.dart';
 import '../shared/widgets/screen_states.dart';
 import 'authenticated_shell.dart';
 
@@ -155,10 +156,10 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
-      appBar: AppBar(title: const Text('Aiko')),
+      appBar: AppBar(title: const Text('Aiko')), // l10n-ignore
       body: AikoScreenState.error(
-        title: 'Route not found',
-        message: 'Aiko could not open ${state.uri}.',
+        title: context.l10n.routeNotFoundTitle,
+        message: context.l10n.routeNotFoundMessage(state.uri),
       ),
     ),
   );

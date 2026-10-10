@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
@@ -14,6 +15,7 @@ import 'category_budget_sheet.dart';
 import 'category_editor_sheet.dart';
 import 'category_group_budget_sheet.dart';
 import 'category_group_editor_sheet.dart';
+import 'category_names.dart';
 import 'category_visual.dart';
 
 class CategoryManagementScreen extends ConsumerWidget {
@@ -29,10 +31,10 @@ class CategoryManagementScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Categories'),
+        title: Text(context.l10n.categoriesTab),
         actions: [
           PopupMenuButton<String>(
-            tooltip: 'Add',
+            tooltip: context.l10n.add,
             icon: const Icon(Icons.add),
             onSelected: (value) {
               switch (value) {
@@ -45,14 +47,14 @@ class CategoryManagementScreen extends ConsumerWidget {
                   showCategoryGroupEditorSheet(context);
               }
             },
-            itemBuilder: (context) => const [
+            itemBuilder: (context) => [
               PopupMenuItem<String>(
                 value: 'new_category',
                 child: Row(
                   children: [
                     Icon(Icons.category_outlined, size: 18),
                     SizedBox(width: 8),
-                    Text('New category'),
+                    Text(context.l10n.categoriesNewCategory),
                   ],
                 ),
               ),
@@ -62,7 +64,7 @@ class CategoryManagementScreen extends ConsumerWidget {
                   children: [
                     Icon(Icons.folder_outlined, size: 18),
                     SizedBox(width: 8),
-                    Text('New group'),
+                    Text(context.l10n.categoriesNewGroup),
                   ],
                 ),
               ),
@@ -87,9 +89,8 @@ class CategoryManagementScreen extends ConsumerWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               AikoScreenState.error(
-                title: 'Categories are unavailable',
-                message:
-                    'Aiko could not load your categories right now.\n$error',
+                title: context.l10n.categoriesUnavailableTitle,
+                message: context.l10n.categoriesUnavailableMessage,
               ),
             ],
           ),
@@ -99,11 +100,10 @@ class CategoryManagementScreen extends ConsumerWidget {
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   AikoScreenState.empty(
-                    title: 'No categories yet',
-                    message:
-                        'Create categories to organize transactions and budgets.',
+                    title: context.l10n.categoriesEmptyTitle,
+                    message: context.l10n.categoriesEmptyMessage,
                     action: PrimaryActionButton(
-                      label: 'Add Category',
+                      label: context.l10n.categoriesAddCategory,
                       icon: Icons.add_circle_outline,
                       onPressed: () => _showAddCategorySheet(context),
                     ),
@@ -137,7 +137,8 @@ class CategoryManagementScreen extends ConsumerWidget {
               children: [
                 _CategorySection(
                   key: const ValueKey('section-expense'),
-                  title: 'Expense',
+                  title: context.l10n.categoryTypeExpense,
+                  isExpense: true,
                   accent: AikoColors.dangerRed,
                   icon: Icons.arrow_upward_outlined,
                   categories: expenseCategories,
@@ -155,7 +156,8 @@ class CategoryManagementScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 _CategorySection(
                   key: const ValueKey('section-income'),
-                  title: 'Income',
+                  title: context.l10n.categoryTypeIncome,
+                  isExpense: false,
                   accent: AikoColors.successGreen,
                   icon: Icons.arrow_downward_outlined,
                   categories: incomeCategories,
@@ -195,6 +197,7 @@ class _CategorySection extends StatefulWidget {
   const _CategorySection({
     super.key,
     required this.title,
+    required this.isExpense,
     required this.accent,
     required this.icon,
     required this.categories,
@@ -206,6 +209,7 @@ class _CategorySection extends StatefulWidget {
   });
 
   final String title;
+  final bool isExpense;
   final Color accent;
   final IconData icon;
   final List<Category> categories;
@@ -223,12 +227,12 @@ class _CategorySectionState extends State<_CategorySection> {
   /// Group ids the user has expanded. Absent == collapsed (the default).
   final Set<String> _expanded = <String>{};
 
-  String get _emptyTitle => widget.title == 'Expense'
-      ? 'No expense categories'
-      : 'No income categories';
-  String get _emptyMessage => widget.title == 'Expense'
-      ? 'Add expense categories for bills, shopping, and daily spending.'
-      : 'Add income categories for salary, side work, and other money coming in.';
+  String get _emptyTitle => widget.isExpense
+      ? context.l10n.categoriesNoExpense
+      : context.l10n.categoriesNoIncome;
+  String get _emptyMessage => widget.isExpense
+      ? context.l10n.categoriesNoExpenseMessage
+      : context.l10n.categoriesNoIncomeMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -455,14 +459,14 @@ class _GroupAccordion extends StatelessWidget {
           _BudgetSegment(
             aikoHexColor(c.color),
             totals.amountForCategory(c.id)!.amount.toDouble(),
-            c.name,
+            c.displayName(context.l10n),
           ),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _GroupHeader(
-          title: entry.group.name,
+          title: entry.group.displayName(context.l10n),
           total: entry.total,
           budget: entry.group.budgetLimit,
           segments: segments,
@@ -551,8 +555,8 @@ class _GroupHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final subtitle = count > 0
-        ? '$count this month'
-        : '$categoryCount ${categoryCount == 1 ? 'category' : 'categories'}';
+        ? context.l10n.categoriesThisMonthCount(count)
+        : context.l10n.categoriesCategoryCount(categoryCount);
     return InkWell(
       onTap: onToggle,
       child: Padding(
@@ -607,7 +611,7 @@ class _GroupHeader extends StatelessWidget {
                 if (onEdit != null)
                   IconButton(
                     icon: const Icon(Icons.tune, size: 18),
-                    tooltip: 'Edit group',
+                    tooltip: context.l10n.categoriesEditGroup,
                     visualDensity: VisualDensity.compact,
                     color: theme.colorScheme.onSurfaceVariant,
                     onPressed: onEdit,
@@ -616,7 +620,9 @@ class _GroupHeader extends StatelessWidget {
                   const SizedBox(width: 8),
                 IconButton(
                   key: ValueKey('group-${title.toLowerCase()}-toggle'),
-                  tooltip: expanded ? 'Collapse group' : 'Expand group',
+                  tooltip: expanded
+                      ? context.l10n.categoriesCollapseGroup
+                      : context.l10n.categoriesExpandGroup,
                   visualDensity: VisualDensity.compact,
                   color: theme.colorScheme.onSurfaceVariant,
                   onPressed: onToggle,
@@ -852,11 +858,11 @@ class _CategoryRow extends StatelessWidget {
     final hasActivity = count > 0;
     final limit = category.hasBudget ? category.monthlyLimit : null;
     final leftSub = limit != null
-        ? '${(amount ?? Money.zero(limit.currency)).format()} of '
-              '${limit.format()} spent'
-        : (hasActivity
-              ? (count == 1 ? '1 this month' : '$count this month')
-              : null);
+        ? context.l10n.categoriesSpentOf(
+            (amount ?? Money.zero(limit.currency)).format(),
+            limit.format(),
+          )
+        : (hasActivity ? context.l10n.categoriesThisMonthCount(count) : null);
 
     return InkWell(
       key: ValueKey('category-row-${category.id}'),
@@ -887,7 +893,7 @@ class _CategoryRow extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            category.name,
+                            category.displayName(context.l10n),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodyMedium?.copyWith(
@@ -1021,7 +1027,7 @@ class _AddBudgetChip extends StatelessWidget {
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Text(
-        '+ Budget',
+        context.l10n.categoriesAddBudget,
         style: theme.textTheme.labelSmall?.copyWith(
           color: muted,
           fontWeight: FontWeight.w600,
@@ -1076,10 +1082,13 @@ class _RemainingFirst extends StatelessWidget {
     final daysLeft = _periodDaysLeft(period);
     final String sub;
     if (over) {
-      sub = 'over budget';
+      sub = context.l10n.categoriesOverBudget;
     } else {
       final daily = remaining.amount.toDouble() / daysLeft;
-      sub = '${daily.toStringAsFixed(0)}/day · $daysLeft left';
+      sub = context.l10n.categoriesPerDayLeft(
+        daily.toStringAsFixed(0),
+        daysLeft,
+      );
     }
 
     return Column(

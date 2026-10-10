@@ -40,7 +40,7 @@ export const aikoChat = onRequest({cors:true, timeoutSeconds:300, secrets}, asyn
   const model = buildModel();
   if (!model) { res.status(503).json({error:'AI provider is not configured.'}); return; }
   const profile = (await db.doc(`users/${uid}/profiles/${uid}`).get()).data();
-  const messages: Record<string,unknown>[] = [{role:'system',content:systemPromptFor(profile?.base_currency ?? 'THB', req.body.financialContext)},
+  const messages: Record<string,unknown>[] = [{role:'system',content:systemPromptFor(profile?.base_currency ?? 'THB', req.body.financialContext, req.body.systemContext?.locale)},
     ...req.body.messages.filter(m => ['user','assistant'].includes(m.role)).slice(-10).map(m => ({role:m.role,content:m.content.slice(0,1000)}))];
   await resolveTools(uid,messages,model);
   res.set({'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform'});
@@ -81,6 +81,14 @@ export const redeemLinePairing = onCall(async request => {
   return {connected:true};
 });
 
+// LINE has no app language: answer in Thai when the user writes Thai, in
+// English otherwise, and in both when there is no text (a new follower).
+function lineCopy(text: string | undefined): (en: string, th: string) => string {
+  if (text === undefined || text.trim() === '') return (en, th) => `${th}\n\n${en}`;
+  const thai = /[\u0E00-\u0E7F]/.test(text);
+  return (en, th) => (thai ? th : en);
+}
+
 export const lineWebhook = onRequest({secrets:lineSecrets,timeoutSeconds:300},async(req,res)=>{
   const secret=process.env.LINE_CHANNEL_SECRET;
   const accessToken=process.env.LINE_CHANNEL_ACCESS_TOKEN;
@@ -93,12 +101,19 @@ export const lineWebhook = onRequest({secrets:lineSecrets,timeoutSeconds:300},as
     if (!lineId || !event.replyToken || !['follow','message'].includes(event.type)) continue;
     if (event.type==='message' && event.message?.type!=='text') continue;
     const link=(await db.collection('line_links').doc(lineId).get()).data();
-    let answer='Aiko is not configured for cloud chat yet. Please try again later.';
+    const say=lineCopy(event.type==='message' ? String(event.message?.text ?? '') : undefined);
+    let answer=say(
+      'Aiko is not configured for cloud chat yet. Please try again later.',
+      'Aiko ยังไม่พร้อมแชตผ่านคลาวด์ โปรดลองใหม่ภายหลังนะคะ',
+    );
     if (!link) {
       const alphabet='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
       const code=Array.from({length:6},()=>alphabet[randomInt(alphabet.length)]).join('');
       await db.collection('line_pairings').doc(createHash('sha256').update(code).digest('hex')).set({line_user_id:lineId,expires_at:Timestamp.fromMillis(Date.now()+600000)});
-      answer=`Open Aiko → Profile → Connect LINE and enter ${code}. This code expires in 10 minutes.`;
+      answer=say(
+        `Open Aiko → Profile → Connect LINE and enter ${code}. This code expires in 10 minutes.`,
+        `เปิดแอป Aiko → โปรไฟล์ → เชื่อมต่อ LINE แล้วกรอกรหัส ${code} รหัสนี้หมดอายุใน 10 นาทีค่ะ`,
+      );
     } else {
       // Validate that the account still exists; LINE never holds a user's auth tokens.
       await getAuth().getUser(link.uid);

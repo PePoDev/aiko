@@ -1,35 +1,38 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
+
 class AikoScreenState extends StatelessWidget {
   const AikoScreenState({
-    required this.title,
-    required this.message,
+    required String this.title,
+    required String this.message,
     this.icon = Icons.info_outline,
     this.action,
     super.key,
   });
 
-  final String title;
-  final String message;
+  /// Null only for [AikoScreenState.loading], which uses localized defaults.
+  final String? title;
+  final String? message;
   final IconData icon;
   final Widget? action;
 
   const AikoScreenState.loading({super.key})
-    : title = 'Loading',
-      message = 'Aiko is preparing your money view.',
+    : title = null,
+      message = null,
       icon = Icons.hourglass_empty,
       action = const CircularProgressIndicator();
 
   const AikoScreenState.empty({
-    required this.title,
-    required this.message,
+    required String this.title,
+    required String this.message,
     this.action,
     super.key,
   }) : icon = Icons.inbox_outlined;
 
   const AikoScreenState.error({
-    required this.title,
-    required this.message,
+    required String this.title,
+    required String this.message,
     this.action,
     super.key,
   }) : icon = Icons.error_outline;
@@ -38,6 +41,8 @@ class AikoScreenState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final title = this.title ?? context.l10n.screenStateLoadingTitle;
+    final message = this.message ?? context.l10n.screenStateLoadingMessage;
 
     return Center(
       child: Semantics(

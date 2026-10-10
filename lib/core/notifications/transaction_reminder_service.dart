@@ -4,6 +4,8 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../l10n/l10n.dart';
+
 /// How a reminder should repeat. Maps a recurring cadence onto the plugin's
 /// native [DateTimeComponents] matching, so one scheduled notification recurs
 /// forever instead of us booking one slot per occurrence.
@@ -22,7 +24,6 @@ class TransactionReminderService {
       FlutterLocalNotificationsPlugin();
 
   static const String _channelId = 'transaction_reminders';
-  static const String _channelName = 'Transaction reminders';
 
   bool _ready = false;
 
@@ -100,20 +101,21 @@ class TransactionReminderService {
 
     try {
       await _requestPermission();
+      final l10n = currentL10n();
       await _plugin.zonedSchedule(
         _notificationId(transactionId),
         title,
         body,
         tz.TZDateTime.from(when, tz.local),
-        const NotificationDetails(
+        NotificationDetails(
           android: AndroidNotificationDetails(
             _channelId,
-            _channelName,
-            channelDescription: 'Reminders for upcoming transactions',
+            l10n.reminderChannelName,
+            channelDescription: l10n.reminderChannelDescription,
             importance: Importance.high,
             priority: Priority.high,
           ),
-          iOS: DarwinNotificationDetails(),
+          iOS: const DarwinNotificationDetails(),
         ),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: components,

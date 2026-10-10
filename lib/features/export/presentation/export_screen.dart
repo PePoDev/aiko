@@ -1,3 +1,6 @@
+import '../../../l10n/domain_labels.dart';
+import '../../../l10n/l10n.dart';
+import '../../categories/presentation/category_names.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:csv/csv.dart';
@@ -27,10 +30,18 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
 
   Future<void> _exportData() async {
     setState(() => _isExporting = true);
+    final l10n = context.l10n;
 
     try {
       final transactions = await ref.read(transactionsProvider.future);
       final categories = await ref.read(categoriesProvider.future);
+
+      final categoriesById = {for (final c in categories) c.id: c};
+      String categoryName(FinanceTransaction tx) =>
+          categoriesById[tx.categoryId]?.displayName(l10n) ??
+          l10n.uncategorized;
+      const htmlEscape = HtmlEscape();
+      String escape(String text) => htmlEscape.convert(text);
 
       final now = DateTime.now();
       final filtered = transactions.where((tx) {
@@ -45,7 +56,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       }).toList();
 
       if (filtered.isEmpty) {
-        _showMessage('No transactions found in this date range to export.');
+        _showMessage(l10n.exportNoTransactions);
         setState(() => _isExporting = false);
         return;
       }
@@ -54,19 +65,22 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
 
       if (_format == 'csv' || _format == 'excel') {
         final List<List<dynamic>> rows = [
-          ['Date', 'Merchant', 'Category', 'Type', 'Amount', 'Note'],
+          [
+            l10n.exportColumnDate,
+            l10n.exportColumnMerchant,
+            l10n.exportColumnCategory,
+            l10n.exportColumnType,
+            l10n.exportColumnAmount,
+            l10n.exportColumnNote,
+          ],
         ];
 
         for (final tx in filtered) {
-          final cat = categories.firstWhere(
-            (c) => c.id == tx.categoryId,
-            orElse: () => categories.first,
-          );
           rows.add([
             DateFormat('yyyy-MM-dd HH:mm').format(tx.date),
             tx.merchant ?? '',
-            cat.name,
-            tx.type.name,
+            categoryName(tx),
+            tx.type.label(l10n),
             tx.amount.amount.toString(),
             tx.note ?? '',
           ]);
@@ -81,7 +95,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
           ShareParams(
             files: [XFile.fromData(bytes, mimeType: 'text/csv')],
             fileNameOverrides: ['aiko_export_$timestamp.csv'],
-            text: 'Aiko Financial Export',
+            text: l10n.exportShareCsvText,
           ),
         );
       } else if (_format == 'pdf') {
@@ -101,10 +115,6 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
 
         final StringBuffer rowsBuffer = StringBuffer();
         for (final tx in filtered) {
-          final cat = categories.firstWhere(
-            (c) => c.id == tx.categoryId,
-            orElse: () => categories.first,
-          );
           final dateStr = DateFormat('yyyy-MM-dd HH:mm').format(tx.date);
           final amountClass = tx.type == TransactionType.income
               ? 'amount-income'
@@ -114,9 +124,9 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
           rowsBuffer.write('''
             <tr>
               <td>$dateStr</td>
-              <td>${tx.merchant ?? 'N/A'}</td>
-              <td>${cat.name}</td>
-              <td class="type-caps">${tx.type.name}</td>
+              <td>${escape(tx.merchant ?? '—')}</td>
+              <td>${escape(categoryName(tx))}</td>
+              <td class="type-caps">${escape(tx.type.label(l10n))}</td>
               <td class="$amountClass">$amountSign ${currencyFormat.format(tx.amount.amount.toDouble())}</td>
             </tr>
           ''');
@@ -125,10 +135,10 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
         final htmlContent =
             '''
 <!DOCTYPE html>
-<html>
+<html lang="${l10n.localeName}">
 <head>
   <meta charset="utf-8">
-  <title>Aiko Financial Statement</title>
+  <title>${l10n.exportStatementTitle}</title>
   <style>
     body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; margin: 40px; line-height: 1.6; }
     h1 { color: #3B82F6; font-size: 28px; margin-bottom: 5px; }
@@ -150,33 +160,33 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   </style>
 </head>
 <body>
-  <h1>Aiko Financial Statement</h1>
-  <div class="subtitle">Generated on ${DateFormat('MMMM dd, yyyy HH:mm').format(DateTime.now())} | Your financial companion: Aiko</div>
+  <h1>${l10n.exportStatementTitle}</h1>
+  <div class="subtitle">${escape(l10n.exportGeneratedOn(DateFormat.yMMMMd().add_Hm().format(DateTime.now())))}</div>
   
   <div class="card-row">
     <div class="card income">
-      <div class="card-title">Total Income</div>
+      <div class="card-title">${l10n.exportTotalIncome}</div>
       <div class="card-value">${currencyFormat.format(incomeVal)}</div>
     </div>
     <div class="card expense">
-      <div class="card-title">Total Expenses</div>
+      <div class="card-title">${l10n.exportTotalExpenses}</div>
       <div class="card-value">${currencyFormat.format(expenseVal)}</div>
     </div>
     <div class="card">
-      <div class="card-title">Net Cash Flow</div>
+      <div class="card-title">${l10n.exportNetCashFlow}</div>
       <div class="card-value">${currencyFormat.format(netVal)}</div>
     </div>
   </div>
 
-  <h2>Transaction Details</h2>
+  <h2>${l10n.exportTransactionDetails}</h2>
   <table>
     <thead>
       <tr>
-        <th>Date</th>
-        <th>Merchant</th>
-        <th>Category</th>
-        <th>Type</th>
-        <th>Amount</th>
+        <th>${l10n.exportColumnDate}</th>
+        <th>${l10n.exportColumnMerchant}</th>
+        <th>${l10n.exportColumnCategory}</th>
+        <th>${l10n.exportColumnType}</th>
+        <th>${l10n.exportColumnAmount}</th>
       </tr>
     </thead>
     <tbody>
@@ -184,7 +194,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     </tbody>
   </table>
   
-  <div class="footer">Aiko — Supportive, smart, and secure personal finance tracker.</div>
+  <div class="footer">${escape(l10n.exportFooter)}</div>
 </body>
 </html>
         ''';
@@ -198,20 +208,22 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
               ),
             ],
             fileNameOverrides: ['aiko_statement_$timestamp.html'],
-            text: 'Aiko PDF / HTML Statement',
+            text: l10n.exportShareStatementText,
           ),
         );
       }
 
-      _showMessage('Export generated successfully!');
+      _showMessage(l10n.exportSuccess);
     } catch (e) {
-      _showMessage('Unable to perform export: $e');
+      debugPrint('[export] failed: $e');
+      _showMessage(l10n.exportFailed);
     } finally {
-      setState(() => _isExporting = false);
+      if (mounted) setState(() => _isExporting = false);
     }
   }
 
   void _showMessage(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
@@ -220,36 +232,39 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Export Hub')),
+      appBar: AppBar(title: Text(context.l10n.exportTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           // Export Settings Card
           FinanceCard(
-            title: 'Export Settings',
+            title: context.l10n.exportSettings,
             icon: Icons.tune_outlined,
             accentColor: AikoColors.deepBlue,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Date Range',
+                  context.l10n.exportDateRange,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
                   child: SegmentedButton<String>(
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: 'current_month',
-                        label: Text('This Month'),
+                        label: Text(context.l10n.exportThisMonth),
                       ),
                       ButtonSegment(
                         value: 'last_month',
-                        label: Text('Last Month'),
+                        label: Text(context.l10n.exportLastMonth),
                       ),
-                      ButtonSegment(value: 'all_time', label: Text('All Time')),
+                      ButtonSegment(
+                        value: 'all_time',
+                        label: Text(context.l10n.exportAllTime),
+                      ),
                     ],
                     selected: {_dateRange},
                     onSelectionChanged: (Set<String> newSelection) {
@@ -258,15 +273,27 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Text('Format', style: Theme.of(context).textTheme.titleSmall),
+                Text(
+                  context.l10n.exportFormat,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
                 const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
                   child: SegmentedButton<String>(
                     segments: const [
-                      ButtonSegment(value: 'csv', label: Text('CSV')),
-                      ButtonSegment(value: 'excel', label: Text('Excel')),
-                      ButtonSegment(value: 'pdf', label: Text('PDF')),
+                      ButtonSegment(
+                        value: 'csv',
+                        label: Text('CSV'), // l10n-ignore
+                      ),
+                      ButtonSegment(
+                        value: 'excel',
+                        label: Text('Excel'), // l10n-ignore
+                      ),
+                      ButtonSegment(
+                        value: 'pdf',
+                        label: Text('PDF'), // l10n-ignore
+                      ),
                     ],
                     selected: {_format},
                     onSelectionChanged: (Set<String> newSelection) {
@@ -292,12 +319,14 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                   )
                 : const Icon(Icons.share_outlined),
             label: Text(
-              _isExporting ? 'Generating Report...' : 'Share Export Document',
+              _isExporting
+                  ? context.l10n.exportGenerating
+                  : context.l10n.exportShare,
             ),
           ),
           const SizedBox(height: 16),
           Text(
-            'Exports are generated completely offline on your device to guarantee absolute privacy.',
+            context.l10n.exportPrivacyNote,
             style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),

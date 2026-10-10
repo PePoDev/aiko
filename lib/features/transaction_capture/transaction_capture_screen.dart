@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/widgets/aiko_data_widgets.dart';
 import '../accounts/domain/account.dart';
 import 'transaction_capture.dart';
@@ -68,7 +69,11 @@ class _TransactionCaptureScreenState
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(granted ? 'SMS access granted' : 'SMS access denied'),
+        content: Text(
+          granted
+              ? context.l10n.captureSmsGranted
+              : context.l10n.captureSmsDenied,
+        ),
       ),
     );
   }
@@ -86,22 +91,19 @@ class _TransactionCaptureScreenState
     final accounts = ref.watch(accountsProvider).value ?? const <Account>[];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Auto-capture')),
+      appBar: AppBar(title: Text(context.l10n.captureTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          const AikoInlineNotice(
-            title: 'How auto-capture works',
-            message:
-                'Aiko reads incoming bank SMS and banking/wallet notifications, '
-                'extracts the amount, and logs a transaction on your chosen '
-                'account. Parsing is best-effort — review captured entries.',
+          AikoInlineNotice(
+            title: context.l10n.captureHowItWorks,
+            message: context.l10n.captureHowItWorksBody,
           ),
           const SizedBox(height: 16),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Enable auto-capture'),
-            subtitle: const Text('Listen for new SMS and notifications'),
+            title: Text(context.l10n.captureEnable),
+            subtitle: Text(context.l10n.captureEnableSubtitle),
             value: android && _settings.enabled,
             onChanged: android
                 ? (value) => _persist(_settings.copyWith(enabled: value))
@@ -112,24 +114,28 @@ class _TransactionCaptureScreenState
             enabled: android,
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.notifications_active_outlined),
-            title: const Text('Notification access'),
-            subtitle: Text(_notificationsGranted ? 'Granted' : 'Not granted'),
+            title: Text(context.l10n.captureNotificationAccess),
+            subtitle: Text(
+              _notificationsGranted
+                  ? context.l10n.captureGranted
+                  : context.l10n.captureNotGranted,
+            ),
             trailing: FilledButton(
               onPressed: !android || _notificationsGranted
                   ? null
                   : _grantNotifications,
-              child: const Text('Grant'),
+              child: Text(context.l10n.captureGrant),
             ),
           ),
           ListTile(
             enabled: android,
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.sms_outlined),
-            title: const Text('SMS access'),
-            subtitle: const Text('Read incoming bank SMS'),
+            title: Text(context.l10n.captureSmsAccess),
+            subtitle: Text(context.l10n.captureSmsAccessSubtitle),
             trailing: FilledButton(
               onPressed: android ? _grantSms : null,
-              child: const Text('Grant'),
+              child: Text(context.l10n.captureGrant),
             ),
           ),
           const Divider(),
@@ -137,19 +143,19 @@ class _TransactionCaptureScreenState
             enabled: android,
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.account_balance_wallet_outlined),
-            title: const Text('Capture account'),
+            title: Text(context.l10n.captureAccount),
             subtitle: Text(
               accounts
                       .where((a) => a.id == _settings.accountId)
                       .map((a) => a.name)
                       .firstOrNull ??
-                  'Required — pick where captured transactions land',
+                  context.l10n.captureAccountRequired,
             ),
             trailing: DropdownButton<String>(
               value: accounts.any((a) => a.id == _settings.accountId)
                   ? _settings.accountId
                   : null,
-              hint: const Text('Select'),
+              hint: Text(context.l10n.select),
               items: [
                 for (final account in accounts)
                   DropdownMenuItem(

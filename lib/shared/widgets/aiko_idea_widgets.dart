@@ -36,7 +36,7 @@ class AikoWordmark extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Aiko',
+          'Aiko', // l10n-ignore
           style: Theme.of(context).textTheme.displaySmall?.copyWith(
             color: AikoColors.deepBlue,
             fontSize: size,

@@ -28,7 +28,8 @@ class VoiceTransactionParser {
     final normalized = input.trim().toLowerCase();
     final amount = _amount(normalized, currency);
     final type =
-        RegExp(r'\b(earned|received|income|paid me)\b').hasMatch(normalized)
+        RegExp(r'\b(earned|received|income|paid me)\b').hasMatch(normalized) ||
+            _thaiIncome.hasMatch(normalized)
         ? TransactionType.income
         : TransactionType.expense;
     return VoiceTransactionDraft(
@@ -40,12 +41,17 @@ class VoiceTransactionParser {
     );
   }
 
+  /// Thai income phrases ("ได้รับเงิน", "เงินเดือนเข้า", "รายได้"). Thai has
+  /// no spaces between words, so these match anywhere in the phrase.
+  static final _thaiIncome = RegExp('ได้รับ|ได้เงิน|รับเงิน|รายได้|เงินเดือน');
+
   Money _amount(String input, String currency) {
     final numeric = RegExp(
-      r'(?:\$|usd\s*)?(\d+(?:\.\d{1,2})?)',
+      r'(?:\$|usd\s*|฿\s*)?(\d{1,3}(?:,\d{3})+|\d+)(\.\d{1,2})?',
     ).firstMatch(input);
     if (numeric != null) {
-      return Money.parse(numeric.group(1)!, currency);
+      final whole = numeric.group(1)!.replaceAll(',', '');
+      return Money.parse('$whole${numeric.group(2) ?? ''}', currency);
     }
     final words = <String, String>{
       'one': '1',
@@ -71,14 +77,14 @@ class VoiceTransactionParser {
   }
 
   DateTime _date(String input, DateTime now) {
-    if (input.contains('yesterday')) {
+    if (input.contains('yesterday') || input.contains('เมื่อวาน')) {
       return DateTime(
         now.year,
         now.month,
         now.day,
       ).subtract(const Duration(days: 1));
     }
-    if (input.contains('tomorrow')) {
+    if (input.contains('tomorrow') || input.contains('พรุ่งนี้')) {
       return DateTime(
         now.year,
         now.month,
@@ -92,6 +98,10 @@ class VoiceTransactionParser {
     final match = RegExp(
       r'\b(?:at|on|for|from)\s+([a-z0-9 &.-]+)',
     ).firstMatch(input);
-    return match?.group(1)?.trim();
+    if (match != null) return match.group(1)?.trim();
+    // Thai: "…ที่ร้านสตาร์บัคส์ เมื่อวาน" → the word after ที่(ร้าน) or จาก(ร้าน).
+    final thai = RegExp(r'(?:ที่|จาก)(?:ร้าน)?\s*([^\s\d]+)').firstMatch(input);
+    final name = thai?.group(1)?.trim();
+    return name == null || name.isEmpty ? null : name;
   }
 }

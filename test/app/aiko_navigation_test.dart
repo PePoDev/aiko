@@ -1,5 +1,7 @@
 import 'package:aiko/app/aiko_navigation.dart';
 import 'package:aiko/app/app_router.dart';
+import 'package:aiko/l10n/app_localizations.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
@@ -23,13 +25,15 @@ Set<String> _routerPaths() {
 }
 
 void main() {
+  final english = lookupAppLocalizations(const Locale('en'));
+
   test('Settings omits retired planning screens', () {
     expect(
       aikoNavigationItems.map((item) => item.path),
       isNot(contains('/settings/pace')),
     );
     expect(
-      aikoNavigationItems.map((item) => item.label),
+      aikoNavigationItems.map((item) => item.label(english)),
       isNot(contains('Budget: Pace')),
     );
     expect(
@@ -37,7 +41,7 @@ void main() {
       isNot(contains('/settings/safe-to-spend')),
     );
     expect(
-      aikoNavigationItems.map((item) => item.label),
+      aikoNavigationItems.map((item) => item.label(english)),
       isNot(contains('Budget: Safe to Spend')),
     );
     expect(
@@ -45,7 +49,7 @@ void main() {
       isNot(contains('/settings/cash-flow-sankey')),
     );
     expect(
-      aikoNavigationItems.map((item) => item.label),
+      aikoNavigationItems.map((item) => item.label(english)),
       isNot(contains('Budget: Cash Flow (Sankey)')),
     );
     expect(
@@ -53,7 +57,7 @@ void main() {
       isNot(contains('/settings/cash-flow')),
     );
     expect(
-      aikoNavigationItems.map((item) => item.label),
+      aikoNavigationItems.map((item) => item.label(english)),
       isNot(contains('Budget: Cash Flow')),
     );
     expect(aikoNavigationItems.first.path, '/settings/chance-of-success');
@@ -145,5 +149,16 @@ void main() {
       );
       expect(aikoNavigationTarget('/home', reselected: true), '/home');
     });
+  });
+
+  test('every tool has an English and Thai label and description', () {
+    final thai = lookupAppLocalizations(const Locale('th'));
+    for (final tool in aikoNavigationItems) {
+      for (final l10n in [english, thai]) {
+        expect(tool.label(l10n), isNotEmpty);
+        expect(tool.description(l10n), isNotEmpty);
+      }
+      expect(tool.label(thai), isNot(tool.label(english)));
+    }
   });
 }

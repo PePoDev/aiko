@@ -1,7 +1,10 @@
 import 'package:decimal/decimal.dart';
+import 'package:flutter/widgets.dart';
 
 import '../../../core/money/money.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../categories/domain/category.dart';
+import '../../categories/presentation/category_names.dart';
 import '../../transactions/domain/transaction.dart';
 import '../domain/monthly_report.dart';
 
@@ -14,11 +17,14 @@ class MonthlyReportService {
   /// How many category slices to show before folding the rest into "Other".
   final int maxSlices;
 
+  /// Slice names use [l10n]'s language (English when omitted).
   MonthlyReport build({
     required List<FinanceTransaction> transactions,
     required List<Category> categories,
     required DateTime asOf,
+    AppLocalizations? l10n,
   }) {
+    final strings = l10n ?? lookupAppLocalizations(const Locale('en'));
     final currency = _currency(transactions, categories);
     final thisMonth = _DateRange.ofMonth(asOf.year, asOf.month);
     final lastMonth = _DateRange.ofMonth(asOf.year, asOf.month - 1);
@@ -42,7 +48,7 @@ class MonthlyReportService {
       expensesChangePct: _changePct(current.expenses, previous.expenses),
       netChangePct: _changePct(net, lastNet),
       savedVsLastMonth: net - lastNet,
-      slices: _slices(transactions, thisMonth, categories, currency),
+      slices: _slices(transactions, thisMonth, categories, currency, strings),
     );
   }
 
@@ -72,6 +78,7 @@ class MonthlyReportService {
     _DateRange range,
     List<Category> categories,
     String currency,
+    AppLocalizations l10n,
   ) {
     final byCategory = <String?, Decimal>{};
     for (final t in transactions) {
@@ -97,7 +104,7 @@ class MonthlyReportService {
       final category = lookup[entry.key];
       slices.add(
         MonthlyReportSlice(
-          name: category?.name ?? 'Uncategorized',
+          name: category?.displayName(l10n) ?? l10n.uncategorized,
           colorHex: category?.color ?? '#778196',
           amount: Money(amount: entry.value, currency: currency),
         ),
@@ -106,7 +113,7 @@ class MonthlyReportService {
     if (otherTotal > Decimal.zero) {
       slices.add(
         MonthlyReportSlice(
-          name: 'Other',
+          name: l10n.reportOtherSlice,
           colorHex: '#778196',
           amount: Money(amount: otherTotal, currency: currency),
         ),

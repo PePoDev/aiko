@@ -1,6 +1,8 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../l10n/domain_labels.dart';
+import '../../../../l10n/l10n.dart';
 import '../../domain/account_type.dart';
 
 class AccountCommonFields extends StatelessWidget {
@@ -45,25 +47,30 @@ class AccountCommonFields extends StatelessWidget {
       children: [
         TextFormField(
           controller: nameController,
-          decoration: const InputDecoration(
-            labelText: 'Account Name',
-            hintText: 'e.g. Daily Expenses, Savings Wallet',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountFormName,
+            hintText: context.l10n.accountFormNameHint,
             prefixIcon: Icon(Icons.badge_outlined),
           ),
           onChanged: (v) => onChanged(name: v),
           validator: (v) => v == null || v.trim().isEmpty
-              ? 'Please enter a name for the account.'
+              ? context.l10n.accountFormNameRequired
               : null,
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<AccountType>(
           initialValue: initialType,
-          decoration: const InputDecoration(
-            labelText: 'Account Type',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountFormType,
             prefixIcon: Icon(Icons.account_balance_wallet_outlined),
           ),
           items: AccountType.values
-              .map((t) => DropdownMenuItem(value: t, child: Text(_label(t))))
+              .map(
+                (t) => DropdownMenuItem(
+                  value: t,
+                  child: Text(t.label(context.l10n)),
+                ),
+              )
               .toList(),
           onChanged: (v) {
             if (v != null) onChanged(type: v);
@@ -75,10 +82,10 @@ class AccountCommonFields extends StatelessWidget {
             controller: institutionController,
             enabled: !institutionDisabled,
             decoration: InputDecoration(
-              labelText: 'Institution Name',
+              labelText: context.l10n.accountFormInstitution,
               hintText: institutionDisabled
-                  ? 'Not used for this account type.'
-                  : 'e.g. Chase, PayPal, Coinbase',
+                  ? context.l10n.accountFormInstitutionNotUsed
+                  : context.l10n.accountFormInstitutionHint,
               prefixIcon: const Icon(Icons.corporate_fare_outlined),
             ),
             onChanged: (v) => onChanged(institution: v),
@@ -87,8 +94,8 @@ class AccountCommonFields extends StatelessWidget {
         ],
         DropdownButtonFormField<String>(
           initialValue: initialCurrency,
-          decoration: const InputDecoration(
-            labelText: 'Currency',
+          decoration: InputDecoration(
+            labelText: context.l10n.txCurrency,
             prefixIcon: Icon(Icons.payments_outlined),
           ),
           items: currencies
@@ -107,7 +114,7 @@ class AccountCommonFields extends StatelessWidget {
         TextFormField(
           controller: balanceController,
           decoration: InputDecoration(
-            labelText: 'Current Balance',
+            labelText: context.l10n.accountFormCurrentBalance,
             hintText: '0.00',
             prefixIcon: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -127,36 +134,27 @@ class AccountCommonFields extends StatelessWidget {
           onChanged: (v) => onChanged(balance: v),
           validator: (v) {
             final t = v?.trim() ?? '';
-            if (t.isEmpty) return 'Please enter a balance.';
-            if (Decimal.tryParse(t) == null) return 'Enter a valid number.';
+            if (t.isEmpty) return context.l10n.accountFormBalanceRequired;
+            if (Decimal.tryParse(t) == null) {
+              return context.l10n.accountFormEnterValidNumber;
+            }
             return null;
           },
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Include in net worth'),
+          title: Text(context.l10n.accountFormIncludeInNetWorth),
           value: initialIncludeInNetWorth,
           onChanged: (v) => onChanged(includeInNetWorth: v),
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Active account'),
+          title: Text(context.l10n.accountFormActive),
           value: initialIsActive,
           onChanged: (v) => onChanged(isActive: v),
         ),
       ],
     );
-  }
-
-  String _label(AccountType t) {
-    final n = t.name;
-    final buf = StringBuffer();
-    for (var i = 0; i < n.length; i++) {
-      final c = n[i];
-      if (i > 0 && c.toUpperCase() == c) buf.write(' ');
-      buf.write(i == 0 ? c.toUpperCase() : c);
-    }
-    return buf.toString();
   }
 
   String _currencySymbol(String currency) {

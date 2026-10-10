@@ -4,13 +4,22 @@ import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/config/app_config.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../application/calculator_services.dart';
 
 class CalculatorDetailScreen extends ConsumerStatefulWidget {
-  const CalculatorDetailScreen({required this.title, super.key});
+  const CalculatorDetailScreen({
+    required this.calculatorId,
+    required this.title,
+    super.key,
+  });
 
+  /// Stable English id from the calculator library.
+  final String calculatorId;
+
+  /// Title in the current language.
   final String title;
 
   @override
@@ -27,11 +36,18 @@ class _CalculatorDetailScreenState
   @override
   void initState() {
     super.initState();
-    _config = _CalculatorConfig.fromTitle(widget.title);
+    _config = _CalculatorConfig.fromId(widget.calculatorId, currentL10n());
     _controllers = {
       for (final field in _config.fields)
         field.id: TextEditingController(text: field.initialValue),
     };
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Same fields and ids; labels in the current language.
+    _config = _CalculatorConfig.fromId(widget.calculatorId, context.l10n);
   }
 
   @override
@@ -65,10 +81,23 @@ class _CalculatorDetailScreenState
         context,
       ).showSnackBar(SnackBar(content: Text(error.message)));
     } on ArgumentError catch (error) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_argumentErrorMessage(error, context.l10n))),
+      );
     }
+  }
+
+  /// [CalculatorServices] validation errors in the user's language.
+  String _argumentErrorMessage(ArgumentError error, AppLocalizations l10n) {
+    return switch ('${error.message}') {
+      'Term must be positive.' => l10n.calcErrorTermPositive,
+      'Initial investment must be positive.' =>
+        l10n.calcErrorInvestmentPositive,
+      'Exchange rate must be positive.' => l10n.calcErrorRatePositive,
+      'Annual rate must be positive.' => l10n.calcErrorAnnualRatePositive,
+      'Marginal tax rate must be below 100%.' => l10n.calcErrorTaxRateBelow100,
+      _ => l10n.calcErrorGeneric,
+    };
   }
 
   _CalculationResult _compoundInterest() {
@@ -85,9 +114,9 @@ class _CalculatorDetailScreenState
     );
 
     return _CalculationResult(
-      title: 'Future value',
+      title: context.l10n.calcResultFutureValue,
       value: _formatCurrency(futureValue),
-      detail: 'Includes monthly contributions over $years years.',
+      detail: context.l10n.calcResultFutureValueDetail(years),
       icon: Icons.trending_up,
       color: AikoColors.successGreen,
     );
@@ -106,10 +135,12 @@ class _CalculatorDetailScreenState
     final total = payment * months;
 
     return _CalculationResult(
-      title: 'Monthly payment',
+      title: context.l10n.calcResultMonthlyPayment,
       value: _formatCurrency(payment),
-      detail:
-          'Estimated total paid ${_formatCurrency(total)} with ${_formatCurrency(total - principal)} in interest.',
+      detail: context.l10n.calcResultLoanDetail(
+        _formatCurrency(total),
+        _formatCurrency(total - principal),
+      ),
       icon: Icons.payments_outlined,
       color: AikoColors.deepBlue,
     );
@@ -126,10 +157,12 @@ class _CalculatorDetailScreenState
     );
 
     return _CalculationResult(
-      title: 'Payoff estimate',
-      value: '${payoff.months} months',
-      detail:
-          'Estimated interest ${_formatCurrency(payoff.interest)} with a ${_formatCurrency(monthlyPayment)} monthly payment.',
+      title: context.l10n.calcResultPayoffEstimate,
+      value: context.l10n.monthsCount(payoff.months),
+      detail: context.l10n.calcResultPayoffDetail(
+        _formatCurrency(payoff.interest),
+        _formatCurrency(monthlyPayment),
+      ),
       icon: Icons.credit_card_outlined,
       color: AikoColors.warningOrange,
     );
@@ -148,10 +181,13 @@ class _CalculatorDetailScreenState
     );
 
     return _CalculationResult(
-      title: 'Goal timeline',
-      value: months == 0 ? 'Already funded' : '$months months',
-      detail:
-          'Estimated with ${_formatCurrency(monthlyContribution)} saved each month.',
+      title: context.l10n.calcResultGoalTimeline,
+      value: months == 0
+          ? context.l10n.calcResultAlreadyFunded
+          : context.l10n.monthsCount(months),
+      detail: context.l10n.calcResultGoalDetail(
+        _formatCurrency(monthlyContribution),
+      ),
       icon: Icons.flag_outlined,
       color: AikoColors.successGreen,
     );
@@ -172,9 +208,9 @@ class _CalculatorDetailScreenState
     final gain = endingValue + income - fees - initialInvestment;
 
     return _CalculationResult(
-      title: 'Return on investment',
+      title: context.l10n.calcConfigReturnOnInvestment,
       value: _formatPercent(roi),
-      detail: 'Net gain is ${_formatCurrency(gain)} after fees and income.',
+      detail: context.l10n.calcResultRoiDetail(_formatCurrency(gain)),
       icon: Icons.show_chart,
       color: AikoColors.analyticsTeal,
     );
@@ -189,9 +225,11 @@ class _CalculatorDetailScreenState
     );
 
     return _CalculationResult(
-      title: 'Converted amount',
+      title: context.l10n.calcResultConvertedAmount,
       value: _formatNumber(converted),
-      detail: 'Using exchange rate ${_formatNumber(exchangeRate)}.',
+      detail: context.l10n.calcResultConvertedDetail(
+        _formatNumber(exchangeRate),
+      ),
       icon: Icons.currency_exchange,
       color: AikoColors.analyticsTeal,
     );
@@ -202,10 +240,11 @@ class _CalculatorDetailScreenState
     final years = CalculatorServices.ruleOf72(annualRate: annualRate);
 
     return _CalculationResult(
-      title: 'Years to double',
-      value: '${_formatNumber(years)} years',
-      detail:
-          'Estimated time to double your investment at a constant ${_controllers['annualRate']!.text}% annual rate.',
+      title: context.l10n.calcResultYearsToDouble,
+      value: context.l10n.calcYearsValue(_formatNumber(years)),
+      detail: context.l10n.calcResultRuleOf72Detail(
+        _controllers['annualRate']!.text,
+      ),
       icon: Icons.timer_outlined,
       color: AikoColors.successGreen,
     );
@@ -223,10 +262,13 @@ class _CalculatorDetailScreenState
     );
 
     return _CalculationResult(
-      title: 'Inflation-adjusted value',
+      title: context.l10n.calcConfigInflationAdjusted,
       value: _formatCurrency(adjusted),
-      detail:
-          'Purchasing power of ${_formatCurrency(amount)} in $years years at a constant ${_controllers['annualInflationRate']!.text}% inflation.',
+      detail: context.l10n.calcResultInflationDetail(
+        _formatCurrency(amount),
+        years,
+        _controllers['annualInflationRate']!.text,
+      ),
       icon: Icons.money_off_csred_outlined,
       color: AikoColors.dangerRed,
     );
@@ -244,10 +286,9 @@ class _CalculatorDetailScreenState
     );
 
     return _CalculationResult(
-      title: 'Equivalent hourly pay',
-      value: '${_formatCurrency(hourly)}/hr',
-      detail:
-          'Based on working $hoursPerWeek hours per week for $weeksPerYear weeks per year.',
+      title: context.l10n.calcResultHourly,
+      value: context.l10n.calcPerHourValue(_formatCurrency(hourly)),
+      detail: context.l10n.calcResultHourlyDetail(hoursPerWeek, weeksPerYear),
       icon: Icons.work_outline,
       color: AikoColors.deepBlue,
     );
@@ -263,10 +304,12 @@ class _CalculatorDetailScreenState
     );
 
     return _CalculationResult(
-      title: 'Tax-equivalent yield',
+      title: context.l10n.calcConfigTaxEquivalentYield,
       value: _formatPercent(equivalent),
-      detail:
-          'Pre-tax return needed to equal a tax-free yield of ${_controllers['taxFreeYield']!.text}% at a ${_controllers['marginalTaxRate']!.text}% marginal tax bracket.',
+      detail: context.l10n.calcResultTeyDetail(
+        _controllers['taxFreeYield']!.text,
+        _controllers['marginalTaxRate']!.text,
+      ),
       icon: Icons.account_balance_wallet_outlined,
       color: AikoColors.warningOrange,
     );
@@ -276,9 +319,7 @@ class _CalculatorDetailScreenState
     final discountRate = _percentage('discountRate');
     final cashFlowsText = _controllers['cashFlows']!.text.trim();
     if (cashFlowsText.isEmpty) {
-      throw const _CalculatorInputException(
-        'Enter a valid list of cash flows.',
-      );
+      throw _CalculatorInputException(context.l10n.calcCashFlowsRequired);
     }
     final List<double> cashFlows;
     try {
@@ -287,9 +328,7 @@ class _CalculatorDetailScreenState
           .map((s) => double.parse(s.trim()))
           .toList();
     } catch (_) {
-      throw const _CalculatorInputException(
-        'Cash flows must be a list of numbers separated by commas.',
-      );
+      throw _CalculatorInputException(context.l10n.calcCashFlowsFormat);
     }
 
     final npv = CalculatorServices.netPresentValue(
@@ -298,10 +337,11 @@ class _CalculatorDetailScreenState
     );
 
     return _CalculationResult(
-      title: 'Net present value (NPV)',
+      title: context.l10n.calcResultNpv,
       value: _formatCurrency(npv),
-      detail:
-          'NPV of cash flows discounted at ${_controllers['discountRate']!.text}% per period.',
+      detail: context.l10n.calcResultNpvDetail(
+        _controllers['discountRate']!.text,
+      ),
       icon: Icons.analytics_outlined,
       color: AikoColors.analyticsTeal,
     );
@@ -317,10 +357,13 @@ class _CalculatorDetailScreenState
     final perPerson = total / splitCount;
 
     return _CalculationResult(
-      title: 'Total split summary',
-      value: '${_formatCurrency(perPerson)} each',
-      detail:
-          'Tip is ${_formatCurrency(tip)} (total ${_formatCurrency(total)}) split between $splitCount people.',
+      title: context.l10n.calcResultSplitSummary,
+      value: context.l10n.calcEachValue(_formatCurrency(perPerson)),
+      detail: context.l10n.calcResultTipDetail(
+        _formatCurrency(tip),
+        _formatCurrency(total),
+        splitCount,
+      ),
       icon: Icons.restaurant_outlined,
       color: AikoColors.successGreen,
     );
@@ -334,10 +377,12 @@ class _CalculatorDetailScreenState
       _controllers[id]!.text.trim().replaceAll(',', ''),
     );
     if (value == null) {
-      throw _CalculatorInputException('Enter a valid ${field.label}.');
+      throw _CalculatorInputException(context.l10n.calcEnterValid(field.label));
     }
     if (allowZero ? value < 0 : value <= 0) {
-      throw _CalculatorInputException('${field.label} must be positive.');
+      throw _CalculatorInputException(
+        context.l10n.calcMustBePositive(field.label),
+      );
     }
     return value;
   }
@@ -346,7 +391,7 @@ class _CalculatorDetailScreenState
     final field = _config.fieldFor(id);
     final value = int.tryParse(_controllers[id]!.text.trim());
     if (value == null || value <= 0) {
-      throw _CalculatorInputException('Enter a valid ${field.label}.');
+      throw _CalculatorInputException(context.l10n.calcEnterValid(field.label));
     }
     return value;
   }
@@ -357,7 +402,7 @@ class _CalculatorDetailScreenState
       _controllers[id]!.text.trim().replaceAll(',', ''),
     );
     if (value == null || value < 0) {
-      throw _CalculatorInputException('Enter a valid ${field.label}.');
+      throw _CalculatorInputException(context.l10n.calcEnterValid(field.label));
     }
     return value / 100;
   }
@@ -375,9 +420,7 @@ class _CalculatorDetailScreenState
     while (remaining > 0.01 && months < 1200) {
       final interest = remaining * monthlyRate;
       if (monthlyPayment <= interest) {
-        throw _CalculatorInputException(
-          'Monthly payment is too low to reduce this balance.',
-        );
+        throw _CalculatorInputException(context.l10n.calcPaymentTooLow);
       }
       interestPaid += interest;
       remaining = remaining + interest - monthlyPayment;
@@ -385,9 +428,7 @@ class _CalculatorDetailScreenState
     }
 
     if (months >= 1200) {
-      throw _CalculatorInputException(
-        'This payoff takes over 100 years. Try a higher payment.',
-      );
+      throw _CalculatorInputException(context.l10n.calcPayoffTooLong);
     }
 
     return _PayoffResult(months: months, interest: interestPaid);
@@ -413,18 +454,20 @@ class _CalculatorDetailScreenState
     }
 
     if (months >= 1200) {
-      throw _CalculatorInputException(
-        'This goal takes over 100 years. Try a higher monthly contribution.',
-      );
+      throw _CalculatorInputException(context.l10n.calcGoalTooLong);
     }
 
     return months;
   }
 
+  String get _baseCurrency =>
+      ref.read(profileProvider).value?.baseCurrency ?? kDefaultBaseCurrency;
+
+  String get _currencySymbol =>
+      NumberFormat.simpleCurrency(name: _baseCurrency).currencySymbol;
+
   String _formatCurrency(double value) {
-    final baseCurrency =
-        ref.read(profileProvider).value?.baseCurrency ?? kDefaultBaseCurrency;
-    return NumberFormat.simpleCurrency(name: baseCurrency).format(value);
+    return NumberFormat.simpleCurrency(name: _baseCurrency).format(value);
   }
 
   String _formatPercent(double value) {
@@ -454,7 +497,7 @@ class _CalculatorDetailScreenState
                     controller: _controllers[field.id],
                     decoration: InputDecoration(
                       labelText: field.label,
-                      prefixText: field.prefixText,
+                      prefixText: field.money ? '$_currencySymbol ' : null,
                       suffixText: field.suffixText,
                     ),
                     keyboardType: field.id == 'cashFlows'
@@ -469,7 +512,7 @@ class _CalculatorDetailScreenState
                 FilledButton.icon(
                   onPressed: _calculate,
                   icon: const Icon(Icons.calculate_outlined),
-                  label: const Text('Calculate'),
+                  label: Text(context.l10n.calcCalculate),
                 ),
               ],
             ),
@@ -493,7 +536,7 @@ class _CalculatorDetailScreenState
           ],
           const SizedBox(height: 16),
           Text(
-            'Results are estimates, not guarantees.',
+            context.l10n.calcDisclaimer,
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -526,264 +569,284 @@ class _CalculatorConfig {
     required this.fields,
   });
 
-  factory _CalculatorConfig.fromTitle(String title) {
-    return switch (title) {
-      'Loan' => const _CalculatorConfig(
+  /// [id] is the calculator's stable English id (see the library list).
+  factory _CalculatorConfig.fromId(String id, AppLocalizations l10n) {
+    return switch (id) {
+      'Loan' => _CalculatorConfig(
         kind: _CalculatorKind.loan,
-        title: 'Loan payment',
+        title: l10n.calcConfigLoanPayment,
         icon: Icons.payments_outlined,
         color: AikoColors.deepBlue,
         fields: [
           _CalculatorField(
             id: 'principal',
-            label: 'Principal',
-            prefixText: r'$ ',
+            label: l10n.calcFieldPrincipal,
+            money: true,
           ),
           _CalculatorField(
             id: 'annualRate',
-            label: 'Annual rate',
+            label: l10n.calcFieldAnnualRate,
             suffixText: '%',
           ),
           _CalculatorField(
             id: 'months',
-            label: 'Term in months',
+            label: l10n.calcFieldTermMonths,
             allowsDecimal: false,
           ),
         ],
       ),
-      'Credit card payoff' => const _CalculatorConfig(
+      'Credit card payoff' => _CalculatorConfig(
         kind: _CalculatorKind.creditCardPayoff,
-        title: 'Credit card payoff',
+        title: l10n.calcConfigCreditCardPayoff,
         icon: Icons.credit_card_outlined,
         color: AikoColors.warningOrange,
         fields: [
-          _CalculatorField(id: 'balance', label: 'Balance', prefixText: r'$ '),
-          _CalculatorField(id: 'annualRate', label: 'APR', suffixText: '%'),
+          _CalculatorField(
+            id: 'balance',
+            label: l10n.calcFieldBalance,
+            money: true,
+          ),
+          _CalculatorField(
+            id: 'annualRate',
+            label: l10n.calcFieldApr,
+            suffixText: '%',
+          ),
           _CalculatorField(
             id: 'monthlyPayment',
-            label: 'Monthly payment',
-            prefixText: r'$ ',
+            label: l10n.calcFieldMonthlyPayment,
+            money: true,
           ),
         ],
       ),
-      'Savings goal' => const _CalculatorConfig(
+      'Savings goal' => _CalculatorConfig(
         kind: _CalculatorKind.savingsGoal,
-        title: 'Savings goal',
+        title: l10n.calcConfigSavingsGoal,
         icon: Icons.flag_outlined,
         color: AikoColors.successGreen,
         fields: [
-          _CalculatorField(id: 'target', label: 'Target', prefixText: r'$ '),
+          _CalculatorField(
+            id: 'target',
+            label: l10n.calcFieldTarget,
+            money: true,
+          ),
           _CalculatorField(
             id: 'startingBalance',
-            label: 'Starting balance',
-            prefixText: r'$ ',
+            label: l10n.calcFieldStartingBalance,
+            money: true,
             initialValue: '0',
           ),
           _CalculatorField(
             id: 'monthlyContribution',
-            label: 'Monthly contribution',
-            prefixText: r'$ ',
+            label: l10n.calcFieldMonthlyContribution,
+            money: true,
           ),
           _CalculatorField(
             id: 'annualRate',
-            label: 'Annual growth',
+            label: l10n.calcFieldAnnualGrowth,
             suffixText: '%',
             initialValue: '0',
           ),
         ],
       ),
-      'ROI' => const _CalculatorConfig(
+      'ROI' => _CalculatorConfig(
         kind: _CalculatorKind.roi,
-        title: 'Return on investment',
+        title: l10n.calcConfigReturnOnInvestment,
         icon: Icons.show_chart,
         color: AikoColors.analyticsTeal,
         fields: [
           _CalculatorField(
             id: 'initialInvestment',
-            label: 'Initial investment',
-            prefixText: r'$ ',
+            label: l10n.calcFieldInitialInvestment,
+            money: true,
           ),
           _CalculatorField(
             id: 'endingValue',
-            label: 'Ending value',
-            prefixText: r'$ ',
+            label: l10n.calcFieldEndingValue,
+            money: true,
           ),
           _CalculatorField(
             id: 'fees',
-            label: 'Fees',
-            prefixText: r'$ ',
+            label: l10n.calcFieldFees,
+            money: true,
             initialValue: '0',
           ),
           _CalculatorField(
             id: 'income',
-            label: 'Income',
-            prefixText: r'$ ',
+            label: l10n.calcFieldIncome,
+            money: true,
             initialValue: '0',
           ),
         ],
       ),
-      'Rule of 72' => const _CalculatorConfig(
+      'Rule of 72' => _CalculatorConfig(
         kind: _CalculatorKind.ruleOf72,
-        title: 'Rule of 72',
+        title: l10n.calcConfigRuleOf72,
         icon: Icons.timer_outlined,
         color: AikoColors.successGreen,
         fields: [
           _CalculatorField(
             id: 'annualRate',
-            label: 'Annual rate',
+            label: l10n.calcFieldAnnualRate,
             suffixText: '%',
             initialValue: '8',
           ),
         ],
       ),
-      'Inflation' => const _CalculatorConfig(
+      'Inflation' => _CalculatorConfig(
         kind: _CalculatorKind.inflation,
-        title: 'Inflation adjusted value',
+        title: l10n.calcConfigInflationAdjusted,
         icon: Icons.money_off_csred_outlined,
         color: AikoColors.dangerRed,
         fields: [
           _CalculatorField(
             id: 'amount',
-            label: 'Current amount',
-            prefixText: r'$ ',
+            label: l10n.calcFieldCurrentAmount,
+            money: true,
             initialValue: '1000',
           ),
           _CalculatorField(
             id: 'annualInflationRate',
-            label: 'Annual inflation rate',
+            label: l10n.calcFieldAnnualInflation,
             suffixText: '%',
             initialValue: '3',
           ),
           _CalculatorField(
             id: 'years',
-            label: 'Years',
+            label: l10n.calcFieldYears,
             allowsDecimal: false,
             initialValue: '10',
           ),
         ],
       ),
-      'Salary to hourly' => const _CalculatorConfig(
+      'Salary to hourly' => _CalculatorConfig(
         kind: _CalculatorKind.salaryToHourly,
-        title: 'Salary to hourly',
+        title: l10n.calcConfigSalaryToHourly,
         icon: Icons.work_outline,
         color: AikoColors.deepBlue,
         fields: [
           _CalculatorField(
             id: 'annualSalary',
-            label: 'Annual salary',
-            prefixText: r'$ ',
+            label: l10n.calcFieldAnnualSalary,
+            money: true,
             initialValue: '50000',
           ),
           _CalculatorField(
             id: 'hoursPerWeek',
-            label: 'Hours per week',
+            label: l10n.calcFieldHoursPerWeek,
             initialValue: '40',
           ),
           _CalculatorField(
             id: 'weeksPerYear',
-            label: 'Weeks per year',
+            label: l10n.calcFieldWeeksPerYear,
             allowsDecimal: false,
             initialValue: '52',
           ),
         ],
       ),
-      'Tax equivalent yield' => const _CalculatorConfig(
+      'Tax equivalent yield' => _CalculatorConfig(
         kind: _CalculatorKind.taxEquivalentYield,
-        title: 'Tax equivalent yield',
+        title: l10n.calcConfigTaxEquivalentYield,
         icon: Icons.account_balance_wallet_outlined,
         color: AikoColors.warningOrange,
         fields: [
           _CalculatorField(
             id: 'taxFreeYield',
-            label: 'Tax-free yield',
+            label: l10n.calcFieldTaxFreeYield,
             suffixText: '%',
             initialValue: '3.5',
           ),
           _CalculatorField(
             id: 'marginalTaxRate',
-            label: 'Marginal tax rate',
+            label: l10n.calcFieldMarginalTaxRate,
             suffixText: '%',
             initialValue: '24',
           ),
         ],
       ),
-      'IRR / NPV' => const _CalculatorConfig(
+      'IRR / NPV' => _CalculatorConfig(
         kind: _CalculatorKind.irrNpv,
-        title: 'Net present value',
+        title: l10n.calcConfigNetPresentValue,
         icon: Icons.analytics_outlined,
         color: AikoColors.analyticsTeal,
         fields: [
           _CalculatorField(
             id: 'discountRate',
-            label: 'Discount rate (Annual)',
+            label: l10n.calcFieldDiscountRate,
             suffixText: '%',
             initialValue: '8',
           ),
           _CalculatorField(
             id: 'cashFlows',
-            label: 'Cash flows (comma-separated, e.g. -1000, 300, 450, 600)',
+            label: l10n.calcFieldCashFlows,
             initialValue: '-1000, 300, 450, 600',
           ),
         ],
       ),
-      'Tip and percentage' => const _CalculatorConfig(
+      'Tip and percentage' => _CalculatorConfig(
         kind: _CalculatorKind.tipPercentage,
-        title: 'Tip and split bill',
+        title: l10n.calcConfigTipSplit,
         icon: Icons.restaurant_outlined,
         color: AikoColors.successGreen,
         fields: [
           _CalculatorField(
             id: 'bill',
-            label: 'Bill amount',
-            prefixText: r'$ ',
+            label: l10n.calcFieldBillAmount,
+            money: true,
             initialValue: '50',
           ),
           _CalculatorField(
             id: 'tipRate',
-            label: 'Tip rate',
+            label: l10n.calcFieldTipRate,
             suffixText: '%',
             initialValue: '15',
           ),
           _CalculatorField(
             id: 'splitCount',
-            label: 'Split between (people)',
+            label: l10n.calcFieldSplitCount,
             allowsDecimal: false,
             initialValue: '1',
           ),
         ],
       ),
-      'Currency converter' => const _CalculatorConfig(
+      'Currency converter' => _CalculatorConfig(
         kind: _CalculatorKind.currencyConverter,
-        title: 'Currency converter',
+        title: l10n.calcConfigCurrencyConverter,
         icon: Icons.currency_exchange,
         color: AikoColors.analyticsTeal,
         fields: [
-          _CalculatorField(id: 'sourceAmount', label: 'Amount'),
-          _CalculatorField(id: 'exchangeRate', label: 'Exchange rate'),
+          _CalculatorField(id: 'sourceAmount', label: l10n.calcFieldAmount),
+          _CalculatorField(
+            id: 'exchangeRate',
+            label: l10n.calcFieldExchangeRate,
+          ),
         ],
       ),
-      _ => const _CalculatorConfig(
+      _ => _CalculatorConfig(
         kind: _CalculatorKind.compoundInterest,
-        title: 'Compound interest',
+        title: l10n.calcConfigCompoundInterest,
         icon: Icons.trending_up,
         color: AikoColors.successGreen,
         fields: [
           _CalculatorField(
             id: 'principal',
-            label: 'Principal',
-            prefixText: r'$ ',
+            label: l10n.calcFieldPrincipal,
+            money: true,
           ),
           _CalculatorField(
             id: 'monthlyContribution',
-            label: 'Monthly contribution',
-            prefixText: r'$ ',
+            label: l10n.calcFieldMonthlyContribution,
+            money: true,
           ),
           _CalculatorField(
             id: 'annualRate',
-            label: 'Annual rate',
+            label: l10n.calcFieldAnnualRate,
             suffixText: '%',
           ),
-          _CalculatorField(id: 'years', label: 'Years', allowsDecimal: false),
+          _CalculatorField(
+            id: 'years',
+            label: l10n.calcFieldYears,
+            allowsDecimal: false,
+          ),
         ],
       ),
     };
@@ -804,7 +867,7 @@ class _CalculatorField {
   const _CalculatorField({
     required this.id,
     required this.label,
-    this.prefixText,
+    this.money = false,
     this.suffixText,
     this.initialValue = '',
     this.allowsDecimal = true,
@@ -812,7 +875,9 @@ class _CalculatorField {
 
   final String id;
   final String label;
-  final String? prefixText;
+
+  /// An amount in the user's base currency; shows its symbol as a prefix.
+  final bool money;
   final String? suffixText;
   final String initialValue;
   final bool allowsDecimal;

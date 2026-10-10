@@ -70,7 +70,7 @@ The app bar opens **Notifications** (`/notifications`) and **Settings** (`/setti
 - **Form** (`TransactionFormScreen`, pushed): amount-first entry; all 15 types; transfers create a `transferOut` and a `transferIn` leg; category, merchant, note, tags; recurring schedules (once/daily/weekly/monthly/annually with an end date or occurrence cap); reminder time; attachments.
   - **Currency conversion**: when the amount's currency differs from the account's, `ExchangeRateService` fetches a rate from `open.er-api.com` (no key, falls back to a manual rate).
   - **Receipt OCR**: `ReceiptOcrService` sends the image to the `ocrScanner` function and parses the text into a draft.
-  - **Voice entry**: a "Voice Entry Assistant" dialog takes a sentence ("spent 25 dollars at Amazon yesterday"); `VoiceTransactionParser` turns it into a draft. There is no speech-recognition plugin, so dictation relies on the keyboard's microphone.
+  - **Voice entry**: a "Voice Entry Assistant" dialog takes a sentence in English or Thai ("spent 25 at Amazon yesterday", "ซื้อกาแฟ 65 บาท ที่ร้านสตาร์บัคส์ เมื่อวาน"); `VoiceTransactionParser` turns it into a draft. There is no speech-recognition plugin, so dictation relies on the keyboard's microphone.
 - **Rules** (`TransactionRulesScreen`): match on merchant, keyword, amount, account, category or type with contains/equals/starts with/ends with. Rules apply in ascending priority: the first match sets the category, and every match adds its tags. Rules are stored as a synced preference.
 - **Attachments**: up to 10 MiB each; image, PDF and text previews in-app; HEIC and Word show a fallback. Bytes are cached on the device first and upload when possible.
 - **Reminders**: `TransactionReminderService` schedules local notifications on Android/iOS. Repeating reminders follow the recurring cadence. The web stores the reminder time only.
@@ -119,7 +119,7 @@ Add, search and remove holdings (asset class, symbol, quantity, average cost, cu
 
 `lib/features/calculators/`, `/calculators`.
 
-The library lists 30 calculators by category and searches by name. Twelve have their own form and math in `CalculatorDetailScreen`: compound interest, loan, credit card payoff, savings goal, ROI, currency converter, Rule of 72, inflation, salary to hourly, tax equivalent yield, IRR/NPV, tip and percentage. The rest are listed but not yet built ([Known gaps](#known-gaps)). Calculations use `double`; results are estimates, not stored money.
+The library lists 30 calculators by category and searches by name in either language; each has a stable English id (`_CalculatorItem.id`) that picks its form. Money inputs show the base currency's symbol. Twelve have their own form and math in `CalculatorDetailScreen`: compound interest, loan, credit card payoff, savings goal, ROI, currency converter, Rule of 72, inflation, salary to hourly, tax equivalent yield, IRR/NPV, tip and percentage. The rest are listed but not yet built ([Known gaps](#known-gaps)). Calculations use `double`; results are estimates, not stored money.
 
 ## Learning Hub
 
@@ -129,8 +129,10 @@ The library lists 30 calculators by category and searches by name. Twelve have t
 
 `lib/features/export/`, `/export`. Pick a range (this month, last month, all time) and a format:
 
-- **CSV** and **Excel**: a UTF-8 CSV (Date, Merchant, Category, Type, Amount, Note) shared via the share sheet or downloaded on the web.
+- **CSV** and **Excel**: a UTF-8 CSV (Date, Merchant, Category, Type, Amount, Note) shared via the share sheet or downloaded on the web. Excel gets a byte-order mark so Thai opens correctly.
 - **PDF**: an HTML statement with income, expense and net totals, shared as `aiko_statement_<timestamp>.html` for printing to PDF.
+
+Headers, transaction types, category names and the statement text use the app language; uncategorized rows say so (in that language). Merchant and category text is HTML-escaped in the statement.
 
 ## Travel Mode
 
@@ -140,7 +142,7 @@ The library lists 30 calculators by category and searches by name. Twelve have t
 
 `lib/features/settings/`
 
-- **Settings** (`/settings`, from the Overview app bar): Appearance (system/light/dark), Language (system/English/Thai), and the tools list from `aikoNavigationItems`: Chance of Success, Investments, Asset Allocation, Holding Detail, Learning Hub, Calculators, Export. Local-only builds show a "Local-only mode" notice.
+- **Settings** (`/settings`, from the Overview app bar): Appearance (system/light/dark), Language (system/English/Thai; the whole app, built-in category names, exports and Ask Aiko follow it — [Localization](localization.md)), and the tools list from `aikoNavigationItems`: Chance of Success, Investments, Asset Allocation, Holding Detail, Learning Hub, Calculators, Export. Local-only builds show a "Local-only mode" notice.
 - **Profile** (`/profile`, from the Aiko tab): personal information, avatar (camera or gallery, uploaded to Storage), user ID, connected apps (Google link, LINE), change password, log out, and **Delete account** (Danger Zone).
 - **Connect LINE** (`/connect-line`): enter the 6-character code the LINE bot sends ([Backend](backend.md#line)).
 
@@ -154,7 +156,7 @@ Current behavior that differs from what the UI or the README suggests. Fix the c
 
 | Area | Gap |
 | --- | --- |
-| Calculators | 18 of 30 library entries (TVM, CD, bond yield, bi-weekly mortgage, refinance, rent vs. buy, home affordability, rental property, IRA, RMD, Social Security, annuity, auto loan vs. lease, WACC, Black-Scholes, CAPM, capital gains, paycheck tax) have no form; tapping one opens the compound-interest calculator under that title. |
+| Calculators | 18 of 30 library entries (TVM, CD, bond yield, bi-weekly mortgage, refinance, rent vs. buy, home affordability, rental property, IRA, RMD, Social Security, annuity, auto loan vs. lease, WACC, Black-Scholes, CAPM, capital gains, paycheck tax) have no form; tapping one opens the compound-interest calculator under that title. Some US-specific entries (IRA, RMD, Social Security) have no Thai equivalent yet. |
 | Split transactions | `TransactionSplit` and its validation exist, but no screen creates splits and the codec does not persist them. |
 | Duplicate transactions | No duplicate detection. `TransactionRepository.duplicate` copies a transaction but nothing calls it. |
 | Budget rollover | `rolloverUnused` / `budget_rollover` is stored and editable, but no budget, notification or safe-to-spend calculation applies it. |
@@ -165,7 +167,6 @@ Current behavior that differs from what the UI or the README suggests. Fix the c
 | Ask Aiko offline | No on-device answers; local-only builds cannot chat. |
 | Multi-currency totals | Dashboard net worth and cash add raw amounts across currencies under the first currency found; transactions in a currency other than their account's don't change its balance. |
 | AI net worth | `aiko_account_summary` negates `loan`/`liability`/`creditCard` balances, but the app already stores debts as negative balances, so Ask Aiko can overstate net worth. |
-| Thai translation | Only navigation, Settings and parts of Overview are localized; other screens are English-only ([Localization](localization.md#coverage-today)). |
 | Travel Mode rate | Starts at 1.0 until refreshed or set manually. |
 | Rebalance targets | Fixed at Stocks 70% / Bonds 30%; the stored `target_allocation_percent` has no input. |
 | Reminders | Repeating native reminders ignore the series end date and occurrence cap. |

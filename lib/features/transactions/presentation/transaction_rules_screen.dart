@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/storage/secure_storage_service.dart';
+import '../../../l10n/domain_labels.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../theme/aiko_colors.dart';
 import '../data/transaction_rule_store.dart';
@@ -58,9 +60,9 @@ class _TransactionRulesScreenState
 
     await _saveRules([..._rules, rule]);
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${rule.name} rule created')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.rulesCreated(rule.name))),
+    );
   }
 
   Future<void> _toggleRule(TransactionRule rule, bool value) async {
@@ -81,11 +83,11 @@ class _TransactionRulesScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Transaction rules'),
+        title: Text(context.l10n.rulesTitle),
         actions: [
           if ((!kIsWeb && defaultTargetPlatform == TargetPlatform.android))
             IconButton(
-              tooltip: 'Auto-capture (SMS & notifications)',
+              tooltip: context.l10n.rulesAutoCaptureTooltip,
               icon: const Icon(Icons.notifications_active_outlined),
               onPressed: () => context.push('/transaction-capture'),
             ),
@@ -111,7 +113,7 @@ class _TransactionRulesScreenState
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createRule,
         icon: const Icon(Icons.add),
-        label: const Text('New rule'),
+        label: Text(context.l10n.rulesNew),
       ),
     );
   }
@@ -146,14 +148,14 @@ class _RulesHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Automatic transaction rules',
+                    context.l10n.rulesAutomaticTitle,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Rules run after SMS and notification capture. A matching rule can assign a category and add tags before the transaction is saved.',
+                    context.l10n.rulesAutomaticDescription,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -219,7 +221,8 @@ class _RuleCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${rule.conditionType.label} ${rule.operator.label}',
+                        '${rule.conditionType.label(context.l10n)} '
+                        '${rule.operator.label(context.l10n)}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -233,23 +236,23 @@ class _RuleCard extends StatelessWidget {
             const SizedBox(height: 12),
             _RuleInfoRow(
               icon: Icons.manage_search_outlined,
-              label: 'Match',
+              label: context.l10n.rulesMatch,
               value: rule.conditionValue,
             ),
             const SizedBox(height: 8),
             _RuleInfoRow(
               icon: Icons.category_outlined,
-              label: 'Category',
+              label: context.l10n.txCategory,
               value: rule.targetCategoryId?.trim().isNotEmpty == true
                   ? rule.targetCategoryId!
-                  : 'Leave unchanged',
+                  : context.l10n.rulesLeaveUnchanged,
             ),
             const SizedBox(height: 8),
             _RuleInfoRow(
               icon: Icons.sell_outlined,
-              label: 'Tags',
+              label: context.l10n.txTags,
               value: rule.tagsToApply.isEmpty
-                  ? 'No tags'
+                  ? context.l10n.rulesNoTags
                   : rule.tagsToApply.join(', '),
             ),
             const SizedBox(height: 12),
@@ -257,11 +260,11 @@ class _RuleCard extends StatelessWidget {
               children: [
                 _RuleChip(
                   icon: Icons.priority_high,
-                  label: 'Priority ${rule.priority}',
+                  label: context.l10n.rulesPriorityValue(rule.priority),
                 ),
                 const Spacer(),
                 IconButton(
-                  tooltip: 'Delete rule',
+                  tooltip: context.l10n.rulesDelete,
                   onPressed: onDelete,
                   icon: const Icon(Icons.delete_outline),
                 ),
@@ -382,7 +385,7 @@ class _TransactionRuleFormScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('New transaction rule')),
+      appBar: AppBar(title: Text(context.l10n.rulesNewTitle)),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -390,27 +393,30 @@ class _TransactionRuleFormScreenState
           children: [
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Rule name',
+              decoration: InputDecoration(
+                labelText: context.l10n.rulesName,
                 prefixIcon: Icon(Icons.edit_outlined),
                 border: OutlineInputBorder(),
               ),
               textCapitalization: TextCapitalization.words,
               validator: (value) => value == null || value.trim().isEmpty
-                  ? 'Rule name is required'
+                  ? context.l10n.rulesNameRequired
                   : null,
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<RuleConditionType>(
               initialValue: _conditionType,
-              decoration: const InputDecoration(
-                labelText: 'Field to match',
+              decoration: InputDecoration(
+                labelText: context.l10n.rulesField,
                 prefixIcon: Icon(Icons.source_outlined),
                 border: OutlineInputBorder(),
               ),
               items: [
                 for (final type in RuleConditionType.values)
-                  DropdownMenuItem(value: type, child: Text(type.label)),
+                  DropdownMenuItem(
+                    value: type,
+                    child: Text(type.label(context.l10n)),
+                  ),
               ],
               onChanged: (value) {
                 if (value != null) setState(() => _conditionType = value);
@@ -419,8 +425,8 @@ class _TransactionRuleFormScreenState
             const SizedBox(height: 16),
             DropdownButtonFormField<RuleConditionOperator>(
               initialValue: _operator,
-              decoration: const InputDecoration(
-                labelText: 'Condition',
+              decoration: InputDecoration(
+                labelText: context.l10n.rulesCondition,
                 prefixIcon: Icon(Icons.compare_arrows_outlined),
                 border: OutlineInputBorder(),
               ),
@@ -428,7 +434,7 @@ class _TransactionRuleFormScreenState
                 for (final operator in RuleConditionOperator.values)
                   DropdownMenuItem(
                     value: operator,
-                    child: Text(operator.label),
+                    child: Text(operator.label(context.l10n)),
                   ),
               ],
               onChanged: (value) {
@@ -438,22 +444,22 @@ class _TransactionRuleFormScreenState
             const SizedBox(height: 16),
             TextFormField(
               controller: _valueController,
-              decoration: const InputDecoration(
-                labelText: 'Match value',
-                hintText: 'Example: grocery, debit, 7-eleven',
+              decoration: InputDecoration(
+                labelText: context.l10n.rulesMatchValue,
+                hintText: context.l10n.rulesMatchValueHint,
                 prefixIcon: Icon(Icons.manage_search_outlined),
                 border: OutlineInputBorder(),
               ),
               validator: (value) => value == null || value.trim().isEmpty
-                  ? 'Match value is required'
+                  ? context.l10n.rulesMatchValueRequired
                   : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _categoryController,
-              decoration: const InputDecoration(
-                labelText: 'Target category id',
-                hintText: 'Optional',
+              decoration: InputDecoration(
+                labelText: context.l10n.rulesTargetCategoryId,
+                hintText: context.l10n.optional,
                 prefixIcon: Icon(Icons.category_outlined),
                 border: OutlineInputBorder(),
               ),
@@ -461,9 +467,9 @@ class _TransactionRuleFormScreenState
             const SizedBox(height: 16),
             TextFormField(
               controller: _tagsController,
-              decoration: const InputDecoration(
-                labelText: 'Tags',
-                hintText: 'sms, bank, recurring',
+              decoration: InputDecoration(
+                labelText: context.l10n.txTags,
+                hintText: context.l10n.rulesTagsHint,
                 prefixIcon: Icon(Icons.sell_outlined),
                 border: OutlineInputBorder(),
               ),
@@ -471,9 +477,9 @@ class _TransactionRuleFormScreenState
             const SizedBox(height: 16),
             TextFormField(
               controller: _priorityController,
-              decoration: const InputDecoration(
-                labelText: 'Priority',
-                helperText: 'Lower priority runs first',
+              decoration: InputDecoration(
+                labelText: context.l10n.rulesPriority,
+                helperText: context.l10n.rulesPriorityHelper,
                 prefixIcon: Icon(Icons.low_priority_outlined),
                 border: OutlineInputBorder(),
               ),
@@ -482,7 +488,7 @@ class _TransactionRuleFormScreenState
             const SizedBox(height: 8),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Rule active'),
+              title: Text(context.l10n.rulesActive),
               value: _isActive,
               onChanged: (value) => setState(() => _isActive = value),
             ),
@@ -492,7 +498,7 @@ class _TransactionRuleFormScreenState
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _save,
         icon: const Icon(Icons.check),
-        label: const Text('Create rule'),
+        label: Text(context.l10n.rulesCreate),
       ),
     );
   }
@@ -508,28 +514,4 @@ List<String> _splitTags(String input) {
       .map((tag) => tag.trim())
       .where((tag) => tag.isNotEmpty)
       .toList(growable: false);
-}
-
-extension on RuleConditionType {
-  String get label {
-    return switch (this) {
-      RuleConditionType.merchant => 'Merchant',
-      RuleConditionType.keyword => 'Merchant or note',
-      RuleConditionType.amount => 'Amount',
-      RuleConditionType.account => 'Account id',
-      RuleConditionType.category => 'Category id',
-      RuleConditionType.transactionType => 'Transaction type',
-    };
-  }
-}
-
-extension on RuleConditionOperator {
-  String get label {
-    return switch (this) {
-      RuleConditionOperator.contains => 'contains',
-      RuleConditionOperator.equals => 'equals',
-      RuleConditionOperator.startsWith => 'starts with',
-      RuleConditionOperator.endsWith => 'ends with',
-    };
-  }
 }

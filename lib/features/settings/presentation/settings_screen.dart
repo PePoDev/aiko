@@ -6,7 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../../app/aiko_navigation.dart';
 import '../../../app/providers.dart';
 import '../../../app/locale_controller.dart';
-import '../../../l10n/app_localizations.dart';
+import '../../../l10n/domain_labels.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
@@ -35,7 +36,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Language',
+                  context.l10n.languageTitle,
                   style: Theme.of(
                     context,
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
@@ -48,8 +49,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Icons.smartphone,
                     color: AikoColors.primaryBlue,
                   ),
-                  title: const Text('System default'),
-                  subtitle: Text(_deviceLanguageSubtitle(localeState.locale)),
+                  title: Text(context.l10n.languageSystemDefault),
+                  subtitle: Text(
+                    context.l10n.languageFollowDevice(
+                      _languageLabelFor(localeState.locale, context.l10n),
+                    ),
+                  ),
                   trailing: localeState.followsSystem
                       ? const Icon(
                           Icons.check_circle,
@@ -77,7 +82,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    title: Text(option.label),
+                    title: Text(option.label(context.l10n)),
                     subtitle: Text(option.nativeLabel),
                     trailing:
                         !localeState.followsSystem &&
@@ -125,7 +130,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Appearance',
+                      context.l10n.appearanceTitle,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -151,7 +156,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               key: ValueKey('appearance-option-${theme.name}'),
                               contentPadding: EdgeInsets.zero,
                               value: theme,
-                              title: Text(_themeLabel(theme)),
+                              title: Text(_themeLabel(theme, context.l10n)),
                               secondary: Icon(_themeIcon(theme)),
                             ),
                         ],
@@ -171,39 +176,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final localeState = ref.watch(appLocaleControllerProvider).asData?.value;
     final locale = localeState?.locale ?? AppLocaleController.fallbackLocale;
+    final l10n = context.l10n;
     final currentLanguage = localeState == null
-        ? _languageLabelFor(locale)
+        ? _languageLabelFor(locale, l10n)
         : localeState.followsSystem
-        ? 'System default (${_languageLabelFor(locale)})'
-        : _languageLabelFor(locale);
+        ? l10n.languageSystemDefaultWith(_languageLabelFor(locale, l10n))
+        : _languageLabelFor(locale, l10n);
     final profileAsync = ref.watch(profileProvider);
     final profile = profileAsync.asData?.value;
 
     return Scaffold(
-      appBar: AppBar(title: Text(AppLocalizations.of(context).settingsTitle)),
+      appBar: AppBar(title: Text(l10n.settingsTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         children: [
           if (!FirebaseBackend.isConfigured)
-            const ListTile(
-              leading: Icon(Icons.cloud_off_outlined),
-              title: Text('Local-only mode'),
-              subtitle: Text(
-                'Data is saved on this device. Cloud sync is not connected.',
-              ),
+            ListTile(
+              leading: const Icon(Icons.cloud_off_outlined),
+              title: Text(l10n.settingsLocalOnlyTitle),
+              subtitle: Text(l10n.settingsLocalOnlyMessage),
             ),
           FinanceCard(
-            title: 'App preferences',
+            title: l10n.settingsAppPreferences,
             icon: Icons.tune_outlined,
             accentColor: AikoColors.premiumPurple,
             child: Column(
               children: [
                 _SettingsRow(
                   icon: Icons.palette_outlined,
-                  title: 'Appearance',
+                  title: l10n.appearanceTitle,
                   subtitle: profile == null
-                      ? 'Loading...'
-                      : _themeLabel(profile.preferredTheme),
+                      ? l10n.loadingEllipsis
+                      : _themeLabel(profile.preferredTheme, l10n),
                   onTap: profile == null
                       ? null
                       : () => _showAppearanceSettings(profile),
@@ -211,7 +215,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const Divider(),
                 _SettingsRow(
                   icon: Icons.language,
-                  title: 'Language',
+                  title: l10n.languageTitle,
                   subtitle: currentLanguage,
                   onTap: () => _showLanguageSettings(
                     localeState ??
@@ -226,7 +230,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 16),
           FinanceCard(
-            title: 'Tools and settings',
+            title: l10n.settingsToolsAndSettings,
             icon: Icons.apps_outlined,
             child: Column(
               children: [
@@ -255,40 +259,37 @@ class _LanguageOption {
   });
 
   final String languageCode;
-  final String label;
+
+  /// The language's name in the current UI language.
+  final String Function(AppLocalizations l10n) label;
+
+  /// The language's name in itself; not translated.
   final String nativeLabel;
 }
 
+String _thaiLabel(AppLocalizations l10n) => l10n.languageThai;
+String _englishLabel(AppLocalizations l10n) => l10n.languageEnglish;
+
 const _languageOptions = [
-  _LanguageOption(languageCode: 'th', label: 'Thai', nativeLabel: 'ไทย'),
-  _LanguageOption(languageCode: 'en', label: 'English', nativeLabel: 'English'),
+  _LanguageOption(languageCode: 'th', label: _thaiLabel, nativeLabel: 'ไทย'),
+  _LanguageOption(
+    languageCode: 'en',
+    label: _englishLabel,
+    nativeLabel: 'English',
+  ),
 ];
 
-String _languageLabelFor(Locale locale) {
-  for (final option in _languageOptions) {
-    if (option.languageCode == locale.languageCode) {
-      return option.label == option.nativeLabel
-          ? option.label
-          : '${option.label} (${option.nativeLabel})';
-    }
-  }
-  return 'Thai (ไทย)';
+String _languageLabelFor(Locale locale, AppLocalizations l10n) {
+  final option = _languageOptions.firstWhere(
+    (option) => option.languageCode == locale.languageCode,
+    orElse: () => _languageOptions.first,
+  );
+  final label = option.label(l10n);
+  return label == option.nativeLabel ? label : '$label (${option.nativeLabel})';
 }
 
-String _deviceLanguageSubtitle(Locale deviceLocale) {
-  return 'Follow device language (${_languageLabelFor(deviceLocale)})';
-}
-
-String _themeLabel(PreferredTheme theme) {
-  switch (theme) {
-    case PreferredTheme.system:
-      return 'System default';
-    case PreferredTheme.light:
-      return 'Light';
-    case PreferredTheme.dark:
-      return 'Dark';
-  }
-}
+String _themeLabel(PreferredTheme theme, AppLocalizations l10n) =>
+    theme.label(l10n);
 
 IconData _themeIcon(PreferredTheme theme) {
   switch (theme) {
@@ -337,8 +338,8 @@ class _SettingsNavigationTile extends StatelessWidget {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(item.icon, color: item.accentColor),
-      title: Text(item.label),
-      subtitle: item.description.isEmpty ? null : Text(item.description),
+      title: Text(item.label(context.l10n)),
+      subtitle: Text(item.description(context.l10n)),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => context.push(item.path),
     );

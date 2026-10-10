@@ -1,3 +1,4 @@
+import '../../../l10n/l10n.dart';
 import 'dart:typed_data';
 import '../data/transaction_attachment_repository.dart';
 
@@ -22,7 +23,7 @@ class TransactionAttachmentSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       container: true,
-      label: 'Transaction attachments',
+      label: context.l10n.txAttachmentsSemantics,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -30,19 +31,19 @@ class TransactionAttachmentSection extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Attachments',
+                  context.l10n.txAttachments,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
               IconButton(
-                tooltip: 'Add attachment',
+                tooltip: context.l10n.txAddAttachment,
                 onPressed: onAddAttachment,
                 icon: const Icon(Icons.attach_file),
               ),
             ],
           ),
           if (attachments.isEmpty)
-            const Text('No receipt or document attached.')
+            Text(context.l10n.txNoAttachments)
           else
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,

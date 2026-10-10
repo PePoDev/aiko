@@ -104,6 +104,22 @@ flutter:
     - assets/icons/aiko_title.svg
     - assets/rive/
 
+  # Thai glyphs ship with the app (Noto Sans Thai, SIL OFL 1.1, see
+  # assets/fonts/noto_sans_thai/OFL.txt) so Thai renders offline and on the
+  # first web load instead of waiting on a runtime font download.
+  fonts:
+    - family: NotoSansThai
+      fonts:
+        - asset: assets/fonts/noto_sans_thai/NotoSansThai-Regular.ttf
+        - asset: assets/fonts/noto_sans_thai/NotoSansThai-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/noto_sans_thai/NotoSansThai-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/noto_sans_thai/NotoSansThai-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/noto_sans_thai/NotoSansThai-ExtraBold.ttf
+          weight: 800
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../app/providers.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/money/money.dart';
-import '../../../l10n/app_localizations.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/layout/aiko_adaptive_columns.dart';
 import '../../../shared/layout/aiko_breakpoints.dart';
@@ -16,6 +16,7 @@ import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../categories/domain/category.dart';
+import '../../categories/presentation/category_names.dart';
 import '../../transactions/domain/transaction.dart';
 import '../../transactions/presentation/transaction_form_screen.dart';
 import '../domain/daily_spending_reaction.dart';
@@ -42,7 +43,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
-    final l10n = AppLocalizations.of(context);
+    final l10n = context.l10n;
     final expanded = AikoBreakpoints.isExpanded(context);
 
     return Scaffold(
@@ -51,13 +52,13 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         actions: [
           IconButton(
             key: const ValueKey('home-notifications-icon'),
-            tooltip: 'Notifications',
+            tooltip: context.l10n.notificationsTitle,
             icon: const Icon(Icons.notifications_none),
             onPressed: () => context.push('/notifications'),
           ),
           IconButton(
             key: const ValueKey('home-settings-icon'),
-            tooltip: 'Settings',
+            tooltip: context.l10n.settingsTitle,
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => context.push('/settings'),
           ),
@@ -77,7 +78,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
             children: [
               AikoScreenState.error(
                 title: l10n.dashboardUnavailable,
-                message: '${l10n.dashboardUnavailableMessage}\n$error',
+                message: l10n.dashboardUnavailableMessage,
               ),
             ],
           ),
@@ -114,17 +115,17 @@ class _DailySpendingPanel extends ConsumerWidget {
     final summary = ref.watch(dashboardSummaryProvider).value;
 
     return transactionsAsync.when(
-      loading: () => const FinanceCard(
-        title: 'Daily spending',
+      loading: () => FinanceCard(
+        title: context.l10n.dashDailySpending,
         icon: Icons.today_outlined,
         accentColor: AikoColors.warningOrange,
-        child: Text('Loading...'),
+        child: Text(context.l10n.loadingEllipsis),
       ),
-      error: (_, _) => const FinanceCard(
-        title: 'Daily spending',
+      error: (_, _) => FinanceCard(
+        title: context.l10n.dashDailySpending,
         icon: Icons.today_outlined,
         accentColor: AikoColors.warningOrange,
-        child: Text('Unavailable'),
+        child: Text(context.l10n.unavailable),
       ),
       data: (transactions) {
         final baseCurrency =
@@ -149,7 +150,7 @@ class _DailySpendingPanel extends ConsumerWidget {
         final leftToSave = cashFlow - safeToSpend;
 
         return FinanceCard(
-          title: 'Daily spending',
+          title: context.l10n.dashDailySpending,
           icon: Icons.today_outlined,
           accentColor: color,
           onTap: () => context.push('/transactions'),
@@ -161,7 +162,7 @@ class _DailySpendingPanel extends ConsumerWidget {
                   fit: BoxFit.scaleDown,
                   child: AikoGauge(
                     value: ratio,
-                    label: '${used.format()} today',
+                    label: context.l10n.dashUsedToday(used.format()),
                     color: color,
                   ),
                 ),
@@ -173,21 +174,21 @@ class _DailySpendingPanel extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: _MiniMetric(
-                      label: 'Safe this week',
+                      label: context.l10n.dashSafeThisWeek,
                       value: safeToSpend.format(),
                       color: AikoColors.analyticsTeal,
                     ),
                   ),
                   Expanded(
                     child: _MiniMetric(
-                      label: 'Left to save',
+                      label: context.l10n.dashLeftToSave,
                       value: leftToSave.format(),
                       color: AikoColors.analyticsTeal,
                     ),
                   ),
                   Expanded(
                     child: _MiniMetric(
-                      label: 'Cash flow',
+                      label: context.l10n.dashCashFlow,
                       value: cashFlow.format(),
                       color: cashFlow.isNegative
                           ? AikoColors.dangerRed
@@ -274,22 +275,22 @@ class _CashFlowMappingPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context);
+    final l10n = context.l10n;
     final textTheme = Theme.of(context).textTheme;
     final summaryAsync = ref.watch(dashboardSummaryProvider);
 
     return summaryAsync.when(
-      loading: () => const FinanceCard(
-        title: 'Cash flow mapping',
+      loading: () => FinanceCard(
+        title: context.l10n.dashCashFlowMapping,
         icon: Icons.bubble_chart_outlined,
         accentColor: AikoColors.analyticsTeal,
-        child: Text('Loading cash flow mapping...'),
+        child: Text(context.l10n.dashLoadingCashFlowMapping),
       ),
-      error: (_, _) => const FinanceCard(
-        title: 'Cash flow mapping',
+      error: (_, _) => FinanceCard(
+        title: context.l10n.dashCashFlowMapping,
         icon: Icons.bubble_chart_outlined,
         accentColor: AikoColors.analyticsTeal,
-        child: Text('Unable to load cash flow mapping right now.'),
+        child: Text(context.l10n.dashCashFlowMappingFailed),
       ),
       data: (summary) {
         var totalIncome = summary.monthlyIncome.amount.toDouble();
@@ -313,14 +314,14 @@ class _CashFlowMappingPanel extends ConsumerWidget {
         final currencyFormat = NumberFormat.simpleCurrency(name: baseCurrency);
 
         return FinanceCard(
-          title: 'Cash flow mapping',
+          title: context.l10n.dashCashFlowMapping,
           icon: Icons.bubble_chart_outlined,
           accentColor: AikoColors.analyticsTeal,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'A visual mapping of your monthly income flows into bills, discretionary spending, and savings cushions.',
+                context.l10n.dashCashFlowMappingDescription,
                 style: textTheme.bodyMedium,
               ),
               const SizedBox(height: 20),
@@ -366,19 +367,19 @@ class _CashFlowMappingPanel extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         _FlowAmount(
-                          label: 'Fixed Bills',
+                          label: context.l10n.dashFixedBills,
                           amount: currencyFormat.format(bills),
                           color: AikoColors.warningOrange,
                         ),
                         const SizedBox(height: 20),
                         _FlowAmount(
-                          label: 'Discretionary',
+                          label: context.l10n.dashDiscretionary,
                           amount: currencyFormat.format(discretionary),
                           color: AikoColors.deepBlue,
                         ),
                         const SizedBox(height: 20),
                         _FlowAmount(
-                          label: 'Savings',
+                          label: context.l10n.dashSavings,
                           amount: currencyFormat.format(savings),
                           color: AikoColors.analyticsTeal,
                         ),
@@ -556,14 +557,14 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
 
     return transactionsAsync.when(
       loading: () => FinanceCard(
-        title: kind.title,
+        title: kind.title(context.l10n),
         icon: Icons.bar_chart_outlined,
-        child: Text('Loading transaction analytics...'),
+        child: Text(context.l10n.dashLoadingAnalytics),
       ),
       error: (error, stack) => FinanceCard(
-        title: kind.title,
+        title: kind.title(context.l10n),
         icon: Icons.bar_chart_outlined,
-        child: Text('Unable to load transaction analytics right now.'),
+        child: Text(context.l10n.dashAnalyticsFailed),
       ),
       data: (transactions) {
         final categories =
@@ -654,12 +655,12 @@ enum _AnalyticsWidgetKind {
 }
 
 extension on _AnalyticsWidgetKind {
-  String get title {
+  String title(AppLocalizations l10n) {
     return switch (this) {
-      _AnalyticsWidgetKind.dailySummary => 'Daily summary',
-      _AnalyticsWidgetKind.netEarnings => 'Net earnings',
-      _AnalyticsWidgetKind.categoryBudgets => 'Category budgets',
-      _AnalyticsWidgetKind.spendingCalendar => 'Spending calendar',
+      _AnalyticsWidgetKind.dailySummary => l10n.dashDailySummary,
+      _AnalyticsWidgetKind.netEarnings => l10n.dashNetEarnings,
+      _AnalyticsWidgetKind.categoryBudgets => l10n.dashCategoryBudgets,
+      _AnalyticsWidgetKind.spendingCalendar => l10n.dashSpendingCalendar,
     };
   }
 }
@@ -725,7 +726,7 @@ class _DailySummaryCardState extends State<_DailySummaryCard> {
     final thirtyDayAverage = _averageDailyExpense(transactions, today, 30);
 
     return FinanceCard(
-      title: 'Daily summary',
+      title: context.l10n.dashDailySummary,
       icon: Icons.bar_chart_outlined,
       accentColor: AikoColors.analyticsTeal,
       trailing: widget.showPeriodSelector
@@ -810,12 +811,20 @@ class _DailySummaryCardState extends State<_DailySummaryCard> {
           const SizedBox(height: 12),
           Row(
             children: [
-              const _LegendDot(color: AikoColors.successGreen, label: 'Income'),
+              _LegendDot(
+                color: AikoColors.successGreen,
+                label: context.l10n.transactionTypeIncome,
+              ),
               const SizedBox(width: 16),
-              const _LegendDot(color: AikoColors.dangerRed, label: 'Expense'),
+              _LegendDot(
+                color: AikoColors.dangerRed,
+                label: context.l10n.transactionTypeExpense,
+              ),
               const Spacer(),
               Text(
-                '7-day avg $symbol${sevenDayAverage.toStringAsFixed(0)}',
+                context.l10n.dashSevenDayAvg(
+                  '$symbol${sevenDayAverage.toStringAsFixed(0)}',
+                ),
                 style: Theme.of(context).textTheme.labelMedium,
               ),
             ],
@@ -844,9 +853,9 @@ class _PeriodPill extends StatelessWidget {
     return PopupMenuButton<int>(
       initialValue: days,
       onSelected: onChanged,
-      itemBuilder: (context) => const [
-        PopupMenuItem(value: 7, child: Text('This week')),
-        PopupMenuItem(value: 30, child: Text('This month')),
+      itemBuilder: (context) => [
+        PopupMenuItem(value: 7, child: Text(context.l10n.dashThisWeek)),
+        PopupMenuItem(value: 30, child: Text(context.l10n.txFilterThisMonth)),
       ],
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -858,7 +867,9 @@ class _PeriodPill extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              days <= 7 ? 'This week' : 'This month',
+              days <= 7
+                  ? context.l10n.dashThisWeek
+                  : context.l10n.txFilterThisMonth,
               style: theme.textTheme.labelLarge,
             ),
             const SizedBox(width: 4),
@@ -908,18 +919,18 @@ class _AverageSpendingBox extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Average spending',
+                  context.l10n.dashAverageSpending,
                   style: theme.textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '7 days: $sevenDay per day',
+                  context.l10n.dashSevenDaysPerDay(sevenDay),
                   style: theme.textTheme.bodySmall,
                 ),
                 Text(
-                  '30 days: $thirtyDay per day',
+                  context.l10n.dashThirtyDaysPerDay(thirtyDay),
                   style: theme.textTheme.bodySmall,
                 ),
               ],
@@ -976,7 +987,7 @@ class _MonthlyNetEarningsCard extends StatelessWidget {
     final net = latest.income - latest.expense;
 
     return FinanceCard(
-      title: 'Net earnings',
+      title: context.l10n.dashNetEarnings,
       icon: Icons.stacked_bar_chart_outlined,
       accentColor: AikoColors.deepBlue,
       onTap: onTap,
@@ -1045,14 +1056,22 @@ class _MonthlyNetEarningsCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              const _LegendDot(color: AikoColors.successGreen, label: 'Income'),
+              _LegendDot(
+                color: AikoColors.successGreen,
+                label: context.l10n.transactionTypeIncome,
+              ),
               const SizedBox(width: 16),
-              const _LegendDot(color: AikoColors.dangerRed, label: 'Expense'),
+              _LegendDot(
+                color: AikoColors.dangerRed,
+                label: context.l10n.transactionTypeExpense,
+              ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            'This month net: $currencySymbol${net.toStringAsFixed(0)}',
+            context.l10n.dashThisMonthNet(
+              '$currencySymbol${net.toStringAsFixed(0)}',
+            ),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: net >= 0 ? AikoColors.successGreen : AikoColors.dangerRed,
               fontWeight: FontWeight.w700,
@@ -1110,7 +1129,9 @@ class _CategoryBudgetCard extends StatelessWidget {
             .map(
               (entry) => _CategoryUsage(
                 categoryId: entry.key,
-                label: categoryById[entry.key]?.name ?? 'Uncategorized',
+                label:
+                    categoryById[entry.key]?.displayName(context.l10n) ??
+                    context.l10n.uncategorized,
                 used: entry.value,
                 budget: budgetByCategory[entry.key] ?? 0,
                 color: _categoryColor(categoryById[entry.key], entry.key),
@@ -1123,7 +1144,7 @@ class _CategoryBudgetCard extends StatelessWidget {
         ? [
             _CategoryUsage(
               categoryId: 'none',
-              label: 'No spending',
+              label: context.l10n.dashNoSpending,
               used: 1,
               budget: 0,
               color: Theme.of(context).colorScheme.outlineVariant,
@@ -1132,7 +1153,7 @@ class _CategoryBudgetCard extends StatelessWidget {
         : rows;
 
     return FinanceCard(
-      title: 'Category budgets',
+      title: context.l10n.dashCategoryBudgets,
       icon: Icons.pie_chart_outline,
       accentColor: AikoColors.premiumPurple,
       onTap: onTap,
@@ -1150,7 +1171,7 @@ class _CategoryBudgetCard extends StatelessWidget {
                     PieChartSectionData(
                       value: row.used,
                       color: row.color,
-                      title: row.label == 'No spending'
+                      title: row.categoryId == 'none'
                           ? ''
                           : '$currencySymbol${row.used.toStringAsFixed(0)}',
                       radius: 54,
@@ -1165,7 +1186,7 @@ class _CategoryBudgetCard extends StatelessWidget {
           const SizedBox(height: 12),
           if (rows.isEmpty)
             Text(
-              'No category spending recorded this month yet.',
+              context.l10n.dashNoCategorySpending,
               style: Theme.of(context).textTheme.bodySmall,
             )
           else
@@ -1213,7 +1234,7 @@ class _SpendingCalendarCard extends StatelessWidget {
     );
 
     return FinanceCard(
-      title: 'Spending calendar',
+      title: context.l10n.dashSpendingCalendar,
       icon: Icons.calendar_month_outlined,
       accentColor: AikoColors.warningOrange,
       onTap: onTap,
@@ -1221,7 +1242,11 @@ class _SpendingCalendarCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              for (final label in const ['S', 'M', 'T', 'W', 'T', 'F', 'S'])
+              // 2024-01-07 was a Sunday: Sunday-first narrow day names.
+              for (final label in [
+                for (var i = 0; i < 7; i++)
+                  DateFormat('EEEEE').format(DateTime(2024, 1, 7 + i)),
+              ])
                 Expanded(
                   child: Center(
                     child: Text(
@@ -1281,7 +1306,7 @@ class _SpendingCalendarCard extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Dot size reflects total spending for each day this month.',
+              context.l10n.dashCalendarHint,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -1313,7 +1338,9 @@ class _CategoryBudgetRow extends StatelessWidget {
             Text(
               row.budget > 0
                   ? '$currencySymbol${row.used.toStringAsFixed(0)} / $currencySymbol${row.budget.toStringAsFixed(0)}'
-                  : '$currencySymbol${row.used.toStringAsFixed(0)} used',
+                  : context.l10n.dashAmountUsed(
+                      '$currencySymbol${row.used.toStringAsFixed(0)}',
+                    ),
               style: Theme.of(context).textTheme.labelMedium,
             ),
           ],
@@ -1360,7 +1387,7 @@ class _AnalyticsDetailScreenState extends State<_AnalyticsDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_titleFor(widget.kind))),
+      appBar: AppBar(title: Text(widget.kind.title(context.l10n))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
@@ -1375,34 +1402,44 @@ class _AnalyticsDetailScreenState extends State<_AnalyticsDetailScreen> {
   }
 
   Widget _customizationPanel() {
+    final l10n = context.l10n;
     return FinanceCard(
-      title: 'Customize widget',
+      title: context.l10n.dashCustomizeWidget,
       icon: Icons.tune_outlined,
       accentColor: AikoColors.primaryBlue,
       child: switch (widget.kind) {
         _AnalyticsWidgetKind.dailySummary => _ChoiceChips<int>(
-          label: 'Range',
+          label: context.l10n.dashRange,
           value: _dailyDays,
-          options: const {7: '7 days', 14: '14 days', 30: '30 days'},
+          options: {
+            for (final days in const [7, 14, 30]) days: l10n.daysCount(days),
+          },
           onChanged: (value) => setState(() => _dailyDays = value),
         ),
         _AnalyticsWidgetKind.netEarnings => _ChoiceChips<int>(
-          label: 'Range',
+          label: context.l10n.dashRange,
           value: _earningMonths,
-          options: const {4: '4 months', 6: '6 months', 12: '12 months'},
+          options: {
+            for (final months in const [4, 6, 12])
+              months: l10n.monthsCount(months),
+          },
           onChanged: (value) => setState(() => _earningMonths = value),
         ),
         _AnalyticsWidgetKind.categoryBudgets => _ChoiceChips<int>(
-          label: 'Categories',
+          label: context.l10n.categoriesTab,
           value: _categoryRows,
-          options: const {5: 'Top 5', 8: 'Top 8', 20: 'All'},
+          options: {
+            5: l10n.topCount(5),
+            8: l10n.topCount(8),
+            20: l10n.txFilterAll,
+          },
           onChanged: (value) => setState(() => _categoryRows = value),
         ),
         _AnalyticsWidgetKind.spendingCalendar => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Dot intensity',
+              context.l10n.dashDotIntensity,
               style: Theme.of(context).textTheme.labelLarge,
             ),
             Slider(
@@ -1446,7 +1483,7 @@ class _AnalyticsDetailScreenState extends State<_AnalyticsDetailScreen> {
 
   Widget _detailRows() {
     return FinanceCard(
-      title: 'Details',
+      title: context.l10n.dashDetails,
       icon: Icons.notes_outlined,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1472,36 +1509,41 @@ class _AnalyticsDetailScreenState extends State<_AnalyticsDetailScreen> {
       DateTime(now.year, now.month, 1),
       TransactionType.expense,
     );
+    final l10n = context.l10n;
+    final symbol = widget.currencySymbol;
+    String amount(double value) => '$symbol${value.toStringAsFixed(0)}';
     return switch (widget.kind) {
       _AnalyticsWidgetKind.dailySummary => [
-        'Transactions included: ${widget.transactions.length}',
-        'Average daily expense over $_dailyDays days: ${widget.currencySymbol}${_averageDailyExpense(widget.transactions, _dateOnly(now), _dailyDays).toStringAsFixed(0)}',
-        'Current month expense: ${widget.currencySymbol}${monthlyExpense.toStringAsFixed(0)}',
+        l10n.dashDetailTransactionsIncluded(widget.transactions.length),
+        l10n.dashDetailAverageDaily(
+          _dailyDays,
+          amount(
+            _averageDailyExpense(
+              widget.transactions,
+              _dateOnly(now),
+              _dailyDays,
+            ),
+          ),
+        ),
+        l10n.dashDetailMonthExpense(amount(monthlyExpense)),
       ],
       _AnalyticsWidgetKind.netEarnings => [
-        'Current month income: ${widget.currencySymbol}${monthlyIncome.toStringAsFixed(0)}',
-        'Current month expense: ${widget.currencySymbol}${monthlyExpense.toStringAsFixed(0)}',
-        'Current month net: ${widget.currencySymbol}${(monthlyIncome - monthlyExpense).toStringAsFixed(0)}',
+        l10n.dashDetailMonthIncome(amount(monthlyIncome)),
+        l10n.dashDetailMonthExpense(amount(monthlyExpense)),
+        l10n.dashDetailMonthNet(amount(monthlyIncome - monthlyExpense)),
       ],
       _AnalyticsWidgetKind.categoryBudgets => [
-        'Categories with a budget: ${widget.categories.where((c) => c.monthlyLimit != null).length}',
-        'Tracked categories: ${widget.categories.length}',
-        'Current month expense: ${widget.currencySymbol}${monthlyExpense.toStringAsFixed(0)}',
+        l10n.dashDetailBudgetedCategories(
+          widget.categories.where((c) => c.monthlyLimit != null).length,
+        ),
+        l10n.dashDetailTrackedCategories(widget.categories.length),
+        l10n.dashDetailMonthExpense(amount(monthlyExpense)),
       ],
       _AnalyticsWidgetKind.spendingCalendar => [
-        'Month: ${_monthShortLabel(DateTime(now.year, now.month, 1))} ${now.year}',
-        'Current month expense: ${widget.currencySymbol}${monthlyExpense.toStringAsFixed(0)}',
-        'Dot size scale: ${(_calendarDotScale * 100).round()}%',
+        l10n.dashDetailMonth(DateFormat.yMMM().format(now)),
+        l10n.dashDetailMonthExpense(amount(monthlyExpense)),
+        l10n.dashDetailDotScale((_calendarDotScale * 100).round()),
       ],
-    };
-  }
-
-  String _titleFor(_AnalyticsWidgetKind kind) {
-    return switch (kind) {
-      _AnalyticsWidgetKind.dailySummary => 'Daily summary',
-      _AnalyticsWidgetKind.netEarnings => 'Net earnings',
-      _AnalyticsWidgetKind.categoryBudgets => 'Category budgets',
-      _AnalyticsWidgetKind.spendingCalendar => 'Spending calendar',
     };
   }
 }
@@ -1650,26 +1692,9 @@ double _averageDailyExpense(
   return total / dayCount;
 }
 
-String _weekdayLabel(DateTime day) {
-  return const ['M', 'T', 'W', 'T', 'F', 'S', 'S'][day.weekday - 1];
-}
+String _weekdayLabel(DateTime day) => DateFormat('EEEEE').format(day);
 
-String _monthShortLabel(DateTime month) {
-  return const [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ][month.month - 1];
-}
+String _monthShortLabel(DateTime month) => DateFormat.MMM().format(month);
 
 Color _categoryColor(Category? category, String fallbackKey) {
   if (category != null) {

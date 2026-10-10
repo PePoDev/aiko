@@ -27,6 +27,8 @@ import '../core/money/exchange_rate_service.dart';
 import '../core/firebase/firebase_backend.dart';
 import '../core/offline/firestore_sync_state.dart';
 import '../core/offline/offline_user_context.dart';
+import '../l10n/app_localizations.dart';
+import 'locale_controller.dart';
 
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   return TransactionRepository();
@@ -725,6 +727,7 @@ final monthlyReportProvider = FutureProvider.autoDispose<MonthlyReport>((
     transactions: transactions,
     categories: categories,
     asOf: DateTime.now(),
+    l10n: _l10nOf(ref),
   );
   ref.keepAlive();
   return report;
@@ -809,6 +812,7 @@ final dashboardDueItemsProvider =
         final items = buildDashboardDueItems(
           accounts: accounts,
           asOf: DateTime.now(),
+          l10n: _l10nOf(ref),
         );
         ref.keepAlive();
         return items;
@@ -818,6 +822,13 @@ final dashboardDueItemsProvider =
         Error.throwWithStackTrace(error, stackTrace);
       }
     });
+
+/// Strings for the selected language. Providers that build user-facing text
+/// watch the language, so their text updates when it changes.
+AppLocalizations _l10nOf(Ref ref) => lookupAppLocalizations(
+  ref.watch(appLocaleControllerProvider).value?.locale ??
+      AppLocaleController.fallbackLocale,
+);
 
 /// Notifications derived live from the user's real local data (budget
 /// breaches, upcoming bills, goal milestones). No notifications table — this
@@ -835,6 +846,7 @@ final notificationsProvider = FutureProvider.autoDispose<List<AppNotification>>(
         accounts: accounts,
         dueItems: dueItems,
         asOf: DateTime.now(),
+        l10n: _l10nOf(ref),
       );
     } catch (error, stackTrace) {
       // Surface to `AikoScreenState.error`; a broken offline store renders a

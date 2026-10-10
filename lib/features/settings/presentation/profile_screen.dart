@@ -1,3 +1,5 @@
+import '../../../l10n/domain_labels.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/cached_avatar.dart';
 
@@ -101,8 +103,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (!mounted) return;
       setState(() => _draft = next);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile updated!'),
+        SnackBar(
+          content: Text(context.l10n.profileUpdated),
           backgroundColor: AikoColors.successGreen,
         ),
       );
@@ -110,7 +112,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to save profile: $e'),
+          content: Text(context.l10n.profileSaveFailed(e)),
           backgroundColor: AikoColors.dangerRed,
         ),
       );
@@ -137,7 +139,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             children: [
               ListTile(
                 leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('Choose from gallery'),
+                title: Text(context.l10n.profileChooseFromGallery),
                 onTap: () => Navigator.pop(sheetContext, AvatarAction.gallery),
               ),
               ListTile(
@@ -145,8 +147,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Icons.delete_outline,
                   color: AikoColors.dangerRed,
                 ),
-                title: const Text(
-                  'Remove photo',
+                title: Text(
+                  context.l10n.profileRemovePhoto,
                   style: TextStyle(color: AikoColors.dangerRed),
                 ),
                 onTap: () => Navigator.pop(sheetContext, AvatarAction.remove),
@@ -188,8 +190,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to update photo right now.'),
+        SnackBar(
+          content: Text(context.l10n.profilePhotoUpdateFailed),
           backgroundColor: AikoColors.dangerRed,
         ),
       );
@@ -267,20 +269,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return '$code · $symbol';
   }
 
-  String _genderLabel(Gender gender) {
-    switch (gender) {
-      case Gender.preferNotToSay:
-        return 'Prefer not to say';
-      case Gender.female:
-        return 'Female';
-      case Gender.male:
-        return 'Male';
-      case Gender.nonBinary:
-        return 'Non-binary';
-      case Gender.other:
-        return 'Other';
-    }
-  }
+  String _genderLabel(Gender gender) => gender.label(context.l10n);
 
   String _formatDate(DateTime date) {
     return DateFormat.yMMMMd().format(date);
@@ -294,7 +283,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to connect Google right now.')),
+        SnackBar(content: Text(context.l10n.profileGoogleConnectFailed)),
       );
     }
   }
@@ -313,9 +302,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _isSigningOut = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to log out right now.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.profileLogOutFailed)));
     }
   }
 
@@ -323,22 +312,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Account?'),
-        content: const Text(
-          'This permanently deletes your account and all your data right now. '
-          'This cannot be undone. You will be signed out.',
-        ),
+        title: Text(context.l10n.profileDeleteAccountQuestion),
+        content: Text(context.l10n.profileDeleteAccountWarning),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
               backgroundColor: AikoColors.dangerRed,
             ),
-            child: const Text('Delete Account'),
+            child: Text(context.l10n.profileDeleteAccount),
           ),
         ],
       ),
@@ -355,7 +341,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (!mounted) return;
       setState(() => _isDeleting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to delete account right now.')),
+        SnackBar(content: Text(context.l10n.profileDeleteAccountFailed)),
       );
     }
   }
@@ -378,7 +364,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: Text(context.l10n.profileTitle),
         centerTitle: true,
         actions: [
           profileAsync.maybeWhen(
@@ -392,7 +378,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.check),
-                  label: const Text('Save'),
+                  label: Text(context.l10n.save),
                 );
               }
               return const SizedBox.shrink();
@@ -417,7 +403,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Could not load your profile',
+                  context.l10n.profileLoadFailed,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
@@ -432,7 +418,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 FilledButton.icon(
                   onPressed: () => ref.invalidate(profileProvider),
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
+                  label: Text(context.l10n.retry),
                 ),
               ],
             ),
@@ -449,46 +435,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: FinanceCard(
-                  title: 'Personal information',
+                  title: context.l10n.profilePersonalInformation,
                   icon: Icons.person_outline,
                   child: Column(
                     children: [
                       _buildField(
                         controller: _displayNameController,
-                        label: 'Display name',
+                        label: context.l10n.profileDisplayName,
                         icon: Icons.badge_outlined,
                       ),
                       const SizedBox(height: 8),
                       _buildField(
                         controller: _fullNameController,
-                        label: 'Full name',
+                        label: context.l10n.profileFullName,
                         icon: Icons.person_outline,
                       ),
                       const SizedBox(height: 8),
                       _buildField(
                         controller: _phoneController,
-                        label: 'Phone number',
+                        label: context.l10n.profilePhoneNumber,
                         icon: Icons.phone_outlined,
                         keyboardType: TextInputType.phone,
                       ),
                       const SizedBox(height: 8),
                       _buildChoiceRow(
-                        label: 'Gender',
+                        label: context.l10n.profileGender,
                         value: _genderLabel(_draft.gender),
                         icon: Icons.wc_outlined,
                         onTap: _pickGender,
                       ),
                       const SizedBox(height: 8),
                       _buildChoiceRow(
-                        label: 'Date of birth',
+                        label: context.l10n.profileDateOfBirth,
                         value: _draft.dateOfBirth != null
                             ? _formatDate(_draft.dateOfBirth!)
-                            : 'Not set',
+                            : context.l10n.notSet,
                         icon: Icons.cake_outlined,
                         onTap: _pickDateOfBirth,
                         trailing: _draft.dateOfBirth != null
                             ? IconButton(
-                                tooltip: 'Clear',
+                                tooltip: context.l10n.clear,
                                 icon: const Icon(Icons.close, size: 18),
                                 onPressed: () => setState(
                                   () => _draft = _draft.copyWith(
@@ -500,7 +486,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                       const SizedBox(height: 8),
                       _buildChoiceRow(
-                        label: 'Base currency',
+                        label: context.l10n.profileBaseCurrency,
                         value: _currencyLabel(_draft.baseCurrency),
                         icon: Icons.attach_money_outlined,
                         onTap: _pickBaseCurrency,
@@ -517,7 +503,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         title: Text(
-                          'Email address',
+                          context.l10n.profileEmailAddress,
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 color: Theme.of(
@@ -547,7 +533,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         title: Text(
-                          'User ID',
+                          context.l10n.profileUserId,
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 color: Theme.of(
@@ -560,7 +546,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         trailing: IconButton(
-                          tooltip: 'Copy User ID',
+                          tooltip: context.l10n.profileCopyUserId,
                           icon: Icon(
                             Icons.copy_outlined,
                             size: 18,
@@ -574,7 +560,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             );
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('User ID copied')),
+                              SnackBar(
+                                content: Text(context.l10n.profileUserIdCopied),
+                              ),
                             );
                           },
                         ),
@@ -587,7 +575,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: FinanceCard(
-                  title: 'Connected apps',
+                  title: context.l10n.profileConnectedApps,
                   icon: Icons.hub_outlined,
                   child: Column(
                     children: [
@@ -602,12 +590,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               color: AikoColors.primaryBlue,
                             ),
                             title: Text(
-                              linked ? 'LINE connected' : 'Connect LINE',
+                              linked
+                                  ? context.l10n.profileLineConnected
+                                  : context.l10n.profileConnectLine,
                             ),
                             subtitle: Text(
                               linked
-                                  ? 'Aiko can chat with you on LINE'
-                                  : 'Chat with Aiko from LINE',
+                                  ? context.l10n.profileLineConnectedSubtitle
+                                  : context.l10n.profileConnectLineSubtitle,
                             ),
                             trailing: linked
                                 ? const Icon(
@@ -636,12 +626,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               color: AikoColors.primaryBlue,
                             ),
                             title: Text(
-                              linked ? 'Google connected' : 'Connect Google',
+                              linked
+                                  ? context.l10n.profileGoogleConnected
+                                  : context.l10n.profileConnectGoogle,
                             ),
                             subtitle: Text(
                               linked
-                                  ? 'Sign in with Google too'
-                                  : 'Add Google sign-in to this account',
+                                  ? context.l10n.profileGoogleConnectedSubtitle
+                                  : context.l10n.profileConnectGoogleSubtitle,
                             ),
                             trailing: linked
                                 ? const Icon(
@@ -661,7 +653,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: FinanceCard(
-                  title: 'Account Actions',
+                  title: context.l10n.profileAccountActions,
                   icon: Icons.manage_accounts_outlined,
                   child: Column(
                     children: [
@@ -671,12 +663,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           Icons.lock_outline,
                           color: AikoColors.primaryBlue,
                         ),
-                        title: const Text('Change Password'),
+                        title: Text(context.l10n.profileChangePassword),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Password flow opened.'),
+                            SnackBar(
+                              content: Text(
+                                context.l10n.profilePasswordFlowOpened,
+                              ),
                             ),
                           );
                         },
@@ -688,7 +682,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           Icons.logout,
                           color: AikoColors.primaryBlue,
                         ),
-                        title: const Text('Log out'),
+                        title: Text(context.l10n.profileLogOut),
                         trailing: _isSigningOut
                             ? const SizedBox.square(
                                 dimension: 16,
@@ -709,7 +703,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: FinanceCard(
-                  title: 'Danger Zone',
+                  title: context.l10n.profileDangerZone,
                   icon: Icons.warning_amber_rounded,
                   accentColor: AikoColors.dangerRed,
                   child: Column(
@@ -720,12 +714,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           Icons.delete_forever_outlined,
                           color: AikoColors.dangerRed,
                         ),
-                        title: const Text(
-                          'Delete Account',
+                        title: Text(
+                          context.l10n.profileDeleteAccount,
                           style: TextStyle(color: AikoColors.dangerRed),
                         ),
-                        subtitle: const Text(
-                          'Permanently remove your data',
+                        subtitle: Text(
+                          context.l10n.profileDeleteAccountSubtitle,
                           style: TextStyle(color: AikoColors.dangerRed),
                         ),
                         trailing: _isDeleting
@@ -776,7 +770,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         filled: true,
         fillColor: AikoColors.primaryBlue.withValues(alpha: 0.05),
       ),
-      textCapitalization: label == 'Phone number'
+      textCapitalization: keyboardType == TextInputType.phone
           ? TextCapitalization.none
           : TextCapitalization.words,
     );

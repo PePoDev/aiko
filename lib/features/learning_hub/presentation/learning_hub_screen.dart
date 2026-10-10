@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../../l10n/l10n.dart';
 import 'inline_glossary_text.dart';
 
 class LearningHubScreen extends StatelessWidget {
@@ -9,40 +10,45 @@ class LearningHubScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final lessons = _lessons(l10n);
+    final glossary = _glossary(l10n);
     return Scaffold(
-      appBar: AppBar(title: const Text('Learning Hub')),
+      appBar: AppBar(title: Text(l10n.toolLearningHub)),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             FinanceCard(
-              title: 'Recommended lessons',
+              title: l10n.learningRecommendedLessons,
               icon: Icons.school_outlined,
               accentColor: AikoColors.premiumPurple,
               prominent: true,
               child: Column(
                 children: [
-                  for (final lesson in _lessons) _LessonTile(lesson: lesson),
+                  for (final lesson in lessons)
+                    _LessonTile(lesson: lesson, glossary: glossary),
                 ],
               ),
             ),
             const SizedBox(height: 16),
             FinanceCard(
-              title: 'Quizzes',
+              title: l10n.learningQuizzes,
               icon: Icons.quiz_outlined,
               accentColor: AikoColors.deepBlue,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final lesson in _lessons.where(
+                  for (final lesson in lessons.where(
                     (lesson) => lesson.quizQuestions.isNotEmpty,
                   ))
                     InlineGlossaryText(
-                      text:
-                          '${lesson.title}: '
-                          '${lesson.quizQuestions.length} question quiz',
-                      glossary: _glossary,
+                      text: l10n.learningQuizSummary(
+                        lesson.title,
+                        lesson.quizQuestions.length,
+                      ),
+                      glossary: glossary,
                     ),
                 ],
               ),
@@ -55,9 +61,10 @@ class LearningHubScreen extends StatelessWidget {
 }
 
 class _LessonTile extends StatelessWidget {
-  const _LessonTile({required this.lesson});
+  const _LessonTile({required this.lesson, required this.glossary});
 
   final _Lesson lesson;
+  final Map<String, String> glossary;
 
   @override
   Widget build(BuildContext context) {
@@ -67,12 +74,12 @@ class _LessonTile extends StatelessWidget {
         value: _completionPercent(lesson.progress),
         strokeWidth: 4,
       ),
-      title: InlineGlossaryText(text: lesson.title, glossary: _glossary),
+      title: InlineGlossaryText(text: lesson.title, glossary: glossary),
       subtitle: InlineGlossaryText(
         text:
-            '${lesson.category} - ${lesson.estimatedMinutes} min\n'
-            '${lesson.summary}',
-        glossary: _glossary,
+            '${context.l10n.learningLessonMeta(lesson.category, lesson.estimatedMinutes)}'
+            '\n${lesson.summary}',
+        glossary: glossary,
       ),
       isThreeLine: true,
       trailing: const Icon(Icons.chevron_right),
@@ -104,76 +111,79 @@ double _completionPercent(_LessonProgress progress) => switch (progress) {
   _LessonProgress.completed => 1,
 };
 
-const _lessons = <_Lesson>[
+/// Lessons in the current language. Glossary terms in their text are
+/// highlighted inline (see [_glossary]).
+List<_Lesson> _lessons(AppLocalizations l10n) => [
   (
     key: 'budget-basics',
-    title: 'Budgeting without guilt',
-    category: 'Budgeting',
-    summary:
-        'Safe-to-spend helps you balance needs, wants, goals, and flexible spending.',
+    title: l10n.lessonBudgetTitle,
+    category: l10n.lessonBudgetCategory,
+    summary: l10n.lessonBudgetSummary,
     estimatedMinutes: 6,
     progress: _LessonProgress.inProgress,
     quizQuestions: [
       (
-        prompt: 'What should a budget help you decide?',
-        options: ['Where every dollar goes', 'Which purchases are shameful'],
+        prompt: l10n.lessonBudgetQuestion,
+        options: [l10n.lessonBudgetOptionCorrect, l10n.lessonBudgetOptionWrong],
         correctOptionIndex: 0,
       ),
     ],
   ),
   (
     key: 'emergency-fund',
-    title: 'Emergency fund starter plan',
-    category: 'Saving',
-    summary:
-        'Choose a first cushion target and automate a monthly contribution.',
+    title: l10n.lessonEmergencyTitle,
+    category: l10n.lessonEmergencyCategory,
+    summary: l10n.lessonEmergencySummary,
     estimatedMinutes: 5,
     progress: _LessonProgress.notStarted,
     quizQuestions: [
       (
-        prompt: 'Why keep an emergency fund separate?',
-        options: ['For surprise costs', 'To hide spending'],
+        prompt: l10n.lessonEmergencyQuestion,
+        options: [
+          l10n.lessonEmergencyOptionCorrect,
+          l10n.lessonEmergencyOptionWrong,
+        ],
         correctOptionIndex: 0,
       ),
     ],
   ),
   (
     key: 'credit-utilization',
-    title: 'Credit utilization basics',
-    category: 'Credit',
-    summary:
-        'Understand APR, balance-to-limit ratios, and why paydown timing matters.',
+    title: l10n.lessonCreditTitle,
+    category: l10n.lessonCreditCategory,
+    summary: l10n.lessonCreditSummary,
     estimatedMinutes: 7,
     progress: _LessonProgress.completed,
     quizQuestions: [
       (
-        prompt: 'Lower utilization generally means:',
-        options: ['Less available credit', 'A healthier credit signal'],
+        prompt: l10n.lessonCreditQuestion,
+        options: [l10n.lessonCreditOptionWrong, l10n.lessonCreditOptionCorrect],
         correctOptionIndex: 1,
       ),
     ],
   ),
   (
     key: 'portfolio-rebalancing',
-    title: 'Rebalancing your portfolio',
-    category: 'Investing',
-    summary:
-        'Learn when to bring investments back toward target allocation weights.',
+    title: l10n.lessonRebalanceTitle,
+    category: l10n.lessonRebalanceCategory,
+    summary: l10n.lessonRebalanceSummary,
     estimatedMinutes: 6,
     progress: _LessonProgress.notStarted,
     quizQuestions: [
       (
-        prompt: 'What does rebalancing restore?',
-        options: ['Target allocation weights', 'A guaranteed return'],
+        prompt: l10n.lessonRebalanceQuestion,
+        options: [
+          l10n.lessonRebalanceOptionCorrect,
+          l10n.lessonRebalanceOptionWrong,
+        ],
         correctOptionIndex: 0,
       ),
     ],
   ),
 ];
 
-const _glossary = <String, String>{
-  'APR': 'Annual percentage rate.',
-  'Safe-to-spend':
-      'Money left after bills, savings, goals, and posted spending.',
-  'Rebalancing': 'Adjusting investments back toward target allocation weights.',
+Map<String, String> _glossary(AppLocalizations l10n) => {
+  l10n.glossaryAprTerm: l10n.glossaryAprDefinition,
+  l10n.glossarySafeToSpendTerm: l10n.glossarySafeToSpendDefinition,
+  l10n.glossaryRebalancingTerm: l10n.glossaryRebalancingDefinition,
 };

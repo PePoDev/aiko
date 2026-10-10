@@ -6,12 +6,15 @@ import 'package:uuid/uuid.dart';
 import '../../../../app/providers.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/money/money.dart';
+import '../../../../l10n/domain_labels.dart';
+import '../../../../l10n/l10n.dart';
 import '../../../../shared/widgets/aiko_data_widgets.dart';
 import '../../../../theme/aiko_colors.dart';
 import '../../../transactions/domain/transaction.dart';
 import '../../domain/account.dart';
 import '../../domain/account_details.dart';
 import '../../domain/account_validator.dart';
+import '../account_validation_l10n.dart';
 import 'account_common_fields.dart';
 
 export '../../domain/account_details.dart' show RewardsType;
@@ -80,13 +83,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
   late bool _includeInNetWorth;
   late bool _isActive;
   var _isSubmitting = false;
-  static const _currencies = [
-    ('THB', 'Thai Baht'),
-    ('USD', 'US Dollar'),
-    ('EUR', 'Euro'),
-    ('GBP', 'British Pound'),
-    ('JPY', 'Japanese Yen'),
-  ];
+  static const _currencies = ['THB', 'USD', 'EUR', 'GBP', 'JPY'];
 
   @override
   void initState() {
@@ -265,36 +262,59 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     switch (_type) {
       case AccountType.creditCard:
         if (_ccStatementDay < 1 || _ccStatementDay > 31) {
-          return AccountValidationMessages.statementDayRange;
+          return localizedAccountValidationMessage(
+            AccountValidationMessages.statementDayRange,
+            context.l10n,
+          );
         }
         if (_ccDueDay < 1 || _ccDueDay > 31) {
-          return AccountValidationMessages.dueDayRange;
+          return localizedAccountValidationMessage(
+            AccountValidationMessages.dueDayRange,
+            context.l10n,
+          );
         }
         final apr = double.tryParse(_ccApr.text.trim());
         if (_ccApr.text.trim().isNotEmpty && (apr == null || apr < 0)) {
-          return AccountValidationMessages.aprNegative;
+          return localizedAccountValidationMessage(
+            AccountValidationMessages.aprNegative,
+            context.l10n,
+          );
         }
         if (_ccSharesLimit) {
           if (_ccSharedLimitAccountId == null) {
-            return AccountValidationMessages.sharedLimitReferenceRequired;
+            return localizedAccountValidationMessage(
+              AccountValidationMessages.sharedLimitReferenceRequired,
+              context.l10n,
+            );
           }
         } else if (_ccLimit.text.trim().isEmpty) {
-          return AccountValidationMessages.creditLimitRequired;
+          return localizedAccountValidationMessage(
+            AccountValidationMessages.creditLimitRequired,
+            context.l10n,
+          );
         }
         return null;
       case AccountType.loan:
         final term = int.tryParse(_loanTerm.text.trim()) ?? 0;
-        if (term <= 0) return AccountValidationMessages.termMonthsPositive;
+        if (term <= 0) {
+          return localizedAccountValidationMessage(
+            AccountValidationMessages.termMonthsPositive,
+            context.l10n,
+          );
+        }
         return null;
       case AccountType.asset:
         if (_assetPrice.text.trim().isNotEmpty && _assetDate == null) {
-          return AccountValidationMessages.purchaseDateRequired;
+          return localizedAccountValidationMessage(
+            AccountValidationMessages.purchaseDateRequired,
+            context.l10n,
+          );
         }
         return null;
       case AccountType.liability:
         final apr = double.tryParse(_liabApr.text.trim());
         if (_liabApr.text.trim().isNotEmpty && apr == null) {
-          return 'Enter a valid APR.';
+          return context.l10n.accountFormAprInvalid;
         }
         return null;
       case AccountType.goal:
@@ -303,17 +323,17 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         if (target.isNotEmpty) {
           final parsed = num.tryParse(target);
           if (parsed == null || parsed <= 0) {
-            return 'Target amount must be greater than zero';
+            return context.l10n.accountFormTargetPositive;
           }
         }
         if (current.isNotEmpty) {
           final parsed = num.tryParse(current);
           if (parsed == null || parsed < 0) {
-            return 'Current saved amount must be zero or more';
+            return context.l10n.accountFormSavedNonNegative;
           }
         }
         if (target.isNotEmpty && _goalDate == null) {
-          return 'Pick a target date when a target amount is set';
+          return context.l10n.accountFormTargetDateRequired;
         }
         return null;
       default:
@@ -343,8 +363,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
             type: isNegative ? TransactionType.expense : TransactionType.income,
             amount: transactionAmount,
             date: DateTime.now(),
-            merchant: 'Initial balance',
-            note: 'Created from account starting balance',
+            merchant: context.l10n.accountFormInitialBalance,
+            note: context.l10n.accountFormInitialBalanceNote,
           ),
           updateAccountBalance: false,
         );
@@ -409,8 +429,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);
       final message = widget.account == null
-          ? 'Account "${account.name}" created.'
-          : 'Account "${account.name}" updated.';
+          ? context.l10n.accountFormCreated(account.name)
+          : context.l10n.accountFormUpdated(account.name);
       Navigator.of(context).pop(account);
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
@@ -422,21 +442,25 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       );
     } on AccountValidationException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            localizedAccountValidationMessage(e.message, context.l10n),
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
+      ).showSnackBar(SnackBar(content: Text(context.l10n.accountSaveFailed)));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
   String _dateLabel(DateTime? d) {
-    if (d == null) return 'Tap to choose';
+    if (d == null) return context.l10n.accountFormTapToChoose;
     return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   }
 
@@ -498,28 +522,31 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       children: [
         if (_ccValidationError != null) ...[
           AikoInlineNotice(
-            title: 'Heads up',
-            message: _ccValidationError!,
+            title: context.l10n.accountFormHeadsUp,
+            message: localizedAccountValidationMessage(
+              _ccValidationError!,
+              context.l10n,
+            ),
             icon: Icons.warning_amber_outlined,
             accentColor: AikoColors.warningOrange,
           ),
           const SizedBox(height: 12),
         ],
         _DayPickerField(
-          label: 'Statement day (1-31)',
+          label: context.l10n.accountFormStatementDay,
           value: _ccStatementDay,
           onChanged: (v) => setState(() => _ccStatementDay = v),
         ),
         const SizedBox(height: 12),
         _DayPickerField(
-          label: 'Due day (1-31)',
+          label: context.l10n.accountFormDueDay,
           value: _ccDueDay,
           onChanged: (v) => setState(() => _ccDueDay = v),
         ),
         const SizedBox(height: 12),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Share limit with another card'),
+          title: Text(context.l10n.accountFormShareLimit),
           value: _ccSharesLimit,
           onChanged: (v) => setState(() {
             _ccSharesLimit = v;
@@ -529,8 +556,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         if (_ccSharesLimit) ...[
           DropdownButtonFormField<String>(
             initialValue: _ccSharedLimitAccountId,
-            decoration: const InputDecoration(
-              labelText: 'Card to share with',
+            decoration: InputDecoration(
+              labelText: context.l10n.accountFormCardToShareWith,
               prefixIcon: Icon(Icons.credit_card_outlined),
             ),
             items: available
@@ -543,8 +570,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           TextField(
             controller: _ccLimit,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Credit limit',
+            decoration: InputDecoration(
+              labelText: context.l10n.accountsDetailCreditLimit,
               prefixIcon: Icon(Icons.payments_outlined),
             ),
           ),
@@ -553,26 +580,28 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         TextField(
           controller: _ccApr,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'APR (%)',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountFormApr,
             prefixIcon: Icon(Icons.percent_outlined),
           ),
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<RewardsType?>(
           initialValue: _ccRewardsType,
-          decoration: const InputDecoration(
-            labelText: 'Rewards type',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountFormRewardsType,
             prefixIcon: Icon(Icons.redeem_outlined),
           ),
           items: [
-            const DropdownMenuItem<RewardsType?>(
+            DropdownMenuItem<RewardsType?>(
               value: null,
-              child: Text('None'),
+              child: Text(context.l10n.rewardsTypeNone),
             ),
             ...RewardsType.values.map(
-              (r) =>
-                  DropdownMenuItem<RewardsType?>(value: r, child: Text(r.name)),
+              (r) => DropdownMenuItem<RewardsType?>(
+                value: r,
+                child: Text(r.label(context.l10n)),
+              ),
             ),
           ],
           onChanged: (v) => setState(() => _ccRewardsType = v),
@@ -581,8 +610,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         TextField(
           controller: _ccAnnualFee,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Annual fee (optional)',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountFormAnnualFee,
             prefixIcon: Icon(Icons.payments_outlined),
           ),
         ),
@@ -590,8 +619,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         TextField(
           controller: _ccMinPayment,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Minimum payment (optional)',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountFormMinPayment,
             prefixIcon: Icon(Icons.payments_outlined),
           ),
         ),
@@ -605,12 +634,17 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       children: [
         DropdownButtonFormField<LoanType>(
           initialValue: _loanType,
-          decoration: const InputDecoration(
-            labelText: 'Loan type',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountFormLoanType,
             prefixIcon: Icon(Icons.handshake_outlined),
           ),
           items: LoanType.values
-              .map((t) => DropdownMenuItem(value: t, child: Text(t.name)))
+              .map(
+                (t) => DropdownMenuItem(
+                  value: t,
+                  child: Text(t.label(context.l10n)),
+                ),
+              )
               .toList(),
           onChanged: (v) {
             if (v != null) setState(() => _loanType = v);
@@ -620,8 +654,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         TextField(
           controller: _loanPrincipal,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Principal',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountsDetailPrincipal,
             prefixIcon: Icon(Icons.payments_outlined),
           ),
         ),
@@ -629,8 +663,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         TextField(
           controller: _loanApr,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Interest rate (%)',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountFormInterestRate,
             prefixIcon: Icon(Icons.percent_outlined),
           ),
         ),
@@ -638,8 +672,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         TextField(
           controller: _loanTerm,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Term (months)',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountFormTermMonths,
             prefixIcon: Icon(Icons.calendar_view_month_outlined),
           ),
         ),
@@ -647,8 +681,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         TextField(
           controller: _loanPayment,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Monthly payment',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountFormMonthlyPayment,
             prefixIcon: Icon(Icons.payments_outlined),
           ),
         ),
@@ -661,8 +695,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
             onPicked: (d) => _loanDue = d,
           ),
           child: InputDecorator(
-            decoration: const InputDecoration(
-              labelText: 'Next due date',
+            decoration: InputDecoration(
+              labelText: context.l10n.accountFormNextDueDate,
               prefixIcon: Icon(Icons.calendar_today_outlined),
             ),
             child: Text(_dateLabel(_loanDue)),
@@ -678,12 +712,17 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       children: [
         DropdownButtonFormField<AssetClass>(
           initialValue: _assetClass,
-          decoration: const InputDecoration(
-            labelText: 'Asset class',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountFormAssetClass,
             prefixIcon: Icon(Icons.category_outlined),
           ),
           items: AssetClass.values
-              .map((c) => DropdownMenuItem(value: c, child: Text(c.name)))
+              .map(
+                (c) => DropdownMenuItem(
+                  value: c,
+                  child: Text(c.label(context.l10n)),
+                ),
+              )
               .toList(),
           onChanged: (v) {
             if (v != null) setState(() => _assetClass = v);
@@ -693,8 +732,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         TextField(
           controller: _assetPrice,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Purchase price (optional)',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountFormPurchasePrice,
             prefixIcon: Icon(Icons.payments_outlined),
           ),
         ),
@@ -707,8 +746,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
             onPicked: (d) => _assetDate = d,
           ),
           child: InputDecorator(
-            decoration: const InputDecoration(
-              labelText: 'Purchase date',
+            decoration: InputDecoration(
+              labelText: context.l10n.accountFormPurchaseDate,
               prefixIcon: Icon(Icons.calendar_today_outlined),
             ),
             child: Text(_dateLabel(_assetDate)),
@@ -718,8 +757,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         TextField(
           controller: _assetNotes,
           maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Notes',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountsDetailNotes,
             prefixIcon: Icon(Icons.notes_outlined),
           ),
         ),
@@ -733,9 +772,9 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       children: [
         TextField(
           controller: _liabType,
-          decoration: const InputDecoration(
-            labelText: 'Type',
-            hintText: 'e.g. Overdraft, Personal loan',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountsDetailType,
+            hintText: context.l10n.accountFormLiabilityTypeHint,
             prefixIcon: Icon(Icons.label_outline),
           ),
         ),
@@ -743,8 +782,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         TextField(
           controller: _liabApr,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Interest rate (%)',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountFormInterestRate,
             prefixIcon: Icon(Icons.percent_outlined),
           ),
         ),
@@ -752,8 +791,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         TextField(
           controller: _liabNotes,
           maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Notes',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountsDetailNotes,
             prefixIcon: Icon(Icons.notes_outlined),
           ),
         ),
@@ -768,16 +807,16 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         TextField(
           controller: _otherNotes,
           maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Notes',
-            hintText: 'What kind of account is this?',
+          decoration: InputDecoration(
+            labelText: context.l10n.accountsDetailNotes,
+            hintText: context.l10n.accountFormOtherNotesHint,
             prefixIcon: Icon(Icons.notes_outlined),
           ),
         ),
         const SizedBox(height: 8),
-        const AikoInlineNotice(
-          title: 'No extra details',
-          message: 'Other accounts are flexible. Add notes to help future-you.',
+        AikoInlineNotice(
+          title: context.l10n.accountFormNoExtraDetails,
+          message: context.l10n.accountFormNoExtraDetailsMessage,
           icon: Icons.lightbulb_outline,
           accentColor: AikoColors.deepBlue,
         ),
@@ -807,7 +846,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Goal details',
+                  context.l10n.accountFormGoalDetails,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -816,8 +855,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Required for a SMART savings goal. The saved amount is the '
-              "account's current balance.",
+              context.l10n.accountFormGoalDetailsMessage,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -832,7 +870,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                       decimal: true,
                     ),
                     decoration: InputDecoration(
-                      labelText: 'Target amount',
+                      labelText: context.l10n.accountFormTargetAmount,
                       prefixText: '$_currency ',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -848,7 +886,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                       decimal: true,
                     ),
                     decoration: InputDecoration(
-                      labelText: 'Saved so far',
+                      labelText: context.l10n.accountFormSavedSoFar,
                       prefixText: '$_currency ',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -869,8 +907,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                 onPicked: (d) => _goalDate = d,
               ),
               decoration: InputDecoration(
-                labelText: 'Target date',
-                hintText: 'Pick the date you want to reach this goal',
+                labelText: context.l10n.accountFormTargetDate,
+                hintText: context.l10n.accountFormTargetDateHint,
                 prefixIcon: const Icon(Icons.calendar_today_outlined),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -879,13 +917,16 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
             ),
             const SizedBox(height: 12),
             SegmentedButton<GoalPriority>(
-              segments: const [
-                ButtonSegment(value: GoalPriority.low, label: Text('Low')),
-                ButtonSegment(
-                  value: GoalPriority.medium,
-                  label: Text('Medium'),
-                ),
-                ButtonSegment(value: GoalPriority.high, label: Text('High')),
+              segments: [
+                for (final priority in [
+                  GoalPriority.low,
+                  GoalPriority.medium,
+                  GoalPriority.high,
+                ])
+                  ButtonSegment(
+                    value: priority,
+                    label: Text(priority.label(context.l10n)),
+                  ),
               ],
               selected: {_goalPriority},
               onSelectionChanged: (set) =>
@@ -909,7 +950,13 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     final isEditing = widget.account != null;
 
     return Scaffold(
-      appBar: AppBar(title: Text(isEditing ? 'Edit account' : 'Add account')),
+      appBar: AppBar(
+        title: Text(
+          isEditing
+              ? context.l10n.accountsEditTooltip
+              : context.l10n.accountsAddAccount,
+        ),
+      ),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -921,9 +968,10 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                 initialCurrency: _currency,
                 initialIncludeInNetWorth: _includeInNetWorth,
                 initialIsActive: _isActive,
-                currencies: _currencies
-                    .map((c) => (code: c.$1, name: c.$2))
-                    .toList(),
+                currencies: [
+                  for (final code in _currencies)
+                    (code: code, name: currencyDisplayName(code, context.l10n)),
+                ],
                 nameController: _nameController,
                 balanceController: _balanceController,
                 institutionController: _institutionController,
@@ -967,7 +1015,11 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                     ),
                   )
                 : const Icon(Icons.check),
-            label: Text(isEditing ? 'Save Changes' : 'Create Account'),
+            label: Text(
+              isEditing
+                  ? context.l10n.txSaveChanges
+                  : context.l10n.accountFormCreate,
+            ),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
             ),

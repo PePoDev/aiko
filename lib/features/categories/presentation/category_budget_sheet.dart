@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/category.dart';
+import 'category_names.dart';
 import 'widgets/category_budget_section.dart';
 
 /// Compact bottom sheet for setting just a [Category]'s budget (amount /
@@ -78,8 +80,12 @@ class _CategoryBudgetSheetState extends ConsumerState<_CategoryBudgetSheet> {
           SnackBar(
             content: Text(
               amount.isEmpty
-                  ? 'Budget removed from "${widget.category.name}".'
-                  : 'Budget set for "${widget.category.name}".',
+                  ? context.l10n.budgetRemovedFrom(
+                      widget.category.displayName(context.l10n),
+                    )
+                  : context.l10n.budgetSetFor(
+                      widget.category.displayName(context.l10n),
+                    ),
             ),
             backgroundColor: AikoColors.successGreen,
           ),
@@ -90,7 +96,7 @@ class _CategoryBudgetSheetState extends ConsumerState<_CategoryBudgetSheet> {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save budget: $e'),
+            content: Text(context.l10n.budgetSaveFailed),
             backgroundColor: AikoColors.dangerRed,
           ),
         );
@@ -121,7 +127,9 @@ class _CategoryBudgetSheetState extends ConsumerState<_CategoryBudgetSheet> {
             children: [
               const AikoSheetHandle(),
               Text(
-                'Budget · ${widget.category.name}',
+                context.l10n.budgetSheetTitle(
+                  widget.category.displayName(context.l10n),
+                ),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -157,7 +165,9 @@ class _CategoryBudgetSheetState extends ConsumerState<_CategoryBudgetSheet> {
                       )
                     : const Icon(Icons.check),
                 label: Text(
-                  _saving ? 'Saving...' : 'Save Budget',
+                  _saving
+                      ? context.l10n.savingEllipsis
+                      : context.l10n.budgetSave,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

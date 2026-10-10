@@ -124,69 +124,98 @@ class AikoNavigationItem {
     required this.label,
     required this.path,
     required this.icon,
-    this.description = '',
+    required this.description,
     this.accentColor = AikoColors.primaryBlue,
   });
 
-  final String label;
+  final String Function(AppLocalizations l10n) label;
   final String path;
   final IconData icon;
-  final String description;
+  final String Function(AppLocalizations l10n) description;
   final Color accentColor;
 }
+
+String _toolChanceOfSuccessLabel(AppLocalizations l10n) =>
+    l10n.toolChanceOfSuccess;
+String _toolChanceOfSuccessDescription(AppLocalizations l10n) =>
+    l10n.toolChanceOfSuccessDescription;
+
+String _toolInvestmentsLabel(AppLocalizations l10n) => l10n.toolInvestments;
+String _toolInvestmentsDescription(AppLocalizations l10n) =>
+    l10n.toolInvestmentsDescription;
+
+String _toolAssetAllocationLabel(AppLocalizations l10n) =>
+    l10n.toolAssetAllocation;
+String _toolAssetAllocationDescription(AppLocalizations l10n) =>
+    l10n.toolAssetAllocationDescription;
+
+String _toolHoldingDetailLabel(AppLocalizations l10n) => l10n.toolHoldingDetail;
+String _toolHoldingDetailDescription(AppLocalizations l10n) =>
+    l10n.toolHoldingDetailDescription;
+
+String _toolLearningHubLabel(AppLocalizations l10n) => l10n.toolLearningHub;
+String _toolLearningHubDescription(AppLocalizations l10n) =>
+    l10n.toolLearningHubDescription;
+
+String _toolCalculatorsLabel(AppLocalizations l10n) => l10n.toolCalculators;
+String _toolCalculatorsDescription(AppLocalizations l10n) =>
+    l10n.toolCalculatorsDescription;
+
+String _toolExportLabel(AppLocalizations l10n) => l10n.toolExport;
+String _toolExportDescription(AppLocalizations l10n) =>
+    l10n.toolExportDescription;
 
 /// Tools: shown as one ordered list in Settings (phone) and in the sidebar's
 /// Tools section (web/desktop). Order here is the order the user sees.
 const aikoNavigationItems = <AikoNavigationItem>[
   // Planning
   AikoNavigationItem(
-    label: 'Goals: Chance of Success',
+    label: _toolChanceOfSuccessLabel,
     path: '/settings/chance-of-success',
     icon: Icons.auto_graph_outlined,
-    description: 'Monte Carlo probability of hitting every goal on time.',
+    description: _toolChanceOfSuccessDescription,
     accentColor: AikoColors.premiumPurple,
   ),
   AikoNavigationItem(
-    label: 'Investments',
+    label: _toolInvestmentsLabel,
     path: '/portfolio',
     icon: Icons.show_chart_outlined,
-    description: 'Track holdings, gains, allocation, and rebalance alerts.',
+    description: _toolInvestmentsDescription,
     accentColor: AikoColors.analyticsTeal,
   ),
   AikoNavigationItem(
-    label: 'Asset Allocation',
+    label: _toolAssetAllocationLabel,
     path: '/portfolio/allocation',
     icon: Icons.donut_small_outlined,
-    description: 'Analyze allocation by class, currency, and risk.',
+    description: _toolAssetAllocationDescription,
     accentColor: AikoColors.analyticsTeal,
   ),
   AikoNavigationItem(
-    label: 'Holding Detail',
+    label: _toolHoldingDetailLabel,
     path: '/portfolio/holding',
     icon: Icons.trending_up_outlined,
-    description: 'Inspect a single holding performance and history.',
+    description: _toolHoldingDetailDescription,
     accentColor: AikoColors.analyticsTeal,
   ),
 
   // Insights and AI
   AikoNavigationItem(
-    label: 'Learning Hub',
+    label: _toolLearningHubLabel,
     path: '/learning-hub',
     icon: Icons.school_outlined,
-    description: 'Take lessons, quizzes, and glossary refreshers.',
+    description: _toolLearningHubDescription,
   ),
   // Tools and Data
   AikoNavigationItem(
-    label: 'Calculators',
+    label: _toolCalculatorsLabel,
     path: '/calculators',
     icon: Icons.calculate_outlined,
-    description:
-        'Run finance, loan, retirement, stock, and everyday calculators.',
+    description: _toolCalculatorsDescription,
   ),
   AikoNavigationItem(
-    label: 'Export',
+    label: _toolExportLabel,
     path: '/export',
     icon: Icons.file_download_outlined,
-    description: 'Create CSV, Excel-compatible, and PDF-ready outputs.',
+    description: _toolExportDescription,
   ),
 ];

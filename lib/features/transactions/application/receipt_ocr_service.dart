@@ -65,10 +65,13 @@ class ReceiptOcrService {
 
   Money? _extractTotal(List<String> lines, String currency) {
     final totalLine = lines.lastWhere(
-      (line) => RegExp(
-        r'\b(total|amount due|paid)\b',
-        caseSensitive: false,
-      ).hasMatch(line),
+      (line) =>
+          RegExp(
+            r'\b(total|amount due|paid)\b',
+            caseSensitive: false,
+          ).hasMatch(line) ||
+          // Thai receipts: "ยอดรวม", "รวมทั้งสิ้น", "ยอดสุทธิ", "ยอดชำระ"…
+          RegExp('รวม|สุทธิ|ยอดชำระ|จำนวนเงิน').hasMatch(line),
       orElse: () => '',
     );
     final candidates = [if (totalLine.isNotEmpty) totalLine, ...lines.reversed];
@@ -92,12 +95,19 @@ class ReceiptOcrService {
         r'\b(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\b',
       ).firstMatch(line);
       if (match != null) {
-        final month = int.parse(match.group(1)!);
-        final day = int.parse(match.group(2)!);
+        final first = int.parse(match.group(1)!);
+        final second = int.parse(match.group(2)!);
         var year = int.parse(match.group(3)!);
         if (year < 100) {
           year += 2000;
         }
+        // Thai receipts print Buddhist-era years (2569 = 2026) day-first.
+        final buddhistEra = year > 2400;
+        if (buddhistEra) year -= 543;
+        final dayFirst = buddhistEra || first > 12;
+        final month = dayFirst ? second : first;
+        final day = dayFirst ? first : second;
+        if (month < 1 || month > 12 || day < 1 || day > 31) continue;
         return DateTime(year, month, day);
       }
     }

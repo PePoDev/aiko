@@ -21,26 +21,26 @@ class LineLinkRepository {
   Future<void> connectWithCode(String rawCode) async {
     final code = rawCode.trim().toUpperCase();
     if (code.isEmpty) {
-      throw const LineLinkException('Enter the code from the LINE bot.');
+      throw const LineLinkException(LineLinkError.emptyCode);
     }
     if (FirebaseBackend.userId == null) {
-      throw const LineLinkException('Sign in first, then connect LINE.');
+      throw const LineLinkException(LineLinkError.signedOut);
     }
     try {
       await FirebaseBackend.functions.httpsCallable('redeemLinePairing').call({
         'code': code,
       });
     } catch (_) {
-      throw const LineLinkException(
-        'Could not connect LINE. Check the code and connection, then try again.',
-      );
+      throw const LineLinkException(LineLinkError.failed);
     }
   }
 }
 
+enum LineLinkError { emptyCode, signedOut, failed }
+
 class LineLinkException implements Exception {
-  const LineLinkException(this.message);
-  final String message;
+  const LineLinkException(this.reason);
+  final LineLinkError reason;
   @override
-  String toString() => message;
+  String toString() => 'LineLinkException(${reason.name})';
 }

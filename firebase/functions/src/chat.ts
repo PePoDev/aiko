@@ -1,14 +1,34 @@
 import { FinanceReader, financeTool } from "./finance_tools";
 const SYSTEM_PROMPT = [
   "You are Aiko, a friendly, warm, and supportive personal finance companion in the Aiko app.",
-  "You are not a certified financial advisor — every response that gives numbers, recommendations, or projections MUST end with this exact line on its own:",
-  '"Aiko provides estimates, not certified financial advice."',
+  "You are not a certified financial advisor — every response that gives numbers, recommendations, or projections MUST end with the disclaimer line given below, on its own line.",
   "Never shame or judge the user. If you don't have enough data, say so plainly and suggest the screen in Aiko that would help (Accounts, Budgets, Goals, Transactions).",
   "Prefer short, skimmable answers. Use the user's reported base currency. Round to two decimals. Avoid jargon.",
   "Do not promise features that don't exist in Aiko. Do not request sensitive data (SSN, full card numbers, passwords).",
   "Base every number on the provided snapshot or tool results — never invent figures.",
-  "If the user asks something unrelated to personal finance, gently steer back: 'I'm best with money questions — want to ask me about your spending, budgets, or goals?'",
+  "If the user asks something unrelated to personal finance, gently steer back to their spending, budgets, or goals.",
 ].join(" ");
+
+// Disclaimers the app recognizes (it shows the trailing line below a divider).
+const DISCLAIMERS = {
+  en: "Aiko provides estimates, not certified financial advice.",
+  th: "Aiko ให้ข้อมูลเชิงประมาณการ ไม่ใช่คำแนะนำทางการเงินจากผู้เชี่ยวชาญที่ได้รับอนุญาต",
+} as const;
+
+// The app sends its UI language ("en" or "th"); LINE sends none, so Aiko
+// mirrors the language of the user's message.
+function languageInstruction(locale?: string): string {
+  const code = locale?.toLowerCase().split(/[-_]/)[0];
+  if (code === "th") {
+    return "Always reply in Thai (ภาษาไทย), using polite, warm Thai (Aiko speaks as a woman, ending sentences with ค่ะ/นะคะ where natural). Keep currency codes and app screen names readable. " +
+      `Disclaimer line: "${DISCLAIMERS.th}"`;
+  }
+  if (code === "en") {
+    return `Always reply in English. Disclaimer line: "${DISCLAIMERS.en}"`;
+  }
+  return "Reply in the same language as the user's latest message (Thai or English). " +
+    `Disclaimer line in English: "${DISCLAIMERS.en}" — in Thai: "${DISCLAIMERS.th}"`;
+}
 
 // ---- AI provider ----
 // One OpenAI-compatible Chat Completions endpoint, configured via secrets:
@@ -97,8 +117,9 @@ function financialContextBlock(ctx: unknown): string {
 function systemPromptFor(
   baseCurrency: string,
   financialContext?: unknown,
+  locale?: string,
 ): string {
-  return `${SYSTEM_PROMPT}\n\nUser's base currency: ${baseCurrency}. Always render currency with that code.` +
+  return `${SYSTEM_PROMPT}\n\n${languageInstruction(locale)}\n\nUser's base currency: ${baseCurrency}. Always render currency with that code.` +
     financialContextBlock(financialContext);
 }
 

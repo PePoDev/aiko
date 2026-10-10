@@ -39,13 +39,16 @@ Previews deploy in parallel. `main` deploys only after the Flutter and Firebase 
 | Prediction | `test/core/prediction/monte_carlo_test.dart` | Probability and percentile behavior |
 | Local schema | `test/brick/` | Codec round-trips, migration chain integrity, fresh database, budget→category and goal→account migrations, template-ID repair, default clone serialization |
 | App wiring | `test/app/` | Providers, locale controller, theme mode; navigation (`aiko_navigation_test.dart`): bottom bar and sidebar list the same destinations, every destination and tool is a registered route, selected-entry and reset rules |
+| Localization | `test/l10n/`, `test/theme/thai_font_test.dart`, `test/features/categories/category_names_test.dart` | Static scan for hard-coded user-facing strings; English and Thai ARB files have the same keys and placeholders, Thai is really Thai, every key is used; every enum value has distinct labels; built-in categories have Thai names; Android/iOS list the same languages; the Thai font is bundled ([Localization → Tests](localization.md#tests)) |
 | Layout | `test/shared/layout/` | Breakpoints, content widths and Overview column split (`aiko_layout_test.dart`); a static scan fails if code bypasses `showAikoSheet`/`openAikoPage` or builds navigation chrome outside `lib/app/` (`adaptive_presentation_guard_test.dart`) |
 | Accounts | `test/features/accounts/` | Validator rules, details JSON, shared-limit resolution |
-| Transactions | `test/features/transactions/` | Validation, transfer balance math, recurring projection, month ranges, rule matching, attachments, OCR and voice parsing, repository |
+| Transactions | `test/features/transactions/` | Validation, transfer balance math, recurring projection, month ranges, rule matching, attachments, OCR and voice parsing in English and Thai (Thai totals, Buddhist-era dates), repository |
 | Categories | `test/features/categories/` | Defaults and clone IDs, repository, budget progress |
 | Overview and dashboard | `test/features/overview/`, `test/features/dashboard/` | Safe-to-spend, cash flow, goal forecast, monthly report, allocation, notifications, daily spending reaction |
 | Other features | `test/features/` (`aiko_assistant`, `aiko_character`, `investments`, `calculators`, `transaction_capture`, `travel_mode`, `settings`, `auth`) | Financial context, SSE chat engine, Rive runtime loading only when `aiko.riv` is bundled, allocation and tax rebalance, calculator math, bank SMS parsing, travel state, profile repository, auth repository and the once-per-device defaults marker |
 | Platform and theme | `test/android/android_manifest_test.dart`, `test/theme/dark_theme_guard_test.dart` | The release manifest declares the internet permission; a static scan fails if UI code hard-codes neutral `AikoColors` (`darkNavy`, `neutralInk`, `mutedText`, surfaces, borders, `appBackground`) instead of theme tokens |
+
+Widget tests that pump localized screens pass `localizationsDelegates: AppLocalizations.localizationsDelegates` and `supportedLocales` to `MaterialApp`.
 
 Five older files still use `testWidgets`: `aiko_character_test.dart`, `inline_glossary_text_test.dart`, `learning_hub_screen_test.dart`, `aiko_assistant_screen_test.dart` and `aiko_spending_reaction_strip_test.dart`. Keep them passing, but don't add new widget tests.
 
@@ -53,6 +56,7 @@ Five older files still use `testWidgets`: `aiko_character_test.dart`, `inline_gl
 
 | File | Cases |
 | --- | --- |
+| `firebase/functions/test/chat_prompt.test.cjs` | The chat prompt follows the app language (Thai or English reply and disclaimer) and mirrors the user without one (LINE) |
 | `firebase/functions/test/finance_tools.test.cjs` | Cash flow keeps decimal precision and separate currencies; tools reject unknown names and malformed date ranges |
 | `firebase/functions/test/import_legacy.test.cjs` | Import preserves IDs, references and decimal strings; rejects lossy numbers; never imports global templates |
 | `firebase/test/rules.test.cjs` | Owner-only access and decimal-string validation; default category identity immutable while its budget stays editable; two clients see edits and hard deletes; offline writes replay after reconnect; Storage owner and content-type rules |

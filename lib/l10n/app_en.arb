@@ -1,285 +1,2137 @@
 {
   "@@locale": "en",
-  "appTitle": "Aiko",
-  "appSubtitle": "Your financial companion",
   "homeTab": "Home",
   "transactionsTab": "Transactions",
-  "budgetTab": "Budget",
-  "insightsTab": "Insights",
   "aikoTab": "Aiko",
-  "menuTab": "Menu",
   "accountsTab": "Accounts",
   "categoriesTab": "Categories",
-  "planningGroup": "Planning",
   "settingsTitle": "Settings",
-  "moreTab": "More",
-  "save": "Save",
-  "cancel": "Cancel",
-  "delete": "Delete",
-  "edit": "Edit",
-  "add": "Add",
-  "close": "Close",
-  "continueButton": "Continue",
-  "back": "Back",
-  "done": "Done",
-  "ok": "OK",
-  "yes": "Yes",
-  "no": "No",
-  "confirm": "Confirm",
-  "retry": "Retry",
-  "refresh": "Refresh",
-  "search": "Search",
-  "filter": "Filter",
-  "sort": "Sort",
-  "loading": "Loading",
-  "error": "Error",
-  "success": "Success",
   "overview": "Overview",
-  "aikoHub": "Aiko Hub",
-  "aikoHubDescription": "Every feature area is grouped here so secondary pages stay reachable without crowding the main tabs.",
-  "hiAiko": "Hi, I am Aiko",
-  "safeToSpend": "Weekly leftover estimate",
-  "safeToSpendDescription": "You have {amount} estimated weekly leftover. This is an estimate from posted income and spending, so keep bills and planned purchases in view.",
-  "@safeToSpendDescription": {
-    "placeholders": {
-      "amount": {"type": "String"}
-    }
-  },
-  "safeToSpendWeekly": "Estimate from posted income and spending.",
-  "monthlyCashFlow": "Monthly cash flow",
   "income": "Income",
-  "spending": "Spending",
-  "financialPyramid": "Financial Pyramid",
-  "currentHealth": "Current health: {level}",
-  "@currentHealth": {
+  "dashboardUnavailable": "Dashboard is unavailable",
+  "dashboardUnavailableMessage": "Aiko could not load your data right now. Try again in a moment.",
+  "toolChanceOfSuccess": "Goals: Chance of Success",
+  "toolChanceOfSuccessDescription": "Monte Carlo probability of hitting every goal on time.",
+  "toolInvestments": "Investments",
+  "toolInvestmentsDescription": "Track holdings, gains, allocation, and rebalance alerts.",
+  "toolAssetAllocation": "Asset Allocation",
+  "toolAssetAllocationDescription": "Analyze allocation by class, currency, and risk.",
+  "toolHoldingDetail": "Holding Detail",
+  "toolHoldingDetailDescription": "Inspect a single holding performance and history.",
+  "toolLearningHub": "Learning Hub",
+  "toolLearningHubDescription": "Take lessons, quizzes, and glossary refreshers.",
+  "toolCalculators": "Calculators",
+  "toolCalculatorsDescription": "Run finance, loan, retirement, stock, and everyday calculators.",
+  "toolExport": "Export",
+  "toolExportDescription": "Create CSV, Excel-compatible, and PDF-ready outputs.",
+  "profileTitle": "Profile",
+  "sidebarTools": "Tools",
+  "newTransaction": "New transaction",
+  "syncFailedMessage": "A change could not sync. Check your connection and sign-in, then try again.",
+  "routeNotFoundTitle": "Route not found",
+  "routeNotFoundMessage": "Aiko could not open {path}.",
+  "@routeNotFoundMessage": {
     "placeholders": {
-      "level": {"type": "String"}
+      "path": {
+        "type": "Object"
+      }
     }
   },
-  "pyramidFit": "{percent}% fit",
-  "@pyramidFit": {
+  "languageTitle": "Language",
+  "languageSystemDefault": "System default",
+  "languageFollowDevice": "Follow device language ({language})",
+  "@languageFollowDevice": {
     "placeholders": {
-      "percent": {"type": "int"}
+      "language": {
+        "type": "Object"
+      }
     }
   },
-  "pyramidBuildBase": "Build the base first, then climb tier by tier.",
-  "pyramidLevel1": "Level 1 (Base)",
-  "pyramidLevel1Desc": "Earn enough income for monthly obligations, purchase health insurance, and establish an emergency fund.",
-  "pyramidLevel2": "Level 2",
-  "pyramidLevel2Desc": "Increase income, buy life and disability insurance, repay high-interest debt, and begin retirement savings.",
-  "pyramidLevel3": "Level 3",
-  "pyramidLevel3Desc": "Buy a home, repay low-interest debt, provide for your children, and increase retirement savings.",
-  "pyramidLevel4": "Level 4",
-  "pyramidLevel4Desc": "Provide for aging parents, save for children's college, pay off your mortgage before retirement, maximize retirement savings, and consider long-term care insurance.",
-  "pyramidLevel5": "Level 5 (Peak)",
-  "pyramidLevel5Desc": "Retire and build a retirement income strategy, fulfill your dreams, donate money, and plan your legacy.",
-  "upcomingDueDates": "Upcoming due dates",
-  "loadingDueDates": "Loading due dates…",
-  "unableToLoadDueDates": "Unable to load due dates right now.",
-  "quickAdd": "Quick add",
-  "addTransaction": "Transaction",
-  "addBudget": "Budget",
-  "profile": "Profile",
-  "profileAndPrivacy": "Profile and privacy",
-  "personalInformation": "Personal information",
-  "displayName": "Display name",
-  "email": "Email",
-  "baseCurrency": "Base currency",
-  "country": "Country",
-  "preferredTheme": "Preferred theme",
-  "themeSystem": "System",
+  "languageSystemDefaultWith": "System default ({language})",
+  "@languageSystemDefaultWith": {
+    "placeholders": {
+      "language": {
+        "type": "Object"
+      }
+    }
+  },
+  "languageThai": "Thai",
+  "languageEnglish": "English",
+  "appearanceTitle": "Appearance",
   "themeLight": "Light",
   "themeDark": "Dark",
-  "security": "Security",
-  "securityAndPinLock": "Security & PIN Lock",
-  "pinLockDescription": "Protect your private financial data by configuring a secure 4-digit PIN lock.",
-  "enterPin": "Enter 4-Digit PIN",
-  "pinConfigured": "PIN configured successfully!",
-  "pinMustBe4Digits": "PIN must be exactly 4 digits.",
-  "pinEnabled": "PIN Lock Enabled",
-  "removePinLock": "Remove PIN Lock",
-  "disablePinConfirm": "Are you sure you want to remove your PIN lock? This will reduce the security of your financial data.",
-  "pinRemoved": "PIN lock removed.",
-  "biometricsEnabled": "Biometric authentication enabled",
-  "enableBiometrics": "Enable Biometrics",
-  "disableBiometrics": "Disable Biometrics",
-  "biometricsConfigured": "Biometrics enabled!",
-  "biometricsRemoved": "Biometrics disabled.",
-  "accountManagement": "Account management",
-  "signOut": "Sign out",
-  "signingOut": "Signing out...",
-  "signedOut": "Signed out successfully.",
-  "deleteAccount": "Delete account",
-  "deletingAccount": "Deleting account...",
-  "deleteAccountConfirm": "Are you sure you want to permanently delete your account? This action cannot be undone.",
-  "accountDeleted": "Account deleted.",
+  "settingsLocalOnlyTitle": "Local-only mode",
+  "settingsLocalOnlyMessage": "Data is saved on this device. Cloud sync is not connected.",
+  "settingsAppPreferences": "App preferences",
+  "loadingEllipsis": "Loading...",
+  "settingsToolsAndSettings": "Tools and settings",
+  "introHiTitle": "Hi, I'm Aiko 👋",
+  "introHiBody": "Your calm finance companion — here to help you understand your money without the stress or the judgment.",
+  "introTrackTitle": "Track it all in one place",
+  "introTrackBody": "Log income, expenses, and transfers across every account. I keep the numbers tidy so you don't have to.",
+  "introInsightsTitle": "Insights that make sense",
+  "introInsightsBody": "Spending trends, budget pace, and friendly nudges — so you always know where you stand this month.",
+  "introGoalsTitle": "Reach your goals",
+  "introGoalsBody": "Set targets, watch your progress, and let me map a realistic plan to get you there.",
+  "introStartTitle": "Let's get started",
+  "introStartBody": "Your data stays private and works offline. Ready whenever you are.",
+  "authNotConfigured": "Cloud sign-in isn't set up in this build.",
+  "authErrorInvalidEmail": "That email address isn't valid.",
+  "authErrorUserDisabled": "This account has been disabled.",
+  "authErrorWrongCredentials": "Email or password is incorrect.",
+  "authErrorEmailInUse": "An account already exists for that email.",
+  "authErrorWeakPassword": "Choose a stronger password (at least 6 characters).",
+  "authErrorTooManyRequests": "Too many attempts. Wait a moment and try again.",
+  "authErrorNetwork": "No connection. Check your internet and try again.",
+  "authErrorMethodDisabled": "This sign-in method isn't enabled.",
+  "authErrorCancelled": "Sign-in was cancelled.",
+  "authErrorOtherProvider": "This email is already linked to another sign-in method.",
+  "authErrorRecentLogin": "For your security, sign in again and retry.",
+  "introSkip": "Skip",
+  "introGetStarted": "Get Started",
+  "introNext": "Next",
+  "authEnterEmailPassword": "Enter your email and password.",
+  "authSignInFailed": "Unable to sign in. Please try again.",
+  "authEnterEmailForReset": "Enter your email first to reset password.",
+  "authResetEmailSent": "Reset email sent. Check your inbox.",
+  "authResetFailed": "Unable to reset password right now.",
+  "authGoogleFailed": "Unable to sign in with Google right now.",
+  "authAccountCreatedCheckEmail": "Account created. Check your email, then sign in.",
+  "authSignUpFailed": "Unable to create account right now.",
+  "authWelcomeBack": "Welcome back!",
+  "authLogInToContinue": "Log in to continue.",
+  "authEmail": "Email",
+  "authPassword": "Password",
+  "authShowPassword": "Show password",
+  "authHidePassword": "Hide password",
+  "authForgotPassword": "Forgot password?",
+  "authLoggingIn": "Logging in...",
+  "authLogIn": "Log In",
+  "authOrContinueWith": "or continue with",
+  "authContinueWithGoogle": "Continue with Google",
+  "authNoAccount": "Don't have an account?",
+  "authSignUp": "Sign up",
+  "defaultCashAccountName": "Cash",
+  "defaultBankAccountName": "Bank Account",
+  "screenStateLoadingTitle": "Loading",
+  "screenStateLoadingMessage": "Aiko is preparing your money view.",
   "profileUpdated": "Profile updated!",
-  "failedToSaveProfile": "Failed to save profile: {error}",
-  "@failedToSaveProfile": {
+  "profileSaveFailed": "Failed to save profile: {error}",
+  "@profileSaveFailed": {
     "placeholders": {
-      "error": {"type": "String"}
+      "error": {
+        "type": "Object"
+      }
     }
   },
-  "couldNotLoadProfile": "Could not load your profile",
-  "welcomeToAiko": "Welcome to Aiko",
-  "signIn": "Sign in",
-  "signUp": "Sign up",
-  "signInWithEmail": "Sign in with email",
-  "signUpWithEmail": "Sign up with email",
-  "emailAddress": "Email address",
-  "password": "Password",
-  "forgotPassword": "Forgot password?",
-  "dontHaveAccount": "Don't have an account?",
-  "alreadyHaveAccount": "Already have an account?",
-  "createAccount": "Create account",
-  "sendResetLink": "Send reset link",
-  "backToSignIn": "Back to sign in",
-  "checkYourEmail": "Check your email",
-  "resetLinkSent": "We've sent you a password reset link.",
-  "welcomeToAikoOnboarding": "Welcome to Aiko",
-  "meetAiko": "Meet Aiko",
-  "aikoPersonalityTone": "Aiko's Personality Tone",
-  "personalitySupportive": "Supportive",
-  "personalitySupportiveDesc": "A warm, encouraging, non-judgmental finance bestie.",
-  "personalityProfessional": "Professional",
-  "personalityProfessionalDesc": "Analytical, serious, data-driven financial advisor.",
-  "personalityPlayful": "Playful",
-  "personalityPlayfulDesc": "Energetic, fun, celebrates small wins with high-fives.",
-  "mainFinancialGoal": "What is your main financial goal?",
-  "goalSaveMoney": "Save money",
-  "goalSaveMoneyDesc": "Build a strong emergency savings cushion.",
-  "goalTrackSpending": "Track spending",
-  "goalTrackSpendingDesc": "Log expenses to see where every dollar goes.",
-  "goalPayOffDebt": "Pay off debt",
-  "goalPayOffDebtDesc": "Create payoffs plans to become debt-free.",
-  "goalBuildWealth": "Build wealth",
-  "goalBuildWealthDesc": "Invest smartly and plan for long-term growth.",
-  "currencyAndCountrySettings": "Currency & Country Settings",
-  "addFirstAccount": "Add Your First Financial Account",
-  "accountName": "Account Name",
-  "accountNameHint": "e.g., Pocket Wallet, Checking Account",
-  "accountType": "Account Type",
-  "accountTypeCash": "Cash Wallet",
-  "accountTypeBank": "Bank Account",
-  "accountTypeCreditCard": "Credit Card",
+  "profileChooseFromGallery": "Choose from gallery",
+  "profileRemovePhoto": "Remove photo",
+  "profilePhotoUpdateFailed": "Unable to update photo right now.",
+  "genderPreferNotToSay": "Prefer not to say",
+  "genderFemale": "Female",
+  "genderMale": "Male",
+  "genderNonBinary": "Non-binary",
+  "genderOther": "Other",
+  "profileGoogleConnectFailed": "Unable to connect Google right now.",
+  "profileLogOutFailed": "Unable to log out right now.",
+  "profileDeleteAccountQuestion": "Delete Account?",
+  "profileDeleteAccountWarning": "This permanently deletes your account and all your data right now. This cannot be undone. You will be signed out.",
+  "cancel": "Cancel",
+  "profileDeleteAccount": "Delete Account",
+  "profileDeleteAccountFailed": "Unable to delete account right now.",
+  "save": "Save",
+  "profileLoadFailed": "Could not load your profile",
+  "retry": "Retry",
+  "profilePersonalInformation": "Personal information",
+  "profileDisplayName": "Display name",
+  "profileFullName": "Full name",
+  "profilePhoneNumber": "Phone number",
+  "profileGender": "Gender",
+  "profileDateOfBirth": "Date of birth",
+  "notSet": "Not set",
+  "clear": "Clear",
+  "profileBaseCurrency": "Base currency",
+  "profileEmailAddress": "Email address",
+  "profileUserId": "User ID",
+  "profileCopyUserId": "Copy User ID",
+  "profileUserIdCopied": "User ID copied",
+  "profileConnectedApps": "Connected apps",
+  "profileLineConnected": "LINE connected",
+  "profileConnectLine": "Connect LINE",
+  "profileLineConnectedSubtitle": "Aiko can chat with you on LINE",
+  "profileConnectLineSubtitle": "Chat with Aiko from LINE",
+  "profileGoogleConnected": "Google connected",
+  "profileConnectGoogle": "Connect Google",
+  "profileGoogleConnectedSubtitle": "Sign in with Google too",
+  "profileConnectGoogleSubtitle": "Add Google sign-in to this account",
+  "profileAccountActions": "Account Actions",
+  "profileChangePassword": "Change Password",
+  "profilePasswordFlowOpened": "Password flow opened.",
+  "profileLogOut": "Log out",
+  "profileDangerZone": "Danger Zone",
+  "profileDeleteAccountSubtitle": "Permanently remove your data",
+  "lineErrorEmptyCode": "Enter the code from the LINE bot.",
+  "lineErrorSignedOut": "Sign in first, then connect LINE.",
+  "lineErrorFailed": "Could not connect LINE. Check the code and connection, then try again.",
+  "somethingWentWrong": "Something went wrong. Please try again.",
+  "profileDefaultDisplayName": "Aiko User",
+  "lineLinkTitle": "Link Aiko to LINE",
+  "lineLinkInstructions": "Message the Aiko bot on LINE to get a 6-character code, then enter it below. This lets Aiko answer your LINE messages using your own data.",
+  "linePairingCode": "Pairing code",
+  "linePairingCodeHint": "e.g. K7M2QP",
+  "lineConnect": "Connect",
+  "lineConnectedMessage": "Connected! Return to LINE and chat with Aiko.",
+  "reminderChannelName": "Transaction reminders",
+  "reminderChannelDescription": "Reminders for upcoming transactions",
+  "accountTypeCash": "Cash",
+  "accountTypeBank": "Bank",
+  "accountTypeEWallet": "E-wallet",
+  "accountTypeCreditCard": "Credit card",
+  "accountTypeLoan": "Loan",
   "accountTypeInvestment": "Investment",
-  "accountNameRequired": "Please enter account name",
-  "balanceRequired": "Please enter starting balance",
-  "balanceMustBeValid": "Must be a valid positive number",
-  "configureSecurity": "Configure Security Shield",
-  "securePinCode": "Secure PIN Code",
-  "biometricsOnly": "Biometrics Only",
-  "enter4DigitPin": "Enter a 4-Digit Passcode PIN",
-  "useDeviceBiometrics": "Use Your Native Device Biometrics",
-  "biometricsDescription": "Taps into Face ID / Touch ID / Android fingerprint scanning securely to instantly unlock Aiko.",
-  "finishAndSignIn": "Finish & Sign In",
-  "enterFullPin": "Please enter a full 4-digit PIN passcode.",
-  "transactions": "Transactions",
-  "addNewTransaction": "Add new transaction",
-  "editTransaction": "Edit transaction",
-  "transactionDetails": "Transaction details",
-  "amount": "Amount",
-  "date": "Date",
-  "category": "Category",
-  "account": "Account",
-  "description": "Description",
-  "notes": "Notes",
-  "type": "Type",
-  "typeIncome": "Income",
-  "typeExpense": "Expense",
-  "typeTransfer": "Transfer",
-  "recurring": "Recurring",
-  "recurringTransaction": "Recurring transaction",
-  "tags": "Tags",
-  "attachments": "Attachments",
-  "receipt": "Receipt",
-  "addReceipt": "Add receipt",
-  "scanReceipt": "Scan receipt",
-  "transactionSaved": "Transaction saved!",
-  "transactionDeleted": "Transaction deleted!",
-  "deleteTransactionConfirm": "Are you sure you want to delete this transaction?",
-  "budgets": "Budgets",
-  "addBudgetItem": "Add budget",
-  "editBudgetItem": "Edit budget",
-  "budgetName": "Budget name",
-  "budgetAmount": "Budget amount",
-  "period": "Period",
-  "periodMonthly": "Monthly",
-  "periodWeekly": "Weekly",
-  "periodYearly": "Yearly",
-  "spent": "Spent",
-  "remaining": "Remaining",
-  "budgetProgress": "Budget progress",
-  "overBudget": "Over budget",
-  "onTrack": "On track",
-  "budgetSaved": "Budget saved!",
-  "budgetDeleted": "Budget deleted!",
-  "goals": "Goals",
-  "savingGoals": "Saving goals",
-  "addGoal": "Add goal",
-  "editGoal": "Edit goal",
-  "goalName": "Goal name",
-  "targetAmount": "Target amount",
-  "currentAmount": "Current amount",
-  "targetDate": "Target date",
-  "goalProgress": "Goal progress",
-  "daysRemaining": "{days} days remaining",
-  "@daysRemaining": {
+  "accountTypeAsset": "Asset",
+  "accountTypeLiability": "Liability",
+  "accountTypeGoal": "Goal",
+  "accountTypeOther": "Other",
+  "goalPriorityHigh": "High",
+  "goalPriorityMedium": "Medium",
+  "goalPriorityLow": "Low",
+  "rewardsTypeCashback": "Cashback",
+  "rewardsTypePoints": "Points",
+  "rewardsTypeMiles": "Miles",
+  "rewardsTypeNone": "None",
+  "loanTypeMortgage": "Mortgage",
+  "loanTypeAuto": "Auto",
+  "loanTypePersonal": "Personal",
+  "loanTypeStudent": "Student",
+  "loanTypeOther": "Other",
+  "assetClassCash": "Cash",
+  "assetClassStocks": "Stocks",
+  "assetClassRealEstate": "Real estate",
+  "assetClassVehicle": "Vehicle",
+  "assetClassOther": "Other",
+  "categoryTypeIncome": "Income",
+  "categoryTypeExpense": "Expense",
+  "categoryTypeTransfer": "Transfer",
+  "categoryTypeFinance": "Finance",
+  "categoryTypeTax": "Tax",
+  "categoryTypeInvestment": "Investment",
+  "categoryTypeAdjustment": "Adjustment",
+  "budgetGroupNeeds": "Needs",
+  "budgetGroupWants": "Wants",
+  "budgetGroupSavings": "Savings",
+  "budgetGroupDebt": "Debt",
+  "budgetGroupInvestment": "Investment",
+  "budgetGroupTax": "Tax",
+  "budgetGroupBusiness": "Business",
+  "budgetGroupCustom": "Custom",
+  "budgetPeriodDaily": "Daily",
+  "budgetPeriodWeekly": "Weekly",
+  "budgetPeriodMonthly": "Monthly",
+  "budgetPeriodYearly": "Yearly",
+  "transactionTypeIncome": "Income",
+  "transactionTypeExpense": "Expense",
+  "transactionTypeTransfer": "Transfer",
+  "transactionTypeTransferOut": "Transfer out",
+  "transactionTypeTransferIn": "Transfer in",
+  "transactionTypeRefund": "Refund",
+  "transactionTypeInvestmentBuy": "Investment buy",
+  "transactionTypeInvestmentSell": "Investment sell",
+  "transactionTypeDividend": "Dividend",
+  "transactionTypeInterest": "Interest",
+  "transactionTypeLoanPayment": "Loan payment",
+  "transactionTypeCreditCardPayment": "Credit card payment",
+  "transactionTypeTaxPayment": "Tax payment",
+  "transactionTypeFee": "Fee",
+  "transactionTypeAdjustment": "Adjustment",
+  "frequencyOnce": "Once",
+  "frequencyDaily": "Daily",
+  "frequencyWeekly": "Weekly",
+  "frequencyMonthly": "Monthly",
+  "frequencyAnnually": "Annually",
+  "ruleConditionMerchant": "Merchant",
+  "ruleConditionKeyword": "Merchant or note",
+  "ruleConditionAmount": "Amount",
+  "ruleConditionAccount": "Account id",
+  "ruleConditionCategory": "Category id",
+  "ruleConditionTransactionType": "Transaction type",
+  "ruleOperatorContains": "contains",
+  "ruleOperatorEquals": "equals",
+  "ruleOperatorStartsWith": "starts with",
+  "ruleOperatorEndsWith": "ends with",
+  "themeSystem": "System default",
+  "reminderLeadOneHour": "1 hour before",
+  "reminderLeadTwoHours": "2 hours before",
+  "reminderLeadOneDay": "1 day before",
+  "reminderLeadTwoDays": "2 days before",
+  "reminderLeadOneWeek": "1 week before",
+  "reminderLeadNone": "At time of transaction",
+  "reminderLeadCustom": "Custom date & time",
+  "frequencyDailyHint": "Repeats every day.",
+  "frequencyWeeklyHint": "Repeats every week on a chosen day.",
+  "frequencyMonthlyHint": "Repeats every month on a chosen day.",
+  "frequencyAnnuallyHint": "Repeats every year on a chosen date.",
+  "accountCashWallet": "Cash wallet",
+  "txReminderDefaultTitle": "Transaction reminder",
+  "txReminderBody": "{amount} · {type}",
+  "@txReminderBody": {
     "placeholders": {
-      "days": {"type": "int"}
+      "amount": {
+        "type": "Object"
+      },
+      "type": {
+        "type": "Object"
+      }
     }
   },
-  "goalAchieved": "Goal achieved!",
-  "goalSaved": "Goal saved!",
-  "goalDeleted": "Goal deleted!",
-  "accounts": "Accounts",
-  "addAccountItem": "Add account",
-  "editAccountItem": "Edit account",
-  "accountBalance": "Account balance",
-  "totalBalance": "Total balance",
-  "activeAccounts": "Active accounts",
-  "accountSaved": "Account saved!",
-  "accountDeleted": "Account deleted!",
-  "insights": "Insights",
-  "spendingAnalysis": "Spending analysis",
-  "incomeAnalysis": "Income analysis",
-  "trends": "Trends",
-  "categoryBreakdown": "Category breakdown",
-  "topCategories": "Top categories",
-  "thisMonth": "This month",
-  "lastMonth": "Last month",
-  "thisYear": "This year",
-  "exportTitle": "Export",
-  "exportData": "Export data",
-  "exportFormat": "Export format",
-  "exportPeriod": "Export period",
-  "exportAllData": "Export all data",
-  "exportCustomRange": "Custom range",
-  "startDate": "Start date",
-  "endDate": "End date",
-  "exportComplete": "Export complete!",
-  "learningHubTitle": "Learning Hub",
-  "articles": "Articles",
-  "tutorials": "Tutorials",
-  "guides": "Guides",
-  "privacyTitle": "Profile and privacy",
-  "aiDisclaimer": "Aiko provides estimates, not certified financial advice.",
-  "noDueDates": "No upcoming due dates",
-  "noTransactions": "No transactions yet",
-  "noBudgets": "No budgets yet",
-  "noGoals": "No goals yet",
-  "noAccounts": "No accounts yet",
-  "dashboardUnavailable": "Dashboard is unavailable",
-  "dashboardUnavailableMessage": "Aiko could not load your Firebase workspace.",
-  "total": "Total",
-  "average": "Average",
-  "currency": "Currency",
-  "timezone": "Timezone",
-  "language": "Language",
-  "notifications": "Notifications",
-  "help": "Help",
-  "about": "About",
-  "version": "Version",
-  "termsOfService": "Terms of Service",
-  "privacyPolicy": "Privacy Policy"
+  "exampleValue": "e.g. {value}",
+  "@exampleValue": {
+    "placeholders": {
+      "value": {
+        "type": "Object"
+      }
+    }
+  },
+  "txVoiceParseFailed": "Aiko couldn't read an amount. Include a number, for example “coffee 65”.",
+  "txAikoAutofilled": "Aiko autofilled: {amount}",
+  "@txAikoAutofilled": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "txCameraUnavailable": "Unable to open camera right now.",
+  "txCapturedImageUnreadable": "Unable to read captured image.",
+  "txScanningReceipt": "Scanning receipt...",
+  "txReceiptScanFailed": "Receipt scan failed. You can still enter manually.",
+  "txReceiptLimitedFields": "Receipt captured. OCR found limited fields.",
+  "txScannedReceiptNote": "Scanned receipt: {name}",
+  "@txScannedReceiptNote": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "txVoiceExample": "spent 15.50 at Starbucks yesterday for coffee",
+  "txVoiceAssistantTitle": "Voice Entry Assistant",
+  "txVoiceDescriptionLabel": "Transaction description",
+  "txVoiceDescriptionHint": "e.g. spent 25 at Amazon yesterday",
+  "txParseDraft": "Parse Draft",
+  "txVoiceNoteFallback": "Voice entry",
+  "txRateEquals": "1 {currency} equals",
+  "@txRateEquals": {
+    "placeholders": {
+      "currency": {
+        "type": "Object"
+      }
+    }
+  },
+  "txUseThisRate": "Use this rate",
+  "txDocumentUpload": "Document Upload",
+  "txChooseAttachmentSource": "Choose a source to attach a real receipt or document:",
+  "txFilesAndDocuments": "Files & Documents",
+  "txFilesAndDocumentsSubtitle": "PDFs, docs, and any file from your device",
+  "txPhotoGallery": "Photo Gallery",
+  "txPhotoGallerySubtitle": "Pick a receipt photo (compressed)",
+  "txFilePickerTypeLabel": "documents and images",
+  "txFilePickerUnavailable": "Unable to open file picker.",
+  "txGalleryUnavailable": "Unable to open gallery right now.",
+  "txAttachingDocument": "Attaching document...",
+  "txAttachedFile": "Attached {fileName}",
+  "@txAttachedFile": {
+    "placeholders": {
+      "fileName": {
+        "type": "Object"
+      }
+    }
+  },
+  "txEnterAmount": "Please enter an amount.",
+  "txEnterValidAmount": "Please enter a valid positive amount.",
+  "txSelectAccountError": "Please select an account.",
+  "txSelectDestinationError": "Please select a destination account for transfer.",
+  "txEnterPositiveRate": "Enter a positive exchange rate to convert.",
+  "txSaved": "Transaction saved successfully!",
+  "txTransferToName": "Transfer to {name}",
+  "@txTransferToName": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "txTransferFromName": "Transfer from {name}",
+  "@txTransferFromName": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "txTransferSaved": "Transfer saved — recorded on both accounts.",
+  "txSaveFailed": "Unable to save this transaction right now.",
+  "txAddTitle": "Add transaction",
+  "txEditTitle": "Edit transaction",
+  "txScanReceipt": "Scan receipt",
+  "txVoiceEntry": "Voice entry",
+  "txAmount": "Amount",
+  "txOpenCalculator": "Open amount calculator",
+  "txCurrency": "Currency",
+  "txCategoriesLoadError": "Error loading categories",
+  "txNoCategories": "No categories available",
+  "txAccountsLoadError": "Error loading accounts",
+  "txNoAccounts": "No accounts available. Create an account first.",
+  "txFromAccount": "From Account",
+  "txToAccount": "To Account",
+  "txAccount": "Account",
+  "txDateTime": "Transaction Date & Time",
+  "txNote": "Note",
+  "txSaveTransaction": "Save Transaction",
+  "txSaveChanges": "Save Changes",
+  "txTags": "Tags",
+  "txTagsHint": "food, work, reimbursable",
+  "txItemName": "Item name",
+  "txAccountCurrencyRate": "Account is in {accountCurrency} · 1 {currency} = ",
+  "@txAccountCurrencyRate": {
+    "placeholders": {
+      "accountCurrency": {
+        "type": "Object"
+      },
+      "currency": {
+        "type": "Object"
+      }
+    }
+  },
+  "txSavesAs": "Saves as {amount}",
+  "@txSavesAs": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "txRefreshRate": "Refresh live rate",
+  "txSelectAccount": "Select account",
+  "txChooseAccount": "Choose account",
+  "txCategory": "Category",
+  "txSelectCategory": "Select category",
+  "txChooseCategory": "Choose category",
+  "txSearchCategories": "Search categories",
+  "txClearSearch": "Clear search",
+  "txNoCategoriesShort": "No categories",
+  "txNoMatchesFor": "No matches for \"{query}\"",
+  "@txNoMatchesFor": {
+    "placeholders": {
+      "query": {
+        "type": "Object"
+      }
+    }
+  },
+  "txTryDifferentKeyword": "Try a different keyword or pick a group above.",
+  "txReminder": "Reminder",
+  "txReminderWebNote": "Reminder times are saved. Notifications are delivered by the mobile app.",
+  "txReminderEnabledNote": "Aiko will notify you before the transaction.",
+  "txReminderDisabledNote": "Get a notification before the transaction.",
+  "txNotifyMe": "Notify me",
+  "txRemindAt": "Remind at {time}",
+  "@txRemindAt": {
+    "placeholders": {
+      "time": {
+        "type": "Object"
+      }
+    }
+  },
+  "txRecurring": "Recurring transaction",
+  "txRecurringOnNote": "Repeats on a schedule you can edit below.",
+  "txRecurringOffNote": "Mark this transaction as repeating on a schedule.",
+  "txOccurrenceTime": "Occurrence time",
+  "txNoEndDate": "No end date",
+  "txClearEndDate": "Clear end date",
+  "txScheduleFor": "Schedule for",
+  "txStopsOn": "Stops on",
+  "txOrAfterOccurrences": "Or after (occurrences)",
+  "txOnDay": "On day",
+  "txDayOfMonth": "Day of month",
+  "txMonth": "Month",
+  "txDay": "Day",
+  "txCannotDivideByZero": "Cannot divide by zero",
+  "txAmountCalculator": "Amount calculator",
+  "txUseAmount": "Use amount",
+  "txFilterDate": "Date",
+  "txFilterThisMonth": "This month",
+  "txFilterLast30Days": "Last 30 days",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "txListUnavailableMessage": "Aiko could not load this list right now. Try again in a moment.",
+  "txCloseSearch": "Close search",
+  "txSearch": "Search",
+  "txRules": "Rules",
+  "txTravelMode": "Travel Mode",
+  "txListUnavailableTitle": "Transactions are unavailable",
+  "txSearchHint": "Search merchant, note, tag, category",
+  "txFilterAll": "All",
+  "txDateFilterTooltip": "Date filter",
+  "txFilterAllDates": "All dates",
+  "txClearAll": "Clear all",
+  "txMin": "Min",
+  "txMax": "Max",
+  "txNoMatching": "No matching transactions",
+  "txNoneInMonth": "No transactions in {month}",
+  "@txNoneInMonth": {
+    "placeholders": {
+      "month": {
+        "type": "Object"
+      }
+    }
+  },
+  "txNoMatchingHint": "Try a different search or clear filters.",
+  "txNoneInMonthHint": "Add a transaction for this month when you are ready.",
+  "txUpcoming": "Upcoming",
+  "txMonthSummary": "{month} Summary",
+  "@txMonthSummary": {
+    "placeholders": {
+      "month": {
+        "type": "Object"
+      }
+    }
+  },
+  "txTotalSpent": "Total Spent",
+  "txAveragePerDay": "Average per Day",
+  "txUnknownAccount": "Unknown",
+  "txUntitled": "Transaction",
+  "txStatusDraft": "Draft",
+  "txStatusVoided": "Voided",
+  "txStatusArchived": "Archived",
+  "txStatusPosted": "Posted",
+  "txAttachmentsSemantics": "Transaction attachments",
+  "txAttachments": "Attachments",
+  "txAddAttachment": "Add attachment",
+  "txNoAttachments": "No receipt or document attached.",
+  "close": "Close",
+  "attachmentLoadFailed": "Could not load attachment. Reconnect and try again.",
+  "attachmentImageLoadFailed": "Could not load image.",
+  "attachmentPreviewUnavailable": "Preview not available",
+  "attachmentPreviewUnsupported": "Aiko can preview images, PDFs, and plain-text files (txt, csv, md). Open \"{fileName}\" in another app to view it.",
+  "@attachmentPreviewUnsupported": {
+    "placeholders": {
+      "fileName": {
+        "type": "Object"
+      }
+    }
+  },
+  "txDeleteQuestion": "Delete transaction?",
+  "txDeleteConfirm": "Are you sure you want to delete this transaction?",
+  "delete": "Delete",
+  "txDeleted": "Transaction deleted!",
+  "txDeleteFailed": "Unable to delete transaction right now.",
+  "txDetailsTitle": "Transaction details",
+  "txDeleteTooltip": "Delete transaction",
+  "txSplits": "Splits",
+  "rulesCreated": "{name} rule created",
+  "@rulesCreated": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "rulesTitle": "Transaction rules",
+  "rulesAutoCaptureTooltip": "Auto-capture (SMS & notifications)",
+  "rulesNew": "New rule",
+  "rulesAutomaticTitle": "Automatic transaction rules",
+  "rulesAutomaticDescription": "Rules run after SMS and notification capture. A matching rule can assign a category and add tags before the transaction is saved.",
+  "rulesMatch": "Match",
+  "rulesLeaveUnchanged": "Leave unchanged",
+  "rulesNoTags": "No tags",
+  "rulesPriorityValue": "Priority {priority}",
+  "@rulesPriorityValue": {
+    "placeholders": {
+      "priority": {
+        "type": "Object"
+      }
+    }
+  },
+  "rulesDelete": "Delete rule",
+  "rulesNewTitle": "New transaction rule",
+  "rulesName": "Rule name",
+  "rulesNameRequired": "Rule name is required",
+  "rulesField": "Field to match",
+  "rulesCondition": "Condition",
+  "rulesMatchValue": "Match value",
+  "rulesMatchValueHint": "Example: grocery, debit, 7-eleven",
+  "rulesMatchValueRequired": "Match value is required",
+  "rulesTargetCategoryId": "Target category id",
+  "optional": "Optional",
+  "rulesTagsHint": "sms, bank, recurring",
+  "rulesPriority": "Priority",
+  "rulesPriorityHelper": "Lower priority runs first",
+  "rulesActive": "Rule active",
+  "rulesCreate": "Create rule",
+  "captureNoteFromSms": "Auto-captured from SMS",
+  "captureNoteFromNotification": "Auto-captured from a notification",
+  "captureSmsGranted": "SMS access granted",
+  "captureSmsDenied": "SMS access denied",
+  "captureTitle": "Auto-capture",
+  "captureHowItWorks": "How auto-capture works",
+  "captureHowItWorksBody": "Aiko reads incoming bank SMS and banking/wallet notifications, extracts the amount, and logs a transaction on your chosen account. Parsing is best-effort — review captured entries.",
+  "captureEnable": "Enable auto-capture",
+  "captureEnableSubtitle": "Listen for new SMS and notifications",
+  "captureNotificationAccess": "Notification access",
+  "captureGranted": "Granted",
+  "captureNotGranted": "Not granted",
+  "captureGrant": "Grant",
+  "captureSmsAccess": "SMS access",
+  "captureSmsAccessSubtitle": "Read incoming bank SMS",
+  "captureAccount": "Capture account",
+  "captureAccountRequired": "Required — pick where captured transactions land",
+  "select": "Select",
+  "travelResetQuestion": "Reset Trip Plan?",
+  "travelResetConfirm": "Are you sure you want to end your trip tracking and wipe out all recorded travel fees? This action is permanent.",
+  "travelResetDone": "Trip logs reset. Welcome back home!",
+  "travelReset": "Reset Travel Mode",
+  "travelIntro": "Aiko welcomes you! Planning a trip abroad? We can establish a dedicated travel budget, log currency-aware foreign transaction fees, and keep spending drift under check! Let's get started!",
+  "travelTripBudget": "Trip budget",
+  "travelTripBudgetDescription": "Plan in home currency and track expenses in local trip currency.",
+  "travelFeeTracking": "Foreign Fee & Drift Tracking",
+  "travelFeeTrackingDescription": "Monitor bad exchange rates, bank surcharges, and credit card fee drag.",
+  "travelEstablishPlan": "Establish Trip Plan",
+  "travelTripTitle": "{name} Trip",
+  "@travelTripTitle": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "travelRatesUpdated": "Updated spot rates: 1 {home} = {rate} {local}",
+  "@travelRatesUpdated": {
+    "placeholders": {
+      "home": {
+        "type": "Object"
+      },
+      "rate": {
+        "type": "Object"
+      },
+      "local": {
+        "type": "Object"
+      }
+    }
+  },
+  "travelRatesOffline": "Couldn't reach live rates — showing 1 {home} = {rate} {local}.",
+  "@travelRatesOffline": {
+    "placeholders": {
+      "home": {
+        "type": "Object"
+      },
+      "rate": {
+        "type": "Object"
+      },
+      "local": {
+        "type": "Object"
+      }
+    }
+  },
+  "travelVerifyRates": "Verify exchange rates",
+  "travelLogFee": "Log Foreign Fee",
+  "travelBudgetLowWarning": "Aiko Warning: Trip budget is almost depleted! Let's watch out for those high airport currency exchanges!",
+  "travelEnjoy": "Enjoy your travels! Aiko is tracking exchange surcharges automatically. Keep a look out for fees!",
+  "travelBudgetAllocation": "Trip Budget Allocation",
+  "travelBudgetUsed": "{percent}% Budget Used",
+  "@travelBudgetUsed": {
+    "placeholders": {
+      "percent": {
+        "type": "Object"
+      }
+    }
+  },
+  "travelRemainingBudget": "Remaining Budget",
+  "travelLocalEquivalent": "Local Est. Equivalent",
+  "travelRateCalculator": "Interactive Exchange Rate Calculator",
+  "travelSpotRate": "Spot Exchange Rate:",
+  "travelSpreadHint": "Adjust the slider to simulate custom bank spread markup. Fluctuations recalculate spent conversions dynamically.",
+  "travelFeeLogs": "Travel Fee Logs",
+  "travelNoLogs": "No transaction logs found for this trip.",
+  "travelLocalMerchant": "Local Merchant",
+  "travelHomeMerchant": "Home Currency Merchant",
+  "travelEstHomeValue": "Est. home value: {amount} {currency}",
+  "@travelEstHomeValue": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      },
+      "currency": {
+        "type": "Object"
+      }
+    }
+  },
+  "travelDirectHomeCharge": "Direct Home Charge",
+  "travelWipeTrip": "Wipe / Complete Trip",
+  "travelTripStarted": "Bon voyage! Active trip established for {name}.",
+  "@travelTripStarted": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "travelEstablishTrip": "Establish Travel Trip",
+  "travelTripNameLabel": "Trip Name (e.g. Tokyo Spring 2026)",
+  "travelTripNameError": "Please enter a valid trip name",
+  "travelHomeCurrency": "Home Currency",
+  "travelLocalCurrency": "Local Travel Currency",
+  "travelTotalBudgetLabel": "Total Trip Budget (in home currency)",
+  "travelBudgetError": "Please enter a positive numeric trip budget",
+  "travelActivate": "Activate Trip Tracking",
+  "travelLogForeignTransaction": "Log Foreign Transaction",
+  "travelCurrencyLabel": "Currency:",
+  "travelAmountCharged": "Amount Charged ({currency})",
+  "@travelAmountCharged": {
+    "placeholders": {
+      "currency": {
+        "type": "Object"
+      }
+    }
+  },
+  "travelAmountError": "Please enter a valid positive decimal amount",
+  "travelMerchantDetails": "Merchant / Surcharge Details",
+  "travelFeeLogged": "Logged travel fee of {fee}!",
+  "@travelFeeLogged": {
+    "placeholders": {
+      "fee": {
+        "type": "Object"
+      }
+    }
+  },
+  "travelAddExpense": "Add Travel Expense",
+  "accountsSummaryCount": "{count, plural, =1{1 account} other{{count} accounts}} · total balance in {currency}",
+  "@accountsSummaryCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "currency": {
+        "type": "Object"
+      }
+    }
+  },
+  "accountsNetWorthValue": "Net worth {value}",
+  "@accountsNetWorthValue": {
+    "placeholders": {
+      "value": {
+        "type": "Object"
+      }
+    }
+  },
+  "accountsAddType": "Add {type}",
+  "@accountsAddType": {
+    "placeholders": {
+      "type": {
+        "type": "Object"
+      }
+    }
+  },
+  "accountManualEntry": "Manual entry",
+  "accountsDetailStatementDay": "Statement day",
+  "accountsDetailDueDay": "Due day",
+  "accountsDetailCreditLimit": "Credit limit",
+  "accountsDetailApr": "APR",
+  "accountsDetailRewards": "Rewards",
+  "accountsDetailAnnualFee": "Annual fee",
+  "accountsDetailMinPayment": "Min payment",
+  "accountsDetailSharesLimit": "Shares limit",
+  "accountsDetailSharedWith": "Shared with",
+  "accountsDetailType": "Type",
+  "accountsDetailPrincipal": "Principal",
+  "accountsDetailRate": "Rate",
+  "accountsDetailTerm": "Term",
+  "accountsDetailTermMonths": "{months} mo",
+  "@accountsDetailTermMonths": {
+    "placeholders": {
+      "months": {
+        "type": "Object"
+      }
+    }
+  },
+  "accountsDetailMonthly": "Monthly",
+  "accountsDetailNextDue": "Next due",
+  "accountsDetailLast4": "Last 4",
+  "accountsDetailClass": "Class",
+  "accountsDetailPurchasePrice": "Purchase price",
+  "accountsDetailPurchased": "Purchased",
+  "accountsDetailNotes": "Notes",
+  "yes": "Yes",
+  "no": "No",
+  "accountsUnavailableMessage": "Aiko could not load your accounts right now. Try again in a moment.",
+  "add": "Add",
+  "accountsUnavailableTitle": "Accounts are unavailable",
+  "accountsEmptyTitle": "No accounts yet",
+  "accountsEmptyMessage": "Add your cash, bank, card, or investment accounts.",
+  "accountsAddAccount": "Add account",
+  "accountsSummary": "Account summary",
+  "accountsAssets": "Assets",
+  "accountsLiabilities": "Liabilities",
+  "accountsDeleteQuestion": "Delete account?",
+  "accountsDeleteConfirm": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
+  "@accountsDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "accountsDeleted": "Account \"{name}\" deleted.",
+  "@accountsDeleted": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "accountsDeleteFailed": "Unable to delete account right now.",
+  "accountsDetailsTitle": "Account details",
+  "accountsDeleteTooltip": "Delete account",
+  "accountsEditTooltip": "Edit account",
+  "accountsNetWorth": "Net worth",
+  "accountsIncluded": "Included",
+  "accountsHidden": "Hidden",
+  "accountsStatus": "Status",
+  "accountsActive": "Active",
+  "accountsInactive": "Inactive",
+  "accountsRelatedTransactions": "Related transactions",
+  "accountsNoTransactions": "No transactions recorded for this account yet.",
+  "accountsTypeDetails": "Type details",
+  "currencyNameThb": "Thai Baht",
+  "currencyNameUsd": "US Dollar",
+  "currencyNameEur": "Euro",
+  "currencyNameGbp": "British Pound",
+  "currencyNameJpy": "Japanese Yen",
+  "currencyNameSgd": "Singapore Dollar",
+  "currencyNameAud": "Australian Dollar",
+  "currencyNameCad": "Canadian Dollar",
+  "currencyNameCny": "Chinese Yuan",
+  "currencyNameHkd": "Hong Kong Dollar",
+  "accountValidationStatementDayRange": "Statement day must be between 1 and 31.",
+  "accountValidationDueDayRange": "Due day must be between 1 and 31.",
+  "accountValidationAprNegative": "APR cannot be negative.",
+  "accountValidationCreditLimitRequired": "Enter a credit limit or turn on shared limit.",
+  "accountValidationSharedLimitReferenceRequired": "Pick a card to share the limit with.",
+  "accountValidationSharedLimitSelfReference": "A card cannot share its own limit.",
+  "accountValidationSharedLimitReferenceMissing": "The referenced card no longer exists.",
+  "accountValidationCreditLimitCurrencyMismatch": "Credit limit currency must match the account currency.",
+  "accountValidationTermMonthsPositive": "Term must be at least 1 month.",
+  "accountValidationLoanCurrencyMismatch": "All loan amounts must use the same currency.",
+  "accountValidationPurchaseDateRequired": "Add a purchase date with the price.",
+  "accountValidationSharedLimitCardUnavailable": "Referenced card is no longer available.",
+  "accountSaveFailed": "Couldn't save this account. Try again.",
+  "accountFormAprInvalid": "Enter a valid APR.",
+  "accountFormTargetPositive": "Target amount must be greater than zero",
+  "accountFormSavedNonNegative": "Current saved amount must be zero or more",
+  "accountFormTargetDateRequired": "Pick a target date when a target amount is set",
+  "accountFormInitialBalance": "Initial balance",
+  "accountFormInitialBalanceNote": "Created from account starting balance",
+  "accountFormCreated": "Account \"{name}\" created.",
+  "@accountFormCreated": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "accountFormUpdated": "Account \"{name}\" updated.",
+  "@accountFormUpdated": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "accountFormTapToChoose": "Tap to choose",
+  "accountFormHeadsUp": "Heads up",
+  "accountFormStatementDay": "Statement day (1-31)",
+  "accountFormDueDay": "Due day (1-31)",
+  "accountFormShareLimit": "Share limit with another card",
+  "accountFormCardToShareWith": "Card to share with",
+  "accountFormApr": "APR (%)",
+  "accountFormRewardsType": "Rewards type",
+  "accountFormAnnualFee": "Annual fee (optional)",
+  "accountFormMinPayment": "Minimum payment (optional)",
+  "accountFormLoanType": "Loan type",
+  "accountFormInterestRate": "Interest rate (%)",
+  "accountFormTermMonths": "Term (months)",
+  "accountFormMonthlyPayment": "Monthly payment",
+  "accountFormNextDueDate": "Next due date",
+  "accountFormAssetClass": "Asset class",
+  "accountFormPurchasePrice": "Purchase price (optional)",
+  "accountFormPurchaseDate": "Purchase date",
+  "accountFormLiabilityTypeHint": "e.g. Overdraft, Personal loan",
+  "accountFormOtherNotesHint": "What kind of account is this?",
+  "accountFormNoExtraDetails": "No extra details",
+  "accountFormNoExtraDetailsMessage": "Other accounts are flexible. Add notes to help future-you.",
+  "accountFormGoalDetails": "Goal details",
+  "accountFormGoalDetailsMessage": "Required for a SMART savings goal. The saved amount is the account's current balance.",
+  "accountFormTargetAmount": "Target amount",
+  "accountFormSavedSoFar": "Saved so far",
+  "accountFormTargetDate": "Target date",
+  "accountFormTargetDateHint": "Pick the date you want to reach this goal",
+  "accountFormCreate": "Create Account",
+  "accountFormName": "Account Name",
+  "accountFormNameHint": "e.g. Daily Expenses, Savings Wallet",
+  "accountFormNameRequired": "Please enter a name for the account.",
+  "accountFormType": "Account Type",
+  "accountFormInstitution": "Institution Name",
+  "accountFormInstitutionNotUsed": "Not used for this account type.",
+  "accountFormInstitutionHint": "e.g. Chase, PayPal, Coinbase",
+  "accountFormCurrentBalance": "Current Balance",
+  "accountFormBalanceRequired": "Please enter a balance.",
+  "accountFormEnterValidNumber": "Enter a valid number.",
+  "accountFormIncludeInNetWorth": "Include in net worth",
+  "accountFormActive": "Active account",
+  "categoryNameSalary": "Salary",
+  "categoryNameBonus": "Bonus",
+  "categoryNameFreelance": "Freelance",
+  "categoryNameBusiness": "Business",
+  "categoryNameRefunds": "Refunds",
+  "categoryNameGift": "Gift Received",
+  "categoryNameOtherIncome": "Other Income",
+  "categoryNameInterest": "Interest",
+  "categoryNameDividends": "Dividends",
+  "categoryNameRental": "Rental Income",
+  "categoryNameCapitalGains": "Capital Gains",
+  "categoryNameGroceries": "Groceries",
+  "categoryNameDining": "Dining Out",
+  "categoryNameCoffee": "Coffee",
+  "categoryNameLunch": "Lunch",
+  "categoryNameDinner": "Dinner",
+  "categoryNameDessert": "Dessert",
+  "categoryNameBubbleTea": "Bubble Tea",
+  "categoryNameDrinksBar": "Drinks / Bar",
+  "categoryNameSnacks": "Snacks",
+  "categoryNameFoodDelivery": "Food Delivery",
+  "categoryNameTransport": "Transport",
+  "categoryNamePublicTransport": "Public Transport",
+  "categoryNameFuel": "Fuel",
+  "categoryNameTaxi": "Taxi / Rideshare",
+  "categoryNameParking": "Parking",
+  "categoryNameVehicleMaintenance": "Vehicle Maintenance",
+  "categoryNameTolls": "Tolls",
+  "categoryNameRent": "Rent / Mortgage",
+  "categoryNameUtilities": "Utilities",
+  "categoryNamePhone": "Phone",
+  "categoryNameInternet": "Internet",
+  "categoryNameHomeMaintenance": "Home Maintenance",
+  "categoryNameFurniture": "Furniture & Appliances",
+  "categoryNameHealth": "Health",
+  "categoryNameInsurance": "Insurance",
+  "categoryNamePharmacy": "Pharmacy / Medicine",
+  "categoryNameDental": "Dental",
+  "categoryNameFitness": "Fitness / Gym",
+  "categoryNameDoctor": "Doctor Visit",
+  "categoryNameMedicineTreatment": "Medicine & Treatment",
+  "categoryNameLifeInsurance": "Life Insurance",
+  "categoryNameGymBoxing": "Gym & Boxing",
+  "categoryNameFitnessClass": "Fitness Class",
+  "categoryNameFitnessEquipment": "Fitness Equipment",
+  "categoryNameSupplements": "Supplements",
+  "categoryNameShopping": "Shopping",
+  "categoryNameClothing": "Clothing",
+  "categoryNameElectronics": "Electronics",
+  "categoryNamePersonalCare": "Personal Care",
+  "categoryNameJewelry": "Jewelry & Accessories",
+  "categoryNameShoes": "Shoes & Sneakers",
+  "categoryNameEntertainment": "Entertainment",
+  "categoryNameSubscriptions": "Subscriptions",
+  "categoryNameMovies": "Movies",
+  "categoryNameGames": "Games",
+  "categoryNameMusic": "Music / Streaming",
+  "categoryNameConcerts": "Concerts / Events",
+  "categoryNameHobbies": "Hobbies",
+  "categoryNameEducation": "Education",
+  "categoryNameBooks": "Books",
+  "categoryNameCourses": "Courses",
+  "categoryNameWorkshop": "Workshops",
+  "categoryNameTravel": "Travel",
+  "categoryNameFlights": "Flights",
+  "categoryNameAccommodation": "Accommodation",
+  "categoryNameForeignFees": "Foreign Fees",
+  "categoryNameGifts": "Gifts",
+  "categoryNameChildcare": "Childcare",
+  "categoryNamePets": "Pets",
+  "categoryNameDonations": "Donations / Charity",
+  "categoryNameFees": "Fees",
+  "categoryNameTaxes": "Taxes",
+  "categoryNameLoanPayment": "Loan Payment",
+  "categoryNameCreditCardPayment": "Credit Card Payment",
+  "categoryNameSavingsContribution": "Savings Contribution",
+  "categoryNameWater": "Water",
+  "categoryNameElectricity": "Electricity",
+  "categoryNameHomeLoanInterest": "Home Loan Interest",
+  "categoryNameSocialSecurity": "Social Security",
+  "categoryNameOtherExpense": "Other",
+  "categoryGroupNameIncomeEarnings": "Income & Earnings",
+  "categoryGroupNameInvestments": "Investments & Savings",
+  "categoryGroupNameFoodAndDrink": "Food & Drink",
+  "categoryGroupNameTransport": "Transport",
+  "categoryGroupNameHousing": "Housing & Utilities",
+  "categoryGroupNameHealthFitness": "Health & Fitness",
+  "categoryGroupNameShoppingPersonal": "Shopping & Personal",
+  "categoryGroupNameEntertainment": "Entertainment & Leisure",
+  "categoryGroupNameEducation": "Education",
+  "categoryGroupNameTravel": "Travel",
+  "categoryGroupNameFamilyGiving": "Family & Giving",
+  "categoryGroupNameBillsFinancial": "Bills & Financial",
+  "categoryGroupNameOther": "Other",
+  "categoriesThisMonthCount": "{count} this month",
+  "@categoriesThisMonthCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "categoriesCategoryCount": "{count, plural, =1{1 category} other{{count} categories}}",
+  "@categoriesCategoryCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "categoriesSpentOf": "{spent} of {limit} spent",
+  "@categoriesSpentOf": {
+    "placeholders": {
+      "spent": {
+        "type": "Object"
+      },
+      "limit": {
+        "type": "Object"
+      }
+    }
+  },
+  "categoriesOverBudget": "over budget",
+  "categoriesPerDayLeft": "{amount}/day · {days} left",
+  "@categoriesPerDayLeft": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      },
+      "days": {
+        "type": "Object"
+      }
+    }
+  },
+  "categoriesUnavailableMessage": "Aiko could not load your categories right now. Try again in a moment.",
+  "categoriesNewCategory": "New category",
+  "categoriesNewGroup": "New group",
+  "categoriesUnavailableTitle": "Categories are unavailable",
+  "categoriesEmptyTitle": "No categories yet",
+  "categoriesEmptyMessage": "Create categories to organize transactions and budgets.",
+  "categoriesAddCategory": "Add Category",
+  "categoriesNoExpense": "No expense categories",
+  "categoriesNoIncome": "No income categories",
+  "categoriesNoExpenseMessage": "Add expense categories for bills, shopping, and daily spending.",
+  "categoriesNoIncomeMessage": "Add income categories for salary, side work, and other money coming in.",
+  "categoriesEditGroup": "Edit group",
+  "categoriesCollapseGroup": "Collapse group",
+  "categoriesExpandGroup": "Expand group",
+  "categoriesAddBudget": "+ Budget",
+  "categorySaveFailed": "Couldn't save this category. Try again.",
+  "categoryDeleteFailed": "Couldn't delete this category. Try again.",
+  "categoryUpdated": "Category \"{name}\" updated successfully!",
+  "@categoryUpdated": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "categoryAdded": "Category \"{name}\" added successfully!",
+  "@categoryAdded": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "categoryDeleteQuestion": "Delete \"{name}\"?",
+  "@categoryDeleteQuestion": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "categoryDeleteMessage": "This removes the category from your list. Existing transactions keep their saved details.",
+  "categoryDeleted": "Category \"{name}\" deleted.",
+  "@categoryDeleted": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "categoryEditTitle": "Edit Category",
+  "categoryDeleteTooltip": "Delete category",
+  "categoryNameLabel": "Category Name",
+  "categoryNameHint": "e.g., Groceries, Rent, Gym Membership",
+  "categoryNameRequired": "Please enter a category name",
+  "categoryNameExists": "A category with this name already exists",
+  "categorySelectColor": "Select Theme Color",
+  "categorySelectIcon": "Select Icon",
+  "categoryUpdating": "Updating Category...",
+  "categoryAdding": "Adding Category...",
+  "categoryUpdate": "Update Category",
+  "categorySave": "Save Category",
+  "groupDeleteMessageAssigned": "This removes the group. {count, plural, =1{1 category} other{{count} categories}} assigned to it will be moved back to \"Ungrouped\".",
+  "@groupDeleteMessageAssigned": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupSaveFailed": "Couldn't save this group. Try again.",
+  "groupDeleteFailed": "Couldn't delete this group. Try again.",
+  "groupNameExists": "A group with this name already exists.",
+  "groupUpdated": "Group \"{name}\" updated.",
+  "@groupUpdated": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "groupCreated": "Group \"{name}\" created.",
+  "@groupCreated": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "groupDeleteMessageEmpty": "This permanently removes the group. Existing categories keep their saved details.",
+  "groupDeleted": "Group \"{name}\" deleted.",
+  "@groupDeleted": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "groupEditTitle": "Edit Group",
+  "groupNewTitle": "New Group",
+  "groupDeleteTooltip": "Delete group",
+  "groupExplanation": "Groups bundle related categories together on the Categories screen. They are purely organisational and do not change your budgets or reports.",
+  "groupNameLabel": "Group name",
+  "groupNameHint": "e.g., Household, Car, Kids, Travel",
+  "groupNameRequired": "Please enter a group name",
+  "colorLabel": "Color",
+  "iconLabel": "Icon",
+  "savingEllipsis": "Saving...",
+  "groupSave": "Save Group",
+  "groupCreate": "Create Group",
+  "budgetSaveFailed": "Couldn't save this budget. Try again.",
+  "budgetRemovedFrom": "Budget removed from \"{name}\".",
+  "@budgetRemovedFrom": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "budgetSetFor": "Budget set for \"{name}\".",
+  "@budgetSetFor": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "budgetSheetTitle": "Budget · {name}",
+  "@budgetSheetTitle": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "budgetSave": "Save Budget",
+  "groupBudgetSheetTitle": "Group budget · {name}",
+  "@groupBudgetSheetTitle": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "groupBudgetExplanation": "A monthly limit for the whole group, separate from each category’s own budget.",
+  "groupBudgetMonthlyLimit": "Monthly limit ({currency})",
+  "@groupBudgetMonthlyLimit": {
+    "placeholders": {
+      "currency": {
+        "type": "Object"
+      }
+    }
+  },
+  "groupBudgetLeaveEmpty": "Leave empty to remove the budget",
+  "enterValidAmount": "Enter a valid amount",
+  "budgetSectionTitle": "Budget",
+  "budgetSectionOptional": "Optional. Leave the amount empty for no budget.",
+  "budgetLimit": "Limit",
+  "enterPositiveAmount": "Enter a positive amount",
+  "budgetPeriodLabel": "Period",
+  "budgetRollover": "Roll over unused budget",
+  "budgetRolloverHint": "Carries leftover into the next period only.",
+  "groupPickerLabel": "Group",
+  "groupUngrouped": "Ungrouped",
+  "groupCreateNew": "Create new group...",
+  "budgetAdviceNone": "No budget set for this category yet.",
+  "budgetAdviceOver": "You are above target. Let us adjust together for the next period.",
+  "budgetAdviceMindful": "Stay mindful of this category for the rest of the period.",
+  "budgetAdviceDaily": "Keep this category under {amount} {currency}/day to stay on track.",
+  "@budgetAdviceDaily": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      },
+      "currency": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashDailySummary": "Daily summary",
+  "dashNetEarnings": "Net earnings",
+  "dashCategoryBudgets": "Category budgets",
+  "dashSpendingCalendar": "Spending calendar",
+  "uncategorized": "Uncategorized",
+  "dashNoSpending": "No spending",
+  "daysCount": "{count, plural, =1{1 day} other{{count} days}}",
+  "@daysCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "monthsCount": "{count, plural, =1{1 month} other{{count} months}}",
+  "@monthsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "topCount": "Top {count}",
+  "@topCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashDetailTransactionsIncluded": "Transactions included: {count}",
+  "@dashDetailTransactionsIncluded": {
+    "placeholders": {
+      "count": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashDetailAverageDaily": "Average daily expense over {days} days: {amount}",
+  "@dashDetailAverageDaily": {
+    "placeholders": {
+      "days": {
+        "type": "Object"
+      },
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashDetailMonthExpense": "Current month expense: {amount}",
+  "@dashDetailMonthExpense": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashDetailMonthIncome": "Current month income: {amount}",
+  "@dashDetailMonthIncome": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashDetailMonthNet": "Current month net: {amount}",
+  "@dashDetailMonthNet": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashDetailBudgetedCategories": "Categories with a budget: {count}",
+  "@dashDetailBudgetedCategories": {
+    "placeholders": {
+      "count": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashDetailTrackedCategories": "Tracked categories: {count}",
+  "@dashDetailTrackedCategories": {
+    "placeholders": {
+      "count": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashDetailMonth": "Month: {month}",
+  "@dashDetailMonth": {
+    "placeholders": {
+      "month": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashDetailDotScale": "Dot size scale: {percent}%",
+  "@dashDetailDotScale": {
+    "placeholders": {
+      "percent": {
+        "type": "Object"
+      }
+    }
+  },
+  "notificationsTitle": "Notifications",
+  "dashDailySpending": "Daily spending",
+  "unavailable": "Unavailable",
+  "dashUsedToday": "{amount} today",
+  "@dashUsedToday": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashSafeThisWeek": "Safe this week",
+  "dashLeftToSave": "Left to save",
+  "dashCashFlow": "Cash flow",
+  "dashCashFlowMapping": "Cash flow mapping",
+  "dashLoadingCashFlowMapping": "Loading cash flow mapping...",
+  "dashCashFlowMappingFailed": "Unable to load cash flow mapping right now.",
+  "dashCashFlowMappingDescription": "A visual mapping of your monthly income flows into bills, discretionary spending, and savings cushions.",
+  "dashFixedBills": "Fixed Bills",
+  "dashDiscretionary": "Discretionary",
+  "dashSavings": "Savings",
+  "dashLoadingAnalytics": "Loading transaction analytics...",
+  "dashAnalyticsFailed": "Unable to load transaction analytics right now.",
+  "dashSevenDayAvg": "7-day avg {amount}",
+  "@dashSevenDayAvg": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashThisWeek": "This week",
+  "dashAverageSpending": "Average spending",
+  "dashSevenDaysPerDay": "7 days: {amount} per day",
+  "@dashSevenDaysPerDay": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashThirtyDaysPerDay": "30 days: {amount} per day",
+  "@dashThirtyDaysPerDay": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashThisMonthNet": "This month net: {amount}",
+  "@dashThisMonthNet": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashNoCategorySpending": "No category spending recorded this month yet.",
+  "dashCalendarHint": "Dot size reflects total spending for each day this month.",
+  "dashAmountUsed": "{amount} used",
+  "@dashAmountUsed": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashCustomizeWidget": "Customize widget",
+  "dashRange": "Range",
+  "dashDotIntensity": "Dot intensity",
+  "dashDetails": "Details",
+  "notifBudgetUsed": "You've used {percent}% of your {category} budget.",
+  "@notifBudgetUsed": {
+    "placeholders": {
+      "percent": {
+        "type": "Object"
+      },
+      "category": {
+        "type": "Object"
+      }
+    }
+  },
+  "notifDueToday": "{amount} due today.",
+  "@notifDueToday": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "notifDueTomorrow": "{amount} due tomorrow.",
+  "@notifDueTomorrow": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "notifDueInDays": "{amount} due in {days} days.",
+  "@notifDueInDays": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      },
+      "days": {
+        "type": "Object"
+      }
+    }
+  },
+  "notifGoalReached": "{goal} is fully funded — goal reached!",
+  "@notifGoalReached": {
+    "placeholders": {
+      "goal": {
+        "type": "Object"
+      }
+    }
+  },
+  "notifGoalProgress": "{goal} is {percent}% funded.",
+  "@notifGoalProgress": {
+    "placeholders": {
+      "goal": {
+        "type": "Object"
+      },
+      "percent": {
+        "type": "Object"
+      }
+    }
+  },
+  "dueItemPayment": "{account} payment",
+  "@dueItemPayment": {
+    "placeholders": {
+      "account": {
+        "type": "Object"
+      }
+    }
+  },
+  "reactionComfortableTitle": "You're spending comfortably",
+  "reactionCautionTitle": "You're close to today's limit",
+  "reactionExceededTitle": "Today's safe amount is used up",
+  "reactionComfortableMessage": "Nice work—today's spending is in a healthy range.",
+  "reactionCautionMessage": "Aiko is a little worried—take care with the next expense.",
+  "reactionExceededMessage": "Aiko wants you to pause before spending more.",
+  "reactionComfortableSemantics": "Aiko is smiling",
+  "reactionCautionSemantics": "Aiko looks worried",
+  "reactionExceededSemantics": "Aiko looks angry",
+  "reportOtherSlice": "Other",
+  "notifGroupBudget": "Budget alerts",
+  "notifGroupBills": "Upcoming bills",
+  "notifGroupGoals": "Goals",
+  "chanceHigh": "High Chance",
+  "chanceFair": "Fair Chance",
+  "chanceLow": "Low Chance",
+  "chanceGoalTitle": "{goal}: {percent}% chance",
+  "@chanceGoalTitle": {
+    "placeholders": {
+      "goal": {
+        "type": "Object"
+      },
+      "percent": {
+        "type": "Object"
+      }
+    }
+  },
+  "reportSavedMore": "You saved {amount} more than last month.",
+  "@reportSavedMore": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "reportSavedLess": "You saved {amount} less than last month.",
+  "@reportSavedLess": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "reportShapingUp": "Here's how this month is shaping up.",
+  "reportTotalExpensesCenter": "{amount}\nTotal Expenses",
+  "@reportTotalExpensesCenter": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "reportTopInsightMessage": "{category} was your biggest expense at {amount} this month.",
+  "@reportTopInsightMessage": {
+    "placeholders": {
+      "category": {
+        "type": "Object"
+      },
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "notifUnavailableTitle": "Notifications unavailable",
+  "notifUnavailableMessage": "Aiko could not read your data right now. Pull to retry.",
+  "notifAllCaughtUp": "All caught up",
+  "notifAllCaughtUpMessage": "No budget alerts, upcoming bills, or goal milestones right now.",
+  "chanceTitle": "Chance of Success",
+  "chanceGoalsUnavailable": "Aiko could not read your goals right now.",
+  "chanceNoGoals": "No goals yet",
+  "chanceNoGoalsMessage": "Create a goal account with a target and date, and Aiko will estimate your chance of reaching it.",
+  "chanceSimulationFailed": "Aiko could not run the simulation right now.",
+  "chanceGoalNotFound": "Goal not found",
+  "chanceGoalDeleted": "This goal may have been deleted.",
+  "chanceOnTrack": "You are on track to reach this goal.",
+  "chanceSaveMore": "Saving a bit more each month would lift your odds.",
+  "chanceProjection": "Projection",
+  "chanceCurrentSavings": "Current Savings",
+  "chanceMonthlySaving": "Monthly Saving",
+  "chanceTargetAmount": "Target Amount",
+  "chanceTargetDate": "Target Date",
+  "chanceHowEstimated": "How this is estimated",
+  "chanceMethod": "1,000 simulations at 6% expected return and 12% volatility over {months} months. Estimates only, not advice.",
+  "@chanceMethod": {
+    "placeholders": {
+      "months": {
+        "type": "Object"
+      }
+    }
+  },
+  "reportTitle": "Monthly Report",
+  "reportUnavailable": "Report unavailable",
+  "reportTransactionsUnavailable": "Aiko could not read your transactions right now.",
+  "reportNothingLogged": "Nothing logged yet",
+  "reportNothingLoggedMessage": "Add income or expenses this month and your report will build itself here.",
+  "reportWatchPace": "Watch your pace",
+  "reportExpenses": "Expenses",
+  "reportNetCashFlow": "Net Cash Flow",
+  "reportSaved": "Saved",
+  "reportOfIncome": "{percent}% of income",
+  "@reportOfIncome": {
+    "placeholders": {
+      "percent": {
+        "type": "Object"
+      }
+    }
+  },
+  "reportWhereItWent": "Where it went",
+  "reportTopInsight": "Top insight",
+  "allocationUnavailable": "Allocation unavailable",
+  "holdingsUnavailableMessage": "Aiko could not read your holdings right now.",
+  "holdingsEmptyTitle": "No holdings yet",
+  "allocationEmptyMessage": "Add investment holdings and Aiko will break down your allocation here.",
+  "allocationTotalPortfolio": "Total Portfolio",
+  "allocationTitle": "Allocation",
+  "holdingDetailEmptyMessage": "Add an investment holding and its detail will appear here.",
+  "holdingYourHolding": "Your Holding",
+  "holdingShares": "Shares",
+  "holdingMarketValue": "Market Value",
+  "holdingAverageCost": "Average Cost",
+  "holdingUnrealizedGainLoss": "Unrealized Gain/Loss",
+  "calcCategorySavingInvesting": "Saving and investing",
+  "calcCategoryDebtLoans": "Debt and loans",
+  "calcCategoryGoals": "Goals",
+  "calcCategoryInvesting": "Investing",
+  "calcCategoryTravelCurrency": "Travel and currency",
+  "calcCategoryTax": "Tax",
+  "calcCategoryHome": "Home",
+  "calcCategoryRealEstate": "Real estate",
+  "calcCategoryRetirement": "Retirement",
+  "calcCategoryAuto": "Auto",
+  "calcCategoryBusiness": "Business",
+  "calcCategoryIncome": "Income",
+  "calcCategoryEveryday": "Everyday",
+  "calcTitleCompoundInterest": "Compound interest",
+  "calcDescriptionCompoundInterest": "Project future value with contributions and annual growth.",
+  "calcTitleLoan": "Loan",
+  "calcDescriptionLoan": "Estimate monthly payment from balance, APR, and term.",
+  "calcTitleCreditCardPayoff": "Credit card payoff",
+  "calcDescriptionCreditCardPayoff": "Estimate payoff time from APR and monthly payment.",
+  "calcTitleSavingsGoal": "Savings goal",
+  "calcDescriptionSavingsGoal": "Calculate the pace needed to reach a target amount.",
+  "calcTitleRoi": "ROI",
+  "calcDescriptionRoi": "Compare gain, cost, and holding period return.",
+  "calcTitleCurrencyConverter": "Currency converter",
+  "calcDescriptionCurrencyConverter": "Convert an amount with a known exchange rate.",
+  "calcTitleTimeValueOfMoney": "Time value of money",
+  "calcDescriptionTimeValueOfMoney": "Estimate present and future value scenarios.",
+  "calcTitleIrrNpv": "IRR / NPV",
+  "calcDescriptionIrrNpv": "Evaluate cash flows with discount-rate analysis.",
+  "calcTitleCertificateOfDeposit": "Certificate of deposit",
+  "calcDescriptionCertificateOfDeposit": "Estimate CD earnings over a fixed term.",
+  "calcTitleBondYield": "Bond yield",
+  "calcDescriptionBondYield": "Review coupon, price, and yield relationships.",
+  "calcTitleTaxEquivalentYield": "Tax equivalent yield",
+  "calcDescriptionTaxEquivalentYield": "Compare tax-free and taxable investment yields.",
+  "calcTitleRuleOf72": "Rule of 72",
+  "calcDescriptionRuleOf72": "Estimate how long an investment takes to double.",
+  "calcTitleBiweeklyMortgage": "Bi-weekly mortgage payment",
+  "calcDescriptionBiweeklyMortgage": "Estimate savings from extra mortgage payment cadence.",
+  "calcTitleRefinanceSavings": "Refinance savings",
+  "calcDescriptionRefinanceSavings": "Compare loan costs before and after refinancing.",
+  "calcTitleRentVsBuy": "Rent vs. buy",
+  "calcDescriptionRentVsBuy": "Compare housing costs across renting and owning.",
+  "calcTitleHomeAffordability": "Home affordability",
+  "calcDescriptionHomeAffordability": "Estimate purchase budget from income and payments.",
+  "calcTitleRentalCashFlow": "Rental property cash flow",
+  "calcDescriptionRentalCashFlow": "Estimate operating income and monthly cash flow.",
+  "calcTitleTraditionalVsRoth": "Traditional vs. Roth IRA",
+  "calcDescriptionTraditionalVsRoth": "Compare contribution tax treatment over time.",
+  "calcTitleRequiredMinimumDistributions": "Required minimum distributions",
+  "calcDescriptionRequiredMinimumDistributions": "Estimate annual retirement account withdrawals.",
+  "calcTitleSocialSecurity": "Social Security estimate",
+  "calcDescriptionSocialSecurity": "Estimate benefit timing and income assumptions.",
+  "calcTitleAnnuityPayout": "Annuity payout",
+  "calcDescriptionAnnuityPayout": "Estimate periodic payouts from a lump sum.",
+  "calcTitleAutoLoanVsLease": "Auto loan vs. lease",
+  "calcDescriptionAutoLoanVsLease": "Compare ownership and lease payment tradeoffs.",
+  "calcTitleWacc": "WACC",
+  "calcDescriptionWacc": "Estimate weighted average cost of capital.",
+  "calcTitleBlackScholes": "Black-Scholes options",
+  "calcDescriptionBlackScholes": "Estimate theoretical option value inputs.",
+  "calcTitleCapm": "CAPM",
+  "calcDescriptionCapm": "Estimate expected return from market risk.",
+  "calcTitleCapitalGains": "Capital gains",
+  "calcDescriptionCapitalGains": "Estimate taxable gain from sale proceeds and basis.",
+  "calcTitleSalaryToHourly": "Salary to hourly",
+  "calcDescriptionSalaryToHourly": "Convert annual salary to equivalent hourly pay.",
+  "calcTitlePaycheckTax": "Paycheck tax",
+  "calcDescriptionPaycheckTax": "Estimate take-home pay after common deductions.",
+  "calcTitleInflation": "Inflation",
+  "calcDescriptionInflation": "Estimate purchasing power after inflation.",
+  "calcTitleTipPercentage": "Tip and percentage",
+  "calcDescriptionTipPercentage": "Calculate tip, split bills, and percentage changes.",
+  "calcSearch": "Search calculator",
+  "calcNoneFound": "No calculators found",
+  "calcTryDifferentSearch": "Try a different search term.",
+  "calcTileSemantics": "{title} calculator",
+  "@calcTileSemantics": {
+    "placeholders": {
+      "title": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcConfigLoanPayment": "Loan payment",
+  "calcConfigCreditCardPayoff": "Credit card payoff",
+  "calcConfigSavingsGoal": "Savings goal",
+  "calcConfigReturnOnInvestment": "Return on investment",
+  "calcConfigRuleOf72": "Rule of 72",
+  "calcConfigInflationAdjusted": "Inflation adjusted value",
+  "calcConfigSalaryToHourly": "Salary to hourly",
+  "calcConfigTaxEquivalentYield": "Tax equivalent yield",
+  "calcConfigNetPresentValue": "Net present value",
+  "calcConfigTipSplit": "Tip and split bill",
+  "calcConfigCurrencyConverter": "Currency converter",
+  "calcConfigCompoundInterest": "Compound interest",
+  "calcFieldPrincipal": "Principal",
+  "calcFieldAnnualRate": "Annual rate",
+  "calcFieldTermMonths": "Term in months",
+  "calcFieldBalance": "Balance",
+  "calcFieldApr": "APR",
+  "calcFieldMonthlyPayment": "Monthly payment",
+  "calcFieldTarget": "Target",
+  "calcFieldStartingBalance": "Starting balance",
+  "calcFieldMonthlyContribution": "Monthly contribution",
+  "calcFieldAnnualGrowth": "Annual growth",
+  "calcFieldInitialInvestment": "Initial investment",
+  "calcFieldEndingValue": "Ending value",
+  "calcFieldFees": "Fees",
+  "calcFieldIncome": "Income",
+  "calcFieldCurrentAmount": "Current amount",
+  "calcFieldAnnualInflation": "Annual inflation rate",
+  "calcFieldYears": "Years",
+  "calcFieldAnnualSalary": "Annual salary",
+  "calcFieldHoursPerWeek": "Hours per week",
+  "calcFieldWeeksPerYear": "Weeks per year",
+  "calcFieldTaxFreeYield": "Tax-free yield",
+  "calcFieldMarginalTaxRate": "Marginal tax rate",
+  "calcFieldDiscountRate": "Discount rate (Annual)",
+  "calcFieldCashFlows": "Cash flows (comma-separated, e.g. -1000, 300, 450, 600)",
+  "calcFieldBillAmount": "Bill amount",
+  "calcFieldTipRate": "Tip rate",
+  "calcFieldSplitCount": "Split between (people)",
+  "calcFieldAmount": "Amount",
+  "calcFieldExchangeRate": "Exchange rate",
+  "calcResultFutureValue": "Future value",
+  "calcResultFutureValueDetail": "Includes monthly contributions over {years} years.",
+  "@calcResultFutureValueDetail": {
+    "placeholders": {
+      "years": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcResultMonthlyPayment": "Monthly payment",
+  "calcResultLoanDetail": "Estimated total paid {total} with {interest} in interest.",
+  "@calcResultLoanDetail": {
+    "placeholders": {
+      "total": {
+        "type": "Object"
+      },
+      "interest": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcResultPayoffEstimate": "Payoff estimate",
+  "calcResultPayoffDetail": "Estimated interest {interest} with a {payment} monthly payment.",
+  "@calcResultPayoffDetail": {
+    "placeholders": {
+      "interest": {
+        "type": "Object"
+      },
+      "payment": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcResultGoalTimeline": "Goal timeline",
+  "calcResultAlreadyFunded": "Already funded",
+  "calcResultGoalDetail": "Estimated with {amount} saved each month.",
+  "@calcResultGoalDetail": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcResultRoiDetail": "Net gain is {gain} after fees and income.",
+  "@calcResultRoiDetail": {
+    "placeholders": {
+      "gain": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcResultConvertedAmount": "Converted amount",
+  "calcResultConvertedDetail": "Using exchange rate {rate}.",
+  "@calcResultConvertedDetail": {
+    "placeholders": {
+      "rate": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcResultYearsToDouble": "Years to double",
+  "calcYearsValue": "{years} years",
+  "@calcYearsValue": {
+    "placeholders": {
+      "years": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcResultRuleOf72Detail": "Estimated time to double your investment at a constant {rate}% annual rate.",
+  "@calcResultRuleOf72Detail": {
+    "placeholders": {
+      "rate": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcResultInflationDetail": "Purchasing power of {amount} in {years} years at a constant {rate}% inflation.",
+  "@calcResultInflationDetail": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      },
+      "years": {
+        "type": "Object"
+      },
+      "rate": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcResultHourly": "Equivalent hourly pay",
+  "calcResultHourlyDetail": "Based on working {hours} hours per week for {weeks} weeks per year.",
+  "@calcResultHourlyDetail": {
+    "placeholders": {
+      "hours": {
+        "type": "Object"
+      },
+      "weeks": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcResultTeyDetail": "Pre-tax return needed to equal a tax-free yield of {taxFree}% at a {rate}% marginal tax bracket.",
+  "@calcResultTeyDetail": {
+    "placeholders": {
+      "taxFree": {
+        "type": "Object"
+      },
+      "rate": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcCashFlowsRequired": "Enter a valid list of cash flows.",
+  "calcCashFlowsFormat": "Cash flows must be a list of numbers separated by commas.",
+  "calcResultNpv": "Net present value (NPV)",
+  "calcResultNpvDetail": "NPV of cash flows discounted at {rate}% per period.",
+  "@calcResultNpvDetail": {
+    "placeholders": {
+      "rate": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcResultSplitSummary": "Total split summary",
+  "calcEachValue": "{amount} each",
+  "@calcEachValue": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcResultTipDetail": "Tip is {tip} (total {total}) split between {count} people.",
+  "@calcResultTipDetail": {
+    "placeholders": {
+      "tip": {
+        "type": "Object"
+      },
+      "total": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcEnterValid": "Enter a valid {field}.",
+  "@calcEnterValid": {
+    "placeholders": {
+      "field": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcMustBePositive": "{field} must be positive.",
+  "@calcMustBePositive": {
+    "placeholders": {
+      "field": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcPaymentTooLow": "Monthly payment is too low to reduce this balance.",
+  "calcPayoffTooLong": "This payoff takes over 100 years. Try a higher payment.",
+  "calcGoalTooLong": "This goal takes over 100 years. Try a higher monthly contribution.",
+  "calcCalculate": "Calculate",
+  "calcDisclaimer": "Results are estimates, not guarantees.",
+  "calcPerHourValue": "{amount}/hr",
+  "@calcPerHourValue": {
+    "placeholders": {
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "calcErrorTermPositive": "Term must be positive.",
+  "calcErrorInvestmentPositive": "Initial investment must be positive.",
+  "calcErrorRatePositive": "Exchange rate must be positive.",
+  "calcErrorAnnualRatePositive": "Annual rate must be positive.",
+  "calcErrorTaxRateBelow100": "Marginal tax rate must be below 100%.",
+  "calcErrorGeneric": "Check the values and try again.",
+  "assetClassBonds": "Bonds",
+  "assetClassFunds": "Funds",
+  "assetClassCrypto": "Crypto",
+  "assetClassCustom": "Custom",
+  "rebalanceOverweight": "{assetClass} is overweight by {percent}%",
+  "@rebalanceOverweight": {
+    "placeholders": {
+      "assetClass": {
+        "type": "Object"
+      },
+      "percent": {
+        "type": "Object"
+      }
+    }
+  },
+  "rebalanceUnderweight": "{assetClass} is underweight by {percent}%",
+  "@rebalanceUnderweight": {
+    "placeholders": {
+      "assetClass": {
+        "type": "Object"
+      },
+      "percent": {
+        "type": "Object"
+      }
+    }
+  },
+  "rebalancePlusMore": "{message}, plus {count} more.",
+  "@rebalancePlusMore": {
+    "placeholders": {
+      "message": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "Object"
+      }
+    }
+  },
+  "holdingAddFailed": "Couldn't add this holding. Try again.",
+  "holdingRemoveQuestion": "Remove {symbol}?",
+  "@holdingRemoveQuestion": {
+    "placeholders": {
+      "symbol": {
+        "type": "Object"
+      }
+    }
+  },
+  "holdingRemoveMessage": "This removes {symbol} from your portfolio. It will not create a sell transaction.",
+  "@holdingRemoveMessage": {
+    "placeholders": {
+      "symbol": {
+        "type": "Object"
+      }
+    }
+  },
+  "holdingRemoved": "{symbol} removed.",
+  "@holdingRemoved": {
+    "placeholders": {
+      "symbol": {
+        "type": "Object"
+      }
+    }
+  },
+  "remove": "Remove",
+  "holdingSearchHint": "Search symbol or asset class",
+  "holdingSearchTooltip": "Search holdings",
+  "holdingRefreshPrices": "Refresh prices",
+  "portfolioLoadFailed": "Could not load portfolio",
+  "holdingsTitle": "Holdings",
+  "holdingsFilteredCount": "{shown} of {total}",
+  "@holdingsFilteredCount": {
+    "placeholders": {
+      "shown": {
+        "type": "Object"
+      },
+      "total": {
+        "type": "Object"
+      }
+    }
+  },
+  "investmentsValue": "Investments value",
+  "investmentsTotalGainLoss": "Total gain/loss",
+  "investmentsHoldingCount": "Holding count",
+  "investmentsAllocationStatus": "Allocation status",
+  "investmentsEmptyTitle": "No investments yet",
+  "investmentsEmptyMessage": "Add your first holding to track value and allocation.",
+  "holdingAdd": "Add holding",
+  "holdingsNoMatches": "No matching holdings",
+  "holdingsNoMatchesMessage": "Try another symbol, asset class, or clear the filters.",
+  "clearFilters": "Clear filters",
+  "holdingSharesAtPrice": "{quantity} shares x {price}",
+  "@holdingSharesAtPrice": {
+    "placeholders": {
+      "quantity": {
+        "type": "Object"
+      },
+      "price": {
+        "type": "Object"
+      }
+    }
+  },
+  "holdingRemoveTooltip": "Remove {symbol}",
+  "@holdingRemoveTooltip": {
+    "placeholders": {
+      "symbol": {
+        "type": "Object"
+      }
+    }
+  },
+  "allocationAddHoldings": "Add holdings to see your asset mix.",
+  "allocationOnTrack": "On track",
+  "allocationNeedsRebalance": "Needs rebalance",
+  "holdingAdded": "{symbol} added to portfolio.",
+  "@holdingAdded": {
+    "placeholders": {
+      "symbol": {
+        "type": "Object"
+      }
+    }
+  },
+  "holdingAssetClass": "Asset class",
+  "holdingSymbol": "Symbol",
+  "holdingSymbolHint": "AAPL, VTI, BTC",
+  "holdingSymbolRequired": "Enter a symbol",
+  "holdingQuantity": "Quantity",
+  "holdingCurrentPrice": "Current price",
+  "holdingSave": "Save holding",
+  "enterPositiveNumber": "Enter a positive number",
+  "holdingsCount": "{count, plural, =1{1 holding} other{{count} holdings}}",
+  "@holdingsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "learningRecommendedLessons": "Recommended lessons",
+  "learningQuizzes": "Quizzes",
+  "learningQuizSummary": "{lesson}: {count} question quiz",
+  "@learningQuizSummary": {
+    "placeholders": {
+      "lesson": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "Object"
+      }
+    }
+  },
+  "learningLessonMeta": "{category} - {minutes} min",
+  "@learningLessonMeta": {
+    "placeholders": {
+      "category": {
+        "type": "Object"
+      },
+      "minutes": {
+        "type": "Object"
+      }
+    }
+  },
+  "lessonBudgetTitle": "Budgeting without guilt",
+  "lessonBudgetCategory": "Budgeting",
+  "lessonBudgetSummary": "Safe-to-spend helps you balance needs, wants, goals, and flexible spending.",
+  "lessonBudgetQuestion": "What should a budget help you decide?",
+  "lessonBudgetOptionCorrect": "Where every dollar goes",
+  "lessonBudgetOptionWrong": "Which purchases are shameful",
+  "lessonEmergencyTitle": "Emergency fund starter plan",
+  "lessonEmergencyCategory": "Saving",
+  "lessonEmergencySummary": "Choose a first cushion target and automate a monthly contribution.",
+  "lessonEmergencyQuestion": "Why keep an emergency fund separate?",
+  "lessonEmergencyOptionCorrect": "For surprise costs",
+  "lessonEmergencyOptionWrong": "To hide spending",
+  "lessonCreditTitle": "Credit utilization basics",
+  "lessonCreditCategory": "Credit",
+  "lessonCreditSummary": "Understand APR, balance-to-limit ratios, and why paydown timing matters.",
+  "lessonCreditQuestion": "Lower utilization generally means:",
+  "lessonCreditOptionWrong": "Less available credit",
+  "lessonCreditOptionCorrect": "A healthier credit signal",
+  "lessonRebalanceTitle": "Rebalancing your portfolio",
+  "lessonRebalanceCategory": "Investing",
+  "lessonRebalanceSummary": "Learn when to bring investments back toward target allocation weights.",
+  "lessonRebalanceQuestion": "What does rebalancing restore?",
+  "lessonRebalanceOptionCorrect": "Target allocation weights",
+  "lessonRebalanceOptionWrong": "A guaranteed return",
+  "glossaryAprTerm": "APR",
+  "glossaryAprDefinition": "Annual percentage rate.",
+  "glossarySafeToSpendTerm": "Safe-to-spend",
+  "glossarySafeToSpendDefinition": "Money left after bills, savings, goals, and posted spending.",
+  "glossaryRebalancingTerm": "Rebalancing",
+  "glossaryRebalancingDefinition": "Adjusting investments back toward target allocation weights.",
+  "exportNoTransactions": "No transactions found in this date range to export.",
+  "exportColumnDate": "Date",
+  "exportColumnMerchant": "Merchant",
+  "exportColumnCategory": "Category",
+  "exportColumnType": "Type",
+  "exportColumnAmount": "Amount",
+  "exportColumnNote": "Note",
+  "exportShareCsvText": "Aiko Financial Export",
+  "exportShareStatementText": "Aiko PDF / HTML Statement",
+  "exportStatementTitle": "Aiko Financial Statement",
+  "exportGeneratedOn": "Generated on {date} | Your financial companion: Aiko",
+  "@exportGeneratedOn": {
+    "placeholders": {
+      "date": {
+        "type": "Object"
+      }
+    }
+  },
+  "exportTotalIncome": "Total Income",
+  "exportTotalExpenses": "Total Expenses",
+  "exportNetCashFlow": "Net Cash Flow",
+  "exportTransactionDetails": "Transaction Details",
+  "exportFooter": "Aiko — Supportive, smart, and secure personal finance tracker.",
+  "exportSuccess": "Export generated successfully!",
+  "exportFailed": "Couldn't create the export. Try again.",
+  "exportTitle": "Export Hub",
+  "exportSettings": "Export Settings",
+  "exportDateRange": "Date Range",
+  "exportThisMonth": "This Month",
+  "exportLastMonth": "Last Month",
+  "exportAllTime": "All Time",
+  "exportFormat": "Format",
+  "exportGenerating": "Generating Report...",
+  "exportShare": "Share Export Document",
+  "exportPrivacyNote": "Exports are generated completely offline on your device to guarantee absolute privacy.",
+  "aikoPrompt01": "How much can I safely spend?",
+  "aikoPrompt02": "How am I doing against my budget?",
+  "aikoPrompt03": "Which budgets am I close to maxing out?",
+  "aikoPrompt04": "Where can I cut back?",
+  "aikoPrompt05": "What are my biggest spending categories?",
+  "aikoPrompt06": "Did my spending go up this month?",
+  "aikoPrompt07": "Am I on track for my goals?",
+  "aikoPrompt08": "How can I reach my goals faster?",
+  "aikoPrompt09": "How much should I save each month?",
+  "aikoPrompt10": "Suggest a realistic savings plan.",
+  "aikoPrompt11": "How did I spend this month?",
+  "aikoPrompt12": "What's my cash flow looking like?",
+  "aikoPrompt13": "Will I have money left at month end?",
+  "aikoPrompt14": "How do my income and expenses compare?",
+  "aikoPrompt15": "What bills are due soon?",
+  "aikoPrompt16": "Which subscriptions could I cancel?",
+  "aikoPrompt17": "Am I paying for anything I forgot about?",
+  "aikoPrompt18": "How should I pay off my debt?",
+  "aikoPrompt19": "What's my credit card utilization?",
+  "aikoPrompt20": "Should I use snowball or avalanche?",
+  "aikoPrompt21": "What's my net worth right now?",
+  "aikoPrompt22": "How is my portfolio allocated?",
+  "aikoPrompt23": "Is my emergency fund big enough?",
+  "aikoPrompt24": "Give me a quick money check-up.",
+  "aikoPrompt25": "Any unusual spending this month?",
+  "aikoPrompt26": "What should I focus on this week?",
+  "aikoPrompt27": "Show me one way to improve my finances.",
+  "aikoPrompt28": "Summarize my finances for me.",
+  "chatGreeting": "Hi! I'm Aiko. Ask me anything about your money, budgets, goals, or spending.",
+  "chatErrorSignInExpired": "Your sign-in expired. Sign in again to keep chatting.",
+  "chatErrorForbidden": "Aiko can't access this right now.",
+  "chatErrorRateLimited": "Slow down a bit — too many messages in a row.",
+  "chatErrorUnavailable": "Aiko is unavailable right now. Try again soon.",
+  "chatErrorBadResponse": "Aiko sent a reply the app couldn't read. Try again.",
+  "chatErrorOffline": "Connect to Aiko cloud to chat.",
+  "chatErrorNetwork": "I couldn't reach Aiko just now. Check your connection and try again.",
+  "chatErrorGeneric": "Something went wrong. Tap retry to try again.",
+  "chatBusyHint": "Aiko is busy...",
+  "chatInputHint": "Ask about your money...",
+  "chatNeedsCloud": "Aiko chat needs the cloud. Connect to Aiko cloud to start chatting.",
+  "chatThinking": "Aiko is thinking"
 }

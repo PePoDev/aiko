@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../l10n/l10n.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -226,6 +227,7 @@ class CapturedMessageProcessor {
     final rules = await _ref.read(transactionRulesProvider.future);
     final notifier = _ref.read(transactionsProvider.notifier);
 
+    final l10n = currentL10n();
     var created = 0;
     for (final message in messages) {
       final parsed = _parser.parse(message.body);
@@ -244,7 +246,9 @@ class CapturedMessageProcessor {
             ),
             date: message.receivedAt,
             merchant: parsed.merchant ?? message.sender,
-            note: 'Auto-captured from ${message.source}',
+            note: message.source == 'notification'
+                ? l10n.captureNoteFromNotification
+                : l10n.captureNoteFromSms,
             tags: const ['captured'],
           ),
           rules,

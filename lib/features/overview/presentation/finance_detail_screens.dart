@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../l10n/domain_labels.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/widgets/aiko_data_widgets.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
@@ -22,20 +24,19 @@ class NotificationsCenterScreen extends ConsumerWidget {
     final notificationsAsync = ref.watch(notificationsProvider);
 
     return AikoDetailScaffold(
-      title: 'Notifications',
+      title: context.l10n.notificationsTitle,
       children: [
         notificationsAsync.when(
           loading: () => const AikoScreenState.loading(),
-          error: (_, _) => const AikoScreenState.error(
-            title: 'Notifications unavailable',
-            message: 'Aiko could not read your data right now. Pull to retry.',
+          error: (_, _) => AikoScreenState.error(
+            title: context.l10n.notifUnavailableTitle,
+            message: context.l10n.notifUnavailableMessage,
           ),
           data: (notifications) {
             if (notifications.isEmpty) {
-              return const AikoScreenState.empty(
-                title: 'All caught up',
-                message:
-                    'No budget alerts, upcoming bills, or goal milestones right now.',
+              return AikoScreenState.empty(
+                title: context.l10n.notifAllCaughtUp,
+                message: context.l10n.notifAllCaughtUpMessage,
               );
             }
             return Column(
@@ -69,7 +70,7 @@ class _NotificationGroupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AikoDataListCard(
-      title: _groupTitle(group),
+      title: _groupTitle(group, context.l10n),
       icon: _groupIcon(group),
       rows: [
         for (final n in notifications)
@@ -85,11 +86,12 @@ class _NotificationGroupCard extends StatelessWidget {
   }
 }
 
-String _groupTitle(AppNotificationGroup group) => switch (group) {
-  AppNotificationGroup.budget => 'Budget alerts',
-  AppNotificationGroup.bills => 'Upcoming bills',
-  AppNotificationGroup.goals => 'Goals',
-};
+String _groupTitle(AppNotificationGroup group, AppLocalizations l10n) =>
+    switch (group) {
+      AppNotificationGroup.budget => l10n.notifGroupBudget,
+      AppNotificationGroup.bills => l10n.notifGroupBills,
+      AppNotificationGroup.goals => l10n.notifGroupGoals,
+    };
 
 IconData _groupIcon(AppNotificationGroup group) => switch (group) {
   AppNotificationGroup.budget => Icons.pie_chart_outline,
@@ -137,22 +139,20 @@ class ChanceOfSuccessScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accountsAsync = ref.watch(accountsProvider);
     return AikoDetailScaffold(
-      title: 'Chance of Success',
+      title: context.l10n.chanceTitle,
       children: [
         accountsAsync.when(
           loading: () => const AikoScreenState.loading(),
-          error: (_, _) => const AikoScreenState.error(
-            title: 'Unavailable',
-            message: 'Aiko could not read your goals right now.',
+          error: (_, _) => AikoScreenState.error(
+            title: context.l10n.unavailable,
+            message: context.l10n.chanceGoalsUnavailable,
           ),
           data: (accounts) {
             final target = goal ?? _topGoal(accounts);
             if (target == null) {
-              return const AikoScreenState.empty(
-                title: 'No goals yet',
-                message:
-                    'Create a goal account with a target and date, and Aiko '
-                    'will estimate your chance of reaching it.',
+              return AikoScreenState.empty(
+                title: context.l10n.chanceNoGoals,
+                message: context.l10n.chanceNoGoalsMessage,
               );
             }
             return _ChanceBody(goal: target);
@@ -173,33 +173,36 @@ class _ChanceBody extends ConsumerWidget {
     final forecastAsync = ref.watch(goalForecastProvider(goal.id));
     return forecastAsync.when(
       loading: () => const AikoScreenState.loading(),
-      error: (_, _) => const AikoScreenState.error(
-        title: 'Unavailable',
-        message: 'Aiko could not run the simulation right now.',
+      error: (_, _) => AikoScreenState.error(
+        title: context.l10n.unavailable,
+        message: context.l10n.chanceSimulationFailed,
       ),
       data: (forecast) {
         if (forecast == null) {
-          return const AikoScreenState.empty(
-            title: 'Goal not found',
-            message: 'This goal may have been deleted.',
+          return AikoScreenState.empty(
+            title: context.l10n.chanceGoalNotFound,
+            message: context.l10n.chanceGoalDeleted,
           );
         }
         final probability = forecast.result.successProbabilityPercent;
         final currency = goal.currentBalance.currency;
         final (label, color) = switch (probability) {
-          >= 70 => ('High Chance', AikoColors.successGreen),
-          >= 40 => ('Fair Chance', AikoColors.warningOrange),
-          _ => ('Low Chance', AikoColors.dangerRed),
+          >= 70 => (context.l10n.chanceHigh, AikoColors.successGreen),
+          >= 40 => (context.l10n.chanceFair, AikoColors.warningOrange),
+          _ => (context.l10n.chanceLow, AikoColors.dangerRed),
         };
         final targetDate = goal.targetDate;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             AikoInlineNotice(
-              title: '${goal.name}: ${probability.round()}% chance',
+              title: context.l10n.chanceGoalTitle(
+                goal.name,
+                probability.round(),
+              ),
               message: probability >= 70
-                  ? 'You are on track to reach this goal.'
-                  : 'Saving a bit more each month would lift your odds.',
+                  ? context.l10n.chanceOnTrack
+                  : context.l10n.chanceSaveMore,
               icon: Icons.auto_graph_outlined,
               accentColor: color,
             ),
@@ -214,36 +217,34 @@ class _ChanceBody extends ConsumerWidget {
               ),
             ),
             AikoDataListCard(
-              title: 'Projection',
+              title: context.l10n.chanceProjection,
               rows: [
                 AikoDataRow(
-                  label: 'Current Savings',
+                  label: context.l10n.chanceCurrentSavings,
                   value: goal.currentBalance.format(),
                 ),
                 AikoDataRow(
-                  label: 'Monthly Saving',
+                  label: context.l10n.chanceMonthlySaving,
                   value: Money.parse(
                     forecast.monthlyContribution.toStringAsFixed(2),
                     currency,
                   ).format(),
                 ),
                 AikoDataRow(
-                  label: 'Target Amount',
+                  label: context.l10n.chanceTargetAmount,
                   value: (goal.targetAmount ?? Money.zero(currency)).format(),
                 ),
                 AikoDataRow(
-                  label: 'Target Date',
+                  label: context.l10n.chanceTargetDate,
                   value: targetDate == null
-                      ? 'Not set'
+                      ? context.l10n.notSet
                       : DateFormat.yMMMd().format(targetDate),
                 ),
               ],
             ),
             AikoInlineNotice(
-              title: 'How this is estimated',
-              message:
-                  '1,000 simulations at 6% expected return and 12% volatility '
-                  'over ${forecast.months} months. Estimates only, not advice.',
+              title: context.l10n.chanceHowEstimated,
+              message: context.l10n.chanceMethod(forecast.months),
               icon: Icons.info_outline,
               accentColor: AikoColors.premiumPurple,
             ),
@@ -261,21 +262,19 @@ class MonthlyReportScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final reportAsync = ref.watch(monthlyReportProvider);
     return AikoDetailScaffold(
-      title: 'Monthly Report',
+      title: context.l10n.reportTitle,
       children: [
         reportAsync.when(
           loading: () => const AikoScreenState.loading(),
-          error: (_, _) => const AikoScreenState.error(
-            title: 'Report unavailable',
-            message: 'Aiko could not read your transactions right now.',
+          error: (_, _) => AikoScreenState.error(
+            title: context.l10n.reportUnavailable,
+            message: context.l10n.reportTransactionsUnavailable,
           ),
           data: (report) {
             if (!report.hasActivity) {
-              return const AikoScreenState.empty(
-                title: 'Nothing logged yet',
-                message:
-                    'Add income or expenses this month and your report will '
-                    'build itself here.',
+              return AikoScreenState.empty(
+                title: context.l10n.reportNothingLogged,
+                message: context.l10n.reportNothingLoggedMessage,
               );
             }
             return Column(
@@ -294,15 +293,18 @@ class MonthlyReportScreen extends ConsumerWidget {
       amount: savedMore.amount.abs(),
       currency: savedMore.currency,
     );
+    final l10n = context.l10n;
     final headline = savedMore.isPositive
-        ? 'You saved ${savedAbs.format()} more than last month.'
+        ? l10n.reportSavedMore(savedAbs.format())
         : savedMore.isNegative
-        ? 'You saved ${savedAbs.format()} less than last month.'
-        : "Here's how this month is shaping up.";
+        ? l10n.reportSavedLess(savedAbs.format())
+        : l10n.reportShapingUp;
 
     return [
       AikoInlineNotice(
-        title: savedMore.isNegative ? 'Watch your pace' : 'This month',
+        title: savedMore.isNegative
+            ? context.l10n.reportWatchPace
+            : context.l10n.txFilterThisMonth,
         message: headline,
         icon: savedMore.isNegative
             ? Icons.trending_down
@@ -314,21 +316,21 @@ class MonthlyReportScreen extends ConsumerWidget {
       AikoMetricGrid(
         children: [
           AikoMetricCard(
-            label: 'Income',
+            label: context.l10n.transactionTypeIncome,
             value: report.income.format(),
             change: _changeLabel(report.incomeChangePct),
             icon: Icons.south_west,
             accentColor: AikoColors.successGreen,
           ),
           AikoMetricCard(
-            label: 'Expenses',
+            label: context.l10n.reportExpenses,
             value: report.expenses.format(),
             change: _changeLabel(report.expensesChangePct),
             icon: Icons.north_east,
             accentColor: AikoColors.dangerRed,
           ),
           AikoMetricCard(
-            label: 'Net Cash Flow',
+            label: context.l10n.reportNetCashFlow,
             value: report.netCashFlow.format(),
             change: _changeLabel(report.netChangePct),
             icon: Icons.waterfall_chart,
@@ -337,9 +339,11 @@ class MonthlyReportScreen extends ConsumerWidget {
                 : AikoColors.successGreen,
           ),
           AikoMetricCard(
-            label: 'Saved',
+            label: context.l10n.reportSaved,
             value: report.saved.format(),
-            change: '${report.savingsRatePct.toStringAsFixed(1)}% of income',
+            change: context.l10n.reportOfIncome(
+              report.savingsRatePct.toStringAsFixed(1),
+            ),
             icon: Icons.savings_outlined,
             accentColor: AikoColors.analyticsTeal,
           ),
@@ -356,22 +360,25 @@ class MonthlyReportScreen extends ConsumerWidget {
               colors: report.slices
                   .map((s) => aikoHexColor(s.colorHex))
                   .toList(),
-              centerLabel: '${report.expenses.format()}\nTotal Expenses',
+              centerLabel: l10n.reportTotalExpensesCenter(
+                report.expenses.format(),
+              ),
             ),
           ),
         ),
         AikoDataListCard(
-          title: 'Where it went',
+          title: context.l10n.reportWhereItWent,
           rows: [
             for (final slice in report.slices)
               AikoDataRow(label: slice.name, value: slice.amount.format()),
           ],
         ),
         AikoInlineNotice(
-          title: 'Top insight',
-          message:
-              '${report.slices.first.name} was your biggest expense at '
-              '${report.slices.first.amount.format()} this month.',
+          title: context.l10n.reportTopInsight,
+          message: l10n.reportTopInsightMessage(
+            report.slices.first.name,
+            report.slices.first.amount.format(),
+          ),
           icon: Icons.lightbulb_outline,
           accentColor: AikoColors.warningOrange,
         ),
@@ -407,28 +414,26 @@ class AssetAllocationScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final allocationAsync = ref.watch(portfolioAllocationProvider);
     return AikoDetailScaffold(
-      title: 'Asset Allocation',
+      title: context.l10n.toolAssetAllocation,
       children: [
         allocationAsync.when(
           loading: () => const AikoScreenState.loading(),
-          error: (_, _) => const AikoScreenState.error(
-            title: 'Allocation unavailable',
-            message: 'Aiko could not read your holdings right now.',
+          error: (_, _) => AikoScreenState.error(
+            title: context.l10n.allocationUnavailable,
+            message: context.l10n.holdingsUnavailableMessage,
           ),
           data: (allocation) {
             if (!allocation.hasHoldings) {
-              return const AikoScreenState.empty(
-                title: 'No holdings yet',
-                message:
-                    'Add investment holdings and Aiko will break down your '
-                    'allocation here.',
+              return AikoScreenState.empty(
+                title: context.l10n.holdingsEmptyTitle,
+                message: context.l10n.allocationEmptyMessage,
               );
             }
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 AikoMetricCard(
-                  label: 'Total Portfolio',
+                  label: context.l10n.allocationTotalPortfolio,
                   value: allocation.total.format(),
                   icon: Icons.pie_chart_outline,
                   accentColor: AikoColors.analyticsTeal,
@@ -451,11 +456,14 @@ class AssetAllocationScreen extends ConsumerWidget {
                   ),
                 ),
                 AikoDataListCard(
-                  title: 'Allocation',
+                  title: context.l10n.allocationTitle,
                   rows: [
                     for (var i = 0; i < allocation.slices.length; i++)
                       AikoDataRow(
-                        label: allocation.slices[i].assetClass,
+                        label: investmentAssetClassLabel(
+                          allocation.slices[i].assetClass,
+                          context.l10n,
+                        ),
                         value:
                             '${allocation.slices[i].percent.toStringAsFixed(1)}%',
                         subtitle: allocation.slices[i].value.format(),
@@ -484,13 +492,13 @@ class HoldingDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final holdingsAsync = ref.watch(investmentsProvider);
     return AikoDetailScaffold(
-      title: 'Holding Detail',
+      title: context.l10n.toolHoldingDetail,
       children: [
         holdingsAsync.when(
           loading: () => const AikoScreenState.loading(),
-          error: (_, _) => const AikoScreenState.error(
-            title: 'Unavailable',
-            message: 'Aiko could not read your holdings right now.',
+          error: (_, _) => AikoScreenState.error(
+            title: context.l10n.unavailable,
+            message: context.l10n.holdingsUnavailableMessage,
           ),
           data: (holdings) {
             final selected =
@@ -502,10 +510,9 @@ class HoldingDetailScreen extends ConsumerWidget {
                             a.marketValue.compareTo(b.marketValue) >= 0 ? a : b,
                       ));
             if (selected == null) {
-              return const AikoScreenState.empty(
-                title: 'No holdings yet',
-                message:
-                    'Add an investment holding and its detail will appear here.',
+              return AikoScreenState.empty(
+                title: context.l10n.holdingsEmptyTitle,
+                message: context.l10n.holdingDetailEmptyMessage,
               );
             }
             return _HoldingBody(holding: selected);
@@ -535,26 +542,29 @@ class _HoldingBody extends StatelessWidget {
         AikoMetricCard(
           label: holding.symbol,
           value: holding.currentPrice.format(),
-          change: holding.assetClass,
+          change: investmentAssetClassLabel(holding.assetClass, context.l10n),
           icon: Icons.business,
           accentColor: AikoColors.analyticsTeal,
         ),
         AikoDataListCard(
-          title: 'Your Holding',
+          title: context.l10n.holdingYourHolding,
           icon: Icons.inventory_2_outlined,
           rows: [
-            AikoDataRow(label: 'Shares', value: holding.quantity.toString()),
             AikoDataRow(
-              label: 'Market Value',
+              label: context.l10n.holdingShares,
+              value: holding.quantity.toString(),
+            ),
+            AikoDataRow(
+              label: context.l10n.holdingMarketValue,
               value: holding.marketValue.format(),
               color: AikoColors.primaryBlue,
             ),
             AikoDataRow(
-              label: 'Average Cost',
+              label: context.l10n.holdingAverageCost,
               value: holding.averageCost.format(),
             ),
             AikoDataRow(
-              label: 'Unrealized Gain/Loss',
+              label: context.l10n.holdingUnrealizedGainLoss,
               value: gainLabel,
               color: gainColor,
             ),

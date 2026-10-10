@@ -1,3 +1,4 @@
+import '../../../../l10n/l10n.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -12,25 +13,22 @@ extension DailySpendingReactionPresentation on DailySpendingReaction {
     DailySpendingReaction.exceeded => AikoColors.dangerRed,
   };
 
-  String get title => switch (this) {
-    DailySpendingReaction.comfortable => "You're spending comfortably",
-    DailySpendingReaction.caution => "You're close to today's limit",
-    DailySpendingReaction.exceeded => "Today's safe amount is used up",
+  String title(AppLocalizations l10n) => switch (this) {
+    DailySpendingReaction.comfortable => l10n.reactionComfortableTitle,
+    DailySpendingReaction.caution => l10n.reactionCautionTitle,
+    DailySpendingReaction.exceeded => l10n.reactionExceededTitle,
   };
 
-  String get message => switch (this) {
-    DailySpendingReaction.comfortable =>
-      "Nice work—today's spending is in a healthy range.",
-    DailySpendingReaction.caution =>
-      'Aiko is a little worried—take care with the next expense.',
-    DailySpendingReaction.exceeded =>
-      'Aiko wants you to pause before spending more.',
+  String message(AppLocalizations l10n) => switch (this) {
+    DailySpendingReaction.comfortable => l10n.reactionComfortableMessage,
+    DailySpendingReaction.caution => l10n.reactionCautionMessage,
+    DailySpendingReaction.exceeded => l10n.reactionExceededMessage,
   };
 
-  String get semanticsLabel => switch (this) {
-    DailySpendingReaction.comfortable => 'Aiko is smiling',
-    DailySpendingReaction.caution => 'Aiko looks worried',
-    DailySpendingReaction.exceeded => 'Aiko looks angry',
+  String semanticsLabel(AppLocalizations l10n) => switch (this) {
+    DailySpendingReaction.comfortable => l10n.reactionComfortableSemantics,
+    DailySpendingReaction.caution => l10n.reactionCautionSemantics,
+    DailySpendingReaction.exceeded => l10n.reactionExceededSemantics,
   };
 }
 
@@ -53,7 +51,7 @@ class AikoSpendingReactionStrip extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Semantics(
-            label: reaction.semanticsLabel,
+            label: reaction.semanticsLabel(context.l10n),
             image: true,
             child: ExcludeSemantics(
               child: CustomPaint(
@@ -68,7 +66,7 @@ class AikoSpendingReactionStrip extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  reaction.title,
+                  reaction.title(context.l10n),
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: color,
                     fontWeight: FontWeight.w700,
@@ -76,7 +74,7 @@ class AikoSpendingReactionStrip extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  reaction.message,
+                  reaction.message(context.l10n),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],

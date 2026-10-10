@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/money/money.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
@@ -44,14 +45,14 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
             borderRadius: BorderRadius.circular(20),
           ),
           title: Text(
-            'Reset Trip Plan?',
+            context.l10n.travelResetQuestion,
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           content: Text(
-            'Are you sure you want to end your trip tracking and wipe out all recorded travel fees? This action is permanent.',
+            context.l10n.travelResetConfirm,
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurface,
               height: 1.4,
@@ -61,7 +62,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
-                'Cancel',
+                context.l10n.cancel,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -72,12 +73,12 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                 ref.read(travelModeProvider.notifier).resetTrip();
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Row(
                       children: [
                         Icon(Icons.flight_land, color: Colors.white),
                         SizedBox(width: 8),
-                        Text('Trip logs reset. Welcome back home!'),
+                        Text(context.l10n.travelResetDone),
                       ],
                     ),
                     backgroundColor: AikoColors.primaryBlue,
@@ -88,7 +89,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
               style: FilledButton.styleFrom(
                 backgroundColor: AikoColors.dangerRed,
               ),
-              child: const Text('Reset Travel Mode'),
+              child: Text(context.l10n.travelReset),
             ),
           ],
         );
@@ -104,7 +105,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
     if (trip == null) {
       // Welcome Placeholder screen with Aiko Character advice
       return Scaffold(
-        appBar: AppBar(title: const Text('Travel Mode')),
+        appBar: AppBar(title: Text(context.l10n.txTravelMode)),
         body: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           children: [
@@ -142,7 +143,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    "Aiko welcomes you! Planning a trip abroad? We can establish a dedicated travel budget, log currency-aware foreign transaction fees, and keep spending drift under check! Let's get started!",
+                    context.l10n.travelIntro,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
@@ -156,19 +157,17 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
             ),
             const SizedBox(height: 30),
             // Premium features highlight
-            const AikoFeatureItem(
+            AikoFeatureItem(
               icon: Icons.flight_takeoff_outlined,
-              title: 'Trip budget',
-              subtitle:
-                  'Plan in home currency and track expenses in local trip currency.',
+              title: context.l10n.travelTripBudget,
+              subtitle: context.l10n.travelTripBudgetDescription,
               accentColor: AikoColors.analyticsTeal,
             ),
             const SizedBox(height: 16),
-            const AikoFeatureItem(
+            AikoFeatureItem(
               icon: Icons.currency_exchange_outlined,
-              title: 'Foreign Fee & Drift Tracking',
-              subtitle:
-                  'Monitor bad exchange rates, bank surcharges, and credit card fee drag.',
+              title: context.l10n.travelFeeTracking,
+              subtitle: context.l10n.travelFeeTrackingDescription,
               accentColor: AikoColors.warningOrange,
             ),
             const SizedBox(height: 32),
@@ -177,8 +176,8 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
               child: FilledButton.icon(
                 onPressed: _showAddTripBottomSheet,
                 icon: const Icon(Icons.add_road),
-                label: const Text(
-                  'Establish Trip Plan',
+                label: Text(
+                  context.l10n.travelEstablishPlan,
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 style: FilledButton.styleFrom(
@@ -216,12 +215,13 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${trip.name} Trip'),
+        title: Text(context.l10n.travelTripTitle(trip.name)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () async {
               final messenger = ScaffoldMessenger.of(context);
+              final l10n = context.l10n;
               final notifier = ref.read(travelModeProvider.notifier);
               final updated = await notifier.refreshRate();
               final rate = ref.read(travelModeProvider).exchangeRate;
@@ -229,14 +229,22 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                 SnackBar(
                   content: Text(
                     updated
-                        ? 'Updated spot rates: 1 ${trip.homeCurrency} = ${rate.toStringAsFixed(2)} ${trip.localCurrency}'
-                        : "Couldn't reach live rates — showing 1 ${trip.homeCurrency} = ${rate.toStringAsFixed(2)} ${trip.localCurrency}.",
+                        ? l10n.travelRatesUpdated(
+                            trip.homeCurrency,
+                            rate.toStringAsFixed(2),
+                            trip.localCurrency,
+                          )
+                        : l10n.travelRatesOffline(
+                            trip.homeCurrency,
+                            rate.toStringAsFixed(2),
+                            trip.localCurrency,
+                          ),
                   ),
                   duration: const Duration(seconds: 2),
                 ),
               );
             },
-            tooltip: 'Verify exchange rates',
+            tooltip: context.l10n.travelVerifyRates,
           ),
         ],
       ),
@@ -244,8 +252,8 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
         onPressed: () => _showLogFeeBottomSheet(trip),
         backgroundColor: AikoColors.analyticsTeal,
         icon: const Icon(Icons.add_shopping_cart, color: Colors.white),
-        label: const Text(
-          'Log Foreign Fee',
+        label: Text(
+          context.l10n.travelLogFee,
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
@@ -283,8 +291,8 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                 Expanded(
                   child: Text(
                     spentPercent > 0.8
-                        ? "Aiko Warning: Trip budget is almost depleted! Let's watch out for those high airport currency exchanges!"
-                        : 'Enjoy your travels! Aiko is tracking exchange surcharges automatically. Keep a look out for fees!',
+                        ? context.l10n.travelBudgetLowWarning
+                        : context.l10n.travelEnjoy,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -300,7 +308,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
 
           // Trip Progress Card
           FinanceCard(
-            title: 'Trip Budget Allocation',
+            title: context.l10n.travelBudgetAllocation,
             icon: Icons.flight_takeoff_outlined,
             accentColor: AikoColors.analyticsTeal,
             child: Column(
@@ -310,7 +318,9 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '${(spentPercent * 100).toStringAsFixed(0)}% Budget Used',
+                      context.l10n.travelBudgetUsed(
+                        (spentPercent * 100).toStringAsFixed(0),
+                      ),
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -350,7 +360,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Remaining Budget',
+                          context.l10n.travelRemainingBudget,
                           style: TextStyle(
                             fontSize: 11,
                             color: Theme.of(
@@ -373,7 +383,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          'Local Est. Equivalent',
+                          context.l10n.travelLocalEquivalent,
                           style: TextStyle(
                             fontSize: 11,
                             color: Theme.of(
@@ -401,7 +411,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
 
           // Exchange slider controls
           FinanceCard(
-            title: 'Interactive Exchange Rate Calculator',
+            title: context.l10n.travelRateCalculator,
             icon: Icons.currency_exchange_outlined,
             accentColor: AikoColors.warningOrange,
             child: Column(
@@ -410,8 +420,8 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Spot Exchange Rate:',
+                    Text(
+                      context.l10n.travelSpotRate,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
@@ -440,7 +450,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                   },
                 ),
                 Text(
-                  'Adjust the slider to simulate custom bank spread markup. Fluctuations recalculate spent conversions dynamically.',
+                  context.l10n.travelSpreadHint,
                   style: TextStyle(
                     fontSize: 11,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -454,7 +464,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
 
           // Fee entries
           FinanceCard(
-            title: 'Travel Fee Logs',
+            title: context.l10n.travelFeeLogs,
             icon: Icons.receipt_long_outlined,
             accentColor: AikoColors.deepBlue,
             child: Column(
@@ -463,7 +473,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Text(
-                      'No transaction logs found for this trip.',
+                      context.l10n.travelNoLogs,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 12,
@@ -486,8 +496,8 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                       ),
                       title: Text(
                         fee.currency == trip.localCurrency
-                            ? 'Local Merchant'
-                            : 'Home Currency Merchant',
+                            ? context.l10n.travelLocalMerchant
+                            : context.l10n.travelHomeMerchant,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
@@ -495,8 +505,12 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                       ),
                       subtitle: Text(
                         fee.currency == trip.localCurrency
-                            ? 'Est. Home value: \$${(fee.amount.toDouble() / state.exchangeRate).toStringAsFixed(2)} ${trip.homeCurrency}'
-                            : 'Direct Home Charge',
+                            ? context.l10n.travelEstHomeValue(
+                                (fee.amount.toDouble() / state.exchangeRate)
+                                    .toStringAsFixed(2),
+                                trip.homeCurrency,
+                              )
+                            : context.l10n.travelDirectHomeCharge,
                         style: const TextStyle(fontSize: 10),
                       ),
                       trailing: Text(
@@ -517,8 +531,8 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
           TextButton.icon(
             onPressed: _confirmResetTrip,
             icon: const Icon(Icons.flight_land, color: AikoColors.dangerRed),
-            label: const Text(
-              'Wipe / Complete Trip',
+            label: Text(
+              context.l10n.travelWipeTrip,
               style: TextStyle(
                 color: AikoColors.dangerRed,
                 fontWeight: FontWeight.bold,
@@ -653,7 +667,7 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
           children: [
             const Icon(Icons.flight_takeoff, color: Colors.white),
             const SizedBox(width: 8),
-            Text('Bon voyage! Active trip established for ${trip.name}.'),
+            Text(context.l10n.travelTripStarted(trip.name)),
           ],
         ),
         backgroundColor: AikoColors.successGreen,
@@ -685,8 +699,8 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Establish Travel Trip',
+                  Text(
+                    context.l10n.travelEstablishTrip,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
@@ -704,14 +718,14 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
               // Trip Name
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Trip Name (e.g. Tokyo Spring 2026)',
+                decoration: InputDecoration(
+                  labelText: context.l10n.travelTripNameLabel,
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.flight_takeoff_outlined),
                 ),
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) {
-                    return 'Please enter a valid trip name';
+                    return context.l10n.travelTripNameError;
                   }
                   return null;
                 },
@@ -720,8 +734,8 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
               // Home Currency
               DropdownButtonFormField<String>(
                 initialValue: _selectedHomeCurrency,
-                decoration: const InputDecoration(
-                  labelText: 'Home Currency',
+                decoration: InputDecoration(
+                  labelText: context.l10n.travelHomeCurrency,
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.home_outlined),
                 ),
@@ -743,8 +757,8 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
               // Local Currency
               DropdownButtonFormField<String>(
                 initialValue: _selectedLocalCurrency,
-                decoration: const InputDecoration(
-                  labelText: 'Local Travel Currency',
+                decoration: InputDecoration(
+                  labelText: context.l10n.travelLocalCurrency,
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.pin_drop_outlined),
                 ),
@@ -769,8 +783,8 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: const InputDecoration(
-                  labelText: 'Total Trip Budget (in home currency)',
+                decoration: InputDecoration(
+                  labelText: context.l10n.travelTotalBudgetLabel,
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.attach_money_outlined),
                 ),
@@ -778,7 +792,7 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
                   if (val == null ||
                       double.tryParse(val.trim()) == null ||
                       double.parse(val.trim()) <= 0) {
-                    return 'Please enter a positive numeric trip budget';
+                    return context.l10n.travelBudgetError;
                   }
                   return null;
                 },
@@ -789,8 +803,8 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
                 child: FilledButton.icon(
                   onPressed: _submit,
                   icon: const Icon(Icons.check),
-                  label: const Text(
-                    'Activate Trip Tracking',
+                  label: Text(
+                    context.l10n.travelActivate,
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   style: FilledButton.styleFrom(
@@ -860,8 +874,8 @@ class _LogFeeBottomSheetState extends State<_LogFeeBottomSheet> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Log Foreign Transaction',
+                      Text(
+                        context.l10n.travelLogForeignTransaction,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
@@ -880,8 +894,8 @@ class _LogFeeBottomSheetState extends State<_LogFeeBottomSheet> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Currency:',
+                      Text(
+                        context.l10n.travelCurrencyLabel,
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       SegmentedButton<String>(
@@ -912,7 +926,9 @@ class _LogFeeBottomSheetState extends State<_LogFeeBottomSheet> {
                       decimal: true,
                     ),
                     decoration: InputDecoration(
-                      labelText: 'Amount Charged ($_selectedCurrency)',
+                      labelText: context.l10n.travelAmountCharged(
+                        _selectedCurrency,
+                      ),
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.attach_money_outlined),
                     ),
@@ -920,7 +936,7 @@ class _LogFeeBottomSheetState extends State<_LogFeeBottomSheet> {
                       if (val == null ||
                           double.tryParse(val.trim()) == null ||
                           double.parse(val.trim()) <= 0) {
-                        return 'Please enter a valid positive decimal amount';
+                        return context.l10n.travelAmountError;
                       }
                       return null;
                     },
@@ -929,8 +945,8 @@ class _LogFeeBottomSheetState extends State<_LogFeeBottomSheet> {
                   // Description
                   TextFormField(
                     controller: _descriptionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Merchant / Surcharge Details',
+                    decoration: InputDecoration(
+                      labelText: context.l10n.travelMerchantDetails,
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.notes_outlined),
                     ),
@@ -958,7 +974,9 @@ class _LogFeeBottomSheetState extends State<_LogFeeBottomSheet> {
                                   color: Colors.white,
                                 ),
                                 const SizedBox(width: 8),
-                                Text('Logged travel fee of ${fee.format()}!'),
+                                Text(
+                                  context.l10n.travelFeeLogged(fee.format()),
+                                ),
                               ],
                             ),
                             backgroundColor: AikoColors.successGreen,
@@ -967,8 +985,8 @@ class _LogFeeBottomSheetState extends State<_LogFeeBottomSheet> {
                         );
                       },
                       icon: const Icon(Icons.add),
-                      label: const Text(
-                        'Add Travel Expense',
+                      label: Text(
+                        context.l10n.travelAddExpense,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,

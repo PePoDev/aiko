@@ -1,4 +1,5 @@
 import '../../../core/money/money.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../accounts/domain/account.dart';
 import '../../accounts/domain/account_details.dart';
 
@@ -21,6 +22,7 @@ class DashboardDueItem {
 List<DashboardDueItem> buildDashboardDueItems({
   required List<Account> accounts,
   required DateTime asOf,
+  required AppLocalizations l10n,
 }) {
   final cutoff = asOf.add(const Duration(days: 30));
   final items = <DashboardDueItem>[];
@@ -47,7 +49,7 @@ List<DashboardDueItem> buildDashboardDueItems({
     items.add(
       DashboardDueItem(
         id: account.id,
-        title: '${account.name} payment',
+        title: l10n.dueItemPayment(account.name),
         amount: amount,
         dueDate: due,
       ),

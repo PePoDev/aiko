@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import 'calculator_detail_screen.dart';
@@ -7,8 +8,9 @@ import 'calculator_detail_screen.dart';
 class CalculatorLibraryScreen extends StatefulWidget {
   const CalculatorLibraryScreen({super.key});
 
+  /// Stable ids of every listed calculator.
   static List<String> get calculators =>
-      _calculatorItems.map((calculator) => calculator.title).toList();
+      _calculatorItems.map((calculator) => calculator.id).toList();
 
   @override
   State<CalculatorLibraryScreen> createState() =>
@@ -31,17 +33,23 @@ class _CalculatorLibraryScreenState extends State<CalculatorLibraryScreen> {
       return _calculatorItems;
     }
 
+    final l10n = context.l10n;
     return _calculatorItems.where((calculator) {
-      return calculator.title.toLowerCase().contains(query) ||
-          calculator.category.toLowerCase().contains(query) ||
-          calculator.description.toLowerCase().contains(query);
+      final text = calculator.text(l10n);
+      return calculator.id.toLowerCase().contains(query) ||
+          text.title.toLowerCase().contains(query) ||
+          text.category.toLowerCase().contains(query) ||
+          text.description.toLowerCase().contains(query);
     }).toList();
   }
 
   void _openCalculator(_CalculatorItem calculator) {
     openAikoPage<void>(
       context,
-      CalculatorDetailScreen(title: calculator.title),
+      CalculatorDetailScreen(
+        calculatorId: calculator.id,
+        title: calculator.text(context.l10n).title,
+      ),
     );
   }
 
@@ -50,7 +58,7 @@ class _CalculatorLibraryScreenState extends State<CalculatorLibraryScreen> {
     final filteredCalculators = _filteredCalculators;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Calculators')),
+      appBar: AppBar(title: Text(context.l10n.toolCalculators)),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1180),
@@ -62,11 +70,11 @@ class _CalculatorLibraryScreenState extends State<CalculatorLibraryScreen> {
                   controller: _searchController,
                   decoration: InputDecoration(
                     prefixIcon: Icon(Icons.search),
-                    labelText: 'Search calculator',
+                    labelText: context.l10n.calcSearch,
                     suffixIcon: _query.isEmpty
                         ? null
                         : IconButton(
-                            tooltip: 'Clear search',
+                            tooltip: context.l10n.txClearSearch,
                             onPressed: () {
                               _searchController.clear();
                               setState(() => _query = '');
@@ -80,12 +88,12 @@ class _CalculatorLibraryScreenState extends State<CalculatorLibraryScreen> {
                 const SizedBox(height: 16),
                 Expanded(
                   child: filteredCalculators.isEmpty
-                      ? const Align(
+                      ? Align(
                           alignment: Alignment.topCenter,
                           child: FinanceCard(
-                            title: 'No calculators found',
+                            title: context.l10n.calcNoneFound,
                             icon: Icons.search_off_outlined,
-                            child: Text('Try a different search term.'),
+                            child: Text(context.l10n.calcTryDifferentSearch),
                           ),
                         )
                       : _CalculatorGrid(
@@ -160,10 +168,11 @@ class _CalculatorTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final borderRadius = BorderRadius.circular(12);
+    final text = calculator.text(context.l10n);
 
     return Semantics(
       button: true,
-      label: '${calculator.title} calculator',
+      label: context.l10n.calcTileSemantics(text.title),
       child: Card(
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -198,14 +207,14 @@ class _CalculatorTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  calculator.title,
+                  text.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall,
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  calculator.category,
+                  text.category,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -215,7 +224,7 @@ class _CalculatorTile extends StatelessWidget {
                 const SizedBox(height: 8),
                 Expanded(
                   child: Text(
-                    calculator.description,
+                    text.description,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -233,198 +242,213 @@ class _CalculatorTile extends StatelessWidget {
 }
 
 class _CalculatorItem {
-  const _CalculatorItem({
-    required this.title,
-    required this.category,
-    required this.description,
-    required this.icon,
-  });
+  const _CalculatorItem({required this.id, required this.icon});
 
-  final String title;
-  final String category;
-  final String description;
+  /// Stable English id; also picks the form in `CalculatorDetailScreen`.
+  final String id;
   final IconData icon;
+
+  ({String title, String category, String description}) text(
+    AppLocalizations l10n,
+  ) {
+    final (title, category, description) = _calculatorText(id, l10n);
+    return (title: title, category: category, description: description);
+  }
 }
 
+(String, String, String) _calculatorText(String id, AppLocalizations l10n) =>
+    switch (id) {
+      'Compound interest' => (
+        l10n.calcTitleCompoundInterest,
+        l10n.calcCategorySavingInvesting,
+        l10n.calcDescriptionCompoundInterest,
+      ),
+      'Loan' => (
+        l10n.calcTitleLoan,
+        l10n.calcCategoryDebtLoans,
+        l10n.calcDescriptionLoan,
+      ),
+      'Credit card payoff' => (
+        l10n.calcTitleCreditCardPayoff,
+        l10n.calcCategoryDebtLoans,
+        l10n.calcDescriptionCreditCardPayoff,
+      ),
+      'Savings goal' => (
+        l10n.calcTitleSavingsGoal,
+        l10n.calcCategoryGoals,
+        l10n.calcDescriptionSavingsGoal,
+      ),
+      'ROI' => (
+        l10n.calcTitleRoi,
+        l10n.calcCategoryInvesting,
+        l10n.calcDescriptionRoi,
+      ),
+      'Currency converter' => (
+        l10n.calcTitleCurrencyConverter,
+        l10n.calcCategoryTravelCurrency,
+        l10n.calcDescriptionCurrencyConverter,
+      ),
+      'Time value of money' => (
+        l10n.calcTitleTimeValueOfMoney,
+        l10n.calcCategorySavingInvesting,
+        l10n.calcDescriptionTimeValueOfMoney,
+      ),
+      'IRR / NPV' => (
+        l10n.calcTitleIrrNpv,
+        l10n.calcCategoryInvesting,
+        l10n.calcDescriptionIrrNpv,
+      ),
+      'Certificate of deposit' => (
+        l10n.calcTitleCertificateOfDeposit,
+        l10n.calcCategorySavingInvesting,
+        l10n.calcDescriptionCertificateOfDeposit,
+      ),
+      'Bond yield' => (
+        l10n.calcTitleBondYield,
+        l10n.calcCategoryInvesting,
+        l10n.calcDescriptionBondYield,
+      ),
+      'Tax equivalent yield' => (
+        l10n.calcTitleTaxEquivalentYield,
+        l10n.calcCategoryTax,
+        l10n.calcDescriptionTaxEquivalentYield,
+      ),
+      'Rule of 72' => (
+        l10n.calcTitleRuleOf72,
+        l10n.calcCategorySavingInvesting,
+        l10n.calcDescriptionRuleOf72,
+      ),
+      'Bi-weekly mortgage payment' => (
+        l10n.calcTitleBiweeklyMortgage,
+        l10n.calcCategoryHome,
+        l10n.calcDescriptionBiweeklyMortgage,
+      ),
+      'Refinance savings' => (
+        l10n.calcTitleRefinanceSavings,
+        l10n.calcCategoryHome,
+        l10n.calcDescriptionRefinanceSavings,
+      ),
+      'Rent vs. buy' => (
+        l10n.calcTitleRentVsBuy,
+        l10n.calcCategoryHome,
+        l10n.calcDescriptionRentVsBuy,
+      ),
+      'Home affordability' => (
+        l10n.calcTitleHomeAffordability,
+        l10n.calcCategoryHome,
+        l10n.calcDescriptionHomeAffordability,
+      ),
+      'Rental property cash flow' => (
+        l10n.calcTitleRentalCashFlow,
+        l10n.calcCategoryRealEstate,
+        l10n.calcDescriptionRentalCashFlow,
+      ),
+      'Traditional vs. Roth IRA' => (
+        l10n.calcTitleTraditionalVsRoth,
+        l10n.calcCategoryRetirement,
+        l10n.calcDescriptionTraditionalVsRoth,
+      ),
+      'Required minimum distributions' => (
+        l10n.calcTitleRequiredMinimumDistributions,
+        l10n.calcCategoryRetirement,
+        l10n.calcDescriptionRequiredMinimumDistributions,
+      ),
+      'Social Security estimate' => (
+        l10n.calcTitleSocialSecurity,
+        l10n.calcCategoryRetirement,
+        l10n.calcDescriptionSocialSecurity,
+      ),
+      'Annuity payout' => (
+        l10n.calcTitleAnnuityPayout,
+        l10n.calcCategoryRetirement,
+        l10n.calcDescriptionAnnuityPayout,
+      ),
+      'Auto loan vs. lease' => (
+        l10n.calcTitleAutoLoanVsLease,
+        l10n.calcCategoryAuto,
+        l10n.calcDescriptionAutoLoanVsLease,
+      ),
+      'WACC' => (
+        l10n.calcTitleWacc,
+        l10n.calcCategoryBusiness,
+        l10n.calcDescriptionWacc,
+      ),
+      'Black-Scholes options' => (
+        l10n.calcTitleBlackScholes,
+        l10n.calcCategoryInvesting,
+        l10n.calcDescriptionBlackScholes,
+      ),
+      'CAPM' => (
+        l10n.calcTitleCapm,
+        l10n.calcCategoryInvesting,
+        l10n.calcDescriptionCapm,
+      ),
+      'Capital gains' => (
+        l10n.calcTitleCapitalGains,
+        l10n.calcCategoryTax,
+        l10n.calcDescriptionCapitalGains,
+      ),
+      'Salary to hourly' => (
+        l10n.calcTitleSalaryToHourly,
+        l10n.calcCategoryIncome,
+        l10n.calcDescriptionSalaryToHourly,
+      ),
+      'Paycheck tax' => (
+        l10n.calcTitlePaycheckTax,
+        l10n.calcCategoryIncome,
+        l10n.calcDescriptionPaycheckTax,
+      ),
+      'Inflation' => (
+        l10n.calcTitleInflation,
+        l10n.calcCategoryEveryday,
+        l10n.calcDescriptionInflation,
+      ),
+      'Tip and percentage' => (
+        l10n.calcTitleTipPercentage,
+        l10n.calcCategoryEveryday,
+        l10n.calcDescriptionTipPercentage,
+      ),
+      _ => (id, '', ''),
+    };
+
 const _calculatorItems = [
+  _CalculatorItem(id: 'Compound interest', icon: Icons.trending_up),
+  _CalculatorItem(id: 'Loan', icon: Icons.payments_outlined),
+  _CalculatorItem(id: 'Credit card payoff', icon: Icons.credit_card),
+  _CalculatorItem(id: 'Savings goal', icon: Icons.flag_outlined),
+  _CalculatorItem(id: 'ROI', icon: Icons.query_stats),
+  _CalculatorItem(id: 'Currency converter', icon: Icons.currency_exchange),
+  _CalculatorItem(id: 'Time value of money', icon: Icons.schedule),
+  _CalculatorItem(id: 'IRR / NPV', icon: Icons.stacked_line_chart),
+  _CalculatorItem(id: 'Certificate of deposit', icon: Icons.savings_outlined),
+  _CalculatorItem(id: 'Bond yield', icon: Icons.account_balance_outlined),
+  _CalculatorItem(id: 'Tax equivalent yield', icon: Icons.percent),
+  _CalculatorItem(id: 'Rule of 72', icon: Icons.av_timer),
+  _CalculatorItem(id: 'Bi-weekly mortgage payment', icon: Icons.home_outlined),
+  _CalculatorItem(id: 'Refinance savings', icon: Icons.compare_arrows),
+  _CalculatorItem(id: 'Rent vs. buy', icon: Icons.real_estate_agent_outlined),
+  _CalculatorItem(id: 'Home affordability', icon: Icons.house_outlined),
+  _CalculatorItem(id: 'Rental property cash flow', icon: Icons.apartment),
+  _CalculatorItem(id: 'Traditional vs. Roth IRA', icon: Icons.elderly_outlined),
   _CalculatorItem(
-    title: 'Compound interest',
-    category: 'Saving and investing',
-    description: 'Project future value with contributions and annual growth.',
-    icon: Icons.trending_up,
-  ),
-  _CalculatorItem(
-    title: 'Loan',
-    category: 'Debt and loans',
-    description: 'Estimate monthly payment from balance, APR, and term.',
-    icon: Icons.payments_outlined,
-  ),
-  _CalculatorItem(
-    title: 'Credit card payoff',
-    category: 'Debt and loans',
-    description: 'Estimate payoff time from APR and monthly payment.',
-    icon: Icons.credit_card,
-  ),
-  _CalculatorItem(
-    title: 'Savings goal',
-    category: 'Goals',
-    description: 'Calculate the pace needed to reach a target amount.',
-    icon: Icons.flag_outlined,
-  ),
-  _CalculatorItem(
-    title: 'ROI',
-    category: 'Investing',
-    description: 'Compare gain, cost, and holding period return.',
-    icon: Icons.query_stats,
-  ),
-  _CalculatorItem(
-    title: 'Currency converter',
-    category: 'Travel and currency',
-    description: 'Convert an amount with a known exchange rate.',
-    icon: Icons.currency_exchange,
-  ),
-  _CalculatorItem(
-    title: 'Time value of money',
-    category: 'Saving and investing',
-    description: 'Estimate present and future value scenarios.',
-    icon: Icons.schedule,
-  ),
-  _CalculatorItem(
-    title: 'IRR / NPV',
-    category: 'Investing',
-    description: 'Evaluate cash flows with discount-rate analysis.',
-    icon: Icons.stacked_line_chart,
-  ),
-  _CalculatorItem(
-    title: 'Certificate of deposit',
-    category: 'Saving and investing',
-    description: 'Estimate CD earnings over a fixed term.',
-    icon: Icons.savings_outlined,
-  ),
-  _CalculatorItem(
-    title: 'Bond yield',
-    category: 'Investing',
-    description: 'Review coupon, price, and yield relationships.',
-    icon: Icons.account_balance_outlined,
-  ),
-  _CalculatorItem(
-    title: 'Tax equivalent yield',
-    category: 'Tax',
-    description: 'Compare tax-free and taxable investment yields.',
-    icon: Icons.percent,
-  ),
-  _CalculatorItem(
-    title: 'Rule of 72',
-    category: 'Saving and investing',
-    description: 'Estimate how long an investment takes to double.',
-    icon: Icons.av_timer,
-  ),
-  _CalculatorItem(
-    title: 'Bi-weekly mortgage payment',
-    category: 'Home',
-    description: 'Estimate savings from extra mortgage payment cadence.',
-    icon: Icons.home_outlined,
-  ),
-  _CalculatorItem(
-    title: 'Refinance savings',
-    category: 'Home',
-    description: 'Compare loan costs before and after refinancing.',
-    icon: Icons.compare_arrows,
-  ),
-  _CalculatorItem(
-    title: 'Rent vs. buy',
-    category: 'Home',
-    description: 'Compare housing costs across renting and owning.',
-    icon: Icons.real_estate_agent_outlined,
-  ),
-  _CalculatorItem(
-    title: 'Home affordability',
-    category: 'Home',
-    description: 'Estimate purchase budget from income and payments.',
-    icon: Icons.house_outlined,
-  ),
-  _CalculatorItem(
-    title: 'Rental property cash flow',
-    category: 'Real estate',
-    description: 'Estimate operating income and monthly cash flow.',
-    icon: Icons.apartment,
-  ),
-  _CalculatorItem(
-    title: 'Traditional vs. Roth IRA',
-    category: 'Retirement',
-    description: 'Compare contribution tax treatment over time.',
-    icon: Icons.elderly_outlined,
-  ),
-  _CalculatorItem(
-    title: 'Required minimum distributions',
-    category: 'Retirement',
-    description: 'Estimate annual retirement account withdrawals.',
+    id: 'Required minimum distributions',
     icon: Icons.event_repeat_outlined,
   ),
   _CalculatorItem(
-    title: 'Social Security estimate',
-    category: 'Retirement',
-    description: 'Estimate benefit timing and income assumptions.',
+    id: 'Social Security estimate',
     icon: Icons.account_balance_wallet_outlined,
   ),
+  _CalculatorItem(id: 'Annuity payout', icon: Icons.payments),
   _CalculatorItem(
-    title: 'Annuity payout',
-    category: 'Retirement',
-    description: 'Estimate periodic payouts from a lump sum.',
-    icon: Icons.payments,
-  ),
-  _CalculatorItem(
-    title: 'Auto loan vs. lease',
-    category: 'Auto',
-    description: 'Compare ownership and lease payment tradeoffs.',
+    id: 'Auto loan vs. lease',
     icon: Icons.directions_car_outlined,
   ),
-  _CalculatorItem(
-    title: 'WACC',
-    category: 'Business',
-    description: 'Estimate weighted average cost of capital.',
-    icon: Icons.business_center_outlined,
-  ),
-  _CalculatorItem(
-    title: 'Black-Scholes options',
-    category: 'Investing',
-    description: 'Estimate theoretical option value inputs.',
-    icon: Icons.candlestick_chart,
-  ),
-  _CalculatorItem(
-    title: 'CAPM',
-    category: 'Investing',
-    description: 'Estimate expected return from market risk.',
-    icon: Icons.timeline,
-  ),
-  _CalculatorItem(
-    title: 'Capital gains',
-    category: 'Tax',
-    description: 'Estimate taxable gain from sale proceeds and basis.',
-    icon: Icons.receipt_long_outlined,
-  ),
-  _CalculatorItem(
-    title: 'Salary to hourly',
-    category: 'Income',
-    description: 'Convert annual salary to equivalent hourly pay.',
-    icon: Icons.badge_outlined,
-  ),
-  _CalculatorItem(
-    title: 'Paycheck tax',
-    category: 'Income',
-    description: 'Estimate take-home pay after common deductions.',
-    icon: Icons.request_quote_outlined,
-  ),
-  _CalculatorItem(
-    title: 'Inflation',
-    category: 'Everyday',
-    description: 'Estimate purchasing power after inflation.',
-    icon: Icons.price_change_outlined,
-  ),
-  _CalculatorItem(
-    title: 'Tip and percentage',
-    category: 'Everyday',
-    description: 'Calculate tip, split bills, and percentage changes.',
-    icon: Icons.restaurant_outlined,
-  ),
+  _CalculatorItem(id: 'WACC', icon: Icons.business_center_outlined),
+  _CalculatorItem(id: 'Black-Scholes options', icon: Icons.candlestick_chart),
+  _CalculatorItem(id: 'CAPM', icon: Icons.timeline),
+  _CalculatorItem(id: 'Capital gains', icon: Icons.receipt_long_outlined),
+  _CalculatorItem(id: 'Salary to hourly', icon: Icons.badge_outlined),
+  _CalculatorItem(id: 'Paycheck tax', icon: Icons.request_quote_outlined),
+  _CalculatorItem(id: 'Inflation', icon: Icons.price_change_outlined),
+  _CalculatorItem(id: 'Tip and percentage', icon: Icons.restaurant_outlined),
 ];

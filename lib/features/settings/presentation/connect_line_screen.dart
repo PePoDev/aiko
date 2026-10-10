@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../data/line_link_repository.dart';
@@ -44,10 +45,17 @@ class _ConnectLineScreenState extends ConsumerState<ConnectLineScreen> {
       setState(() => _connected = true);
     } on LineLinkException catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.message);
+      final l10n = context.l10n;
+      setState(
+        () => _error = switch (e.reason) {
+          LineLinkError.emptyCode => l10n.lineErrorEmptyCode,
+          LineLinkError.signedOut => l10n.lineErrorSignedOut,
+          LineLinkError.failed => l10n.lineErrorFailed,
+        },
+      );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Something went wrong. Please try again.');
+      setState(() => _error = context.l10n.somethingWentWrong);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -56,12 +64,12 @@ class _ConnectLineScreenState extends ConsumerState<ConnectLineScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Connect LINE')),
+      appBar: AppBar(title: Text(context.l10n.profileConnectLine)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           FinanceCard(
-            title: 'Link Aiko to LINE',
+            title: context.l10n.lineLinkTitle,
             icon: Icons.chat_bubble_outline,
             child: _connected ? _success(context) : _form(context),
           ),
@@ -75,8 +83,7 @@ class _ConnectLineScreenState extends ConsumerState<ConnectLineScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Message the Aiko bot on LINE to get a 6-character code, then enter it '
-          'below. This lets Aiko answer your LINE messages using your own data.',
+          context.l10n.lineLinkInstructions,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 16),
@@ -94,8 +101,8 @@ class _ConnectLineScreenState extends ConsumerState<ConnectLineScreen> {
             UpperCaseTextFormatter(),
           ],
           decoration: InputDecoration(
-            labelText: 'Pairing code',
-            hintText: 'e.g. K7M2QP',
+            labelText: context.l10n.linePairingCode,
+            hintText: context.l10n.linePairingCodeHint,
             errorText: _error,
             prefixIcon: const Icon(Icons.vpn_key_outlined),
             border: OutlineInputBorder(
@@ -119,7 +126,7 @@ class _ConnectLineScreenState extends ConsumerState<ConnectLineScreen> {
                     color: Colors.white,
                   ),
                 )
-              : const Text('Connect'),
+              : Text(context.l10n.lineConnect),
         ),
       ],
     );
@@ -135,7 +142,7 @@ class _ConnectLineScreenState extends ConsumerState<ConnectLineScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Connected! Return to LINE and chat with Aiko.',
+                context.l10n.lineConnectedMessage,
                 style: Theme.of(context).textTheme.titleSmall,
               ),
             ),

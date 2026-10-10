@@ -8,7 +8,7 @@ The README's [Design System](../README.md#design-system) section holds the rules
 | --- | --- |
 | `lib/theme/aiko_colors.dart` | Primitive color constants (`AikoColors`) |
 | `lib/theme/aiko_theme.dart` | `AikoTheme.light()` / `AikoTheme.dark()`: `ColorScheme`, scaffold color and component themes |
-| `lib/theme/aiko_typography.dart` | `AikoTypography.textTheme`: Hanken Grotesk headlines, Manrope body and labels, Noto Sans Thai fallback |
+| `lib/theme/aiko_typography.dart` | `AikoTypography.textTheme`: Hanken Grotesk headlines, Manrope body and labels, bundled Noto Sans Thai fallback (`assets/fonts/noto_sans_thai/`) |
 | `lib/shared/widgets/` | Shared components (below) |
 | `assets/icons/`, `assets/images/aiko/`, `assets/rive/` | App icon and SVG marks, Aiko PNG expressions, Rive character slot |
 

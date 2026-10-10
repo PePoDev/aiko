@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../../core/storage/local_file_cache.dart';
+import '../../../l10n/domain_labels.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
+import '../../categories/presentation/category_names.dart';
 import 'dart:typed_data';
 import 'package:decimal/decimal.dart';
 import 'package:file_selector/file_selector.dart' as fs;
@@ -36,18 +39,27 @@ const _supportedCurrencies = kAikoSupportedCurrencies;
 /// this enum is a UI-only convenience that derives `reminderAt` from the
 /// transaction's date minus the lead.
 enum ReminderLead {
-  oneHour._(label: '1 hour before', minutes: 60),
-  twoHours._(label: '2 hours before', minutes: 120),
-  oneDay._(label: '1 day before', minutes: 24 * 60),
-  twoDays._(label: '2 days before', minutes: 2 * 24 * 60),
-  oneWeek._(label: '1 week before', minutes: 7 * 24 * 60),
-  none._(label: 'At time of transaction', minutes: 0),
-  custom._(label: 'Custom date & time', minutes: null);
+  oneHour._(minutes: 60),
+  twoHours._(minutes: 120),
+  oneDay._(minutes: 24 * 60),
+  twoDays._(minutes: 2 * 24 * 60),
+  oneWeek._(minutes: 7 * 24 * 60),
+  none._(minutes: 0),
+  custom._(minutes: null);
 
-  const ReminderLead._({required this.label, required this.minutes});
+  const ReminderLead._({required this.minutes});
 
-  final String label;
   final int? minutes;
+
+  String label(AppLocalizations l10n) => switch (this) {
+    oneHour => l10n.reminderLeadOneHour,
+    twoHours => l10n.reminderLeadTwoHours,
+    oneDay => l10n.reminderLeadOneDay,
+    twoDays => l10n.reminderLeadTwoDays,
+    oneWeek => l10n.reminderLeadOneWeek,
+    none => l10n.reminderLeadNone,
+    custom => l10n.reminderLeadCustom,
+  };
 }
 
 class TransactionFormScreen extends ConsumerStatefulWidget {
@@ -335,7 +347,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           children: [
             const Icon(Icons.auto_awesome, color: Colors.white),
             const SizedBox(width: 8),
-            Text('Aiko Autofilled: \$${amount.toStringAsFixed(2)}'),
+            Text(context.l10n.txAikoAutofilled(amount.toStringAsFixed(2))),
           ],
         ),
         backgroundColor: AikoColors.premiumPurple,
@@ -358,7 +370,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Unable to open camera right now.'),
+          content: Text(context.l10n.txCameraUnavailable),
           backgroundColor: AikoColors.dangerRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -378,7 +390,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Unable to read captured image.'),
+          content: Text(context.l10n.txCapturedImageUnreadable),
           backgroundColor: AikoColors.dangerRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -413,12 +425,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        return const AlertDialog(
+        return AlertDialog(
           content: Row(
             children: [
               CircularProgressIndicator(),
               SizedBox(width: 20),
-              Text('Scanning receipt...'),
+              Text(context.l10n.txScanningReceipt),
             ],
           ),
         );
@@ -438,9 +450,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       Navigator.of(context, rootNavigator: true).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text(
-            'Receipt scan failed. You can still enter manually.',
-          ),
+          content: Text(context.l10n.txReceiptScanFailed),
           backgroundColor: AikoColors.warningOrange,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -459,7 +469,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     if (!autofill.hasTransactionFields) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Receipt captured. OCR found limited fields.'),
+          content: Text(context.l10n.txReceiptLimitedFields),
           backgroundColor: AikoColors.warningOrange,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -470,7 +480,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     _autofillForm(
       amount: autofill.total?.amount.toDouble() ?? 0.0,
-      note: 'Scanned receipt: ${autofill.merchant ?? captured.name}',
+      note: context.l10n.txScannedReceiptNote(
+        autofill.merchant ?? captured.name,
+      ),
       type: TransactionType.expense,
       date: autofill.date ?? DateTime.now(),
       title: autofill.merchant ?? '',
@@ -480,7 +492,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
   void _showVoiceCommandDialog() {
     final voiceTextController = TextEditingController(
-      text: 'spent 15.50 at Starbucks yesterday for coffee',
+      text: context.l10n.txVoiceExample,
     );
 
     showDialog<void>(
@@ -496,7 +508,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               const Icon(Icons.mic, color: AikoColors.premiumPurple),
               const SizedBox(width: 8),
               Text(
-                'Voice Entry Assistant',
+                context.l10n.txVoiceAssistantTitle,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: AikoColors.deepBlue,
@@ -507,9 +519,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           content: TextField(
             controller: voiceTextController,
             autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'Transaction description',
-              hintText: 'e.g. spent 25 dollars at Amazon yesterday',
+            decoration: InputDecoration(
+              labelText: context.l10n.txVoiceDescriptionLabel,
+              hintText: context.l10n.txVoiceDescriptionHint,
               border: OutlineInputBorder(),
             ),
             maxLines: 3,
@@ -517,7 +529,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text(context.l10n.cancel),
             ),
             FilledButton(
               onPressed: () {
@@ -528,7 +540,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               style: FilledButton.styleFrom(
                 backgroundColor: AikoColors.premiumPurple,
               ),
-              child: const Text('Parse Draft'),
+              child: Text(context.l10n.txParseDraft),
             ),
           ],
         );
@@ -547,7 +559,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
       _autofillForm(
         amount: draft.amount.amount.toDouble(),
-        note: draft.note ?? 'Voice command parser',
+        note: draft.note ?? context.l10n.txVoiceNoteFallback,
         type: draft.type == TransactionType.income
             ? TransactionType.income
             : TransactionType.expense,
@@ -558,7 +570,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Could not parse voice command: $e'),
+          content: Text(context.l10n.txVoiceParseFailed),
           backgroundColor: AikoColors.dangerRed,
         ),
       );
@@ -635,7 +647,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('1 $selectedCurrency equals'),
+        title: Text(context.l10n.txRateEquals(selectedCurrency)),
         content: TextField(
           key: const Key('transaction-exchange-rate-field'),
           controller: controller,
@@ -646,11 +658,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: const Text('Use this rate'),
+            child: Text(context.l10n.txUseThisRate),
           ),
         ],
       ),
@@ -716,7 +728,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Document Upload',
+                context.l10n.txDocumentUpload,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: AikoColors.premiumPurple,
@@ -725,7 +737,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               ),
               const SizedBox(height: 10),
               Text(
-                'Choose a source to attach a real receipt or document:',
+                context.l10n.txChooseAttachmentSource,
                 style: TextStyle(
                   fontSize: 13,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -738,10 +750,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   Icons.folder_open,
                   color: AikoColors.deepBlue,
                 ),
-                title: const Text('Files & Documents'),
-                subtitle: const Text(
-                  'PDFs, docs, and any file from your device',
-                ),
+                title: Text(context.l10n.txFilesAndDocuments),
+                subtitle: Text(context.l10n.txFilesAndDocumentsSubtitle),
                 onTap: () {
                   Navigator.of(context).pop();
                   _pickAndAttachDocumentFromFiles();
@@ -752,8 +762,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   Icons.photo_library,
                   color: AikoColors.successGreen,
                 ),
-                title: const Text('Photo Gallery'),
-                subtitle: const Text('Pick a receipt photo (compressed)'),
+                title: Text(context.l10n.txPhotoGallery),
+                subtitle: Text(context.l10n.txPhotoGallerySubtitle),
                 onTap: () {
                   Navigator.of(context).pop();
                   _pickAndAttachImageFromGallery();
@@ -770,9 +780,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     fs.XFile? selectedFile;
     try {
       selectedFile = await fs.openFile(
-        acceptedTypeGroups: const [
+        acceptedTypeGroups: [
           fs.XTypeGroup(
-            label: 'documents and images',
+            label: context.l10n.txFilePickerTypeLabel,
             extensions: [
               'pdf',
               'jpg',
@@ -792,7 +802,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Unable to open file picker.'),
+          content: Text(context.l10n.txFilePickerUnavailable),
           backgroundColor: AikoColors.dangerRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -830,7 +840,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Unable to open gallery right now.'),
+          content: Text(context.l10n.txGalleryUnavailable),
           backgroundColor: AikoColors.dangerRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -862,12 +872,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        return const AlertDialog(
+        return AlertDialog(
           content: Row(
             children: [
               CircularProgressIndicator(),
               SizedBox(width: 20),
-              Text('Attaching document...'),
+              Text(context.l10n.txAttachingDocument),
             ],
           ),
         );
@@ -904,7 +914,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           children: [
             const Icon(Icons.check_circle_outline, color: Colors.white),
             const SizedBox(width: 8),
-            Text('Attached $fileName'),
+            Text(context.l10n.txAttachedFile(fileName)),
           ],
         ),
         backgroundColor: AikoColors.successGreen,
@@ -953,11 +963,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     if (amountText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Row(
+          content: Row(
             children: [
               Icon(Icons.error_outline, color: Colors.white),
               SizedBox(width: 8),
-              Text('Please enter an amount.'),
+              Text(context.l10n.txEnterAmount),
             ],
           ),
           backgroundColor: AikoColors.dangerRed,
@@ -974,11 +984,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     } on FormatException {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Row(
+          content: Row(
             children: [
               Icon(Icons.error_outline, color: Colors.white),
               SizedBox(width: 8),
-              Text('Please enter a valid positive amount.'),
+              Text(context.l10n.txEnterValidAmount),
             ],
           ),
           backgroundColor: AikoColors.dangerRed,
@@ -992,11 +1002,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     if (amount <= Decimal.zero) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Row(
+          content: Row(
             children: [
               Icon(Icons.error_outline, color: Colors.white),
               SizedBox(width: 8),
-              Text('Please enter a valid positive amount.'),
+              Text(context.l10n.txEnterValidAmount),
             ],
           ),
           backgroundColor: AikoColors.dangerRed,
@@ -1010,7 +1020,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     if (_selectedAccountId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Please select an account.'),
+          content: Text(context.l10n.txSelectAccountError),
           backgroundColor: AikoColors.warningOrange,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1022,9 +1032,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     if (_type == TransactionType.transfer && _selectedToAccountId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text(
-            'Please select a destination account for transfer.',
-          ),
+          content: Text(context.l10n.txSelectDestinationError),
           backgroundColor: AikoColors.warningOrange,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1048,7 +1056,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       if (rate == null || rate <= Decimal.zero) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Enter a positive exchange rate to convert.'),
+            content: Text(context.l10n.txEnterPositiveRate),
             backgroundColor: AikoColors.warningOrange,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -1136,7 +1144,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
-    _showSaveSuccess('Transaction saved successfully!');
+    _showSaveSuccess(context.l10n.txSaved);
     Navigator.of(context).pop(saved);
   }
 
@@ -1172,7 +1180,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       type: TransactionType.transferOut,
       amount: money,
       date: _selectedDate,
-      merchant: itemName.isEmpty ? 'Transfer to $toName' : itemName,
+      merchant: itemName.isEmpty
+          ? context.l10n.txTransferToName(toName)
+          : itemName,
       note: note,
       tags: tags,
       reminderAt: _reminderAt,
@@ -1184,7 +1194,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       type: TransactionType.transferIn,
       amount: money,
       date: _selectedDate,
-      merchant: itemName.isEmpty ? 'Transfer from $fromName' : itemName,
+      merchant: itemName.isEmpty
+          ? context.l10n.txTransferFromName(fromName)
+          : itemName,
       note: note,
       tags: tags,
     );
@@ -1208,7 +1220,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     await _saveAttachmentsFor(outLeg.id);
     if (!mounted) return;
 
-    _showSaveSuccess('Transfer saved — recorded on both accounts.');
+    _showSaveSuccess(context.l10n.txTransferSaved);
     Navigator.of(context).pop(savedIn);
   }
 
@@ -1242,7 +1254,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   void _showSaveError() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Unable to save this transaction right now.'),
+        content: Text(context.l10n.txSaveFailed),
         backgroundColor: AikoColors.dangerRed,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1372,9 +1384,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       await service.cancel(transaction.id);
       return;
     }
+    final l10n = context.l10n;
     final label = transaction.merchant?.trim().isNotEmpty == true
         ? transaction.merchant!.trim()
-        : 'Transaction reminder';
+        : l10n.txReminderDefaultTitle;
     // A recurring transaction's reminder recurs with it; a one-off reminds once.
     final repeat = transaction.isRecurring
         ? switch (transaction.recurringFrequency) {
@@ -1388,7 +1401,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     await service.schedule(
       transactionId: transaction.id,
       title: label,
-      body: '${transaction.amount.format()} · ${transaction.type.name}',
+      body: l10n.txReminderBody(
+        transaction.amount.format(),
+        transaction.type.label(l10n),
+      ),
       when: when,
       repeat: repeat,
     );
@@ -1442,17 +1458,17 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       appBar: AppBar(
         title: Text(
           widget.initialTransaction == null
-              ? 'Add transaction'
-              : 'Edit transaction',
+              ? context.l10n.txAddTitle
+              : context.l10n.txEditTitle,
         ),
         actions: [
           IconButton(
-            tooltip: 'Scan receipt',
+            tooltip: context.l10n.txScanReceipt,
             onPressed: _scanReceiptWithCamera,
             icon: const Icon(Icons.receipt_long_outlined),
           ),
           IconButton(
-            tooltip: 'Voice entry',
+            tooltip: context.l10n.txVoiceEntry,
             onPressed: _showVoiceCommandDialog,
             icon: const Icon(Icons.mic_none_outlined),
           ),
@@ -1485,20 +1501,20 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 return null;
               }),
             ),
-            segments: const [
+            segments: [
               ButtonSegment<TransactionType>(
                 value: TransactionType.expense,
-                label: Text('Expense'),
+                label: Text(context.l10n.transactionTypeExpense),
                 icon: Icon(Icons.north_east),
               ),
               ButtonSegment<TransactionType>(
                 value: TransactionType.income,
-                label: Text('Income'),
+                label: Text(context.l10n.transactionTypeIncome),
                 icon: Icon(Icons.south_west),
               ),
               ButtonSegment<TransactionType>(
                 value: TransactionType.transfer,
-                label: Text('Transfer'),
+                label: Text(context.l10n.transactionTypeTransfer),
                 icon: Icon(Icons.swap_horiz),
               ),
             ],
@@ -1524,10 +1540,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   key: const Key('transaction-amount-field'),
                   controller: _amountController,
                   decoration: InputDecoration(
-                    labelText: 'Amount',
+                    labelText: context.l10n.txAmount,
                     suffixIcon: IconButton(
                       key: const Key('amount-calculator-button'),
-                      tooltip: 'Open amount calculator',
+                      tooltip: context.l10n.txOpenCalculator,
                       onPressed: _showAmountCalculator,
                       icon: const Icon(Icons.calculate_outlined),
                     ),
@@ -1544,7 +1560,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   key: ValueKey(_selectedCurrency),
                   initialSelection: _selectedCurrency,
                   expandedInsets: EdgeInsets.zero,
-                  label: const Text('Currency'),
+                  label: Text(context.l10n.txCurrency),
                   dropdownMenuEntries: [
                     for (final currency in currencyOptions)
                       DropdownMenuEntry(value: currency, label: currency),
@@ -1570,7 +1586,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           if (_type != TransactionType.transfer) ...[
             categoriesAsync.when(
               loading: () => const CircularProgressIndicator(),
-              error: (_, _) => const Text('Error loading categories'),
+              error: (_, _) => Text(context.l10n.txCategoriesLoadError),
               data: (categories) {
                 final selectedCategoryType = _categoryTypeFor(_type);
                 final activeCategories = categories
@@ -1581,7 +1597,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                     )
                     .toList();
                 if (activeCategories.isEmpty) {
-                  return const Text('No categories available');
+                  return Text(context.l10n.txNoCategories);
                 }
                 final loadedGroups = categoryGroupsAsync.value;
                 final fallbackGroups =
@@ -1620,13 +1636,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           // Account dropdown(s)
           accountsAsync.when(
             loading: () => const CircularProgressIndicator(),
-            error: (_, _) => const Text('Error loading accounts'),
+            error: (_, _) => Text(context.l10n.txAccountsLoadError),
             data: (accounts) {
               final activeAccounts = accounts.where((a) => a.isActive).toList();
               if (activeAccounts.isEmpty) {
-                return const Text(
-                  'No accounts available. Create an account first.',
-                );
+                return Text(context.l10n.txNoAccounts);
               }
 
               if (_type == TransactionType.transfer) {
@@ -1637,7 +1651,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   children: [
                     Expanded(
                       child: _AccountPicker(
-                        label: 'From Account',
+                        label: context.l10n.txFromAccount,
                         fieldKey: 'from-account',
                         accounts: activeAccounts,
                         selectedAccountId: _selectedAccountId,
@@ -1648,7 +1662,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                     const _TransferFlowArrow(),
                     Expanded(
                       child: _AccountPicker(
-                        label: 'To Account',
+                        label: context.l10n.txToAccount,
                         fieldKey: 'to-account',
                         accounts: activeAccounts,
                         selectedAccountId: _selectedToAccountId,
@@ -1660,7 +1674,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 );
               } else {
                 return _AccountPicker(
-                  label: 'Account',
+                  label: context.l10n.txAccount,
                   fieldKey: 'account',
                   accounts: activeAccounts,
                   selectedAccountId: _selectedAccountId,
@@ -1696,7 +1710,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.calendar_month_outlined),
-            title: const Text('Transaction Date & Time'),
+            title: Text(context.l10n.txDateTime),
             subtitle: Text(
               DateFormat('yyyy-MM-dd HH:mm').format(_selectedDate),
             ),
@@ -1752,7 +1766,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             controller: _noteController,
             minLines: 3,
             maxLines: 4,
-            decoration: const InputDecoration(labelText: 'Note'),
+            decoration: InputDecoration(labelText: context.l10n.txNote),
           ),
           const SizedBox(height: 12),
 
@@ -1838,8 +1852,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             icon: const Icon(Icons.check),
             label: Text(
               widget.initialTransaction == null
-                  ? 'Save Transaction'
-                  : 'Save Changes',
+                  ? context.l10n.txSaveTransaction
+                  : context.l10n.txSaveChanges,
             ),
           ),
         ],
@@ -1894,9 +1908,9 @@ class _TagInput extends StatelessWidget {
                   key: const Key('transaction-tags-field'),
                   controller: textController,
                   focusNode: textFocusNode,
-                  decoration: const InputDecoration(
-                    labelText: 'Tags',
-                    hintText: 'food, work, reimbursable',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.txTags,
+                    hintText: context.l10n.txTagsHint,
                     prefixIcon: Icon(Icons.sell_outlined),
                   ),
                   textInputAction: TextInputAction.done,
@@ -2004,7 +2018,7 @@ class _ItemNameInputState extends State<_ItemNameInput> {
         TextField(
           controller: widget.controller,
           focusNode: _focusNode,
-          decoration: const InputDecoration(labelText: 'Item name'),
+          decoration: InputDecoration(labelText: context.l10n.txItemName),
           onTap: () => setState(() => _showSuggestions = true),
           onChanged: (_) => setState(() => _showSuggestions = true),
         ),
@@ -2101,13 +2115,17 @@ class _CurrencyConversionPrompt extends StatelessWidget {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
-                            'Account is in $accountCurrency · 1 $selectedCurrency = ',
+                            context.l10n.txAccountCurrencyRate(
+                              accountCurrency,
+                              selectedCurrency,
+                            ),
                             style: theme.textTheme.bodySmall,
                           ),
                           InkWell(
                             key: const Key('edit-exchange-rate'),
                             onTap: onEditRate,
                             child: Text(
+                              // l10n-ignore: a number and a currency code.
                               '${rate?.toStringAsFixed(4) ?? '—'} $accountCurrency',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: primary,
@@ -2121,7 +2139,7 @@ class _CurrencyConversionPrompt extends StatelessWidget {
                       ),
                       if (preview != null)
                         Text(
-                          'Saves as $preview',
+                          context.l10n.txSavesAs(preview),
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -2141,7 +2159,7 @@ class _CurrencyConversionPrompt extends StatelessWidget {
                 else
                   IconButton(
                     key: const Key('refresh-exchange-rate-button'),
-                    tooltip: 'Refresh live rate',
+                    tooltip: context.l10n.txRefreshRate,
                     visualDensity: VisualDensity.compact,
                     icon: const Icon(Icons.refresh, size: 20),
                     onPressed: onRefreshRate,
@@ -2211,7 +2229,7 @@ class _AccountPicker extends StatelessWidget {
 
     final nameText = Text(
       key: Key('transaction-$fieldKey-selected-account-name'),
-      selectedAccount?.name ?? 'Select account',
+      selectedAccount?.name ?? context.l10n.txSelectAccount,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
@@ -2272,7 +2290,10 @@ class _AccountPicker extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    _accountSubtitle(selectedAccount),
+                                    _accountSubtitle(
+                                      selectedAccount,
+                                      context.l10n,
+                                    ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: theme.textTheme.bodySmall?.copyWith(
@@ -2321,7 +2342,7 @@ class _AccountPicker extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Choose account',
+                  context.l10n.txChooseAccount,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
@@ -2404,7 +2425,7 @@ class _AccountOptionTile extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                _accountSubtitle(account),
+                _accountSubtitle(account, context.l10n),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -2498,7 +2519,7 @@ class _CategoryPicker extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Category',
+                      context.l10n.txCategory,
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
@@ -2506,7 +2527,8 @@ class _CategoryPicker extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      selectedCategory?.name ?? 'Select category',
+                      selectedCategory?.displayName(context.l10n) ??
+                          context.l10n.txSelectCategory,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
@@ -2516,7 +2538,7 @@ class _CategoryPicker extends StatelessWidget {
                     if (selectedCategory != null) ...[
                       const SizedBox(height: 2),
                       Text(
-                        _categoryGroupLabel(selectedCategory.group),
+                        selectedCategory.group.label(context.l10n),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -2666,7 +2688,11 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
           .where(
             (c) =>
                 normalizedQuery.isEmpty ||
-                c.name.toLowerCase().contains(normalizedQuery),
+                c.name.toLowerCase().contains(normalizedQuery) ||
+                c
+                    .displayName(context.l10n)
+                    .toLowerCase()
+                    .contains(normalizedQuery),
           )
           .toList(growable: false);
       if (members.isEmpty) continue;
@@ -2684,7 +2710,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
             children: [
               const SizedBox(height: 4),
               Text(
-                'Choose category',
+                context.l10n.txChooseCategory,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -2807,7 +2833,7 @@ class _CategorySearchField extends StatelessWidget {
         textInputAction: TextInputAction.search,
         onChanged: onChanged,
         decoration: InputDecoration(
-          hintText: 'Search categories',
+          hintText: context.l10n.txSearchCategories,
           prefixIcon: const Icon(Icons.search, size: 20),
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(
@@ -2835,7 +2861,7 @@ class _CategorySearchField extends StatelessWidget {
               ? null
               : IconButton(
                   key: const Key('transaction-category-search-clear'),
-                  tooltip: 'Clear search',
+                  tooltip: context.l10n.txClearSearch,
                   icon: const Icon(Icons.close, size: 18),
                   onPressed: onClear,
                 ),
@@ -2874,7 +2900,7 @@ class _CategoryGroupChipBar extends StatelessWidget {
           final color = aikoHexColor(section.group.color);
           final selected = index == activeIndex;
           return _CategoryGroupChip(
-            label: section.group.name,
+            label: section.group.displayName(context.l10n),
             count: section.categories.length,
             color: color,
             selected: selected,
@@ -3044,7 +3070,7 @@ class _CategoryGroupSection extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                section.group.name,
+                section.group.displayName(context.l10n),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -3165,7 +3191,7 @@ class _CategoryGridCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  category.name,
+                  category.displayName(context.l10n),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -3206,7 +3232,9 @@ class _CategoryEmptyResults extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            query.isEmpty ? 'No categories' : 'No matches for "$query"',
+            query.isEmpty
+                ? context.l10n.txNoCategoriesShort
+                : context.l10n.txNoMatchesFor(query),
             textAlign: TextAlign.center,
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w700,
@@ -3215,7 +3243,7 @@ class _CategoryEmptyResults extends StatelessWidget {
           if (query.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              'Try a different keyword or pick a group above.',
+              context.l10n.txTryDifferentKeyword,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -3308,7 +3336,7 @@ class _ReminderSection extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Reminder',
+                        context.l10n.txReminder,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
@@ -3316,10 +3344,10 @@ class _ReminderSection extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         kIsWeb
-                            ? 'Reminder times are saved. Notifications are delivered by the mobile app.'
+                            ? context.l10n.txReminderWebNote
                             : enabled
-                            ? 'Aiko will notify you before the transaction.'
-                            : 'Get a notification before the transaction.',
+                            ? context.l10n.txReminderEnabledNote
+                            : context.l10n.txReminderDisabledNote,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -3339,14 +3367,17 @@ class _ReminderSection extends StatelessWidget {
               DropdownButtonFormField<ReminderLead>(
                 key: const Key('transaction-reminder-lead'),
                 initialValue: lead,
-                decoration: const InputDecoration(
-                  labelText: 'Notify me',
+                decoration: InputDecoration(
+                  labelText: context.l10n.txNotifyMe,
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
                 items: [
                   for (final option in ReminderLead.values)
-                    DropdownMenuItem(value: option, child: Text(option.label)),
+                    DropdownMenuItem(
+                      value: option,
+                      child: Text(option.label(context.l10n)),
+                    ),
                 ],
                 onChanged: (value) {
                   if (value != null) onLeadChanged(value);
@@ -3357,7 +3388,7 @@ class _ReminderSection extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: onPick,
                   icon: const Icon(Icons.schedule_outlined),
-                  label: Text('Remind at $formatted'),
+                  label: Text(context.l10n.txRemindAt(formatted)),
                 ),
               ],
             ],
@@ -3410,24 +3441,20 @@ class _RecurringSection extends StatelessWidget {
 
   static const _frequencies = <RecurringFrequency, _FrequencyChoiceMeta>{
     RecurringFrequency.daily: _FrequencyChoiceMeta(
-      label: 'Daily',
       icon: Icons.today_outlined,
-      hint: 'Repeats every day.',
+      hint: _dailyHint,
     ),
     RecurringFrequency.weekly: _FrequencyChoiceMeta(
-      label: 'Weekly',
       icon: Icons.view_week_outlined,
-      hint: 'Repeats every week on a chosen day.',
+      hint: _weeklyHint,
     ),
     RecurringFrequency.monthly: _FrequencyChoiceMeta(
-      label: 'Monthly',
       icon: Icons.calendar_view_month_outlined,
-      hint: 'Repeats every month on a chosen day.',
+      hint: _monthlyHint,
     ),
     RecurringFrequency.annually: _FrequencyChoiceMeta(
-      label: 'Annually',
       icon: Icons.calendar_today_outlined,
-      hint: 'Repeats every year on a chosen date.',
+      hint: _annuallyHint,
     ),
   };
 
@@ -3455,7 +3482,7 @@ class _RecurringSection extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Recurring transaction',
+                        context.l10n.txRecurring,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
@@ -3463,8 +3490,8 @@ class _RecurringSection extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         isRecurring
-                            ? 'Repeats on a schedule you can edit below.'
-                            : 'Mark this transaction as repeating on a schedule.',
+                            ? context.l10n.txRecurringOnNote
+                            : context.l10n.txRecurringOffNote,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -3513,16 +3540,16 @@ class _RecurringSection extends StatelessWidget {
   }
 }
 
-class _FrequencyChoiceMeta {
-  const _FrequencyChoiceMeta({
-    required this.label,
-    required this.icon,
-    required this.hint,
-  });
+String _dailyHint(AppLocalizations l10n) => l10n.frequencyDailyHint;
+String _weeklyHint(AppLocalizations l10n) => l10n.frequencyWeeklyHint;
+String _monthlyHint(AppLocalizations l10n) => l10n.frequencyMonthlyHint;
+String _annuallyHint(AppLocalizations l10n) => l10n.frequencyAnnuallyHint;
 
-  final String label;
+class _FrequencyChoiceMeta {
+  const _FrequencyChoiceMeta({required this.icon, required this.hint});
+
   final IconData icon;
-  final String hint;
+  final String Function(AppLocalizations l10n) hint;
 }
 
 /// Time-of-day picker for the recurring occurrence. Mirrors the parent
@@ -3567,7 +3594,7 @@ class _OccurrenceTimeTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Occurrence time',
+                      context.l10n.txOccurrenceTime,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -3613,7 +3640,7 @@ class _FrequencyPicker extends StatelessWidget {
           ChoiceChip(
             key: Key('recurring-frequency-${entry.key.name}'),
             selected: entry.key == frequency,
-            label: Text(entry.value.label),
+            label: Text(entry.key.label(context.l10n)),
             avatar: Icon(entry.value.icon, size: 18),
             onSelected: (selected) {
               if (selected) {
@@ -3656,7 +3683,7 @@ class _FrequencySettingsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hint = _RecurringSection._frequencies[frequency]!.hint;
+    final hint = _RecurringSection._frequencies[frequency]!.hint(context.l10n);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -3735,7 +3762,7 @@ class _DateField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final formatted = value == null
-        ? 'No end date'
+        ? context.l10n.txNoEndDate
         : DateFormat('yyyy-MM-dd').format(value!);
     return Material(
       color: theme.colorScheme.surface,
@@ -3794,7 +3821,7 @@ class _DateField extends StatelessWidget {
               ),
               if (value != null)
                 IconButton(
-                  tooltip: 'Clear end date',
+                  tooltip: context.l10n.txClearEndDate,
                   onPressed: () => onChanged(null),
                   icon: const Icon(Icons.close, size: 18),
                 ),
@@ -3861,7 +3888,7 @@ class _OnceSettings extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _DateField(
-      label: 'Schedule for',
+      label: context.l10n.txScheduleFor,
       value: endDate,
       onChanged: onEndDateChanged,
     );
@@ -3886,14 +3913,14 @@ class _DailySettings extends StatelessWidget {
     return Column(
       children: [
         _DateField(
-          label: 'Stops on',
+          label: context.l10n.txStopsOn,
           value: endDate,
           onChanged: onEndDateChanged,
         ),
         const SizedBox(height: 12),
         _IntField(
-          label: 'Or after (occurrences)',
-          hint: 'e.g. 30',
+          label: context.l10n.txOrAfterOccurrences,
+          hint: context.l10n.exampleValue(30),
           value: maxOccurrences,
           onChanged: onMaxOccurrencesChanged,
         ),
@@ -3926,32 +3953,31 @@ class _WeeklySettings extends StatelessWidget {
         DropdownButtonFormField<int>(
           key: const Key('recurring-weekly-day'),
           initialValue: dayOfWeek,
-          decoration: const InputDecoration(
-            labelText: 'On day',
+          decoration: InputDecoration(
+            labelText: context.l10n.txOnDay,
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.calendar_view_week_outlined),
           ),
-          items: const [
-            DropdownMenuItem(value: 1, child: Text('Monday')),
-            DropdownMenuItem(value: 2, child: Text('Tuesday')),
-            DropdownMenuItem(value: 3, child: Text('Wednesday')),
-            DropdownMenuItem(value: 4, child: Text('Thursday')),
-            DropdownMenuItem(value: 5, child: Text('Friday')),
-            DropdownMenuItem(value: 6, child: Text('Saturday')),
-            DropdownMenuItem(value: 7, child: Text('Sunday')),
+          items: [
+            // 2024-01-01 was a Monday; day 1..7 = Monday..Sunday.
+            for (var day = 1; day <= 7; day++)
+              DropdownMenuItem(
+                value: day,
+                child: Text(DateFormat.EEEE().format(DateTime(2024, 1, day))),
+              ),
           ],
           onChanged: onDayOfWeekChanged,
         ),
         const SizedBox(height: 12),
         _DateField(
-          label: 'Stops on',
+          label: context.l10n.txStopsOn,
           value: endDate,
           onChanged: onEndDateChanged,
         ),
         const SizedBox(height: 12),
         _IntField(
-          label: 'Or after (occurrences)',
-          hint: 'e.g. 12',
+          label: context.l10n.txOrAfterOccurrences,
+          hint: context.l10n.exampleValue(12),
           value: maxOccurrences,
           onChanged: onMaxOccurrencesChanged,
         ),
@@ -3982,7 +4008,7 @@ class _MonthlySettings extends StatelessWidget {
     return Column(
       children: [
         _IntField(
-          label: 'Day of month',
+          label: context.l10n.txDayOfMonth,
           hint: '1–31',
           value: dayOfMonth,
           onChanged: onDayOfMonthChanged,
@@ -3991,14 +4017,14 @@ class _MonthlySettings extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _DateField(
-          label: 'Stops on',
+          label: context.l10n.txStopsOn,
           value: endDate,
           onChanged: onEndDateChanged,
         ),
         const SizedBox(height: 12),
         _IntField(
-          label: 'Or after (occurrences)',
-          hint: 'e.g. 12',
+          label: context.l10n.txOrAfterOccurrences,
+          hint: context.l10n.exampleValue(12),
           value: maxOccurrences,
           onChanged: onMaxOccurrencesChanged,
         ),
@@ -4038,23 +4064,18 @@ class _AnnualSettings extends StatelessWidget {
               child: DropdownButtonFormField<int>(
                 key: const Key('recurring-annual-month'),
                 initialValue: monthOfYear,
-                decoration: const InputDecoration(
-                  labelText: 'Month',
+                decoration: InputDecoration(
+                  labelText: context.l10n.txMonth,
                   border: OutlineInputBorder(),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 1, child: Text('January')),
-                  DropdownMenuItem(value: 2, child: Text('February')),
-                  DropdownMenuItem(value: 3, child: Text('March')),
-                  DropdownMenuItem(value: 4, child: Text('April')),
-                  DropdownMenuItem(value: 5, child: Text('May')),
-                  DropdownMenuItem(value: 6, child: Text('June')),
-                  DropdownMenuItem(value: 7, child: Text('July')),
-                  DropdownMenuItem(value: 8, child: Text('August')),
-                  DropdownMenuItem(value: 9, child: Text('September')),
-                  DropdownMenuItem(value: 10, child: Text('October')),
-                  DropdownMenuItem(value: 11, child: Text('November')),
-                  DropdownMenuItem(value: 12, child: Text('December')),
+                items: [
+                  for (var month = 1; month <= 12; month++)
+                    DropdownMenuItem(
+                      value: month,
+                      child: Text(
+                        DateFormat.MMMM().format(DateTime(2024, month)),
+                      ),
+                    ),
                 ],
                 onChanged: onMonthOfYearChanged,
               ),
@@ -4062,7 +4083,7 @@ class _AnnualSettings extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _IntField(
-                label: 'Day',
+                label: context.l10n.txDay,
                 hint: '1–31',
                 value: dayOfMonth,
                 onChanged: onDayOfMonthChanged,
@@ -4074,14 +4095,14 @@ class _AnnualSettings extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _DateField(
-          label: 'Stops on',
+          label: context.l10n.txStopsOn,
           value: endDate,
           onChanged: onEndDateChanged,
         ),
         const SizedBox(height: 12),
         _IntField(
-          label: 'Or after (occurrences)',
-          hint: 'e.g. 5',
+          label: context.l10n.txOrAfterOccurrences,
+          hint: context.l10n.exampleValue(5),
           value: maxOccurrences,
           onChanged: onMaxOccurrencesChanged,
         ),
@@ -4282,7 +4303,7 @@ class _AmountCalculatorSheetState extends State<_AmountCalculatorSheet> {
     _storedValue = null;
     _pendingOperator = null;
     _expression = '';
-    _errorText = 'Cannot divide by zero';
+    _errorText = context.l10n.txCannotDivideByZero;
     _waitingForOperand = false;
     _justEvaluated = true;
   }
@@ -4324,7 +4345,7 @@ class _AmountCalculatorSheetState extends State<_AmountCalculatorSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Amount calculator',
+          context.l10n.txAmountCalculator,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -4399,7 +4420,7 @@ class _AmountCalculatorSheetState extends State<_AmountCalculatorSheet> {
           key: const Key('apply-calculated-amount-button'),
           onPressed: canApply ? _apply : null,
           icon: const Icon(Icons.check),
-          label: const Text('Use amount'),
+          label: Text(context.l10n.txUseAmount),
         ),
       ],
     );
@@ -4465,7 +4486,7 @@ class _CalculatorKeypad extends StatelessWidget {
         ),
         _CalculatorKeyRow(
           children: [
-            _CalculatorKey(label: 'C', onPressed: onClear),
+            _CalculatorKey(label: 'C', onPressed: onClear), // l10n-ignore
             _CalculatorKey(label: '0', onPressed: () => onDigit('0')),
             _CalculatorKey(label: '.', onPressed: onDecimal),
             _CalculatorKey(
@@ -4478,7 +4499,7 @@ class _CalculatorKeypad extends StatelessWidget {
         _CalculatorKeyRow(
           children: [
             _CalculatorKey(
-              label: 'backspace',
+              label: 'backspace', // l10n-ignore: key id, not shown
               icon: Icons.backspace_outlined,
               onPressed: onBackspace,
             ),
@@ -4722,41 +4743,15 @@ Color _accountColorFor(AccountType type) {
   };
 }
 
-String _accountSubtitle(Account account) {
+String _accountSubtitle(Account account, AppLocalizations l10n) {
   final typeLabel = account.type == AccountType.cash
-      ? 'Cash wallet'
-      : _accountTypeLabel(account.type);
+      ? l10n.accountCashWallet
+      : account.type.label(l10n);
   final institution = account.institution?.trim();
   if (institution == null || institution.isEmpty) {
     return typeLabel;
   }
   return '$institution - $typeLabel';
-}
-
-String _accountTypeLabel(AccountType type) {
-  final name = type.name;
-  final buffer = StringBuffer();
-  for (var i = 0; i < name.length; i++) {
-    final char = name[i];
-    if (i > 0 && char.toUpperCase() == char) {
-      buffer.write(' ');
-    }
-    buffer.write(i == 0 ? char.toUpperCase() : char);
-  }
-  return buffer.toString();
-}
-
-String _categoryGroupLabel(CategoryBudgetGroup group) {
-  return switch (group) {
-    CategoryBudgetGroup.needs => 'Needs',
-    CategoryBudgetGroup.wants => 'Wants',
-    CategoryBudgetGroup.savings => 'Savings',
-    CategoryBudgetGroup.debt => 'Debt',
-    CategoryBudgetGroup.investment => 'Investment',
-    CategoryBudgetGroup.tax => 'Tax',
-    CategoryBudgetGroup.business => 'Business',
-    CategoryBudgetGroup.custom => 'Custom',
-  };
 }
 
 List<String> _tagSuggestionsFrom(

@@ -7,6 +7,7 @@ import '../../../brick/models/profile.model.dart';
 import '../../../core/offline/offline_store.dart';
 import '../../../core/offline/offline_user_context.dart';
 import '../../../core/firebase/firebase_backend.dart';
+import '../../../l10n/l10n.dart';
 import '../domain/profile.dart';
 
 class ProfileRepository {
@@ -26,7 +27,9 @@ class ProfileRepository {
       final email = FirebaseBackend.auth?.currentUser?.email ?? '';
       final profile = Profile(
         id: userId,
-        displayName: email.contains('@') ? email.split('@').first : 'Aiko User',
+        displayName: email.contains('@')
+            ? email.split('@').first
+            : currentL10n().profileDefaultDisplayName,
         email: email,
         baseCurrency: kDefaultBaseCurrency,
         country: kDefaultCountry,

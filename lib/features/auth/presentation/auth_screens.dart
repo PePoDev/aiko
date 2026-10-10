@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../app/providers.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/widgets/aiko_idea_widgets.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../onboarding/application/complete_onboarding.dart';
 import '../data/auth_repository.dart';
+import 'auth_error_message.dart';
 
 /// One slide of the intro carousel.
 class _IntroPage {
@@ -18,43 +19,46 @@ class _IntroPage {
   });
 
   final String image;
-  final String title;
-  final String body;
+  final String Function(AppLocalizations l10n) title;
+  final String Function(AppLocalizations l10n) body;
 }
+
+String _hiTitle(AppLocalizations l10n) => l10n.introHiTitle;
+String _hiBody(AppLocalizations l10n) => l10n.introHiBody;
+String _trackTitle(AppLocalizations l10n) => l10n.introTrackTitle;
+String _trackBody(AppLocalizations l10n) => l10n.introTrackBody;
+String _insightsTitle(AppLocalizations l10n) => l10n.introInsightsTitle;
+String _insightsBody(AppLocalizations l10n) => l10n.introInsightsBody;
+String _goalsTitle(AppLocalizations l10n) => l10n.introGoalsTitle;
+String _goalsBody(AppLocalizations l10n) => l10n.introGoalsBody;
+String _startTitle(AppLocalizations l10n) => l10n.introStartTitle;
+String _startBody(AppLocalizations l10n) => l10n.introStartBody;
 
 const _introPages = <_IntroPage>[
   _IntroPage(
     image: 'assets/images/aiko/aiko_welcome.png',
-    title: "Hi, I'm Aiko 👋",
-    body:
-        'Your calm finance companion — here to help you understand your money '
-        'without the stress or the judgment.',
+    title: _hiTitle,
+    body: _hiBody,
   ),
   _IntroPage(
     image: 'assets/images/aiko/aiko_happy.png',
-    title: 'Track it all in one place',
-    body:
-        'Log income, expenses, and transfers across every account. I keep the '
-        'numbers tidy so you don\'t have to.',
+    title: _trackTitle,
+    body: _trackBody,
   ),
   _IntroPage(
     image: 'assets/images/aiko/aiko_thinking.png',
-    title: 'Insights that make sense',
-    body:
-        'Spending trends, budget pace, and friendly nudges — so you always '
-        'know where you stand this month.',
+    title: _insightsTitle,
+    body: _insightsBody,
   ),
   _IntroPage(
     image: 'assets/images/aiko/aiko_encouraging.png',
-    title: 'Reach your goals',
-    body:
-        'Set targets, watch your progress, and let me map a realistic plan to '
-        'get you there.',
+    title: _goalsTitle,
+    body: _goalsBody,
   ),
   _IntroPage(
     image: 'assets/images/aiko/aiko_celebrating.png',
-    title: "Let's get started",
-    body: 'Your data stays private and works offline. Ready whenever you are.',
+    title: _startTitle,
+    body: _startBody,
   ),
 ];
 
@@ -111,7 +115,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         duration: const Duration(milliseconds: 200),
                         child: TextButton(
                           onPressed: _isLast ? null : () => context.go('/auth'),
-                          child: const Text('Skip'),
+                          child: Text(context.l10n.introSkip),
                         ),
                       ),
                     ),
@@ -132,7 +136,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(28, 20, 28, 24),
                     child: AikoPrimaryButton(
-                      label: _isLast ? 'Get Started' : 'Next',
+                      label: _isLast
+                          ? context.l10n.introGetStarted
+                          : context.l10n.introNext,
                       onPressed: _next,
                     ),
                   ),
@@ -210,7 +216,7 @@ class _IntroSlide extends StatelessWidget {
             ),
             const SizedBox(height: 32),
             Text(
-              page.title,
+              page.title(context.l10n),
               textAlign: TextAlign.center,
               style: textTheme.headlineSmall?.copyWith(
                 color: colorScheme.onSurface,
@@ -219,7 +225,7 @@ class _IntroSlide extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              page.body,
+              page.body(context.l10n),
               textAlign: TextAlign.center,
               style: textTheme.bodyLarge?.copyWith(
                 color: colorScheme.onSurfaceVariant,
@@ -300,6 +306,15 @@ class _LoginScreenState extends State<LoginScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _showError(
+    Object error, {
+    required String Function(AppLocalizations l10n) fallback,
+  }) {
+    if (!mounted) return;
+    final l10n = context.l10n;
+    _showMessage(authErrorMessage(error, l10n, fallback: fallback(l10n)));
+  }
+
   // [seedDefaults] only on brand-new sign-up. On sign-in the local store is
   // still empty (remote accounts haven't synced down yet), so seeding would
   // duplicate an existing user's real accounts. ponytail: signup-only gate;
@@ -326,7 +341,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      _showMessage('Enter your email and password.');
+      _showMessage(context.l10n.authEnterEmailPassword);
       return;
     }
 
@@ -335,12 +350,8 @@ class _LoginScreenState extends State<LoginScreen> {
       await _authRepository.signIn(email: email, password: password);
       if (!mounted) return;
       await _routeAfterAuth();
-    } on FirebaseAuthException catch (error) {
-      _showMessage(error.message ?? 'Authentication failed. Please try again.');
-    } on StateError catch (error) {
-      _showMessage(error.message);
-    } catch (_) {
-      _showMessage('Unable to sign in. Please try again.');
+    } catch (error) {
+      _showError(error, fallback: (l10n) => l10n.authSignInFailed);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -349,20 +360,16 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleResetPassword() async {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      _showMessage('Enter your email first to reset password.');
+      _showMessage(context.l10n.authEnterEmailForReset);
       return;
     }
 
     try {
       await _authRepository.resetPassword(email);
       if (!mounted) return;
-      _showMessage('Reset email sent. Check your inbox.');
-    } on FirebaseAuthException catch (error) {
-      _showMessage(error.message ?? 'Authentication failed. Please try again.');
-    } on StateError catch (error) {
-      _showMessage(error.message);
-    } catch (_) {
-      _showMessage('Unable to reset password right now.');
+      _showMessage(context.l10n.authResetEmailSent);
+    } catch (error) {
+      _showError(error, fallback: (l10n) => l10n.authResetFailed);
     }
   }
 
@@ -376,12 +383,8 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       // A null session means the user dismissed the native picker, or (on web)
       // the page redirected away — either way there is nothing more to do here.
-    } on FirebaseAuthException catch (error) {
-      _showMessage(error.message ?? 'Authentication failed. Please try again.');
-    } on StateError catch (error) {
-      _showMessage(error.message);
-    } catch (_) {
-      _showMessage('Unable to sign in with Google right now.');
+    } catch (error) {
+      _showError(error, fallback: (l10n) => l10n.authGoogleFailed);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -392,7 +395,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      _showMessage('Enter your email and password.');
+      _showMessage(context.l10n.authEnterEmailPassword);
       return;
     }
 
@@ -404,14 +407,10 @@ class _LoginScreenState extends State<LoginScreen> {
       if (_authRepository.hasActiveSession()) {
         await _routeAfterAuth(seedDefaults: true);
       } else {
-        _showMessage('Account created. Check your email, then sign in.');
+        _showMessage(context.l10n.authAccountCreatedCheckEmail);
       }
-    } on FirebaseAuthException catch (error) {
-      _showMessage(error.message ?? 'Authentication failed. Please try again.');
-    } on StateError catch (error) {
-      _showMessage(error.message);
-    } catch (_) {
-      _showMessage('Unable to create account right now.');
+    } catch (error) {
+      _showError(error, fallback: (l10n) => l10n.authSignUpFailed);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -451,7 +450,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Welcome back!',
+                            context.l10n.authWelcomeBack,
                             style: textTheme.headlineSmall?.copyWith(
                               color: colorScheme.onSurface,
                               fontWeight: FontWeight.w900,
@@ -459,7 +458,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Log in to continue.',
+                            context.l10n.authLogInToContinue,
                             style: textTheme.bodyMedium?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w600,
@@ -473,9 +472,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 34),
                 TextField(
                   controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    hintText: 'name@email.com',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.authEmail,
+                    hintText: 'name@email.com', // l10n-ignore
                   ),
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
@@ -485,11 +484,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextField(
                   controller: _passwordController,
                   decoration: InputDecoration(
-                    labelText: 'Password',
+                    labelText: context.l10n.authPassword,
                     suffixIcon: IconButton(
                       tooltip: _obscurePassword
-                          ? 'Show password'
-                          : 'Hide password',
+                          ? context.l10n.authShowPassword
+                          : context.l10n.authHidePassword,
                       onPressed: _isSubmitting
                           ? null
                           : () {
@@ -512,12 +511,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: _isSubmitting ? null : _handleResetPassword,
-                    child: const Text('Forgot password?'),
+                    child: Text(context.l10n.authForgotPassword),
                   ),
                 ),
                 const SizedBox(height: 22),
                 AikoPrimaryButton(
-                  label: _isSubmitting ? 'Logging in...' : 'Log In',
+                  label: _isSubmitting
+                      ? context.l10n.authLoggingIn
+                      : context.l10n.authLogIn,
                   onPressed: _isSubmitting ? null : _handleSignIn,
                 ),
                 const SizedBox(height: 22),
@@ -531,7 +532,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.center,
                           child: Text(
-                            'or continue with',
+                            context.l10n.authOrContinueWith,
                             style: textTheme.labelMedium?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -545,7 +546,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 16),
                 _SocialButton(
                   icon: Icons.g_mobiledata,
-                  label: 'Continue with Google',
+                  label: context.l10n.authContinueWithGoogle,
                   onPressed: _isSubmitting ? null : _handleGoogleSignIn,
                 ),
                 // Apple sign-in removed per request.
@@ -556,14 +557,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   spacing: 6,
                   children: [
                     Text(
-                      "Don't have an account?",
+                      context.l10n.authNoAccount,
                       style: textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                     TextButton(
                       onPressed: _isSubmitting ? null : _handleSignUp,
-                      child: const Text('Sign up'),
+                      child: Text(context.l10n.authSignUp),
                     ),
                   ],
                 ),

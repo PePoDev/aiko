@@ -1,4 +1,5 @@
 import '../../../core/firebase/firebase_backend.dart';
+import '../../../l10n/l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -7,11 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'chat_engine.dart';
 import 'financial_context.dart';
 
-const _greeting = ChatMessage(
-  role: 'assistant',
-  content:
-      "Hi! I'm Aiko. Ask me anything about your money, budgets, goals, or spending.",
-);
+/// Placeholder for the empty state; the screen shows `l10n.chatGreeting` in
+/// its place, and it is dropped before the first message is sent.
+const _greeting = ChatMessage(role: 'assistant', content: '');
 
 class ChatError {
   const ChatError(this.message, {required this.retryable});
@@ -119,12 +118,7 @@ class AikoChatController extends Notifier<ChatState> {
   Future<void> _dispatch(List<ChatMessage> history) async {
     if (state.offline) {
       // ponytail: chat needs the cloud engine; on-device answering is gone.
-      _handleEvent(
-        const ChatReplyError(
-          'Connect to Aiko cloud to chat.',
-          retryable: false,
-        ),
-      );
+      _handleEvent(const ChatReplyError(ChatFailure.offline, retryable: false));
       return;
     }
     final context = await buildAikoFinancialContext(ref);
@@ -132,7 +126,11 @@ class AikoChatController extends Notifier<ChatState> {
     _subscription?.cancel();
     _subscription = ref
         .read(aikoChatEngineProvider)
-        .streamReply(history: history, context: context)
+        .streamReply(
+          history: history,
+          context: context,
+          locale: currentL10n().localeName,
+        )
         .listen(
           _handleEvent,
           onError: (Object e) => _handleEvent(ChatReplyError(e)),
@@ -181,12 +179,23 @@ class AikoChatController extends Notifier<ChatState> {
   }
 
   String _humanize(Object error) {
-    if (error is ChatReplyError) return error.error.toString();
+    final l10n = currentL10n();
+    if (error is ChatReplyError) return _humanize(error.error);
+    if (error is ChatFailure) {
+      return switch (error) {
+        ChatFailure.signInExpired => l10n.chatErrorSignInExpired,
+        ChatFailure.forbidden => l10n.chatErrorForbidden,
+        ChatFailure.rateLimited => l10n.chatErrorRateLimited,
+        ChatFailure.unavailable => l10n.chatErrorUnavailable,
+        ChatFailure.badResponse => l10n.chatErrorBadResponse,
+        ChatFailure.offline => l10n.chatErrorOffline,
+      };
+    }
     final text = error.toString();
     if (text.contains('SocketException') || text.contains('Failed host')) {
-      return "I couldn't reach Aiko just now. Check your connection and try again.";
+      return l10n.chatErrorNetwork;
     }
-    return 'Something went wrong. Tap retry to try again.';
+    return l10n.chatErrorGeneric;
   }
 }
 

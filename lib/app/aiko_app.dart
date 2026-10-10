@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../core/config/app_config.dart';
 import '../features/auth/data/auth_repository.dart';
@@ -78,6 +79,9 @@ class _AikoAppState extends State<AikoApp> {
               ?.value;
           final locale =
               localeState?.locale ?? AppLocaleController.fallbackLocale;
+          // Dates, numbers and money formatted without an explicit locale
+          // (DateFormat, NumberFormat) follow the selected language.
+          Intl.defaultLocale = locale.languageCode;
           final preferredTheme = ref
               .watch(profileProvider)
               .maybeWhen(
@@ -86,7 +90,7 @@ class _AikoAppState extends State<AikoApp> {
               );
 
           return MaterialApp.router(
-            title: 'Aiko',
+            title: 'Aiko', // l10n-ignore
             theme: AikoTheme.light(),
             darkTheme: AikoTheme.dark(),
             themeMode: themeModeForPreferredTheme(preferredTheme),

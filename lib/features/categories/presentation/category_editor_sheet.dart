@@ -4,10 +4,12 @@ import 'package:uuid/uuid.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/category.dart';
 import 'category_group_editor_sheet.dart';
+import 'category_names.dart';
 import 'category_visual.dart';
 import 'widgets/category_budget_section.dart';
 import 'widgets/category_group_picker.dart';
@@ -83,6 +85,9 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
   bool _isSubmitting = false;
   bool _isDeleting = false;
 
+  /// The name shown when editing started; null for a new category.
+  String? _shownName;
+
   bool get _isEditing => widget.initialCategory != null;
 
   @override
@@ -94,7 +99,10 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
       _selectedGroupId = widget.groupIdHint;
       return;
     }
-    _nameController.text = initialCategory.name;
+    // Built-in categories open with their translated name (see
+    // storedCategoryName for how an unchanged name is saved).
+    _shownName = initialCategory.displayName(currentL10n());
+    _nameController.text = _shownName!;
     _selectedType = initialCategory.type;
     _selectedColorHex = initialCategory.color;
     _selectedIconKey = initialCategory.icon;
@@ -147,7 +155,11 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
               rolloverUnused: _rolloverUnused,
             )
           : initialCategory.copyWith(
-              name: _nameController.text.trim(),
+              name: storedCategoryName(
+                original: initialCategory.name,
+                shown: _shownName ?? initialCategory.name,
+                edited: _nameController.text,
+              ),
               type: _selectedType,
               color: _selectedColorHex,
               icon: _selectedIconKey,
@@ -165,8 +177,12 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
           SnackBar(
             content: Text(
               _isEditing
-                  ? 'Category "${category.name}" updated successfully!'
-                  : 'Category "${category.name}" added successfully!',
+                  ? context.l10n.categoryUpdated(
+                      category.displayName(context.l10n),
+                    )
+                  : context.l10n.categoryAdded(
+                      category.displayName(context.l10n),
+                    ),
             ),
             backgroundColor: AikoColors.successGreen,
           ),
@@ -179,8 +195,8 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
           SnackBar(
             content: Text(
               _isEditing
-                  ? 'Failed to update category: $e'
-                  : 'Failed to add category: $e',
+                  ? context.l10n.categorySaveFailed
+                  : context.l10n.categorySaveFailed,
             ),
             backgroundColor: AikoColors.dangerRed,
           ),
@@ -201,14 +217,16 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Delete "${category.name}"?'),
-        content: const Text(
-          'This removes the category from your list. Existing transactions keep their saved details.',
+        title: Text(
+          context.l10n.categoryDeleteQuestion(
+            category.displayName(context.l10n),
+          ),
         ),
+        content: Text(context.l10n.categoryDeleteMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -216,7 +234,7 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            child: Text(context.l10n.delete),
           ),
         ],
       ),
@@ -233,7 +251,9 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Category "${category.name}" deleted.'),
+            content: Text(
+              context.l10n.categoryDeleted(category.displayName(context.l10n)),
+            ),
             backgroundColor: AikoColors.successGreen,
           ),
         );
@@ -243,7 +263,7 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
         setState(() => _isDeleting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to delete category: $e'),
+            content: Text(context.l10n.categoryDeleteFailed),
             backgroundColor: AikoColors.dangerRed,
           ),
         );
@@ -296,7 +316,9 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    _isEditing ? 'Edit Category' : 'Add Category',
+                    _isEditing
+                        ? context.l10n.categoryEditTitle
+                        : context.l10n.categoriesAddCategory,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -304,7 +326,7 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                   const Spacer(),
                   if (_isEditing)
                     IconButton(
-                      tooltip: 'Delete category',
+                      tooltip: context.l10n.categoryDeleteTooltip,
                       color: AikoColors.dangerRed,
                       onPressed: _isSubmitting || _isDeleting
                           ? null
@@ -346,15 +368,15 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                     return null;
                   }),
                 ),
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: CategoryType.expense,
-                    label: Text('Expense'),
+                    label: Text(context.l10n.categoryTypeExpense),
                     icon: Icon(Icons.north_east),
                   ),
                   ButtonSegment(
                     value: CategoryType.income,
-                    label: Text('Income'),
+                    label: Text(context.l10n.categoryTypeIncome),
                     icon: Icon(Icons.south_west),
                   ),
                 ],
@@ -370,8 +392,8 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                 controller: _nameController,
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
-                  labelText: 'Category Name',
-                  hintText: 'e.g., Groceries, Rent, Gym Membership',
+                  labelText: context.l10n.categoryNameLabel,
+                  hintText: context.l10n.categoryNameHint,
                   prefixIcon: const Icon(Icons.edit_outlined),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -379,16 +401,18 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a category name';
+                    return context.l10n.categoryNameRequired;
                   }
                   final list = categoriesAsync.value ?? [];
                   if (list.any(
                     (c) =>
                         c.id != widget.initialCategory?.id &&
                         c.type == _selectedType &&
-                        c.name.toLowerCase() == value.trim().toLowerCase(),
+                        (c.name.toLowerCase() == value.trim().toLowerCase() ||
+                            c.displayName(context.l10n).toLowerCase() ==
+                                value.trim().toLowerCase()),
                   )) {
-                    return 'A category with this name already exists';
+                    return context.l10n.categoryNameExists;
                   }
                   return null;
                 },
@@ -404,7 +428,7 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Select Theme Color',
+                context.l10n.categorySelectColor,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -453,7 +477,7 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Select Icon',
+                context.l10n.categorySelectIcon,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -575,9 +599,11 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                 label: Text(
                   _isSubmitting
                       ? (_isEditing
-                            ? 'Updating Category...'
-                            : 'Adding Category...')
-                      : (_isEditing ? 'Update Category' : 'Save Category'),
+                            ? context.l10n.categoryUpdating
+                            : context.l10n.categoryAdding)
+                      : (_isEditing
+                            ? context.l10n.categoryUpdate
+                            : context.l10n.categorySave),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

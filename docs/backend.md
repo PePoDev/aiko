@@ -84,7 +84,8 @@ sequenceDiagram
 
 - **Layer 1, snapshot:** `buildAikoFinancialContext` (`lib/features/aiko_assistant/application/financial_context.dart`) sends aggregates and a short recent slice, never the full ledger.
 - **Layer 2, tools:** `aiko_account_summary`, `aiko_budget_status`, `aiko_spending_by_category`, `aiko_cashflow_summary`, `aiko_recent_transactions` (1–50 rows), `aiko_goal_progress`. Each receives the verified uid and reads only `users/{uid}`, and only what it needs (`FinanceReader`). Date-ranged tools query just that `date` range; recent transactions read the newest rows; category names are fetched by ID; account tools never read transactions. Reads are memoized for the whole message ([Cost](cost.md#cloud-functions)). Results are capped at 4,000 characters; tool errors go back to the model as JSON instead of failing the chat.
-- **Prompt rules:** warm, non-judgmental, base-currency amounts, no invented numbers, finance topics only. Answers with figures end with "Aiko provides estimates, not certified financial advice." The app shows that line as a separate disclaimer.
+- **Prompt rules:** warm, non-judgmental, base-currency amounts, no invented numbers, finance topics only. Answers with figures end with a disclaimer line, which the app shows separately.
+- **Language:** the app sends `systemContext.locale` (`en` or `th`); `languageInstruction` makes Aiko reply in that language with the matching disclaimer ("Aiko provides estimates, not certified financial advice." / "Aiko ให้ข้อมูลเชิงประมาณการ ไม่ใช่คำแนะนำทางการเงินจากผู้เชี่ยวชาญที่ได้รับอนุญาต"). Without a locale (LINE) Aiko mirrors the language of the user's message.
 - **Provider:** any OpenAI-compatible Chat Completions API at `${AI_BASE_URL}/chat/completions`, temperature 0.4, 60 s timeout per request.
 
 ### `deleteAccount`
@@ -103,7 +104,7 @@ sequenceDiagram
   W->>W: verify x-line-signature (HMAC-SHA256)
   alt not linked
     W->>W: 6-character code, stored as SHA-256 hash, 10-minute expiry
-    W-->>U: "Open Aiko → Profile → Connect LINE and enter CODE"
+    W-->>U: "Open Aiko → Profile → Connect LINE and enter CODE" (Thai for Thai messages, both for a new follower)
     U->>A: enters code
     A->>R: redeemLinePairing({code})
     R->>R: transaction: check code and expiry, link LINE user → uid,<br/>set users/{uid}/integrations/line, delete code

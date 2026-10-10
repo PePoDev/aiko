@@ -6,11 +6,14 @@ import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../l10n/domain_labels.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/layout/aiko_breakpoints.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
+import '../../categories/presentation/category_names.dart';
 import '../../categories/presentation/category_visual.dart';
 import '../application/recurring_projection.dart';
 import '../application/transaction_month_range.dart';
@@ -104,27 +107,27 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Transactions'),
+        title: Text(context.l10n.transactionsTab),
         actions: [
           if (_isSearching)
             IconButton(
-              tooltip: 'Close search',
+              tooltip: context.l10n.txCloseSearch,
               onPressed: _stopSearch,
               icon: Icon(Icons.close, color: actionColor),
             )
           else
             IconButton(
-              tooltip: 'Search',
+              tooltip: context.l10n.txSearch,
               onPressed: _startSearch,
               icon: Icon(Icons.search, color: actionColor),
             ),
           IconButton(
-            tooltip: 'Rules',
+            tooltip: context.l10n.txRules,
             onPressed: () => context.push('/transaction-rules'),
             icon: Icon(Icons.rule, color: actionColor),
           ),
           IconButton(
-            tooltip: 'Travel Mode',
+            tooltip: context.l10n.txTravelMode,
             onPressed: () => context.push('/travel-mode'),
             icon: Icon(Icons.flight_takeoff_outlined, color: actionColor),
           ),
@@ -133,8 +136,8 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
       body: transactionsAsync.when(
         loading: () => const AikoScreenState.loading(),
         error: (err, stack) => AikoScreenState.error(
-          title: 'Transactions are unavailable',
-          message: 'Aiko could not load this list right now. $err',
+          title: context.l10n.txListUnavailableTitle,
+          message: context.l10n.txListUnavailableMessage,
         ),
         data: (transactions) {
           return _MonthlyTransactionTabs(
@@ -321,8 +324,8 @@ class _TransactionSearchField extends StatelessWidget {
           controller: controller,
           autofocus: true,
           textAlignVertical: TextAlignVertical.center,
-          decoration: const InputDecoration(
-            hintText: 'Search merchant, note, tag, category',
+          decoration: InputDecoration(
+            hintText: context.l10n.txSearchHint,
             prefixIcon: Icon(Icons.search),
             isDense: true,
             contentPadding: EdgeInsets.symmetric(vertical: 12),
@@ -375,22 +378,22 @@ class _TransactionInlineFilters extends StatelessWidget {
                 children: [
                   SegmentedButton<_TransactionTypeFilter>(
                     showSelectedIcon: false,
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: _TransactionTypeFilter.all,
-                        label: Text('All'),
+                        label: Text(context.l10n.txFilterAll),
                       ),
                       ButtonSegment(
                         value: _TransactionTypeFilter.income,
-                        label: Text('Income'),
+                        label: Text(context.l10n.transactionTypeIncome),
                       ),
                       ButtonSegment(
                         value: _TransactionTypeFilter.expense,
-                        label: Text('Expense'),
+                        label: Text(context.l10n.transactionTypeExpense),
                       ),
                       ButtonSegment(
                         value: _TransactionTypeFilter.transfer,
-                        label: Text('Transfer'),
+                        label: Text(context.l10n.transactionTypeTransfer),
                       ),
                     ],
                     selected: {typeFilter},
@@ -399,26 +402,26 @@ class _TransactionInlineFilters extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   FilterChip(
-                    label: const Text('Amount'),
+                    label: Text(context.l10n.txAmount),
                     selected: showAmountInputs,
                     onSelected: (_) => onToggleAmountInputs(),
                   ),
                   const SizedBox(width: 8),
                   PopupMenuButton<_TransactionDateFilter>(
-                    tooltip: 'Date filter',
+                    tooltip: context.l10n.txDateFilterTooltip,
                     onSelected: onDateFilterChanged,
-                    itemBuilder: (context) => const [
+                    itemBuilder: (context) => [
                       PopupMenuItem(
                         value: _TransactionDateFilter.all,
-                        child: Text('All dates'),
+                        child: Text(context.l10n.txFilterAllDates),
                       ),
                       PopupMenuItem(
                         value: _TransactionDateFilter.thisMonth,
-                        child: Text('This month'),
+                        child: Text(context.l10n.txFilterThisMonth),
                       ),
                       PopupMenuItem(
                         value: _TransactionDateFilter.last30Days,
-                        child: Text('Last 30 days'),
+                        child: Text(context.l10n.txFilterLast30Days),
                       ),
                     ],
                     child: Chip(
@@ -429,7 +432,7 @@ class _TransactionInlineFilters extends StatelessWidget {
                             ? theme.colorScheme.onSurfaceVariant
                             : theme.colorScheme.primary,
                       ),
-                      label: Text(_dateFilterLabel(dateFilter)),
+                      label: Text(_dateFilterLabel(dateFilter, context.l10n)),
                       backgroundColor: dateFilter == _TransactionDateFilter.all
                           ? null
                           : theme.colorScheme.primary.withValues(alpha: 0.12),
@@ -440,7 +443,7 @@ class _TransactionInlineFilters extends StatelessWidget {
                     const SizedBox(width: 8),
                     TextButton(
                       onPressed: onClearSearch,
-                      child: const Text('Clear all'),
+                      child: Text(context.l10n.txClearAll),
                     ),
                   ],
                 ],
@@ -456,8 +459,8 @@ class _TransactionInlineFilters extends StatelessWidget {
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
-                      decoration: const InputDecoration(
-                        labelText: 'Min',
+                      decoration: InputDecoration(
+                        labelText: context.l10n.txMin,
                         prefixIcon: Icon(Icons.attach_money),
                       ),
                     ),
@@ -469,8 +472,8 @@ class _TransactionInlineFilters extends StatelessWidget {
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
-                      decoration: const InputDecoration(
-                        labelText: 'Max',
+                      decoration: InputDecoration(
+                        labelText: context.l10n.txMax,
                         prefixIcon: Icon(Icons.attach_money),
                       ),
                     ),
@@ -485,11 +488,11 @@ class _TransactionInlineFilters extends StatelessWidget {
   }
 }
 
-String _dateFilterLabel(_TransactionDateFilter filter) {
+String _dateFilterLabel(_TransactionDateFilter filter, AppLocalizations l10n) {
   return switch (filter) {
-    _TransactionDateFilter.all => 'Date',
-    _TransactionDateFilter.thisMonth => 'This month',
-    _TransactionDateFilter.last30Days => 'Last 30 days',
+    _TransactionDateFilter.all => l10n.txFilterDate,
+    _TransactionDateFilter.thisMonth => l10n.txFilterThisMonth,
+    _TransactionDateFilter.last30Days => l10n.txFilterLast30Days,
   };
 }
 
@@ -535,7 +538,7 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
         transaction: tx,
         searchState: searchState,
         account: accountsById[tx.accountId],
-        categoryName: categoriesById[tx.categoryId]?.name,
+        categoryName: categoriesById[tx.categoryId]?.displayName(context.l10n),
       );
     }).toList()..sort((a, b) => b.date.compareTo(a.date));
 
@@ -566,15 +569,15 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
           children: [
             AikoScreenState.empty(
               title: searchState.isActive
-                  ? 'No matching transactions'
-                  : 'No transactions in ${_monthLabel(widget.month)}',
+                  ? context.l10n.txNoMatching
+                  : context.l10n.txNoneInMonth(_monthLabel(widget.month)),
               message: searchState.isActive
-                  ? 'Try a different search or clear filters.'
-                  : 'Add a transaction for this month when you are ready.',
+                  ? context.l10n.txNoMatchingHint
+                  : context.l10n.txNoneInMonthHint,
               action: searchState.isActive
                   ? TextButton(
                       onPressed: widget.onClearSearch,
-                      child: const Text('Clear search'),
+                      child: Text(context.l10n.txClearSearch),
                     )
                   : null,
             ),
@@ -594,7 +597,7 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
     );
     for (final ghost in ghosts) {
       accountLabels[ghost.id] =
-          accountsById[ghost.accountId]?.name ?? 'Upcoming';
+          accountsById[ghost.accountId]?.name ?? context.l10n.txUpcoming;
     }
 
     final monthTotal = _monthTotal(filtered);
@@ -682,6 +685,7 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
       transaction.amount.amount.toString(),
       transaction.amount.format(),
       transaction.type.name,
+      transaction.type.label(context.l10n),
       ...transaction.tags,
     ].whereType<String>().join(' ').toLowerCase();
 
@@ -832,7 +836,7 @@ class _TransactionDateHeader extends StatelessWidget {
             color: theme.colorScheme.primary,
           ),
           const SizedBox(width: 8),
-          Text(_dateHeaderLabel(date), style: headerStyle),
+          Text(_dateHeaderLabel(date, context.l10n), style: headerStyle),
           const Spacer(),
           Text(
             _formatDailyTotal(total),
@@ -897,7 +901,7 @@ class _MonthSummaryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '$monthLabel Summary',
+                      context.l10n.txMonthSummary(monthLabel),
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -907,7 +911,7 @@ class _MonthSummaryCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: _MonthSummaryMetric(
-                            label: 'Total Spent',
+                            label: context.l10n.txTotalSpent,
                             value: _formatDailyTotal(total),
                             valueColor: AikoColors.dangerRed,
                           ),
@@ -920,7 +924,7 @@ class _MonthSummaryCard extends StatelessWidget {
                         const SizedBox(width: 12),
                         Expanded(
                           child: _MonthSummaryMetric(
-                            label: 'Average per Day',
+                            label: context.l10n.txAveragePerDay,
                             value: _formatDailyTotal(averagePerDay),
                             valueColor: theme.colorScheme.onSurface,
                           ),
@@ -1015,7 +1019,9 @@ class _DayTransactionsCard extends StatelessWidget {
               ),
             _TransactionRow(
               transaction: transactions[i],
-              accountLabel: accountLabels[transactions[i].id] ?? 'Unknown',
+              accountLabel:
+                  accountLabels[transactions[i].id] ??
+                  context.l10n.txUnknownAccount,
               accent: transactions[i].type == TransactionType.income
                   ? AikoColors.successGreen
                   : AikoColors.dangerRed,
@@ -1039,24 +1045,10 @@ class _DayTransactionsCard extends StatelessWidget {
   }
 }
 
+/// "Oct 2026" / "ต.ค. 2026" in the current language.
 String _monthLabel(TransactionMonth month) {
-  return '${_monthLabels[month.month - 1]} ${month.year}';
+  return DateFormat.yMMM().format(DateTime(month.year, month.month));
 }
-
-const _monthLabels = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 
 class _TransactionRow extends ConsumerWidget {
   const _TransactionRow({
@@ -1080,7 +1072,8 @@ class _TransactionRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final title = transaction.merchant ?? transaction.note ?? 'Transaction';
+    final title =
+        transaction.merchant ?? transaction.note ?? context.l10n.txUntitled;
     final amount = '$sign${transaction.amount.format()}';
     final timeLabel = DateFormat('HH:mm').format(transaction.date);
     final categoriesAsync = ref.watch(categoriesProvider);
@@ -1157,7 +1150,7 @@ class _TransactionRow extends ConsumerWidget {
                   const SizedBox(height: 2),
                   _TransactionMeta(
                     time: timeLabel,
-                    categoryName: category?.name,
+                    categoryName: category?.displayName(context.l10n),
                     status: transaction.status,
                     tags: transaction.tags,
                   ),
@@ -1218,7 +1211,7 @@ class _UpcomingPill extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         child: Text(
-          'Upcoming',
+          context.l10n.txUpcoming,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
             color: color,
             fontWeight: FontWeight.w700,
@@ -1285,14 +1278,20 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
-      TransactionStatus.draft => ('Draft', AikoColors.warningOrange),
-      TransactionStatus.voided => ('Voided', AikoColors.dangerRed),
+      TransactionStatus.draft => (
+        context.l10n.txStatusDraft,
+        AikoColors.warningOrange,
+      ),
+      TransactionStatus.voided => (
+        context.l10n.txStatusVoided,
+        AikoColors.dangerRed,
+      ),
       TransactionStatus.archived => (
-        'Archived',
+        context.l10n.txStatusArchived,
         Theme.of(context).colorScheme.onSurfaceVariant,
       ),
       TransactionStatus.posted => (
-        'Posted',
+        context.l10n.txStatusPosted,
         Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     };
@@ -1346,13 +1345,13 @@ class _TransactionTagChip extends StatelessWidget {
 
 DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
 
-String _dateHeaderLabel(DateTime date) {
+String _dateHeaderLabel(DateTime date, AppLocalizations l10n) {
   final today = _dateOnly(DateTime.now());
   if (date == today) {
-    return 'Today';
+    return l10n.today;
   }
   if (date == today.subtract(const Duration(days: 1))) {
-    return 'Yesterday';
+    return l10n.yesterday;
   }
   return DateFormat('EEE, MMM d, yyyy').format(date);
 }

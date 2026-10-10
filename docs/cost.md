@@ -64,8 +64,8 @@ Example: a user with 2,000 transactions who logs 10 a day used ~40,000 reads a d
 ## Hosting
 
 - `canvaskit/` (37 MB) is excluded from deploys (`firebase.json` → `hosting.ignore`). The app always loads CanvasKit from Google's CDN, so the files were never served. If you build with `--no-web-resources-cdn`, remove that ignore entry.
-- `pubspec.yaml` bundles only the SVG marks from `assets/icons/`. The launcher-icon sources (`app_icon.png`, `app_icon_padded.png`, 3.3 MB) stay out of every web, Android and iOS build.
-- Fonts and the renderer come from Google's CDN, so that transfer doesn't count toward Hosting. Hosting serves compressed files; `main.dart.js` is about 1.5 MB gzipped.
+- `pubspec.yaml` bundles only the SVG marks from `assets/icons/`, plus Noto Sans Thai (five weights, about 240 KB) so Thai renders offline. The launcher-icon sources (`app_icon.png`, `app_icon_padded.png`, 3.3 MB) stay out of every web, Android and iOS build.
+- The Latin fonts and the renderer come from Google's CDN, so that transfer doesn't count toward Hosting. Hosting serves compressed files; `main.dart.js` is about 1.5 MB gzipped.
 - `Cache-Control: no-cache` makes browsers revalidate. Unchanged files return small `304` responses rather than full downloads.
 - Preview channels expire after 7 days. Live releases are kept until you limit them, so set a retention limit (below).
 

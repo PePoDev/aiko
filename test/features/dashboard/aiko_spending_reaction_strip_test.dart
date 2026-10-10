@@ -1,5 +1,6 @@
 import 'package:aiko/features/dashboard/domain/daily_spending_reaction.dart';
 import 'package:aiko/features/dashboard/presentation/widgets/aiko_spending_reaction_strip.dart';
+import 'package:aiko/l10n/app_localizations.dart';
 import 'package:aiko/theme/aiko_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,6 +45,8 @@ void main() {
       try {
         await tester.pumpWidget(
           MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: AikoSpendingReactionStrip(reaction: testCase.reaction),
             ),

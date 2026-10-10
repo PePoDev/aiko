@@ -76,7 +76,7 @@ void main() {
 
       final error = events.whereType<ChatReplyError>().single;
       expect(error.retryable, isFalse);
-      expect(error.error, contains("Aiko can't access this"));
+      expect(error.error, ChatFailure.forbidden);
     });
 
     test('surfaces 429 as a retryable error', () async {
@@ -116,7 +116,7 @@ void main() {
           .toList();
 
       final error = events.whereType<ChatReplyError>().single;
-      expect(error.error, contains('Bad response'));
+      expect(error.error, ChatFailure.badResponse);
     });
   });
 }

@@ -1,6 +1,8 @@
 import '../../../core/formatting/money_formatter.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../accounts/domain/account.dart';
 import '../../categories/domain/category.dart';
+import '../../categories/presentation/category_names.dart';
 import '../../transactions/domain/transaction.dart';
 import 'dashboard_due_item.dart';
 
@@ -37,6 +39,7 @@ List<AppNotification> buildNotifications({
   required List<Account> accounts,
   required List<DashboardDueItem> dueItems,
   required DateTime asOf,
+  required AppLocalizations l10n,
 }) {
   final result = <AppNotification>[];
 
@@ -64,8 +67,8 @@ List<AppNotification> buildNotifications({
     result.add(
       AppNotification(
         group: AppNotificationGroup.budget,
-        title: cat.name,
-        subtitle: "You've used $pct% of your ${cat.name} budget.",
+        title: cat.displayName(l10n),
+        subtitle: l10n.notifBudgetUsed(pct, cat.displayName(l10n)),
         severity: pct >= 100
             ? AppNotificationSeverity.danger
             : AppNotificationSeverity.warning,
@@ -77,16 +80,16 @@ List<AppNotification> buildNotifications({
   for (final item in dueItems) {
     final days = item.daysUntil(asOf);
     if (days < 0 || days > 7) continue;
-    final when = days == 0
-        ? 'today'
-        : days == 1
-        ? 'tomorrow'
-        : 'in $days days';
+    final amount = item.amount.format();
     result.add(
       AppNotification(
         group: AppNotificationGroup.bills,
         title: item.title,
-        subtitle: '${item.amount.format()} due $when.',
+        subtitle: days == 0
+            ? l10n.notifDueToday(amount)
+            : days == 1
+            ? l10n.notifDueTomorrow(amount)
+            : l10n.notifDueInDays(amount, days),
         severity: days <= 2
             ? AppNotificationSeverity.warning
             : AppNotificationSeverity.info,
@@ -103,7 +106,7 @@ List<AppNotification> buildNotifications({
         AppNotification(
           group: AppNotificationGroup.goals,
           title: account.name,
-          subtitle: '${account.name} is fully funded — goal reached!',
+          subtitle: l10n.notifGoalReached(account.name),
           severity: AppNotificationSeverity.success,
         ),
       );
@@ -112,7 +115,7 @@ List<AppNotification> buildNotifications({
         AppNotification(
           group: AppNotificationGroup.goals,
           title: account.name,
-          subtitle: '${account.name} is $pct% funded.',
+          subtitle: l10n.notifGoalProgress(account.name, pct),
           severity: AppNotificationSeverity.success,
         ),
       );

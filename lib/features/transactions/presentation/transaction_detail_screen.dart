@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
 import '../../../core/notifications/transaction_reminder_service.dart';
+import '../../../l10n/domain_labels.dart';
+import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
@@ -12,6 +14,7 @@ import '../../accounts/domain/account.dart';
 import '../../accounts/presentation/accounts_screen.dart';
 import '../../categories/domain/category.dart';
 import '../../categories/presentation/category_editor_sheet.dart';
+import '../../categories/presentation/category_names.dart';
 import '../domain/transaction.dart';
 import 'transaction_form_screen.dart';
 
@@ -49,19 +52,17 @@ class _TransactionDetailScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete transaction?'),
-        content: const Text(
-          'Are you sure you want to delete this transaction?',
-        ),
+        title: Text(context.l10n.txDeleteQuestion),
+        content: Text(context.l10n.txDeleteConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton.icon(
             onPressed: () => Navigator.of(context).pop(true),
             icon: const Icon(Icons.delete_outline),
-            label: const Text('Delete'),
+            label: Text(context.l10n.delete),
           ),
         ],
       ),
@@ -81,24 +82,23 @@ class _TransactionDetailScreenState
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Transaction deleted!')));
+      ).showSnackBar(SnackBar(content: Text(context.l10n.txDeleted)));
       Navigator.of(context).pop();
     } catch (_) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to delete transaction right now.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.txDeleteFailed)));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final transaction = _transaction;
-    final title = transaction.merchant ?? transaction.note ?? 'Transaction';
+    final title =
+        transaction.merchant ?? transaction.note ?? context.l10n.txUntitled;
     final dateTime = DateFormat('yyyy-MM-dd HH:mm').format(transaction.date);
 
     final accountsAsync = ref.watch(accountsProvider);
@@ -117,7 +117,7 @@ class _TransactionDetailScreenState
           );
     final categoryName = transaction.categoryId == null
         ? null
-        : category?.name ?? transaction.categoryId;
+        : category?.displayName(context.l10n) ?? transaction.categoryId;
     final categoryIcon = transaction.categoryId != null
         ? (category == null
               ? Icons.category_outlined
@@ -139,15 +139,15 @@ class _TransactionDetailScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Transaction details'),
+        title: Text(context.l10n.txDetailsTitle),
         actions: [
           IconButton(
-            tooltip: 'Delete transaction',
+            tooltip: context.l10n.txDeleteTooltip,
             onPressed: _deleteTransaction,
             icon: const Icon(Icons.delete_outline),
           ),
           IconButton(
-            tooltip: 'Edit transaction',
+            tooltip: context.l10n.txEditTitle,
             onPressed: _editTransaction,
             icon: const Icon(Icons.edit_outlined),
           ),
@@ -166,12 +166,12 @@ class _TransactionDetailScreenState
                 AmountText(_signedAmount(transaction)),
                 const SizedBox(height: 4),
                 Text(
-                  '${_labelFor(transaction.type.name)} - $dateTime',
+                  '${transaction.type.label(context.l10n)} - $dateTime',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 8),
                 _DetailRow(
-                  label: 'Account',
+                  label: context.l10n.txAccount,
                   value: accountName,
                   onTap: account == null
                       ? null
@@ -183,7 +183,7 @@ class _TransactionDetailScreenState
                 if (categoryName != null) ...[
                   const Divider(),
                   _DetailRow(
-                    label: 'Category',
+                    label: context.l10n.txCategory,
                     value: categoryName,
                     valueIcon: categoryIcon,
                     valueIconColor: categoryColor,
@@ -198,16 +198,22 @@ class _TransactionDetailScreenState
                 if (transaction.note != null &&
                     transaction.note!.isNotEmpty) ...[
                   const Divider(),
-                  _DetailRow(label: 'Note', value: transaction.note!),
+                  _DetailRow(
+                    label: context.l10n.txNote,
+                    value: transaction.note!,
+                  ),
                 ],
                 if (transaction.tags.isNotEmpty) ...[
                   const Divider(),
-                  _DetailRow(label: 'Tags', value: transaction.tags.join(', ')),
+                  _DetailRow(
+                    label: context.l10n.txTags,
+                    value: transaction.tags.join(', '),
+                  ),
                 ],
                 if (transaction.reminderAt != null) ...[
                   const Divider(),
                   _DetailRow(
-                    label: 'Reminder',
+                    label: context.l10n.txReminder,
                     value: DateFormat(
                       'MMM d, yyyy · HH:mm',
                     ).format(transaction.reminderAt!),
@@ -220,7 +226,7 @@ class _TransactionDetailScreenState
           if (transaction.splits.isNotEmpty) ...[
             const SizedBox(height: 16),
             FinanceCard(
-              title: 'Splits',
+              title: context.l10n.txSplits,
               icon: Icons.call_split_outlined,
               accentColor: AikoColors.premiumPurple,
               child: Column(
@@ -241,18 +247,6 @@ class _TransactionDetailScreenState
   String _signedAmount(FinanceTransaction transaction) {
     final sign = transaction.type == TransactionType.income ? '+' : '-';
     return '$sign${transaction.amount.format()}';
-  }
-
-  String _labelFor(String value) {
-    final buffer = StringBuffer();
-    for (var index = 0; index < value.length; index++) {
-      final character = value[index];
-      if (index > 0 && character.toUpperCase() == character) {
-        buffer.write(' ');
-      }
-      buffer.write(index == 0 ? character.toUpperCase() : character);
-    }
-    return buffer.toString();
   }
 
   IconData _categoryIconFor(String iconName) {
@@ -402,7 +396,7 @@ class _SplitRow extends StatelessWidget {
                       final category = categories.firstWhere(
                         (c) => c.id == split.categoryId,
                       );
-                      return category.name;
+                      return category.displayName(context.l10n);
                     } catch (_) {
                       return split.categoryId;
                     }

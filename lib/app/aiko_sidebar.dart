@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../core/firebase/firebase_backend.dart';
 import '../features/aiko_character/presentation/aiko_avatar.dart';
 import '../features/transactions/presentation/transaction_form_screen.dart';
-import '../l10n/app_localizations.dart';
+import '../l10n/l10n.dart';
 import '../shared/layout/adaptive_presentation.dart';
 import 'aiko_navigation.dart';
 
@@ -25,7 +25,7 @@ class AikoSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context);
+    final l10n = context.l10n;
     final footer = <({String path, IconData icon, String label})>[
       (
         path: '/settings',
@@ -33,7 +33,11 @@ class AikoSidebar extends StatelessWidget {
         label: l10n.settingsTitle,
       ),
       if (FirebaseBackend.isConfigured)
-        (path: '/profile', icon: Icons.person_outline, label: 'Profile'),
+        (
+          path: '/profile',
+          icon: Icons.person_outline,
+          label: l10n.profileTitle,
+        ),
     ];
     final selected = aikoSelectedPath(location, [
       for (final destination in aikoPrimaryDestinations) destination.path,
@@ -72,11 +76,11 @@ class AikoSidebar extends StatelessWidget {
                     selected: selected == destination.path,
                     labeled: labeled,
                   ),
-                _SectionLabel(label: 'Tools', labeled: labeled),
+                _SectionLabel(label: l10n.sidebarTools, labeled: labeled),
                 for (final tool in aikoNavigationItems)
                   _SidebarItem(
                     path: tool.path,
-                    label: tool.label,
+                    label: tool.label(l10n),
                     icon: tool.icon,
                     accent: tool.accentColor,
                     selected: selected == tool.path,
@@ -120,7 +124,10 @@ class _Brand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final mark = AikoAvatar(size: labeled ? 32 : 36, semanticLabel: 'Aiko');
+    final mark = AikoAvatar(
+      size: labeled ? 32 : 36,
+      semanticLabel: 'Aiko', // l10n-ignore
+    );
     return Padding(
       padding: EdgeInsets.fromLTRB(labeled ? 20 : 0, 20, 16, 20),
       child: labeled
@@ -129,7 +136,7 @@ class _Brand extends StatelessWidget {
                 mark,
                 const SizedBox(width: 10),
                 Text(
-                  'Aiko',
+                  'Aiko', // l10n-ignore
                   style: theme.textTheme.titleLarge?.copyWith(
                     color: theme.colorScheme.primary,
                     fontWeight: FontWeight.w800,
@@ -155,7 +162,7 @@ class _NewTransactionButton extends StatelessWidget {
     if (!labeled) {
       return Center(
         child: IconButton.filled(
-          tooltip: 'New transaction',
+          tooltip: context.l10n.newTransaction,
           onPressed: () => _open(context),
           icon: const Icon(Icons.add),
         ),
@@ -165,7 +172,7 @@ class _NewTransactionButton extends StatelessWidget {
       key: const ValueKey('sidebar-new-transaction'),
       onPressed: () => _open(context),
       icon: const Icon(Icons.add),
-      label: const Text('New transaction'),
+      label: Text(context.l10n.newTransaction),
     );
   }
 }

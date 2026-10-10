@@ -1,3 +1,6 @@
+import '../../../l10n/l10n.dart';
+import 'dart:math';
+
 import '../../../shared/widgets/cached_avatar.dart';
 
 import 'package:flutter/material.dart';
@@ -31,8 +34,9 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
   /// padding on the chat list so the last message clears above the chips.
   double _suggestionsHeight = 0;
 
-  /// Suggestions shown on the empty state — randomized once per screen open.
-  late final List<String> _initialSuggestions = AikoPromptSuggestions.sample();
+  /// Seed for the empty-state suggestions — randomized once per screen open,
+  /// so they stay put across rebuilds and follow a language change.
+  final int _initialSuggestionsSeed = Random().nextInt(1 << 31);
 
   @override
   void dispose() {
@@ -72,7 +76,12 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
   /// fresh "next" recommendations seeded on the turn so they stay stable while
   /// that reply is on screen and refresh after the next answer.
   List<String>? _suggestionsFor(ChatState state) {
-    if (state.showSuggestions) return _initialSuggestions;
+    if (state.showSuggestions) {
+      return AikoPromptSuggestions.sample(
+        context.l10n,
+        seed: _initialSuggestionsSeed,
+      );
+    }
     if (state.isStreaming || state.lastError != null) return null;
 
     final last = state.messages.last;
@@ -81,6 +90,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
 
     final asked = state.messages.where((m) => m.isUser).map((m) => m.content);
     return AikoPromptSuggestions.sample(
+      context.l10n,
       seed: state.messages.length,
       exclude: asked,
     );
@@ -130,7 +140,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
             child: Stack(
               children: [
                 if (state.isEmpty)
-                  _AikoStage(greeting: state.messages.first.content)
+                  _AikoStage(greeting: context.l10n.chatGreeting)
                 else
                   ListView.builder(
                     controller: _scrollController,
@@ -405,7 +415,7 @@ class _ErrorBlock extends StatelessWidget {
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
           icon: const Icon(Icons.refresh, size: 16),
-          label: const Text('Retry'),
+          label: Text(context.l10n.retry),
         ),
       ],
     );
@@ -520,7 +530,9 @@ class _InputBar extends StatelessWidget {
           onSubmitted: onSubmit,
           decoration: InputDecoration(
             counterText: '', // hide the counter; the cap is silent
-            hintText: disabled ? 'Aiko is busy...' : 'Ask about your money...',
+            hintText: disabled
+                ? context.l10n.chatBusyHint
+                : context.l10n.chatInputHint,
             hintStyle: TextStyle(
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
@@ -609,7 +621,7 @@ class _OfflineNotice extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       color: AikoColors.paleBlue,
-      child: const Row(
+      child: Row(
         children: [
           Icon(
             Icons.offline_bolt_outlined,
@@ -619,8 +631,7 @@ class _OfflineNotice extends StatelessWidget {
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Aiko chat needs the cloud. '
-              'Connect to Aiko cloud to start chatting.',
+              context.l10n.chatNeedsCloud,
               style: TextStyle(fontSize: 12, color: AikoColors.deepBlue),
             ),
           ),
@@ -648,10 +659,10 @@ class _AikoStage extends StatelessWidget {
           children: [
             _ThinkingBubble(text: greeting),
             const SizedBox(height: 24),
-            const AikoCharacter(
+            AikoCharacter(
               key: ValueKey('aiko-stage-character'),
               mood: AikoMood.thinking,
-              semanticLabel: 'Aiko is thinking',
+              semanticLabel: context.l10n.chatThinking,
               size: 220,
             ),
           ],
@@ -708,7 +719,7 @@ class _UserProfileIcon extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       child: IconButton(
         key: const ValueKey('chat-user-profile-icon'),
-        tooltip: 'Profile',
+        tooltip: context.l10n.profileTitle,
         onPressed: () => context.push('/profile'),
         icon: CircleAvatar(
           radius: 16,

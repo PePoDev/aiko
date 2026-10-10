@@ -1,0 +1,5 @@
+/* Thai permission prompts and app name (English ones live in Info.plist). */
+"CFBundleDisplayName" = "Aiko";
+"NSCameraUsageDescription" = "Aiko ใช้กล้องเพื่อสแกนใบเสร็จสำหรับบันทึกรายการ";
+"NSPhotoLibraryUsageDescription" = "Aiko ใช้คลังรูปภาพของคุณเพื่อแนบรูปใบเสร็จกับรายการ";
+"NSLocalNetworkUsageDescription" = "เชื่อมต่อกับเซิร์ฟเวอร์พัฒนา Aiko ในเครื่องของคุณ";

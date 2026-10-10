@@ -3,8 +3,12 @@ import 'package:aiko/features/categories/application/category_budget_progress_se
 import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:aiko/l10n/app_localizations.dart';
+import 'package:flutter/widgets.dart';
 
 void main() {
+  final english = lookupAppLocalizations(const Locale('en'));
+
   const service = CategoryBudgetProgressService();
 
   Category categoryWithBudget(Money limit) {
@@ -133,7 +137,7 @@ void main() {
         color: '#000000',
       );
       final result = service.progressFor(category, const []);
-      expect(service.recommendation(result, 7), contains('No budget'));
+      expect(service.recommendation(result, 7, english), contains('No budget'));
     });
 
     test('offers a daily-limit suggestion when on track', () {
@@ -145,7 +149,7 @@ void main() {
           amount: Money.parse('50', 'USD'),
         ),
       ]);
-      final message = service.recommendation(result, 10);
+      final message = service.recommendation(result, 10, english);
       expect(message, contains('Keep this category under'));
       expect(message, contains('USD/day'));
     });

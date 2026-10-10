@@ -2,6 +2,7 @@ import 'package:aiko/app/providers.dart';
 import 'package:aiko/features/aiko_assistant/presentation/aiko_assistant_screen.dart';
 import 'package:aiko/features/aiko_character/presentation/aiko_character.dart';
 import 'package:aiko/features/settings/domain/profile.dart';
+import 'package:aiko/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,7 +27,11 @@ void main() {
               ),
             ),
           ],
-          child: const MaterialApp(home: AikoAssistantScreen()),
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: AikoAssistantScreen(),
+          ),
         ),
       );
       await tester.pump();

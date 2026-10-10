@@ -11,24 +11,32 @@ extension DailySpendingReactionPresentation on DailySpendingReaction {
     DailySpendingReaction.comfortable => AikoColors.successGreen,
     DailySpendingReaction.caution => AikoColors.warningOrange,
     DailySpendingReaction.exceeded => AikoColors.dangerRed,
+    DailySpendingReaction.idle => AikoColors.analyticsTeal,
+    DailySpendingReaction.needsIncome => AikoColors.primaryBlue,
   };
 
   String title(AppLocalizations l10n) => switch (this) {
     DailySpendingReaction.comfortable => l10n.reactionComfortableTitle,
     DailySpendingReaction.caution => l10n.reactionCautionTitle,
     DailySpendingReaction.exceeded => l10n.reactionExceededTitle,
+    DailySpendingReaction.idle => l10n.reactionIdleTitle,
+    DailySpendingReaction.needsIncome => l10n.reactionNeedsIncomeTitle,
   };
 
   String message(AppLocalizations l10n) => switch (this) {
     DailySpendingReaction.comfortable => l10n.reactionComfortableMessage,
     DailySpendingReaction.caution => l10n.reactionCautionMessage,
     DailySpendingReaction.exceeded => l10n.reactionExceededMessage,
+    DailySpendingReaction.idle => l10n.reactionIdleMessage,
+    DailySpendingReaction.needsIncome => l10n.reactionNeedsIncomeMessage,
   };
 
   String semanticsLabel(AppLocalizations l10n) => switch (this) {
     DailySpendingReaction.comfortable => l10n.reactionComfortableSemantics,
     DailySpendingReaction.caution => l10n.reactionCautionSemantics,
     DailySpendingReaction.exceeded => l10n.reactionExceededSemantics,
+    DailySpendingReaction.idle ||
+    DailySpendingReaction.needsIncome => l10n.reactionCalmSemantics,
   };
 }
 
@@ -164,6 +172,12 @@ class _AikoReactionPainter extends CustomPainter {
             point(32, 35).dy,
           );
         canvas.drawPath(angry, outline);
+        break;
+      case DailySpendingReaction.idle:
+      case DailySpendingReaction.needsIncome:
+        canvas.drawCircle(point(21, 24), 1.3 * scale, features);
+        canvas.drawCircle(point(31, 24), 1.3 * scale, features);
+        canvas.drawLine(point(21, 32), point(31, 32), outline);
         break;
     }
 

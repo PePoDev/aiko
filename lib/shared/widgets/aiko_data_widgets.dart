@@ -105,6 +105,7 @@ class AikoMetricCard extends StatelessWidget {
     required this.label,
     required this.value,
     this.change,
+    this.changeColor,
     this.icon,
     this.accentColor = AikoColors.primaryBlue,
     this.progress,
@@ -114,6 +115,10 @@ class AikoMetricCard extends StatelessWidget {
   final String label;
   final String value;
   final String? change;
+
+  /// Color of [change]; defaults to [accentColor]. Pass one when the change's
+  /// direction is good or bad news.
+  final Color? changeColor;
   final IconData? icon;
   final Color accentColor;
   final double? progress;
@@ -157,7 +162,9 @@ class AikoMetricCard extends StatelessWidget {
               Text(
                 change!,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AikoStatusColors.of(context).textFor(accentColor),
+                  color:
+                      changeColor ??
+                      AikoStatusColors.of(context).textFor(accentColor),
                   fontWeight: FontWeight.w700,
                 ),
               ),

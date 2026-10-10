@@ -14,21 +14,36 @@ enum AppNotificationGroup { budget, bills, goals }
 /// Maps to a semantic color in the UI; kept framework-light here (no Flutter).
 enum AppNotificationSeverity { info, success, warning, danger }
 
+/// The screen a notification opens: Categories for a budget alert, Accounts
+/// for a bill, and the goal's account for a goal milestone.
+enum AppNotificationTarget { categories, accounts, account }
+
 /// A notification derived on the fly from the user's real local data. There is
 /// no notifications table — these are recomputed from transactions/categories/
 /// accounts/due-items each time the screen opens.
 class AppNotification {
   const AppNotification({
+    required this.id,
     required this.group,
     required this.title,
     required this.subtitle,
     required this.severity,
+    required this.target,
+    this.accountId,
   });
 
+  /// Stable for the same event in the same period (budget period, bill due
+  /// date, goal milestone), so a dismissal hides it until something new
+  /// happens.
+  final String id;
   final AppNotificationGroup group;
   final String title;
   final String subtitle;
   final AppNotificationSeverity severity;
+  final AppNotificationTarget target;
+
+  /// The account [AppNotificationTarget.account] opens.
+  final String? accountId;
 }
 
 /// Derives notifications from real data. Pure + framework-free so it is unit
@@ -57,8 +72,11 @@ List<AppNotification> buildNotifications({
       if (pct >= t) crossed = t;
     }
     if (crossed == null) continue;
+    final period = budgetPeriodWindow(cat.budgetPeriod, asOf).start;
     result.add(
       AppNotification(
+        id: 'budget:${cat.id}:$crossed:${_dateKey(period)}',
+        target: AppNotificationTarget.categories,
         group: AppNotificationGroup.budget,
         title: cat.displayName(l10n),
         subtitle: l10n.notifBudgetUsed(pct, cat.displayName(l10n)),
@@ -76,6 +94,8 @@ List<AppNotification> buildNotifications({
     final amount = item.amount.format();
     result.add(
       AppNotification(
+        id: 'bill:${item.id}:${_dateKey(item.dueDate)}',
+        target: AppNotificationTarget.accounts,
         group: AppNotificationGroup.bills,
         title: item.title,
         subtitle: days == 0
@@ -90,13 +110,16 @@ List<AppNotification> buildNotifications({
     );
   }
 
-  // Goal milestones: goal accounts crossing 50% and 100% funded.
+  // Goal milestones: active goal accounts crossing 50% and 100% funded.
   for (final account in accounts) {
-    if (!account.isGoal) continue;
+    if (!account.isGoal || !account.isActive) continue;
     final pct = (account.goalProgress * 100).round();
     if (pct >= 100) {
       result.add(
         AppNotification(
+          id: 'goal:${account.id}:100',
+          target: AppNotificationTarget.account,
+          accountId: account.id,
           group: AppNotificationGroup.goals,
           title: account.name,
           subtitle: l10n.notifGoalReached(account.name),
@@ -106,6 +129,9 @@ List<AppNotification> buildNotifications({
     } else if (pct >= 50) {
       result.add(
         AppNotification(
+          id: 'goal:${account.id}:50',
+          target: AppNotificationTarget.account,
+          accountId: account.id,
           group: AppNotificationGroup.goals,
           title: account.name,
           subtitle: l10n.notifGoalProgress(account.name, pct),
@@ -117,3 +143,7 @@ List<AppNotification> buildNotifications({
 
   return result;
 }
+
+String _dateKey(DateTime date) =>
+    '${date.year}-${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';

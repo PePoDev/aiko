@@ -150,6 +150,7 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
               final extra = state.extra;
               return HoldingDetailScreen(
                 holding: extra is InvestmentHolding ? extra : null,
+                holdingId: state.uri.queryParameters['id'],
               );
             },
           ),

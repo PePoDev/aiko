@@ -1,3 +1,5 @@
+import 'package:decimal/decimal.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -7,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../../../app/providers.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/money/money.dart';
+import '../../../l10n/domain_labels.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/layout/aiko_adaptive_columns.dart';
@@ -20,6 +23,7 @@ import '../../categories/domain/category.dart';
 import '../../categories/presentation/category_names.dart';
 import '../../transactions/domain/transaction.dart';
 import '../../transactions/presentation/transaction_form_screen.dart';
+import '../application/daily_activity_index.dart';
 import '../domain/daily_spending_reaction.dart';
 import 'widgets/aiko_spending_reaction_strip.dart';
 
@@ -39,6 +43,16 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       ref.refresh(accountsProvider.future),
       ref.refresh(categoriesProvider.future),
     ]);
+  }
+
+  /// Reloads the data the summary is built from (a failed load stays failed
+  /// until its own provider is rebuilt).
+  void _retry() {
+    ref
+      ..invalidate(transactionsProvider)
+      ..invalidate(accountsProvider)
+      ..invalidate(categoriesProvider)
+      ..invalidate(dashboardSummaryProvider);
   }
 
   @override
@@ -80,6 +94,11 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               AikoScreenState.error(
                 title: l10n.dashboardUnavailable,
                 message: l10n.dashboardUnavailableMessage,
+                action: FilledButton.icon(
+                  onPressed: _retry,
+                  icon: const Icon(Icons.refresh),
+                  label: Text(l10n.retry),
+                ),
               ),
             ],
           ),
@@ -139,10 +158,14 @@ class _DailySpendingPanel extends ConsumerWidget {
         // Gauge measures today's spend against a daily slice of the weekly
         // safe-to-spend (Safe this week ÷ 7). The arc fills 0→100%; the big
         // number can read past 100% when the day runs over its safe budget.
+        // With nothing safe to spend there is no ratio; see
+        // [assessDailySpending].
         final safeToSpend = summary?.safeToSpend ?? Money.zero(baseCurrency);
-        final dailySafe = safeToSpend.amount.toDouble() / 7;
-        final ratio = dailySafe > 0 ? used.amount.toDouble() / dailySafe : 0.0;
-        final reaction = DailySpendingReaction.fromRatio(ratio);
+        final (:reaction, :ratio) = assessDailySpending(
+          spentToday: used.amount.toDouble(),
+          dailySafe: safeToSpend.amount.toDouble() / 7,
+          hasIncomeThisMonth: summary?.monthlyIncome.isPositive ?? false,
+        );
         final color = reaction.color;
 
         // Merged-in summaries (formerly separate panels): the weekly safe
@@ -156,7 +179,8 @@ class _DailySpendingPanel extends ConsumerWidget {
           title: context.l10n.dashDailySpending,
           icon: Icons.today_outlined,
           accentColor: color,
-          onTap: () => context.push('/transactions'),
+          // A tab destination: switch to it rather than stacking it.
+          onTap: () => context.go('/transactions'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -291,118 +315,136 @@ class _CashFlowMappingPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final textTheme = Theme.of(context).textTheme;
-    final summaryAsync = ref.watch(dashboardSummaryProvider);
+    final theme = Theme.of(context);
+    final sankeyAsync = ref.watch(cashFlowSankeyProvider);
 
-    return summaryAsync.when(
+    return sankeyAsync.when(
       loading: () => FinanceCard(
-        title: context.l10n.dashCashFlowMapping,
+        title: l10n.dashCashFlowMapping,
         icon: Icons.bubble_chart_outlined,
         accentColor: AikoColors.analyticsTeal,
-        child: Text(context.l10n.dashLoadingCashFlowMapping),
+        child: Text(l10n.dashLoadingCashFlowMapping),
       ),
       error: (_, _) => FinanceCard(
-        title: context.l10n.dashCashFlowMapping,
+        title: l10n.dashCashFlowMapping,
         icon: Icons.bubble_chart_outlined,
         accentColor: AikoColors.analyticsTeal,
-        child: Text(context.l10n.dashCashFlowMappingFailed),
+        child: Text(l10n.dashCashFlowMappingFailed),
       ),
-      data: (summary) {
-        var totalIncome = summary.monthlyIncome.amount.toDouble();
-        if (totalIncome <= 0) totalIncome = 5000.0;
-        var totalSpending = summary.monthlySpending.amount.toDouble();
-        if (totalSpending <= 0) totalSpending = 2500.0;
-
-        var bills = totalIncome * 0.45;
-        var discretionary = totalIncome * 0.35;
-        var savings = totalIncome * 0.20;
-
-        if (totalSpending > totalIncome) {
-          bills = totalIncome * 0.55;
-          discretionary = totalIncome * 0.40;
-          savings = totalIncome * 0.05;
+      data: (sankey) {
+        if (!sankey.hasActivity) {
+          return FinanceCard(
+            title: l10n.dashCashFlowMapping,
+            icon: Icons.bubble_chart_outlined,
+            accentColor: AikoColors.analyticsTeal,
+            child: Text(
+              l10n.dashCashFlowEmpty,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          );
         }
 
-        final baseCurrency =
-            ref.watch(profileProvider).value?.baseCurrency ??
-            kDefaultBaseCurrency;
-        final currencyFormat = NumberFormat.simpleCurrency(name: baseCurrency);
+        final income = sankey.income;
+        var outflow = Money.zero(income.currency);
+        for (final slice in sankey.outflowByGroup) {
+          outflow = outflow + slice.amount;
+        }
+        final leftOver = income - outflow;
+        final flows = <_SankeyFlow>[
+          for (final slice in sankey.outflowByGroup)
+            _SankeyFlow(
+              label: slice.group.label(l10n),
+              amount: slice.amount,
+              color: _budgetGroupColor(slice.group, theme.colorScheme),
+            ),
+          if (leftOver.isPositive)
+            _SankeyFlow(
+              label: l10n.dashLeftOver,
+              amount: leftOver,
+              color: AikoColors.successGreen,
+            ),
+        ];
 
         return FinanceCard(
-          title: context.l10n.dashCashFlowMapping,
+          title: l10n.dashCashFlowMapping,
           icon: Icons.bubble_chart_outlined,
           accentColor: AikoColors.analyticsTeal,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                context.l10n.dashCashFlowMappingDescription,
-                style: textTheme.bodyMedium,
+                l10n.dashCashFlowMappingDescription,
+                style: theme.textTheme.bodyMedium,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 4,
-                          height: 40,
-                          color: AikoColors.successGreen,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(l10n.income, style: textTheme.bodySmall),
-                        Text(
-                          currencyFormat.format(totalIncome),
-                          style: textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                    child: _MiniMetric(
+                      label: l10n.income,
+                      value: income.format(),
+                      color: AikoColors.successGreen,
                     ),
                   ),
                   Expanded(
-                    flex: 4,
-                    child: SizedBox(
-                      height: 150,
-                      child: CustomPaint(
-                        painter: _SankeyPainter(
-                          billsRatio: bills / totalIncome,
-                          discretionaryRatio: discretionary / totalIncome,
-                          savingsRatio: savings / totalIncome,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        _FlowAmount(
-                          label: context.l10n.dashFixedBills,
-                          amount: currencyFormat.format(bills),
-                          color: AikoColors.warningOrange,
-                        ),
-                        const SizedBox(height: 20),
-                        _FlowAmount(
-                          label: context.l10n.dashDiscretionary,
-                          amount: currencyFormat.format(discretionary),
-                          color: AikoColors.deepBlue,
-                        ),
-                        const SizedBox(height: 20),
-                        _FlowAmount(
-                          label: context.l10n.dashSavings,
-                          amount: currencyFormat.format(savings),
-                          color: AikoColors.analyticsTeal,
-                        ),
-                      ],
+                    child: _MiniMetric(
+                      label: l10n.dashMoneyOut,
+                      value: outflow.format(),
+                      color: AikoColors.dangerRed,
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              ExcludeSemantics(
+                child: SizedBox(
+                  height: 140,
+                  child: CustomPaint(
+                    painter: _SankeyPainter(
+                      income: income.amount.toDouble(),
+                      flows: [
+                        for (final flow in flows)
+                          (flow.amount.amount.toDouble(), flow.color),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              for (final flow in flows)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: flow.color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          flow.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        flow.amount.format(),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         );
@@ -411,139 +453,130 @@ class _CashFlowMappingPanel extends ConsumerWidget {
   }
 }
 
-class _FlowAmount extends StatelessWidget {
-  const _FlowAmount({
+/// One destination of this month's money in the Cash flow mapping panel.
+class _SankeyFlow {
+  const _SankeyFlow({
     required this.label,
     required this.amount,
     required this.color,
   });
 
   final String label;
-  final String amount;
+  final Money amount;
   final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Text(label, style: textTheme.bodySmall),
-        Text(
-          amount,
-          style: textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-      ],
-    );
-  }
 }
 
-class _SankeyPainter extends CustomPainter {
-  const _SankeyPainter({
-    required this.billsRatio,
-    required this.discretionaryRatio,
-    required this.savingsRatio,
-  });
+Color _budgetGroupColor(CategoryBudgetGroup group, ColorScheme scheme) =>
+    switch (group) {
+      CategoryBudgetGroup.needs => AikoColors.warningOrange,
+      CategoryBudgetGroup.wants => AikoColors.deepBlue,
+      CategoryBudgetGroup.savings => AikoColors.analyticsTeal,
+      CategoryBudgetGroup.debt => AikoColors.dangerRed,
+      CategoryBudgetGroup.investment => AikoColors.premiumPurple,
+      CategoryBudgetGroup.tax => AikoColors.primaryBlue,
+      CategoryBudgetGroup.business => AikoColors.softBlue,
+      CategoryBudgetGroup.custom => scheme.outline,
+    };
 
-  final double billsRatio;
-  final double discretionaryRatio;
-  final double savingsRatio;
+/// Income on the left flowing into each destination on the right, every band
+/// as tall as its amount. When more went out than came in, the income band is
+/// shorter and the ribbons widen towards the right.
+class _SankeyPainter extends CustomPainter {
+  const _SankeyPainter({required this.income, required this.flows});
+
+  final double income;
+
+  /// Amount and color of each destination, top to bottom.
+  final List<(double, Color)> flows;
+
+  static const _nodeWidth = 8.0;
+  static const _gap = 6.0;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final leftHeight = size.height - 40.0;
-    final rightGap = 20.0;
-    final rightTotalAvailableHeight = size.height - (2 * rightGap) - 20.0;
-    final billsHeight = rightTotalAvailableHeight * billsRatio;
-    final discretionaryHeight = rightTotalAvailableHeight * discretionaryRatio;
-    final savingsHeight = rightTotalAvailableHeight * savingsRatio;
-    final discretionaryYStart = 10.0 + billsHeight + rightGap;
-    final savingsYStart = discretionaryYStart + discretionaryHeight + rightGap;
+    final totalOut = flows.fold<double>(0, (sum, flow) => sum + flow.$1);
+    final scaleBase = income > totalOut ? income : totalOut;
+    if (scaleBase <= 0 || flows.isEmpty) return;
 
-    _drawFlow(
-      canvas,
-      fromYStart: 20,
-      fromHeight: leftHeight * billsRatio,
-      toYStart: 10,
-      toHeight: billsHeight,
-      size: size,
-      fromColor: AikoColors.successGreen,
-      toColor: AikoColors.warningOrange,
+    final usable = size.height - _gap * (flows.length - 1);
+    final unit = usable / scaleBase;
+    final leftHeight = income * unit;
+    final leftTop = (size.height - leftHeight) / 2;
+
+    canvas.drawRect(
+      Rect.fromLTWH(0, leftTop, _nodeWidth, leftHeight),
+      Paint()..color = AikoColors.successGreen,
     );
-    _drawFlow(
-      canvas,
-      fromYStart: 20 + (leftHeight * billsRatio),
-      fromHeight: leftHeight * discretionaryRatio,
-      toYStart: discretionaryYStart,
-      toHeight: discretionaryHeight,
-      size: size,
-      fromColor: AikoColors.successGreen,
-      toColor: AikoColors.deepBlue,
-    );
-    _drawFlow(
-      canvas,
-      fromYStart: 20 + (leftHeight * (billsRatio + discretionaryRatio)),
-      fromHeight: leftHeight * savingsRatio,
-      toYStart: savingsYStart,
-      toHeight: savingsHeight,
-      size: size,
-      fromColor: AikoColors.successGreen,
-      toColor: AikoColors.analyticsTeal,
-    );
+
+    var leftY = leftTop;
+    var rightY = 0.0;
+    for (final (amount, color) in flows) {
+      final rightHeight = amount * unit;
+      final leftShare = totalOut <= 0 ? 0.0 : leftHeight * amount / totalOut;
+      canvas.drawRect(
+        Rect.fromLTWH(size.width - _nodeWidth, rightY, _nodeWidth, rightHeight),
+        Paint()..color = color,
+      );
+      _drawRibbon(
+        canvas,
+        size: size,
+        fromTop: leftY,
+        fromHeight: leftShare,
+        toTop: rightY,
+        toHeight: rightHeight,
+        toColor: color,
+      );
+      leftY += leftShare;
+      rightY += rightHeight + _gap;
+    }
   }
 
-  void _drawFlow(
+  void _drawRibbon(
     Canvas canvas, {
-    required double fromYStart,
-    required double fromHeight,
-    required double toYStart,
-    required double toHeight,
     required Size size,
-    required Color fromColor,
+    required double fromTop,
+    required double fromHeight,
+    required double toTop,
+    required double toHeight,
     required Color toColor,
   }) {
+    const left = _nodeWidth;
+    final right = size.width - _nodeWidth;
+    final span = right - left;
     final paint = Paint()
       ..shader = LinearGradient(
         colors: [
-          fromColor.withValues(alpha: 0.35),
+          AikoColors.successGreen.withValues(alpha: 0.35),
           toColor.withValues(alpha: 0.35),
         ],
-      ).createShader(Rect.fromLTRB(0, 0, size.width, 0))
-      ..style = PaintingStyle.fill;
+      ).createShader(Rect.fromLTRB(left, 0, right, size.height));
 
     final path = Path()
-      ..moveTo(0, fromYStart)
+      ..moveTo(left, fromTop)
       ..cubicTo(
-        size.width * 0.4,
-        fromYStart,
-        size.width * 0.6,
-        toYStart,
-        size.width,
-        toYStart,
+        left + span * 0.5,
+        fromTop,
+        left + span * 0.5,
+        toTop,
+        right,
+        toTop,
       )
-      ..lineTo(size.width, toYStart + toHeight)
+      ..lineTo(right, toTop + toHeight)
       ..cubicTo(
-        size.width * 0.6,
-        toYStart + toHeight,
-        size.width * 0.4,
-        fromYStart + fromHeight,
-        0,
-        fromYStart + fromHeight,
+        left + span * 0.5,
+        toTop + toHeight,
+        left + span * 0.5,
+        fromTop + fromHeight,
+        left,
+        fromTop + fromHeight,
       )
       ..close();
-
     canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant _SankeyPainter oldDelegate) {
-    return oldDelegate.billsRatio != billsRatio ||
-        oldDelegate.discretionaryRatio != discretionaryRatio ||
-        oldDelegate.savingsRatio != savingsRatio;
-  }
+  bool shouldRepaint(covariant _SankeyPainter oldDelegate) =>
+      oldDelegate.income != income || !listEquals(oldDelegate.flows, flows);
 }
 
 class _QuickAddMenu extends StatelessWidget {
@@ -551,10 +584,16 @@ class _QuickAddMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Above the shell (like the Transactions tab's button), so the bottom bar
+    // can't switch tabs away from an unsaved form.
     return FloatingActionButton(
       heroTag: 'quick-add-main',
-      onPressed: () =>
-          openAikoPage<void>(context, const TransactionFormScreen()),
+      tooltip: context.l10n.newTransaction,
+      onPressed: () => openAikoPage<void>(
+        context,
+        const TransactionFormScreen(),
+        rootNavigator: true,
+      ),
       child: const Icon(Icons.add),
     );
   }
@@ -585,57 +624,55 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
         final categories =
             categoriesAsync.whenOrNull(data: (items) => items) ??
             const <Category>[];
-        final baseCurrency =
+        final currency =
             ref.watch(profileProvider).value?.baseCurrency ??
             kDefaultBaseCurrency;
-        final symbol = NumberFormat.simpleCurrency(
-          name: baseCurrency,
-        ).currencySymbol;
 
         return switch (kind) {
           _AnalyticsWidgetKind.dailySummary => _DailySummaryCard(
             transactions: transactions,
-            currencySymbol: symbol,
+            currency: currency,
             showPeriodSelector: true,
             onTap: () => _openAnalyticsDetail(
               context,
               kind: kind,
               transactions: transactions,
               categories: categories,
-              currencySymbol: symbol,
+              currency: currency,
             ),
           ),
           _AnalyticsWidgetKind.netEarnings => _MonthlyNetEarningsCard(
             transactions: transactions,
-            currencySymbol: symbol,
+            currency: currency,
             onTap: () => _openAnalyticsDetail(
               context,
               kind: kind,
               transactions: transactions,
               categories: categories,
-              currencySymbol: symbol,
+              currency: currency,
             ),
           ),
           _AnalyticsWidgetKind.categoryBudgets => _CategoryBudgetCard(
             transactions: transactions,
             categories: categories,
-            currencySymbol: symbol,
+            currency: currency,
             onTap: () => _openAnalyticsDetail(
               context,
               kind: kind,
               transactions: transactions,
               categories: categories,
-              currencySymbol: symbol,
+              currency: currency,
             ),
           ),
           _AnalyticsWidgetKind.spendingCalendar => _SpendingCalendarCard(
             transactions: transactions,
+            currency: currency,
             onTap: () => _openAnalyticsDetail(
               context,
               kind: kind,
               transactions: transactions,
               categories: categories,
-              currencySymbol: symbol,
+              currency: currency,
             ),
           ),
         };
@@ -648,7 +685,7 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
     required _AnalyticsWidgetKind kind,
     required List<FinanceTransaction> transactions,
     required List<Category> categories,
-    required String currencySymbol,
+    required String currency,
   }) {
     openAikoPage<void>(
       context,
@@ -656,7 +693,7 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
         kind: kind,
         transactions: transactions,
         categories: categories,
-        currencySymbol: currencySymbol,
+        currency: currency,
       ),
     );
   }
@@ -683,18 +720,19 @@ extension on _AnalyticsWidgetKind {
 class _DailySummaryCard extends StatefulWidget {
   const _DailySummaryCard({
     required this.transactions,
+    required this.currency,
     this.daysToShow = 7,
-    this.currencySymbol = r'$',
     this.showPeriodSelector = false,
     this.onTap,
   });
 
   final List<FinanceTransaction> transactions;
   final int daysToShow;
-  final String currencySymbol;
+  final String currency;
 
-  /// Home shows a "This week / This month" pill; the detail screen drives the
-  /// range with its own chips, so it leaves this off and passes [daysToShow].
+  /// Home shows a "Last 7 days / Last 30 days" pill; the detail screen drives
+  /// the range with its own chips, so it leaves this off and passes
+  /// [daysToShow].
   final bool showPeriodSelector;
   final VoidCallback? onTap;
 
@@ -705,40 +743,44 @@ class _DailySummaryCard extends StatefulWidget {
 class _DailySummaryCardState extends State<_DailySummaryCard> {
   late int _period = widget.daysToShow;
 
+  /// Per-day totals, rebuilt only when the ledger changes (not when the
+  /// period changes or the card rebuilds).
+  late DailyActivityIndex _index = DailyActivityIndex.build(
+    widget.transactions,
+  );
+
+  @override
+  void didUpdateWidget(covariant _DailySummaryCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.transactions, widget.transactions)) {
+      _index = DailyActivityIndex.build(widget.transactions);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final transactions = widget.transactions;
     final onTap = widget.onTap;
-    final symbol = widget.currencySymbol;
+    final currency = widget.currency;
     final daysToShow = widget.showPeriodSelector ? _period : widget.daysToShow;
     final today = _dateOnly(DateTime.now());
-    final days = [
-      for (var offset = daysToShow - 1; offset >= 0; offset--)
-        today.subtract(Duration(days: offset)),
-    ];
-    final buckets = [
-      for (final day in days)
+    final buckets = <_DailyBucket>[];
+    for (var offset = daysToShow - 1; offset >= 0; offset--) {
+      final day = DateTime(today.year, today.month, today.day - offset);
+      buckets.add(
         _DailyBucket(
           day: day,
-          income: _sumTransactionsForDay(
-            transactions,
-            day,
-            TransactionType.income,
-          ),
-          expense: _sumTransactionsForDay(
-            transactions,
-            day,
-            TransactionType.expense,
-          ),
+          income: _index.incomeOn(day),
+          expense: _index.expenseOn(day),
         ),
-    ];
+      );
+    }
     final maxValue = buckets.fold<double>(
       0,
       (max, bucket) =>
           [max, bucket.income, bucket.expense].reduce((a, b) => a > b ? a : b),
     );
-    final sevenDayAverage = _averageDailyExpense(transactions, today, 7);
-    final thirtyDayAverage = _averageDailyExpense(transactions, today, 30);
+    final sevenDayAverage = _index.averageDailyExpense(today, 7);
+    final thirtyDayAverage = _index.averageDailyExpense(today, 30);
 
     return FinanceCard(
       title: context.l10n.dashDailySummary,
@@ -835,19 +877,24 @@ class _DailySummaryCardState extends State<_DailySummaryCard> {
                 color: AikoColors.dangerRed,
                 label: context.l10n.transactionTypeExpense,
               ),
-              const Spacer(),
-              Text(
-                context.l10n.dashSevenDayAvg(
-                  '$symbol${sevenDayAverage.toStringAsFixed(0)}',
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  context.l10n.dashSevenDayAvg(
+                    _formatAmount(sevenDayAverage, currency),
+                  ),
+                  textAlign: TextAlign.end,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium,
                 ),
-                style: Theme.of(context).textTheme.labelMedium,
               ),
             ],
           ),
           const SizedBox(height: 12),
           _AverageSpendingBox(
-            sevenDay: '$symbol${sevenDayAverage.toStringAsFixed(0)}',
-            thirtyDay: '$symbol${thirtyDayAverage.toStringAsFixed(0)}',
+            sevenDay: _formatAmount(sevenDayAverage, currency),
+            thirtyDay: _formatAmount(thirtyDayAverage, currency),
           ),
         ],
       ),
@@ -855,7 +902,8 @@ class _DailySummaryCardState extends State<_DailySummaryCard> {
   }
 }
 
-/// Period selector pill shown in the Daily summary header (week / month).
+/// Period selector pill shown in the Daily summary header (the last 7 or 30
+/// days, ending today).
 class _PeriodPill extends StatelessWidget {
   const _PeriodPill({required this.days, required this.onChanged});
 
@@ -869,8 +917,8 @@ class _PeriodPill extends StatelessWidget {
       initialValue: days,
       onSelected: onChanged,
       itemBuilder: (context) => [
-        PopupMenuItem(value: 7, child: Text(context.l10n.dashThisWeek)),
-        PopupMenuItem(value: 30, child: Text(context.l10n.txFilterThisMonth)),
+        PopupMenuItem(value: 7, child: Text(context.l10n.dashLastDays(7))),
+        PopupMenuItem(value: 30, child: Text(context.l10n.dashLastDays(30))),
       ],
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -881,11 +929,13 @@ class _PeriodPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              days <= 7
-                  ? context.l10n.dashThisWeek
-                  : context.l10n.txFilterThisMonth,
-              style: theme.textTheme.labelLarge,
+            Flexible(
+              child: Text(
+                context.l10n.dashLastDays(days),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelLarge,
+              ),
             ),
             const SizedBox(width: 4),
             const Icon(Icons.keyboard_arrow_down, size: 18),
@@ -960,14 +1010,14 @@ class _AverageSpendingBox extends StatelessWidget {
 class _MonthlyNetEarningsCard extends StatelessWidget {
   const _MonthlyNetEarningsCard({
     required this.transactions,
+    required this.currency,
     this.monthsToShow = 4,
-    this.currencySymbol = r'$',
     this.onTap,
   });
 
   final List<FinanceTransaction> transactions;
   final int monthsToShow;
-  final String currencySymbol;
+  final String currency;
   final VoidCallback? onTap;
 
   @override
@@ -1084,9 +1134,7 @@ class _MonthlyNetEarningsCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            context.l10n.dashThisMonthNet(
-              '$currencySymbol${net.toStringAsFixed(0)}',
-            ),
+            context.l10n.dashThisMonthNet(_formatAmount(net, currency)),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: net >= 0 ? AikoColors.successGreen : AikoColors.dangerRed,
               fontWeight: FontWeight.w700,
@@ -1102,15 +1150,15 @@ class _CategoryBudgetCard extends StatelessWidget {
   const _CategoryBudgetCard({
     required this.transactions,
     required this.categories,
+    required this.currency,
     this.maxRows = 5,
-    this.currencySymbol = r'$',
     this.onTap,
   });
 
   final List<FinanceTransaction> transactions;
   final List<Category> categories;
   final int maxRows;
-  final String currencySymbol;
+  final String currency;
   final VoidCallback? onTap;
 
   @override
@@ -1176,6 +1224,9 @@ class _CategoryBudgetCard extends StatelessWidget {
             ),
           ]
         : rows;
+    final chartTotal = chartRows
+        .take(6)
+        .fold<double>(0, (sum, row) => sum + row.used);
 
     return FinanceCard(
       title: context.l10n.dashCategoryBudgets,
@@ -1196,9 +1247,15 @@ class _CategoryBudgetCard extends StatelessWidget {
                     PieChartSectionData(
                       value: row.used,
                       color: row.color,
-                      title: row.categoryId == 'none'
+                      // Compact ("฿1.2K") so it fits inside the slice; slivers
+                      // too thin for a label go without.
+                      title:
+                          row.categoryId == 'none' ||
+                              row.used < chartTotal * 0.08
                           ? ''
-                          : '$currencySymbol${row.used.toStringAsFixed(0)}',
+                          : NumberFormat.compactSimpleCurrency(
+                              name: currency,
+                            ).format(row.used),
                       radius: 54,
                       titleStyle: Theme.of(
                         context,
@@ -1216,7 +1273,7 @@ class _CategoryBudgetCard extends StatelessWidget {
             )
           else
             for (final row in rows.take(maxRows)) ...[
-              _CategoryBudgetRow(row: row, currencySymbol: currencySymbol),
+              _CategoryBudgetRow(row: row, currency: currency),
               if (row != rows.take(maxRows).last) const SizedBox(height: 10),
             ],
         ],
@@ -1228,11 +1285,13 @@ class _CategoryBudgetCard extends StatelessWidget {
 class _SpendingCalendarCard extends StatelessWidget {
   const _SpendingCalendarCard({
     required this.transactions,
+    required this.currency,
     this.dotScale = 1,
     this.onTap,
   });
 
   final List<FinanceTransaction> transactions;
+  final String currency;
   final double dotScale;
   final VoidCallback? onTap;
 
@@ -1257,6 +1316,15 @@ class _SpendingCalendarCard extends StatelessWidget {
       0,
       (max, value) => value > max ? value : max,
     );
+    final l10n = context.l10n;
+    final dayStyle = Theme.of(context).textTheme.labelSmall;
+    // Each cell is as tall as its day number at the current text size plus the
+    // largest dot, so larger text grows the rows instead of overflowing them.
+    final dotArea = 16 * dotScale;
+    final dayTextHeight = MediaQuery.textScalerOf(
+      context,
+    ).scale((dayStyle?.fontSize ?? 11) * (dayStyle?.height ?? 1.4));
+    final cellExtent = dayTextHeight + 4 + dotArea + 4;
 
     return FinanceCard(
       title: context.l10n.dashSpendingCalendar,
@@ -1288,10 +1356,11 @@ class _SpendingCalendarCard extends StatelessWidget {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
               mainAxisSpacing: 8,
               crossAxisSpacing: 8,
+              mainAxisExtent: cellExtent,
             ),
             itemCount: leadingEmptyCells + daysInMonth,
             itemBuilder: (context, index) {
@@ -1304,26 +1373,46 @@ class _SpendingCalendarCard extends StatelessWidget {
                   ? 0.0
                   : (5 + ((spend / (maxSpend == 0 ? spend : maxSpend)) * 11)) *
                         dotScale;
+              final date = DateFormat.MMMMd().format(
+                DateTime(now.year, now.month, day),
+              );
 
-              return Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('$day', style: Theme.of(context).textTheme.labelSmall),
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    height: 18,
-                    child: Center(
-                      child: Container(
-                        width: dotSize,
-                        height: dotSize,
-                        decoration: BoxDecoration(
-                          color: AikoColors.dangerRed.withValues(alpha: 0.75),
-                          shape: BoxShape.circle,
+              return Semantics(
+                container: true,
+                excludeSemantics: true,
+                label: spend <= 0
+                    ? l10n.dashCalendarDayNoSpending(date)
+                    : l10n.dashCalendarDaySpent(
+                        date,
+                        _formatAmount(spend, currency),
+                      ),
+                // Safety net for extreme text sizes on narrow screens.
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('$day', style: dayStyle),
+                      const SizedBox(height: 4),
+                      SizedBox(
+                        width: dotArea,
+                        height: dotArea,
+                        child: Center(
+                          child: Container(
+                            width: dotSize,
+                            height: dotSize,
+                            decoration: BoxDecoration(
+                              color: AikoColors.dangerRed.withValues(
+                                alpha: 0.75,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               );
             },
           ),
@@ -1342,33 +1431,62 @@ class _SpendingCalendarCard extends StatelessWidget {
 }
 
 class _CategoryBudgetRow extends StatelessWidget {
-  const _CategoryBudgetRow({required this.row, this.currencySymbol = r'$'});
+  const _CategoryBudgetRow({required this.row, required this.currency});
 
   final _CategoryUsage row;
-  final String currencySymbol;
+  final String currency;
 
   @override
   Widget build(BuildContext context) {
     final ratio = row.budget <= 0
         ? 0.0
         : (row.used / row.budget).clamp(0.0, 1.0).toDouble();
+    final textTheme = Theme.of(context).textTheme;
+    final used = _formatAmount(row.used, currency);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            _LegendDot(color: row.color, label: row.label),
-            const Spacer(),
-            Text(
-              row.budget > 0
-                  ? '$currencySymbol${row.used.toStringAsFixed(0)} / $currencySymbol${row.budget.toStringAsFixed(0)}'
-                  : context.l10n.dashAmountUsed(
-                      '$currencySymbol${row.used.toStringAsFixed(0)}',
-                    ),
-              style: Theme.of(context).textTheme.labelMedium,
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) => Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: row.color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Long (e.g. Thai) category names shrink to an ellipsis instead
+              // of pushing the amount off the card.
+              Expanded(
+                child: Text(
+                  row.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.labelMedium,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // The amount keeps its natural width, up to most of the row.
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: constraints.maxWidth * 0.65,
+                ),
+                child: Text(
+                  row.budget > 0
+                      ? '$used / ${_formatAmount(row.budget, currency)}'
+                      : context.l10n.dashAmountUsed(used),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: textTheme.labelMedium,
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 6),
         ClipRRect(
@@ -1391,13 +1509,13 @@ class _AnalyticsDetailScreen extends StatefulWidget {
     required this.kind,
     required this.transactions,
     required this.categories,
-    required this.currencySymbol,
+    required this.currency,
   });
 
   final _AnalyticsWidgetKind kind;
   final List<FinanceTransaction> transactions;
   final List<Category> categories;
-  final String currencySymbol;
+  final String currency;
 
   @override
   State<_AnalyticsDetailScreen> createState() => _AnalyticsDetailScreenState();
@@ -1486,36 +1604,38 @@ class _AnalyticsDetailScreenState extends State<_AnalyticsDetailScreen> {
       _AnalyticsWidgetKind.dailySummary => _DailySummaryCard(
         transactions: widget.transactions,
         daysToShow: _dailyDays,
-        currencySymbol: widget.currencySymbol,
+        currency: widget.currency,
       ),
       _AnalyticsWidgetKind.netEarnings => _MonthlyNetEarningsCard(
         transactions: widget.transactions,
         monthsToShow: _earningMonths,
-        currencySymbol: widget.currencySymbol,
+        currency: widget.currency,
       ),
       _AnalyticsWidgetKind.categoryBudgets => _CategoryBudgetCard(
         transactions: widget.transactions,
         categories: widget.categories,
         maxRows: _categoryRows,
-        currencySymbol: widget.currencySymbol,
+        currency: widget.currency,
       ),
       _AnalyticsWidgetKind.spendingCalendar => _SpendingCalendarCard(
         transactions: widget.transactions,
+        currency: widget.currency,
         dotScale: _calendarDotScale,
       ),
     };
   }
 
   Widget _detailRows() {
+    final lines = _detailLines();
     return FinanceCard(
       title: context.l10n.dashDetails,
       icon: Icons.notes_outlined,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final line in _detailLines()) ...[
-            Text(line, style: Theme.of(context).textTheme.bodyMedium),
-            if (line != _detailLines().last) const SizedBox(height: 8),
+          for (var i = 0; i < lines.length; i++) ...[
+            if (i > 0) const SizedBox(height: 8),
+            Text(lines[i], style: Theme.of(context).textTheme.bodyMedium),
           ],
         ],
       ),
@@ -1535,19 +1655,16 @@ class _AnalyticsDetailScreenState extends State<_AnalyticsDetailScreen> {
       TransactionType.expense,
     );
     final l10n = context.l10n;
-    final symbol = widget.currencySymbol;
-    String amount(double value) => '$symbol${value.toStringAsFixed(0)}';
+    String amount(double value) => _formatAmount(value, widget.currency);
     return switch (widget.kind) {
       _AnalyticsWidgetKind.dailySummary => [
         l10n.dashDetailTransactionsIncluded(widget.transactions.length),
         l10n.dashDetailAverageDaily(
           _dailyDays,
           amount(
-            _averageDailyExpense(
+            DailyActivityIndex.build(
               widget.transactions,
-              _dateOnly(now),
-              _dailyDays,
-            ),
+            ).averageDailyExpense(_dateOnly(now), _dailyDays),
           ),
         ),
         l10n.dashDetailMonthExpense(amount(monthlyExpense)),
@@ -1559,7 +1676,7 @@ class _AnalyticsDetailScreenState extends State<_AnalyticsDetailScreen> {
       ],
       _AnalyticsWidgetKind.categoryBudgets => [
         l10n.dashDetailBudgetedCategories(
-          widget.categories.where((c) => c.monthlyLimit != null).length,
+          widget.categories.where((c) => c.hasBudget).length,
         ),
         l10n.dashDetailTrackedCategories(widget.categories.length),
         l10n.dashDetailMonthExpense(amount(monthlyExpense)),
@@ -1675,16 +1792,6 @@ class _CategoryUsage {
 
 DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
 
-double _sumTransactionsForDay(
-  List<FinanceTransaction> transactions,
-  DateTime day,
-  TransactionType type,
-) {
-  return transactions
-      .where((tx) => tx.type == type && _dateOnly(tx.date) == day)
-      .fold<double>(0, (sum, tx) => sum + tx.amount.amount.toDouble());
-}
-
 double _sumTransactionsForMonth(
   List<FinanceTransaction> transactions,
   DateTime month,
@@ -1700,22 +1807,11 @@ double _sumTransactionsForMonth(
       .fold<double>(0, (sum, tx) => sum + tx.amount.amount.toDouble());
 }
 
-double _averageDailyExpense(
-  List<FinanceTransaction> transactions,
-  DateTime endDay,
-  int dayCount,
-) {
-  final startDay = endDay.subtract(Duration(days: dayCount - 1));
-  final total = transactions
-      .where((tx) {
-        final day = _dateOnly(tx.date);
-        return tx.type == TransactionType.expense &&
-            !day.isBefore(startDay) &&
-            !day.isAfter(endDay);
-      })
-      .fold<double>(0, (sum, tx) => sum + tx.amount.amount.toDouble());
-  return total / dayCount;
-}
+/// [value] in [currency], formatted like any other [Money].
+String _formatAmount(double value, String currency) => Money(
+  amount: Decimal.parse(value.toStringAsFixed(2)),
+  currency: currency,
+).format();
 
 String _weekdayLabel(DateTime day) => DateFormat('EEEEE').format(day);
 

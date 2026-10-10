@@ -1395,10 +1395,10 @@
   "dashCashFlowMapping": "Cash flow mapping",
   "dashLoadingCashFlowMapping": "Loading cash flow mapping...",
   "dashCashFlowMappingFailed": "Unable to load cash flow mapping right now.",
-  "dashCashFlowMappingDescription": "A visual mapping of your monthly income flows into bills, discretionary spending, and savings cushions.",
-  "dashFixedBills": "Fixed Bills",
-  "dashDiscretionary": "Discretionary",
-  "dashSavings": "Savings",
+  "dashCashFlowEmpty": "Log income and spending this month to see where your money goes.",
+  "dashMoneyOut": "Money out",
+  "dashLeftOver": "Left over",
+  "dashCashFlowMappingDescription": "Where this month's income went, by budget group.",
   "dashLoadingAnalytics": "Loading transaction analytics...",
   "dashAnalyticsFailed": "Unable to load transaction analytics right now.",
   "dashSevenDayAvg": "7-day avg {amount}",
@@ -1409,8 +1409,15 @@
       }
     }
   },
-  "dashThisWeek": "This week",
   "dashAverageSpending": "Average spending",
+  "dashLastDays": "{count, plural, =1{Last day} other{Last {count} days}}",
+  "@dashLastDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "dashSevenDaysPerDay": "7 days: {amount} per day",
   "@dashSevenDaysPerDay": {
     "placeholders": {
@@ -1437,6 +1444,25 @@
   },
   "dashNoCategorySpending": "No category spending recorded this month yet.",
   "dashCalendarHint": "Dot size reflects total spending for each day this month.",
+  "dashCalendarDaySpent": "{date}: {amount} spent",
+  "@dashCalendarDaySpent": {
+    "placeholders": {
+      "date": {
+        "type": "Object"
+      },
+      "amount": {
+        "type": "Object"
+      }
+    }
+  },
+  "dashCalendarDayNoSpending": "{date}: no spending",
+  "@dashCalendarDayNoSpending": {
+    "placeholders": {
+      "date": {
+        "type": "Object"
+      }
+    }
+  },
   "dashAmountUsed": "{amount} used",
   "@dashAmountUsed": {
     "placeholders": {
@@ -1523,10 +1549,16 @@
   "reactionComfortableSemantics": "Aiko is smiling",
   "reactionCautionSemantics": "Aiko looks worried",
   "reactionExceededSemantics": "Aiko looks angry",
+  "reactionIdleTitle": "Nothing safe to spend today",
+  "reactionIdleMessage": "This month's spending has caught up with income, so holding off on extras today keeps you steady.",
+  "reactionNeedsIncomeTitle": "Log your income to get started",
+  "reactionNeedsIncomeMessage": "Add this month's income and Aiko will work out a safe amount to spend each day.",
+  "reactionCalmSemantics": "Aiko looks calm",
   "reportOtherSlice": "Other",
   "notifGroupBudget": "Budget alerts",
   "notifGroupBills": "Upcoming bills",
   "notifGroupGoals": "Goals",
+  "notifDismiss": "Dismiss",
   "chanceHigh": "High Chance",
   "chanceFair": "Fair Chance",
   "chanceLow": "Low Chance",
@@ -1578,7 +1610,7 @@
     }
   },
   "notifUnavailableTitle": "Notifications unavailable",
-  "notifUnavailableMessage": "Aiko could not read your data right now. Pull to retry.",
+  "notifUnavailableMessage": "Aiko could not read your data right now.",
   "notifAllCaughtUp": "All caught up",
   "notifAllCaughtUpMessage": "No budget alerts, upcoming bills, or goal milestones right now.",
   "chanceTitle": "Chance of Success",
@@ -1590,17 +1622,70 @@
   "chanceGoalDeleted": "This goal may have been deleted.",
   "chanceOnTrack": "You are on track to reach this goal.",
   "chanceSaveMore": "Saving a bit more each month would lift your odds.",
+  "chanceSelectGoal": "Goal",
+  "chanceEditGoal": "Edit goal",
+  "chanceNeedsTargetTitle": "Add a target amount",
+  "chanceNeedsTargetMessage": "Set how much {goal} needs, and Aiko will estimate your chance of reaching it.",
+  "@chanceNeedsTargetMessage": {
+    "placeholders": {
+      "goal": {
+        "type": "Object"
+      }
+    }
+  },
+  "chanceNeedsDateTitle": "Add a target date",
+  "chanceNeedsDateMessage": "Set when you'd like to reach {goal}, and Aiko will estimate your chance of getting there.",
+  "@chanceNeedsDateMessage": {
+    "placeholders": {
+      "goal": {
+        "type": "Object"
+      }
+    }
+  },
+  "chanceNeedsTargetAndDateTitle": "Add a target and a date",
+  "chanceNeedsTargetAndDateMessage": "Set how much {goal} needs and by when, and Aiko will estimate your chance of reaching it.",
+  "@chanceNeedsTargetAndDateMessage": {
+    "placeholders": {
+      "goal": {
+        "type": "Object"
+      }
+    }
+  },
+  "chanceDatePassedTitle": "Target date has passed",
+  "chanceDatePassedMessage": "The target date for {goal} ({date}) has passed. Set a new date to see a fresh estimate.",
+  "@chanceDatePassedMessage": {
+    "placeholders": {
+      "goal": {
+        "type": "Object"
+      },
+      "date": {
+        "type": "Object"
+      }
+    }
+  },
+  "chanceNoRecentDepositsTitle": "No recent deposits",
+  "chanceNoRecentDeposits": "Nothing was added to this goal in the last {months, plural, =1{month} other{{months} months}}, so this estimate assumes no new saving. Adding money regularly would lift your odds.",
+  "@chanceNoRecentDeposits": {
+    "placeholders": {
+      "months": {
+        "type": "int"
+      }
+    }
+  },
   "chanceProjection": "Projection",
   "chanceCurrentSavings": "Current Savings",
-  "chanceMonthlySaving": "Monthly Saving",
+  "chanceMonthlySaving": "Average monthly deposit",
   "chanceTargetAmount": "Target Amount",
   "chanceTargetDate": "Target Date",
   "chanceHowEstimated": "How this is estimated",
-  "chanceMethod": "1,000 simulations at 6% expected return and 12% volatility over {months} months. Estimates only, not advice.",
+  "chanceMethod": "Saving your average monthly deposit of the last {window, plural, =1{month} other{{window} months}}: 1,000 simulations at 6% expected return and 12% volatility over {months, plural, =1{1 month} other{{months} months}}. Estimates only, not advice.",
   "@chanceMethod": {
     "placeholders": {
       "months": {
-        "type": "Object"
+        "type": "int"
+      },
+      "window": {
+        "type": "int"
       }
     }
   },
@@ -1630,6 +1715,7 @@
   "allocationTotalPortfolio": "Total Portfolio",
   "allocationTitle": "Allocation",
   "holdingDetailEmptyMessage": "Add an investment holding and its detail will appear here.",
+  "holdingSelectLabel": "Holding",
   "holdingYourHolding": "Your Holding",
   "holdingShares": "Shares",
   "holdingMarketValue": "Market Value",
@@ -2414,6 +2500,21 @@
       }
     }
   },
+  "learningProgressNotStarted": "Not started",
+  "learningProgressRead": "Read",
+  "learningProgressCompleted": "Completed",
+  "learningTakeQuiz": "Take the quiz",
+  "learningQuizCorrect": "Correct — nicely done!",
+  "learningQuizIncorrect": "Not quite. The answer is: {answer}",
+  "@learningQuizIncorrect": {
+    "placeholders": {
+      "answer": {
+        "type": "Object"
+      }
+    }
+  },
+  "learningQuizComplete": "Lesson complete",
+  "learningQuizCompleteMessage": "You answered every question correctly.",
   "lessonBudgetTitle": "Budgeting without guilt",
   "lessonBudgetCategory": "Budgeting",
   "lessonBudgetSummary": "Safe-to-spend helps you balance needs, wants, goals, and flexible spending.",

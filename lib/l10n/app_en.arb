@@ -648,19 +648,16 @@
   "travelRemainingBudget": "Remaining Budget",
   "travelLocalEquivalent": "Local Est. Equivalent",
   "travelRateCalculator": "Interactive Exchange Rate Calculator",
-  "travelSpotRate": "Spot Exchange Rate:",
-  "travelSpreadHint": "Adjust the slider to simulate custom bank spread markup. Fluctuations recalculate spent conversions dynamically.",
+  "travelSpotRate": "Exchange rate",
+  "travelSpreadHint": "Enter the rate your bank or card actually charges to see what your spending really costs. Tap refresh for the live rate.",
   "travelFeeLogs": "Travel Fee Logs",
   "travelNoLogs": "No transaction logs found for this trip.",
   "travelLocalMerchant": "Local Merchant",
   "travelHomeMerchant": "Home Currency Merchant",
-  "travelEstHomeValue": "Est. home value: {amount} {currency}",
+  "travelEstHomeValue": "Est. home value: {amount}",
   "@travelEstHomeValue": {
     "placeholders": {
       "amount": {
-        "type": "Object"
-      },
-      "currency": {
         "type": "Object"
       }
     }
@@ -680,6 +677,7 @@
   "travelTripNameError": "Please enter a valid trip name",
   "travelHomeCurrency": "Home Currency",
   "travelLocalCurrency": "Local Travel Currency",
+  "travelSameCurrencyError": "Choose a currency different from your home currency.",
   "travelTotalBudgetLabel": "Total Trip Budget (in home currency)",
   "travelBudgetError": "Please enter a positive numeric trip budget",
   "travelActivate": "Activate Trip Tracking",
@@ -2175,7 +2173,6 @@
       }
     }
   },
-  "holdingAddFailed": "Couldn't add this holding. Try again.",
   "holdingRemoveQuestion": "Remove {symbol}?",
   "@holdingRemoveQuestion": {
     "placeholders": {
@@ -2200,10 +2197,45 @@
       }
     }
   },
+  "holdingSaveFailed": "Couldn't save this holding. Try again.",
+  "holdingRemoveFailed": "Couldn't remove {symbol}. Try again.",
+  "@holdingRemoveFailed": {
+    "placeholders": {
+      "symbol": {
+        "type": "Object"
+      }
+    }
+  },
   "remove": "Remove",
   "holdingSearchHint": "Search symbol or asset class",
   "holdingSearchTooltip": "Search holdings",
   "holdingRefreshPrices": "Refresh prices",
+  "holdingPricesNeedCloud": "Live prices need cloud sign-in. In local-only mode, edit a holding to update its price.",
+  "holdingPricesUpdated": "{count, plural, =0{No prices updated.} =1{Updated 1 holding.} other{Updated {count} holdings.}}",
+  "@holdingPricesUpdated": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "holdingPricesFailed": "{count, plural, =1{1 couldn't refresh.} other{{count} couldn't refresh.}}",
+  "@holdingPricesFailed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "holdingPricesDeferred": "{count, plural, =1{Refresh again in a minute for 1 more.} other{Refresh again in a minute for {count} more.}}",
+  "@holdingPricesDeferred": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "holdingPricesSaveFailed": "Couldn't save the new prices. Try again.",
   "portfolioLoadFailed": "Could not load portfolio",
   "holdingsTitle": "Holdings",
   "holdingsFilteredCount": "{shown} of {total}",
@@ -2224,6 +2256,15 @@
   "investmentsEmptyTitle": "No investments yet",
   "investmentsEmptyMessage": "Add your first holding to track value and allocation.",
   "holdingAdd": "Add holding",
+  "holdingEdit": "Edit holding",
+  "holdingActionsTooltip": "Options for {symbol}",
+  "@holdingActionsTooltip": {
+    "placeholders": {
+      "symbol": {
+        "type": "Object"
+      }
+    }
+  },
   "holdingsNoMatches": "No matching holdings",
   "holdingsNoMatchesMessage": "Try another symbol, asset class, or clear the filters.",
   "clearFilters": "Clear filters",
@@ -2238,19 +2279,19 @@
       }
     }
   },
-  "holdingRemoveTooltip": "Remove {symbol}",
-  "@holdingRemoveTooltip": {
+  "allocationAddHoldings": "Add holdings to see your asset mix.",
+  "allocationOnTrack": "On track",
+  "allocationNeedsRebalance": "Needs rebalance",
+  "holdingAdded": "{symbol} added to portfolio.",
+  "@holdingAdded": {
     "placeholders": {
       "symbol": {
         "type": "Object"
       }
     }
   },
-  "allocationAddHoldings": "Add holdings to see your asset mix.",
-  "allocationOnTrack": "On track",
-  "allocationNeedsRebalance": "Needs rebalance",
-  "holdingAdded": "{symbol} added to portfolio.",
-  "@holdingAdded": {
+  "holdingUpdated": "{symbol} updated.",
+  "@holdingUpdated": {
     "placeholders": {
       "symbol": {
         "type": "Object"
@@ -2331,11 +2372,13 @@
   "exportColumnDate": "Date",
   "exportColumnMerchant": "Merchant",
   "exportColumnCategory": "Category",
+  "exportColumnAccount": "Account",
   "exportColumnType": "Type",
   "exportColumnAmount": "Amount",
+  "exportColumnCurrency": "Currency",
   "exportColumnNote": "Note",
   "exportShareCsvText": "Aiko Financial Export",
-  "exportShareStatementText": "Aiko PDF / HTML Statement",
+  "exportShareStatementText": "Aiko financial statement (HTML)",
   "exportStatementTitle": "Aiko Financial Statement",
   "exportGeneratedOn": "Generated on {date} | Your financial companion: Aiko",
   "@exportGeneratedOn": {
@@ -2359,6 +2402,8 @@
   "exportLastMonth": "Last Month",
   "exportAllTime": "All Time",
   "exportFormat": "Format",
+  "exportFormatExcelCsv": "CSV (opens in Excel)",
+  "exportFormatHtmlStatement": "HTML statement (print to PDF)",
   "exportGenerating": "Generating Report...",
   "exportShare": "Share Export Document",
   "exportPrivacyNote": "Exports are generated completely offline on your device to guarantee absolute privacy.",
@@ -2376,14 +2421,9 @@
   "aikoPrompt12": "What's my cash flow looking like?",
   "aikoPrompt13": "Will I have money left at month end?",
   "aikoPrompt14": "How do my income and expenses compare?",
-  "aikoPrompt15": "What bills are due soon?",
-  "aikoPrompt16": "Which subscriptions could I cancel?",
-  "aikoPrompt17": "Am I paying for anything I forgot about?",
   "aikoPrompt18": "How should I pay off my debt?",
-  "aikoPrompt19": "What's my credit card utilization?",
   "aikoPrompt20": "Should I use snowball or avalanche?",
   "aikoPrompt21": "What's my net worth right now?",
-  "aikoPrompt22": "How is my portfolio allocated?",
   "aikoPrompt23": "Is my emergency fund big enough?",
   "aikoPrompt24": "Give me a quick money check-up.",
   "aikoPrompt25": "Any unusual spending this month?",
@@ -2401,6 +2441,7 @@
   "chatErrorGeneric": "Something went wrong. Tap retry to try again.",
   "chatBusyHint": "Aiko is busy...",
   "chatInputHint": "Ask about your money...",
+  "chatSend": "Send",
   "chatNeedsCloud": "Aiko chat needs the cloud. Connect to Aiko cloud to start chatting.",
   "chatThinking": "Aiko is thinking",
   "dashExcludedCurrencies": "Not counted yet: amounts in {currencies}, because no exchange rate is available right now.",

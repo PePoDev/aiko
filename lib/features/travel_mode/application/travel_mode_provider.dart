@@ -3,10 +3,10 @@ import 'dart:convert';
 import '../../../core/storage/secure_storage_service.dart';
 import '../../../core/storage/synced_preferences.dart';
 import '../../../core/offline/offline_store.dart';
+import 'package:decimal/decimal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/trip.dart';
 import '../../../app/providers.dart';
-import '../../../core/money/money.dart';
 
 class TravelState {
   const TravelState({
@@ -55,14 +55,22 @@ class TravelModeNotifier extends Notifier<TravelState> {
   }
 
   /// Starts a trip immediately with a sensible offline default rate, then
-  /// refines it with a live quote when the network is available.
+  /// refines it with a live quote when the network is available, and saves
+  /// once. The home and local currencies must differ.
   Future<void> createTrip(Trip trip) async {
+    if (trip.homeCurrency == trip.localCurrency) {
+      throw ArgumentError.value(
+        trip.localCurrency,
+        'localCurrency',
+        'Must differ from the home currency',
+      );
+    }
     await ref.read(storedTravelProvider.future);
     state = TravelState(
       activeTrip: trip,
       exchangeRate: _fallbackRate(trip.homeCurrency, trip.localCurrency),
     );
-    await refreshRate();
+    await _fetchLiveRate();
     await _persist();
   }
 
@@ -70,20 +78,30 @@ class TravelModeNotifier extends Notifier<TravelState> {
   /// `true` when it updated; `false` on no trip or a failed lookup (the last
   /// known rate is kept).
   Future<bool> refreshRate() async {
+    final updated = await _fetchLiveRate();
+    if (updated) await _persist();
+    return updated;
+  }
+
+  Future<bool> _fetchLiveRate() async {
     final trip = state.activeTrip;
     if (trip == null) return false;
     final rate = await ref
         .read(exchangeRateServiceProvider)
         .fetchRate(trip.homeCurrency, trip.localCurrency);
-    if (rate == null) return false;
+    if (rate == null || rate <= Decimal.zero) return false;
     state = state.copyWith(exchangeRate: rate.toDouble());
-    await _persist();
     return true;
   }
 
-  void updateExchangeRate(double newRate) {
-    state = state.copyWith(exchangeRate: newRate);
-    unawaited(_persist());
+  /// Sets a user-entered rate. Pass `persist: false` while the user is still
+  /// typing so only the final value is saved (and synced).
+  void updateExchangeRate(double newRate, {bool persist = true}) {
+    if (!(newRate > 0) || !newRate.isFinite) return;
+    if (newRate != state.exchangeRate) {
+      state = state.copyWith(exchangeRate: newRate);
+    }
+    if (persist) unawaited(_persist());
   }
 
   /// Standard reference rates so a trip feels realistic offline / before the
@@ -113,7 +131,7 @@ class TravelModeNotifier extends Notifier<TravelState> {
     return 1.0;
   }
 
-  void addForeignFee(Money fee) {
+  void addForeignFee(TravelFee fee) {
     if (state.activeTrip == null) return;
     final currentFees = [...state.activeTrip!.foreignFees, fee];
     final updatedTrip = state.activeTrip!.copyWith(foreignFees: currentFees);

@@ -2,17 +2,24 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../app/providers.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/money/money.dart';
+import '../../../core/money/supported_currencies.dart';
 import '../../../l10n/domain_labels.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../dashboard/application/dashboard_summary_builder.dart';
 import '../application/allocation_service.dart';
 import '../application/investments_provider.dart';
+import '../application/portfolio_valuation.dart';
+import '../application/price_refresh.dart';
 import '../domain/allocation_target.dart';
 import '../domain/investment_holding.dart';
 
@@ -70,9 +77,27 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
     if (_isRefreshing) {
       return;
     }
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _isRefreshing = true);
     try {
-      await ref.read(investmentsProvider.notifier).refreshPrices();
+      final result = await ref
+          .read(investmentsProvider.notifier)
+          .refreshPrices();
+      final message = _refreshMessage(result, l10n);
+      if (message != null) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+        );
+      }
+    } catch (_) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l10n.holdingPricesSaveFailed),
+          backgroundColor: AikoColors.dangerRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _isRefreshing = false);
@@ -80,41 +105,55 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
     }
   }
 
-  void _showAddHoldingBottomSheet() {
+  String? _refreshMessage(PriceRefreshResult result, AppLocalizations l10n) {
+    if (result.needsCloud) {
+      return l10n.holdingPricesNeedCloud;
+    }
+    if (result.updated + result.failed + result.deferred == 0) {
+      return null;
+    }
+    return [
+      l10n.holdingPricesUpdated(result.updated),
+      if (result.failed > 0) l10n.holdingPricesFailed(result.failed),
+      if (result.deferred > 0) l10n.holdingPricesDeferred(result.deferred),
+    ].join(' ');
+  }
+
+  String get _baseCurrency =>
+      ref.read(profileProvider).value?.baseCurrency ?? kDefaultBaseCurrency;
+
+  void _showHoldingSheet({InvestmentHolding? initial}) {
     showAikoSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const _AddHoldingBottomSheet(),
+      builder: (context) =>
+          _HoldingFormSheet(initial: initial, defaultCurrency: _baseCurrency),
     );
+  }
+
+  void _openHolding(InvestmentHolding holding) {
+    final id = Uri.encodeQueryComponent(holding.id);
+    context.push('/portfolio/holding?id=$id', extra: holding);
   }
 
   void _confirmDeleteHolding(InvestmentHolding holding) {
     showDialog<void>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: Text(context.l10n.holdingRemoveQuestion(holding.symbol)),
           content: Text(context.l10n.holdingRemoveMessage(holding.symbol)),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: Text(context.l10n.cancel),
             ),
             FilledButton(
               onPressed: () {
-                ref
-                    .read(investmentsProvider.notifier)
-                    .deleteHolding(holding.id);
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(context.l10n.holdingRemoved(holding.symbol)),
-                    backgroundColor: AikoColors.successGreen,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                Navigator.pop(dialogContext);
+                _deleteHolding(holding);
               },
               style: FilledButton.styleFrom(
                 backgroundColor: AikoColors.dangerRed,
@@ -127,10 +166,36 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
     );
   }
 
+  Future<void> _deleteHolding(InvestmentHolding holding) async {
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(investmentsProvider.notifier).deleteHolding(holding.id);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l10n.holdingRemoved(holding.symbol)),
+          backgroundColor: AikoColors.successGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l10n.holdingRemoveFailed(holding.symbol)),
+          backgroundColor: AikoColors.dangerRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final holdingsAsync = ref.watch(investmentsProvider);
+    // Loaded here so the add sheet can default to the base currency.
+    ref.watch(profileProvider);
     final actionColor = Theme.of(context).colorScheme.primary;
+    final hasHoldings = holdingsAsync.value?.isNotEmpty ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -176,11 +241,20 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
           ),
         ],
       ),
+      // The empty state carries its own add button.
+      floatingActionButton: hasHoldings
+          ? FloatingActionButton.extended(
+              tooltip: context.l10n.holdingAdd,
+              onPressed: _showHoldingSheet,
+              icon: const Icon(Icons.add),
+              label: Text(context.l10n.holdingAdd),
+            )
+          : null,
       body: holdingsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => AikoScreenState.error(
+        error: (_, _) => AikoScreenState.error(
           title: context.l10n.portfolioLoadFailed,
-          message: error.toString(),
+          message: context.l10n.holdingsUnavailableMessage,
           action: FilledButton.icon(
             onPressed: () => ref.invalidate(investmentsProvider),
             icon: const Icon(Icons.refresh),
@@ -193,17 +267,19 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
   }
 
   Widget _buildHoldingsBody(List<InvestmentHolding> holdings) {
+    final valuation = _valuationFor(holdings);
     final alerts = InvestmentsScreen._allocationService.rebalanceAlerts(
-      portfolio: holdings,
+      portfolio: valuation.holdings,
       targets: InvestmentsScreen._targetAllocation,
     );
     final summary = _PortfolioSummary.fromHoldings(
       l10n: context.l10n,
-      holdings: holdings,
+      valuation: valuation,
+      holdingCount: holdings.length,
       alerts: alerts,
     );
     final filteredHoldings = holdings.where(_matchesVisibleFilters).toList();
-    final allocationRows = _allocationRowsFor(holdings);
+    final allocationRows = _allocationRowsFor(valuation.holdings);
 
     return RefreshIndicator(
       onRefresh: _refreshPrices,
@@ -241,7 +317,9 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
               filteredHoldings: filteredHoldings,
               hasActiveFilters: _hasActiveFilters,
               onClearFilters: _clearFilters,
-              onAddHolding: _showAddHoldingBottomSheet,
+              onAddHolding: _showHoldingSheet,
+              onOpenHolding: _openHolding,
+              onEditHolding: (holding) => _showHoldingSheet(initial: holding),
               onDeleteHolding: _confirmDeleteHolding,
             ),
             const SizedBox(height: 16),
@@ -253,6 +331,22 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Totals and allocation add holdings up in the profile's base currency.
+  PortfolioValuation _valuationFor(List<InvestmentHolding> holdings) {
+    final baseCurrency =
+        ref.watch(profileProvider).value?.baseCurrency ?? kDefaultBaseCurrency;
+    final needsRates = holdings.any(
+      (holding) => holding.currency.toUpperCase() != baseCurrency,
+    );
+    final rates = needsRates
+        ? ref.watch(fxRatesProvider(baseCurrency)).value
+        : null;
+    return valueHoldingsIn(
+      holdings,
+      CurrencyConverter(baseCurrency, rates ?? const {}),
     );
   }
 
@@ -325,6 +419,17 @@ class _PortfolioSummaryCard extends StatelessWidget {
             value: summary.allocationStatus,
             valueColor: summary.allocationColor,
           ),
+          if (summary.excludedCurrencies.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              context.l10n.dashExcludedCurrencies(
+                summary.excludedCurrencies.join(', '),
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -455,6 +560,8 @@ class _HoldingsList extends StatelessWidget {
     required this.hasActiveFilters,
     required this.onClearFilters,
     required this.onAddHolding,
+    required this.onOpenHolding,
+    required this.onEditHolding,
     required this.onDeleteHolding,
   });
 
@@ -463,6 +570,8 @@ class _HoldingsList extends StatelessWidget {
   final bool hasActiveFilters;
   final VoidCallback onClearFilters;
   final VoidCallback onAddHolding;
+  final ValueChanged<InvestmentHolding> onOpenHolding;
+  final ValueChanged<InvestmentHolding> onEditHolding;
   final ValueChanged<InvestmentHolding> onDeleteHolding;
 
   @override
@@ -505,6 +614,8 @@ class _HoldingsList extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 8),
             child: _HoldingCard(
               holding: holding,
+              onOpen: () => onOpenHolding(holding),
+              onEdit: () => onEditHolding(holding),
               onDelete: () => onDeleteHolding(holding),
             ),
           ),
@@ -513,10 +624,19 @@ class _HoldingsList extends StatelessWidget {
   }
 }
 
+enum _HoldingAction { edit, remove }
+
 class _HoldingCard extends StatelessWidget {
-  const _HoldingCard({required this.holding, required this.onDelete});
+  const _HoldingCard({
+    required this.holding,
+    required this.onOpen,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   final InvestmentHolding holding;
+  final VoidCallback onOpen;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   @override
@@ -532,102 +652,129 @@ class _HoldingCard extends StatelessWidget {
         side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  _assetClassIcon(holding.assetClass),
+                  color: accent,
+                  size: 18,
+                ),
               ),
-              child: Icon(
-                _assetClassIcon(holding.assetClass),
-                color: accent,
-                size: 18,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          holding.symbol,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            holding.symbol,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      _AssetClassBadge(
-                        label: investmentAssetClassLabel(
-                          holding.assetClass,
-                          context.l10n,
+                        const SizedBox(width: 8),
+                        _AssetClassBadge(
+                          label: investmentAssetClassLabel(
+                            holding.assetClass,
+                            context.l10n,
+                          ),
+                          color: accent,
                         ),
-                        color: accent,
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      context.l10n.holdingSharesAtPrice(
+                        _formatQuantity(holding.quantity),
+                        holding.currentPrice.format(),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    context.l10n.holdingSharesAtPrice(
-                      _formatQuantity(holding.quantity),
-                      holding.currentPrice.format(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 128),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      holding.marketValue.format(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _formatSignedMoney(gain),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: gain.isNegative
+                            ? AikoColors.dangerRed
+                            : AikoColors.successGreen,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              PopupMenuButton<_HoldingAction>(
+                tooltip: context.l10n.holdingActionsTooltip(holding.symbol),
+                icon: Icon(
+                  Icons.more_vert,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                onSelected: (action) => switch (action) {
+                  _HoldingAction.edit => onEdit(),
+                  _HoldingAction.remove => onDelete(),
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: _HoldingAction.edit,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.edit_outlined),
+                      title: Text(context.l10n.holdingEdit),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _HoldingAction.remove,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.delete_outline),
+                      title: Text(context.l10n.remove),
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 128),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    holding.marketValue.format(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _formatSignedMoney(gain),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: gain.isNegative
-                          ? AikoColors.dangerRed
-                          : AikoColors.successGreen,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: context.l10n.holdingRemoveTooltip(holding.symbol),
-              onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline, size: 20),
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -796,6 +943,7 @@ class _PortfolioSummary {
     required this.holdingsLabel,
     required this.allocationStatus,
     required this.allocationColor,
+    required this.excludedCurrencies,
   });
 
   final String totalValue;
@@ -804,20 +952,22 @@ class _PortfolioSummary {
   final String holdingsLabel;
   final String allocationStatus;
   final Color allocationColor;
+  final List<String> excludedCurrencies;
 
   factory _PortfolioSummary.fromHoldings({
-    required List<InvestmentHolding> holdings,
+    required PortfolioValuation valuation,
+    required int holdingCount,
     required List<RebalanceAlert> alerts,
     required AppLocalizations l10n,
   }) {
-    final currency = _portfolioCurrency(holdings);
+    final currency = valuation.currency;
     final totalValue = _sumMoney(
       currency: currency,
-      amounts: holdings.map((holding) => holding.marketValue),
+      amounts: valuation.holdings.map((holding) => holding.marketValue),
     );
     final totalGain = _sumMoney(
       currency: currency,
-      amounts: holdings.map((holding) => holding.unrealizedGainLoss),
+      amounts: valuation.holdings.map((holding) => holding.unrealizedGainLoss),
     );
     final isBalanced = alerts.isEmpty;
 
@@ -827,13 +977,14 @@ class _PortfolioSummary {
       gainColor: totalGain.isNegative
           ? AikoColors.dangerRed
           : AikoColors.successGreen,
-      holdingsLabel: l10n.holdingsCount(holdings.length),
+      holdingsLabel: l10n.holdingsCount(holdingCount),
       allocationStatus: isBalanced
           ? l10n.allocationOnTrack
           : l10n.allocationNeedsRebalance,
       allocationColor: isBalanced
           ? AikoColors.successGreen
           : AikoColors.warningOrange,
+      excludedCurrencies: valuation.excludedCurrencies.toList()..sort(),
     );
   }
 }
@@ -890,13 +1041,6 @@ Money _sumMoney({required String currency, required Iterable<Money> amounts}) {
   return total;
 }
 
-String _portfolioCurrency(List<InvestmentHolding> holdings) {
-  if (holdings.isEmpty) {
-    return 'USD';
-  }
-  return holdings.first.currentPrice.currency;
-}
-
 String _formatSignedMoney(Money money) {
   if (money.isPositive) {
     return '+${money.format()}';
@@ -933,22 +1077,36 @@ Color _assetClassColor(BuildContext context, String assetClass) {
   };
 }
 
-class _AddHoldingBottomSheet extends ConsumerStatefulWidget {
-  const _AddHoldingBottomSheet();
+/// Adds a holding, or edits [initial] in place (same id).
+class _HoldingFormSheet extends ConsumerStatefulWidget {
+  const _HoldingFormSheet({this.initial, required this.defaultCurrency});
+
+  final InvestmentHolding? initial;
+
+  /// Currency for a new holding: the profile's base currency.
+  final String defaultCurrency;
 
   @override
-  ConsumerState<_AddHoldingBottomSheet> createState() =>
-      _AddHoldingBottomSheetState();
+  ConsumerState<_HoldingFormSheet> createState() => _HoldingFormSheetState();
 }
 
-class _AddHoldingBottomSheetState
-    extends ConsumerState<_AddHoldingBottomSheet> {
+class _HoldingFormSheetState extends ConsumerState<_HoldingFormSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _symbolController = TextEditingController();
-  final _quantityController = TextEditingController();
-  final _averageCostController = TextEditingController();
-  final _currentPriceController = TextEditingController();
-  var _selectedAssetClass = 'Stocks';
+  late final _symbolController = TextEditingController(
+    text: widget.initial?.symbol,
+  );
+  late final _quantityController = TextEditingController(
+    text: widget.initial?.quantity.toString(),
+  );
+  late final _averageCostController = TextEditingController(
+    text: widget.initial?.averageCost.amount.toString(),
+  );
+  late final _currentPriceController = TextEditingController(
+    text: widget.initial?.currentPrice.amount.toString(),
+  );
+  late var _selectedAssetClass = widget.initial?.assetClass ?? 'Stocks';
+  late var _currency = (widget.initial?.currency ?? widget.defaultCurrency)
+      .toUpperCase();
   var _isLoading = false;
 
   static const _assetClasses = [
@@ -959,6 +1117,8 @@ class _AddHoldingBottomSheetState
     'Cash',
     'Custom',
   ];
+
+  bool get _isEditing => widget.initial != null;
 
   @override
   void dispose() {
@@ -974,50 +1134,60 @@ class _AddHoldingBottomSheetState
       return;
     }
 
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
     setState(() => _isLoading = true);
 
     try {
       final symbol = _symbolController.text.trim().toUpperCase();
       final quantity = Decimal.parse(_quantityController.text.trim());
-      final averageCost = _averageCostController.text.trim();
+      final averageCost = Money.parse(
+        _averageCostController.text.trim(),
+        _currency,
+      );
       final currentPrice = _currentPriceController.text.trim().isEmpty
           ? averageCost
-          : _currentPriceController.text.trim();
-
-      ref
-          .read(investmentsProvider.notifier)
-          .addHolding(
-            InvestmentHolding(
-              id: const Uuid().v4(),
-              symbol: symbol,
-              assetClass: _selectedAssetClass,
-              quantity: quantity,
-              averageCost: Money.parse(averageCost, 'USD'),
-              currentPrice: Money.parse(currentPrice, 'USD'),
-            ),
+          : Money.parse(_currentPriceController.text.trim(), _currency);
+      final holding =
+          widget.initial?.copyWith(
+            symbol: symbol,
+            assetClass: _selectedAssetClass,
+            quantity: quantity,
+            averageCost: averageCost,
+            currentPrice: currentPrice,
+          ) ??
+          InvestmentHolding(
+            id: const Uuid().v4(),
+            symbol: symbol,
+            assetClass: _selectedAssetClass,
+            quantity: quantity,
+            averageCost: averageCost,
+            currentPrice: currentPrice,
           );
 
-      if (!mounted) {
-        return;
-      }
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
+      await ref.read(investmentsProvider.notifier).saveHolding(holding);
+
+      navigator.pop();
+      messenger.showSnackBar(
         SnackBar(
-          content: Text(context.l10n.holdingAdded(symbol)),
+          content: Text(
+            _isEditing
+                ? l10n.holdingUpdated(symbol)
+                : l10n.holdingAdded(symbol),
+          ),
           backgroundColor: AikoColors.successGreen,
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.holdingAddFailed),
-            backgroundColor: AikoColors.dangerRed,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+    } catch (_) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l10n.holdingSaveFailed),
+          backgroundColor: AikoColors.dangerRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -1053,7 +1223,9 @@ class _AddHoldingBottomSheetState
                   children: [
                     Expanded(
                       child: Text(
-                        context.l10n.holdingAdd,
+                        _isEditing
+                            ? context.l10n.holdingEdit
+                            : context.l10n.holdingAdd,
                         style: theme.textTheme.titleLarge,
                       ),
                     ),
@@ -1072,7 +1244,10 @@ class _AddHoldingBottomSheetState
                     prefixIcon: Icon(Icons.category_outlined),
                   ),
                   items: [
-                    for (final assetClass in _assetClasses)
+                    for (final assetClass in {
+                      ..._assetClasses,
+                      _selectedAssetClass,
+                    })
                       DropdownMenuItem(
                         value: assetClass,
                         child: Text(
@@ -1116,6 +1291,30 @@ class _AddHoldingBottomSheetState
                   validator: _positiveNumberValidator(context.l10n),
                 ),
                 const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _currency,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: context.l10n.txCurrency,
+                    prefixIcon: const Icon(Icons.currency_exchange_outlined),
+                  ),
+                  items: [
+                    for (final code in {_currency, ...kAikoSupportedCurrencies})
+                      DropdownMenuItem(
+                        value: code,
+                        child: Text(
+                          '$code · ${currencyDisplayName(code, context.l10n)}',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _currency = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
                 TextFormField(
                   controller: _averageCostController,
                   keyboardType: const TextInputType.numberWithOptions(
@@ -1123,7 +1322,8 @@ class _AddHoldingBottomSheetState
                   ),
                   decoration: InputDecoration(
                     labelText: context.l10n.holdingAverageCost,
-                    prefixIcon: Icon(Icons.attach_money_outlined),
+                    prefixIcon: Icon(Icons.payments_outlined),
+                    suffixText: _currency,
                   ),
                   validator: _positiveNumberValidator(context.l10n),
                 ),
@@ -1137,6 +1337,7 @@ class _AddHoldingBottomSheetState
                     labelText: context.l10n.holdingCurrentPrice,
                     hintText: context.l10n.optional,
                     prefixIcon: Icon(Icons.price_change_outlined),
+                    suffixText: _currency,
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -1153,7 +1354,7 @@ class _AddHoldingBottomSheetState
                           dimension: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.add),
+                      : Icon(_isEditing ? Icons.check : Icons.add),
                   label: Text(context.l10n.holdingSave),
                 ),
               ],

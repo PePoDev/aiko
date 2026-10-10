@@ -6,6 +6,7 @@ import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
+import '../application/trip_spending.dart';
 import '../domain/trip.dart';
 import '../application/travel_mode_provider.dart';
 
@@ -78,7 +79,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                       children: [
                         Icon(Icons.flight_land, color: Colors.white),
                         SizedBox(width: 8),
-                        Text(context.l10n.travelResetDone),
+                        Expanded(child: Text(context.l10n.travelResetDone)),
                       ],
                     ),
                     backgroundColor: AikoColors.primaryBlue,
@@ -190,28 +191,10 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
       );
     }
 
-    // Active trip dashboard
-    // Converted math using live slider exchange rate
-    // Spent total = Sum of all logged foreign fees
-    final double totalSpentLocal = trip.foreignFees
-        .where((f) => f.currency == trip.localCurrency)
-        .fold(0.0, (sum, f) => sum + f.amount.toDouble());
-
-    final double totalSpentHome = trip.foreignFees
-        .where((f) => f.currency == trip.homeCurrency)
-        .fold(0.0, (sum, f) => sum + f.amount.toDouble());
-
-    // Converted Spent = local fees converted to Home + home fees directly
-    final double convertedSpentHome =
-        (totalSpentLocal / state.exchangeRate) + totalSpentHome;
-    final double budgetHomeVal = trip.budget.amount.toDouble();
-    final double remainingHomeVal = (budgetHomeVal - convertedSpentHome).clamp(
-      0.0,
-      budgetHomeVal,
-    );
-    final double spentPercent = budgetHomeVal > 0
-        ? (convertedSpentHome / budgetHomeVal)
-        : 0.0;
+    // Active trip dashboard: local fees converted at the current rate plus
+    // fees charged in the home currency.
+    final spending = tripSpending(trip, state.exchangeRate);
+    final spentPercent = spending.spentRatio;
 
     return Scaffold(
       appBar: AppBar(
@@ -224,19 +207,22 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
               final l10n = context.l10n;
               final notifier = ref.read(travelModeProvider.notifier);
               final updated = await notifier.refreshRate();
-              final rate = ref.read(travelModeProvider).exchangeRate;
+              final rate = formatRate(
+                ref.read(travelModeProvider).exchangeRate,
+                locale: l10n.localeName,
+              );
               messenger.showSnackBar(
                 SnackBar(
                   content: Text(
                     updated
                         ? l10n.travelRatesUpdated(
                             trip.homeCurrency,
-                            rate.toStringAsFixed(2),
+                            rate,
                             trip.localCurrency,
                           )
                         : l10n.travelRatesOffline(
                             trip.homeCurrency,
-                            rate.toStringAsFixed(2),
+                            rate,
                             trip.localCurrency,
                           ),
                   ),
@@ -317,23 +303,33 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      context.l10n.travelBudgetUsed(
-                        (spentPercent * 100).toStringAsFixed(0),
-                      ),
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: spentPercent > 0.8
-                            ? AikoColors.dangerRed
-                            : AikoColors.analyticsTeal,
+                    Flexible(
+                      child: Text(
+                        context.l10n.travelBudgetUsed(
+                          (spentPercent * 100).toStringAsFixed(0),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: spentPercent > 0.8
+                              ? AikoColors.dangerRed
+                              : AikoColors.analyticsTeal,
+                        ),
                       ),
                     ),
-                    Text(
-                      '\$${convertedSpentHome.toStringAsFixed(0)} / \$${budgetHomeVal.toStringAsFixed(0)} ${trip.homeCurrency}',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.bold,
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        '${spending.spentHome.format()} / ${trip.budget.format()}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -356,51 +352,66 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.l10n.travelRemainingBudget,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            context.l10n.travelRemainingBudget,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '\$${remainingHomeVal.toStringAsFixed(2)} ${trip.homeCurrency}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: AikoColors.successGreen,
+                          const SizedBox(height: 2),
+                          Text(
+                            spending.remainingHome.format(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: AikoColors.successGreen,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          context.l10n.travelLocalEquivalent,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            context.l10n.travelLocalEquivalent,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${(remainingHomeVal * state.exchangeRate).toStringAsFixed(0)} ${trip.localCurrency}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: Theme.of(context).colorScheme.onSurface,
+                          const SizedBox(height: 2),
+                          Text(
+                            spending.remainingLocal.format(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -417,38 +428,8 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      context.l10n.travelSpotRate,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                    Text(
-                      '1 ${trip.homeCurrency} = ${state.exchangeRate.toStringAsFixed(2)} ${trip.localCurrency}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AikoColors.warningOrange,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ],
-                ),
-                Slider(
-                  value: state.exchangeRate.clamp(0.1, 300.0),
-                  min: 0.1,
-                  max: 300.0,
-                  activeColor: AikoColors.warningOrange,
-                  inactiveColor: Theme.of(context).colorScheme.outlineVariant,
-                  onChanged: (val) {
-                    ref
-                        .read(travelModeProvider.notifier)
-                        .updateExchangeRate(val);
-                  },
-                ),
+                _RateField(trip: trip, rate: state.exchangeRate),
+                const SizedBox(height: 8),
                 Text(
                   context.l10n.travelSpreadHint,
                   style: TextStyle(
@@ -481,7 +462,7 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                     ),
                   )
                 else
-                  for (final fee in trip.foreignFees) ...[
+                  for (final (index, fee) in trip.foreignFees.indexed) ...[
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: CircleAvatar(
@@ -495,9 +476,12 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                         ),
                       ),
                       title: Text(
-                        fee.currency == trip.localCurrency
-                            ? context.l10n.travelLocalMerchant
-                            : context.l10n.travelHomeMerchant,
+                        fee.merchant ??
+                            (fee.currency == trip.localCurrency
+                                ? context.l10n.travelLocalMerchant
+                                : context.l10n.travelHomeMerchant),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
@@ -506,22 +490,24 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
                       subtitle: Text(
                         fee.currency == trip.localCurrency
                             ? context.l10n.travelEstHomeValue(
-                                (fee.amount.toDouble() / state.exchangeRate)
-                                    .toStringAsFixed(2),
-                                trip.homeCurrency,
+                                localToHome(
+                                  fee.amount,
+                                  state.exchangeRate,
+                                  trip.homeCurrency,
+                                ).format(),
                               )
                             : context.l10n.travelDirectHomeCharge,
                         style: const TextStyle(fontSize: 10),
                       ),
                       trailing: Text(
-                        fee.format(),
+                        fee.amount.format(),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ),
-                    if (fee != trip.foreignFees.last) const Divider(),
+                    if (index < trip.foreignFees.length - 1) const Divider(),
                   ],
               ],
             ),
@@ -667,7 +653,7 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
           children: [
             const Icon(Icons.flight_takeoff, color: Colors.white),
             const SizedBox(width: 8),
-            Text(context.l10n.travelTripStarted(trip.name)),
+            Expanded(child: Text(context.l10n.travelTripStarted(trip.name))),
           ],
         ),
         backgroundColor: AikoColors.successGreen,
@@ -762,6 +748,10 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.pin_drop_outlined),
                 ),
+                // Same currency on both sides would count every fee twice.
+                validator: (val) => val == _selectedHomeCurrency
+                    ? context.l10n.travelSameCurrencyError
+                    : null,
                 items: _currencies.map((curr) {
                   return DropdownMenuItem<String>(
                     value: curr,
@@ -945,6 +935,8 @@ class _LogFeeBottomSheetState extends State<_LogFeeBottomSheet> {
                   // Description
                   TextFormField(
                     controller: _descriptionController,
+                    textCapitalization: TextCapitalization.sentences,
+                    maxLength: 80,
                     decoration: InputDecoration(
                       labelText: context.l10n.travelMerchantDetails,
                       border: OutlineInputBorder(),
@@ -957,9 +949,13 @@ class _LogFeeBottomSheetState extends State<_LogFeeBottomSheet> {
                     child: FilledButton.icon(
                       onPressed: () {
                         if (!_formKey.currentState!.validate()) return;
-                        final fee = Money.parse(
-                          _amountController.text.trim(),
-                          _selectedCurrency,
+                        final merchant = _descriptionController.text.trim();
+                        final fee = TravelFee(
+                          amount: Money.parse(
+                            _amountController.text.trim(),
+                            _selectedCurrency,
+                          ),
+                          merchant: merchant.isEmpty ? null : merchant,
                         );
                         ref
                             .read(travelModeProvider.notifier)
@@ -974,8 +970,12 @@ class _LogFeeBottomSheetState extends State<_LogFeeBottomSheet> {
                                   color: Colors.white,
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  context.l10n.travelFeeLogged(fee.format()),
+                                Expanded(
+                                  child: Text(
+                                    context.l10n.travelFeeLogged(
+                                      fee.amount.format(),
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
@@ -1003,6 +1003,104 @@ class _LogFeeBottomSheetState extends State<_LogFeeBottomSheet> {
           ),
         );
       },
+    );
+  }
+}
+
+/// The trip's `1 home = rate local` exchange rate as a number field. Every
+/// valid edit updates the totals right away; the rate is saved (and synced)
+/// only when the user submits or leaves the field.
+class _RateField extends ConsumerStatefulWidget {
+  const _RateField({required this.trip, required this.rate});
+
+  final Trip trip;
+  final double rate;
+
+  @override
+  ConsumerState<_RateField> createState() => _RateFieldState();
+}
+
+class _RateFieldState extends ConsumerState<_RateField> {
+  late final _controller = TextEditingController(text: _editable(widget.rate));
+  final _focusNode = FocusNode();
+  var _invalid = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    if (!_focusNode.hasFocus) _commit();
+  }
+
+  @override
+  void didUpdateWidget(_RateField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A refreshed live rate replaces the text unless the user is typing.
+    if (!_focusNode.hasFocus && widget.rate != oldWidget.rate) {
+      _controller.text = _editable(widget.rate);
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode
+      ..removeListener(_onFocusChange)
+      ..dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Plain digits for editing: 4 significant digits, whole number from 1,000.
+  static String _editable(double rate) => rate >= 1000
+      ? rate.toStringAsFixed(0)
+      : double.parse(rate.toStringAsPrecision(4)).toString();
+
+  double? get _parsed {
+    final value = double.tryParse(_controller.text.trim());
+    return value != null && value > 0 && value.isFinite ? value : null;
+  }
+
+  void _onChanged(String _) {
+    final value = _parsed;
+    setState(() => _invalid = value == null);
+    if (value != null) {
+      ref
+          .read(travelModeProvider.notifier)
+          .updateExchangeRate(value, persist: false);
+    }
+  }
+
+  void _commit() {
+    final value = _parsed;
+    if (value == null) {
+      _controller.text = _editable(ref.read(travelModeProvider).exchangeRate);
+      setState(() => _invalid = false);
+      return;
+    }
+    ref.read(travelModeProvider.notifier).updateExchangeRate(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final trip = widget.trip;
+    return TextField(
+      controller: _controller,
+      focusNode: _focusNode,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textInputAction: TextInputAction.done,
+      onChanged: _onChanged,
+      onSubmitted: (_) => _commit(),
+      onTapOutside: (_) => _focusNode.unfocus(),
+      decoration: InputDecoration(
+        labelText: context.l10n.travelSpotRate,
+        prefixText: '1 ${trip.homeCurrency} = ',
+        suffixText: trip.localCurrency,
+        errorText: _invalid ? context.l10n.enterPositiveNumber : null,
+        border: const OutlineInputBorder(),
+      ),
     );
   }
 }

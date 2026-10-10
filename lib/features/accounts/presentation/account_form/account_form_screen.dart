@@ -344,17 +344,12 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     return null;
   }
 
+  /// Records a new account's opening balance as a signed `adjustment`, so it
+  /// moves the balance without counting as income or spending anywhere.
   Future<void> _createInitialBalanceTransaction(Account account) async {
-    final amount = account.currentBalance.amount;
-    if (amount == Decimal.zero) {
+    if (account.currentBalance.isZero) {
       return;
     }
-
-    final isNegative = amount < Decimal.zero;
-    final transactionAmount = Money(
-      amount: isNegative ? Decimal.zero - amount : amount,
-      currency: account.currentBalance.currency,
-    );
 
     await ref
         .read(transactionsProvider.notifier)
@@ -363,11 +358,41 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
             id: const Uuid().v4(),
             userId: account.userId,
             accountId: account.id,
-            type: isNegative ? TransactionType.expense : TransactionType.income,
-            amount: transactionAmount,
+            type: TransactionType.adjustment,
+            amount: account.currentBalance,
             date: DateTime.now(),
             merchant: context.l10n.accountFormInitialBalance,
             note: context.l10n.accountFormInitialBalanceNote,
+          ),
+          updateAccountBalance: false,
+        );
+  }
+
+  /// Balances are recomputed from transactions, so an edited balance must be
+  /// backed by an `adjustment` for the difference or it would be overwritten.
+  /// [transactions] are the account's existing rows.
+  Future<void> _createBalanceAdjustmentTransaction(
+    Account account,
+    List<FinanceTransaction> transactions,
+  ) async {
+    final difference =
+        account.currentBalance -
+        balanceFromTransactions(transactions, account.currency);
+    if (difference.isZero) {
+      return;
+    }
+
+    await ref
+        .read(transactionsProvider.notifier)
+        .addTransaction(
+          FinanceTransaction(
+            id: const Uuid().v4(),
+            userId: account.userId,
+            accountId: account.id,
+            type: TransactionType.adjustment,
+            amount: difference,
+            date: DateTime.now(),
+            merchant: context.l10n.accountFormBalanceAdjustment,
           ),
           updateAccountBalance: false,
         );
@@ -424,10 +449,36 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       );
       final all = ref.read(accountsProvider).value ?? const <Account>[];
       AccountValidator.validate(account, allAccounts: all);
+      final previous = widget.account;
+      // A changed balance (or currency) is reconciled against the account's
+      // existing transactions; other edits don't need them.
+      final balanceChanged =
+          previous != null && previous.currentBalance != account.currentBalance;
+      final accountTransactions = !balanceChanged
+          ? const <FinanceTransaction>[]
+          : [
+              for (final transaction in await ref.read(
+                transactionsProvider.future,
+              ))
+                if (transaction.accountId == previous.id) transaction,
+            ];
+      if (!mounted) return;
+      // Existing rows are in the old currency; switching would silently drop
+      // them from the balance.
+      if (previous != null &&
+          previous.currency != account.currency &&
+          accountTransactions.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.accountFormCurrencyLocked)),
+        );
+        return;
+      }
       await ref.read(accountsProvider.notifier).saveAccount(account);
       if (!mounted) return;
-      if (widget.account == null) {
+      if (previous == null) {
         await _createInitialBalanceTransaction(account);
+      } else if (balanceChanged) {
+        await _createBalanceAdjustmentTransaction(account, accountTransactions);
       }
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);

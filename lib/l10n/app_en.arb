@@ -511,7 +511,7 @@
       }
     }
   },
-  "txTotalSpent": "Total Spent",
+  "txMonthNet": "Net",
   "txAveragePerDay": "Average per Day",
   "txUnknownAccount": "Unknown",
   "txUntitled": "Transaction",
@@ -537,6 +537,23 @@
   },
   "txDeleteQuestion": "Delete transaction?",
   "txDeleteConfirm": "Are you sure you want to delete this transaction?",
+  "txDeleteTransferConfirm": "This deletes both sides of the transfer: the money leaving the source account and the money arriving in the destination.",
+  "txTypeLockedTransfer": "A transfer can't become income or an expense. To record one instead, delete this transfer and add a new entry.",
+  "txTypeLockedNonTransfer": "An existing entry can't become a transfer. Add a new transfer instead.",
+  "txTransferCrossCurrencyLocked": "This transfer is between two currencies, so its amount, currency and accounts can't change here. Delete it and add it again instead.",
+  "txNumberRange": "Enter a number from {min} to {max}.",
+  "@txNumberRange": {
+    "placeholders": {
+      "min": {
+        "type": "Object"
+      },
+      "max": {
+        "type": "Object"
+      }
+    }
+  },
+  "txRemoveAttachment": "Remove attachment",
+  "txAdjustmentEditHint": "Balance adjustments come from the account's balance. To change one, edit the account's balance.",
   "delete": "Delete",
   "txDeleted": "Transaction deleted!",
   "txDeleteFailed": "Unable to delete transaction right now.",
@@ -885,6 +902,8 @@
   "accountFormTargetDateRequired": "Pick a target date when a target amount is set",
   "accountFormInitialBalance": "Initial balance",
   "accountFormInitialBalanceNote": "Created from account starting balance",
+  "accountFormBalanceAdjustment": "Balance adjustment",
+  "accountFormCurrencyLocked": "This account already has transactions, so its currency can't change. Add a new account for the other currency instead.",
   "accountFormCreated": "Account \"{name}\" created.",
   "@accountFormCreated": {
     "placeholders": {

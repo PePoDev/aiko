@@ -35,9 +35,12 @@ void main() {
     await AikoBrickRepository.repairInterruptedTemplateIdMigrationForTesting(
       provider,
     );
-    final pending = MigrationManager(
-      migrations,
-    ).migrationsSince(await provider.lastMigrationVersion());
+    // Only the chain up to the template_id migration: later migrations
+    // touch tables this minimal fixture doesn't create.
+    final pending = MigrationManager(migrations)
+        .migrationsSince(await provider.lastMigrationVersion())
+        .where((migration) => migration.version <= 20260725185723)
+        .toList();
     await provider.migrate(pending);
 
     expect(await provider.lastMigrationVersion(), 20260725185723);

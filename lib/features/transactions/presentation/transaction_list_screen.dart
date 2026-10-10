@@ -15,8 +15,10 @@ import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
 import '../../categories/presentation/category_names.dart';
 import '../../categories/presentation/category_visual.dart';
+import '../../../core/config/app_config.dart';
 import '../application/recurring_projection.dart';
 import '../application/transaction_month_range.dart';
+import '../application/transaction_totals.dart';
 import '../domain/transaction.dart';
 import 'transaction_detail_screen.dart';
 import 'transaction_form_screen.dart';
@@ -586,10 +588,14 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
       );
     }
 
-    final groups = _groupTransactionsByDate([
-      ...filtered,
-      ...ghosts,
-    ], previewIds);
+    // Totals fall back to the profile currency when nothing counts.
+    final fallbackCurrency =
+        ref.watch(profileProvider).value?.baseCurrency ?? kDefaultBaseCurrency;
+    final groups = _groupTransactionsByDate(
+      [...filtered, ...ghosts],
+      previewIds,
+      fallbackCurrency,
+    );
     final accountLabels = _accountLabelsForTransactions(
       transactions: filtered,
       allTransactions: widget.allTransactions,
@@ -600,7 +606,10 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
           accountsById[ghost.accountId]?.name ?? context.l10n.txUpcoming;
     }
 
-    final monthTotal = _monthTotal(filtered);
+    final monthTotal = netTransactionTotal(
+      filtered,
+      fallbackCurrency: fallbackCurrency,
+    );
     final daysInMonth = DateTime(
       widget.month.year,
       widget.month.month + 1,
@@ -623,7 +632,9 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
             monthLabel: _monthLabel(widget.month),
             total: monthTotal,
             averagePerDay: averagePerDay,
-            onTap: () => context.push('/reports/monthly'),
+            onTap: () => context.push(
+              '/reports/monthly?month=${widget.month.queryValue}',
+            ),
           ),
           const SizedBox(height: 16),
           for (final group in groups) ...[
@@ -648,9 +659,6 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
       ref.refresh(categoriesProvider.future),
     ]);
   }
-
-  Money _monthTotal(List<FinanceTransaction> transactions) =>
-      _dailyTotal(transactions);
 
   bool _matchesSearchState({
     required FinanceTransaction transaction,
@@ -702,10 +710,7 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
         transaction.type == TransactionType.income,
       _TransactionTypeFilter.expense =>
         transaction.type == TransactionType.expense,
-      _TransactionTypeFilter.transfer =>
-        transaction.type == TransactionType.transfer ||
-            transaction.type == TransactionType.transferIn ||
-            transaction.type == TransactionType.transferOut,
+      _TransactionTypeFilter.transfer => transaction.type.isTransfer,
     };
   }
 
@@ -724,6 +729,7 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
   List<_TransactionDateGroup> _groupTransactionsByDate(
     List<FinanceTransaction> transactions,
     Set<String> previewIds,
+    String fallbackCurrency,
   ) {
     final grouped = <DateTime, List<FinanceTransaction>>{};
     for (final transaction in transactions) {
@@ -739,33 +745,13 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
           transactions: grouped[date]!
             ..sort((a, b) => b.date.compareTo(a.date)),
           // Preview rows are projections, not money that moved — keep them out
-          // of the day total.
-          total: _dailyTotal(
-            grouped[date]!
-                .where((t) => !previewIds.contains(t.id))
-                .toList(growable: false),
+          // of the day total. Transfers and adjustments don't count either.
+          total: netTransactionTotal(
+            grouped[date]!.where((t) => !previewIds.contains(t.id)),
+            fallbackCurrency: fallbackCurrency,
           ),
         ),
     ];
-  }
-
-  Money _dailyTotal(List<FinanceTransaction> transactions) {
-    if (transactions.isEmpty) {
-      return Money.zero('USD');
-    }
-    final currency = transactions.first.amount.currency;
-    var amount = Decimal.zero;
-    for (final transaction in transactions) {
-      if (transaction.amount.currency != currency) {
-        continue;
-      }
-      if (transaction.type == TransactionType.income) {
-        amount += transaction.amount.amount;
-      } else {
-        amount -= transaction.amount.amount;
-      }
-    }
-    return Money(amount: amount, currency: currency);
   }
 }
 
@@ -850,8 +836,8 @@ class _TransactionDateHeader extends StatelessWidget {
   }
 }
 
-/// Month spending summary shown above the day groups. Mirrors the daily-total
-/// math (`income +`, everything else `−`) so the headline matches the rows.
+/// Month summary shown above the day groups: the net (money in minus money
+/// out, transfers and adjustments excluded), matching the day headers.
 class _MonthSummaryCard extends StatelessWidget {
   const _MonthSummaryCard({
     required this.monthLabel,
@@ -911,9 +897,13 @@ class _MonthSummaryCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: _MonthSummaryMetric(
-                            label: context.l10n.txTotalSpent,
+                            label: context.l10n.txMonthNet,
                             value: _formatDailyTotal(total),
-                            valueColor: AikoColors.dangerRed,
+                            valueColor: total.isNegative
+                                ? AikoColors.dangerRed
+                                : total.isPositive
+                                ? AikoColors.successGreen
+                                : theme.colorScheme.onSurface,
                           ),
                         ),
                         Container(
@@ -1022,10 +1012,10 @@ class _DayTransactionsCard extends StatelessWidget {
               accountLabel:
                   accountLabels[transactions[i].id] ??
                   context.l10n.txUnknownAccount,
-              accent: transactions[i].type == TransactionType.income
+              accent: transactions[i].isInflow
                   ? AikoColors.successGreen
                   : AikoColors.dangerRed,
-              sign: transactions[i].type == TransactionType.income ? '+' : '-',
+              sign: transactions[i].isInflow ? '+' : '-',
               isPreview: previewIds.contains(transactions[i].id),
               // Preview rows open their source recurring transaction so the
               // user can edit the series; real rows open themselves.
@@ -1074,7 +1064,7 @@ class _TransactionRow extends ConsumerWidget {
     final theme = Theme.of(context);
     final title =
         transaction.merchant ?? transaction.note ?? context.l10n.txUntitled;
-    final amount = '$sign${transaction.amount.format()}';
+    final amount = '$sign${transaction.absoluteAmount.format()}';
     final timeLabel = DateFormat('HH:mm').format(transaction.date);
     final categoriesAsync = ref.watch(categoriesProvider);
     final category = categoriesAsync.whenOrNull(
@@ -1087,9 +1077,7 @@ class _TransactionRow extends ConsumerWidget {
     );
     final categoryIcon = category != null
         ? aikoCategoryIcon(category.icon)
-        : (transaction.type == TransactionType.income
-              ? Icons.south_west
-              : Icons.north_east);
+        : (transaction.isInflow ? Icons.south_west : Icons.north_east);
     // Tint the icon tile with the category's own color (falling back to the
     // semantic accent for uncategorized rows).
     final iconColor = category != null ? aikoHexColor(category.color) : accent;

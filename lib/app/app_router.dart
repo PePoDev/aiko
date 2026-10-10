@@ -19,6 +19,7 @@ import '../features/investments/presentation/investments_screen.dart';
 import '../features/settings/presentation/connect_line_screen.dart';
 import '../features/settings/presentation/profile_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
+import '../features/transactions/application/transaction_month_range.dart';
 import '../features/transactions/presentation/transaction_list_screen.dart';
 import '../features/transactions/presentation/transaction_rules_screen.dart';
 import '../features/transaction_capture/transaction_capture_screen.dart';
@@ -86,7 +87,14 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
           ),
           GoRoute(
             path: '/reports/monthly',
-            builder: (context, state) => const MonthlyReportScreen(),
+            builder: (context, state) {
+              final month = TransactionMonth.tryParseQuery(
+                state.uri.queryParameters['month'],
+              );
+              return MonthlyReportScreen(
+                month: month == null ? null : DateTime(month.year, month.month),
+              );
+            },
           ),
           GoRoute(
             path: '/export',

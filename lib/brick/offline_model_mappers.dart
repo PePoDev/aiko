@@ -238,6 +238,7 @@ extension OfflineTransactionMapper on OfflineTransaction {
       ),
       recurringSettings: _buildRecurringSettings(),
       reminderAt: reminderAt,
+      transferGroupId: transferGroupId,
     );
   }
 
@@ -278,6 +279,7 @@ extension TransactionOfflineMapper on FinanceTransaction {
       recurringDayOfMonth: recurringSettings?.dayOfMonth,
       recurringMonthOfYear: recurringSettings?.monthOfYear,
       reminderAt: reminderAt,
+      transferGroupId: transferGroupId,
     );
   }
 }

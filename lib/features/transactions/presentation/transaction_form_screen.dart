@@ -4,10 +4,10 @@ import '../../../l10n/domain_labels.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../categories/presentation/category_names.dart';
-import 'dart:typed_data';
 import 'package:decimal/decimal.dart';
 import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -26,6 +26,7 @@ import '../../categories/presentation/category_visual.dart';
 import '../domain/transaction.dart';
 import '../domain/transaction_attachment.dart';
 import '../data/transaction_attachment_repository.dart';
+import '../application/amount_input.dart';
 import '../application/receipt_ocr_service.dart';
 import '../application/voice_transaction_parser.dart';
 import 'transaction_attachment_section.dart';
@@ -123,6 +124,35 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   // transaction date changes. `custom` hands control to the full picker.
   ReminderLead _reminderLead = ReminderLead.oneHour;
 
+  // True while a save is in flight: disables Save so a double tap can't
+  // create duplicates.
+  bool _isSaving = false;
+
+  // Both legs of the linked transfer being edited (null for new entries,
+  // non-transfers and legacy unlinked legs). The form edits the pair as one.
+  FinanceTransaction? _pairOut;
+  FinanceTransaction? _pairIn;
+
+  // The destination rate pre-filled from a cross-currency pair, to tell
+  // whether the user changed it.
+  String? _pairToRateText;
+
+  bool get _isEditing => widget.initialTransaction != null;
+
+  /// Editing a transfer leg saved before legs were linked: only its own
+  /// account is known, so it's edited as a single row.
+  bool get _isUnlinkedTransferLeg =>
+      (widget.initialTransaction?.type.isTransfer ?? false) && _pairOut == null;
+
+  /// An existing entry keeps its transfer/non-transfer kind: a transfer leg
+  /// can't become income or an expense (its partner would be orphaned), and
+  /// an expense or income can't become a transfer (there's no second leg).
+  bool _canSwitchTo(TransactionType next) {
+    final initial = widget.initialTransaction;
+    if (initial == null) return true;
+    return initial.type.isTransfer == (next == TransactionType.transfer);
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -144,21 +174,48 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
-    _titleController.text = transaction.merchant ?? '';
-    _amountController.text = transaction.amount.amount.toString();
-    _selectedCurrency = _normalizeCurrency(transaction.amount.currency);
-    _noteController.text = transaction.note ?? '';
-    _type = switch (transaction.type) {
-      TransactionType.income => TransactionType.income,
-      TransactionType.transfer ||
-      TransactionType.transferIn ||
-      TransactionType.transferOut => TransactionType.transfer,
-      _ => TransactionType.expense,
-    };
-    _selectedDate = transaction.date;
+    _type = _formTypeFor(transaction.type);
+
+    // A linked transfer leg loads the whole pair: From is the outflow's
+    // account, To the inflow's, and the amount is what left the source.
+    if (transaction.type.isTransfer) {
+      final partners = transferPartnersOf(
+        transaction,
+        ref.read(transactionsProvider).value ?? const [],
+      );
+      if (partners.isNotEmpty) {
+        final partner = partners.first;
+        final isIn = transaction.type == TransactionType.transferIn;
+        _pairOut = isIn ? partner : transaction;
+        _pairIn = isIn ? transaction : partner;
+      }
+    }
+    final primary = _pairOut ?? transaction;
+
+    _titleController.text = primary.merchant ?? '';
+    _amountController.text = primary.amount.amount.toString();
+    _selectedCurrency = _normalizeCurrency(primary.amount.currency);
+    _noteController.text = primary.note ?? '';
+    _selectedDate = primary.date;
     _selectedCategoryId = transaction.categoryId;
-    _selectedAccountId = transaction.accountId;
-    _tags.addAll(transaction.tags);
+    _selectedAccountId = primary.accountId;
+    _selectedToAccountId = _pairIn?.accountId;
+    final pairOut = _pairOut;
+    final pairIn = _pairIn;
+    if (pairOut != null &&
+        pairIn != null &&
+        pairIn.amount.currency != pairOut.amount.currency &&
+        !pairOut.amount.isZero) {
+      // Show the pair's own conversion and keep a live quote from replacing it.
+      final rate = (pairIn.amount.amount / pairOut.amount.amount).toDecimal(
+        scaleOnInfinitePrecision: 10,
+      );
+      _pairToRateText = rate.toString();
+      _toExchangeRateController.text = _pairToRateText!;
+      _fetchedToRatePair =
+          '$_selectedCurrency>${_normalizeCurrency(pairIn.amount.currency)}';
+    }
+    _tags.addAll(primary.tags);
     _isRecurring = transaction.isRecurring;
     final frequency = transaction.recurringFrequency;
     if (frequency != null) {
@@ -172,8 +229,15 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _recurringDayOfMonth = settings.dayOfMonth;
       _recurringMonthOfYear = settings.monthOfYear;
     }
-    _reminderAt = transaction.reminderAt;
-    _reminderLead = _inferReminderLead(transaction.date, _reminderAt);
+    _reminderAt = primary.reminderAt;
+    _reminderLead = _inferReminderLead(primary.date, _reminderAt);
+  }
+
+  /// The form's Expense/Income/Transfer choice for a stored type.
+  static TransactionType _formTypeFor(TransactionType type) {
+    if (type == TransactionType.income) return TransactionType.income;
+    if (type.isTransfer) return TransactionType.transfer;
+    return TransactionType.expense;
   }
 
   /// Picks the [ReminderLead] that matches an existing [reminderAt] relative
@@ -234,6 +298,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   /// Date, recurring-series settings, and attachments are preserved in add
   /// mode too — they describe the transaction context, not its direction.
   void _onTransactionTypeChanged(TransactionType newType) {
+    if (!_canSwitchTo(newType)) return;
     if (widget.initialTransaction != null) {
       setState(() {
         _type = newType;
@@ -359,7 +424,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _amountController.text = amount.toStringAsFixed(2);
       _selectedCurrency = _normalizeCurrency(currency);
       _noteController.text = note;
-      _type = type;
+      if (_canSwitchTo(type)) _type = type;
       _selectedDate = date;
     });
 
@@ -369,7 +434,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           children: [
             const Icon(Icons.auto_awesome, color: Colors.white),
             const SizedBox(width: 8),
-            Text(context.l10n.txAikoAutofilled(amount.toStringAsFixed(2))),
+            Expanded(
+              child: Text(
+                context.l10n.txAikoAutofilled(amount.toStringAsFixed(2)),
+              ),
+            ),
           ],
         ),
         backgroundColor: AikoColors.premiumPurple,
@@ -452,7 +521,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             children: [
               CircularProgressIndicator(),
               SizedBox(width: 20),
-              Text(context.l10n.txScanningReceipt),
+              Flexible(child: Text(context.l10n.txScanningReceipt)),
             ],
           ),
         );
@@ -933,7 +1002,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             children: [
               CircularProgressIndicator(),
               SizedBox(width: 20),
-              Text(context.l10n.txAttachingDocument),
+              Flexible(child: Text(context.l10n.txAttachingDocument)),
             ],
           ),
         );
@@ -970,7 +1039,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           children: [
             const Icon(Icons.check_circle_outline, color: Colors.white),
             const SizedBox(width: 8),
-            Text(context.l10n.txAttachedFile(fileName)),
+            Expanded(child: Text(context.l10n.txAttachedFile(fileName))),
           ],
         ),
         backgroundColor: AikoColors.successGreen,
@@ -1014,86 +1083,94 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     return 'application/octet-stream';
   }
 
+  void _showFormError(String message, {Color color = AikoColors.dangerRed}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  /// Out-of-range recurring numbers are shown on their fields; this stops the
+  /// save until they're fixed. Returns the message to show, or null.
+  String? _recurringSettingsError() {
+    if (!_isRecurring || _type == TransactionType.transfer) return null;
+    final usesDayOfMonth =
+        _recurringFrequency == RecurringFrequency.monthly ||
+        _recurringFrequency == RecurringFrequency.annually;
+    final day = _recurringDayOfMonth;
+    if (usesDayOfMonth && day != null && (day < 1 || day > 31)) {
+      return context.l10n.txNumberRange(1, 31);
+    }
+    final max = _recurringMaxOccurrences;
+    if (_recurringFrequency != RecurringFrequency.once &&
+        max != null &&
+        (max < 1 || max > _maxOccurrencesLimit)) {
+      return context.l10n.txNumberRange(1, _maxOccurrencesLimit);
+    }
+    return null;
+  }
+
   Future<void> _submitForm() async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+    try {
+      await _validateAndSave();
+    } catch (_) {
+      // A failed save keeps the form open with what the user entered.
+      if (mounted) _showSaveError();
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _validateAndSave() async {
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.error_outline, color: Colors.white),
-              SizedBox(width: 8),
-              Text(context.l10n.txEnterAmount),
-            ],
-          ),
-          backgroundColor: AikoColors.dangerRed,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
+      _showFormError(context.l10n.txEnterAmount);
       return;
     }
 
-    final Decimal amount;
-    try {
-      amount = Decimal.parse(amountText);
-    } on FormatException {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.error_outline, color: Colors.white),
-              SizedBox(width: 8),
-              Text(context.l10n.txEnterValidAmount),
-            ],
-          ),
-          backgroundColor: AikoColors.dangerRed,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
-      return;
-    }
-
-    if (amount <= Decimal.zero) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.error_outline, color: Colors.white),
-              SizedBox(width: 8),
-              Text(context.l10n.txEnterValidAmount),
-            ],
-          ),
-          backgroundColor: AikoColors.dangerRed,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
+    final amount = parseAmountInput(amountText);
+    if (amount == null || amount <= Decimal.zero) {
+      _showFormError(context.l10n.txEnterValidAmount);
       return;
     }
 
     if (_selectedAccountId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.txSelectAccountError),
-          backgroundColor: AikoColors.warningOrange,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
+      _showFormError(
+        context.l10n.txSelectAccountError,
+        color: AikoColors.warningOrange,
       );
       return;
     }
 
-    if (_type == TransactionType.transfer && _selectedToAccountId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.txSelectDestinationError),
-          backgroundColor: AikoColors.warningOrange,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
+    final existingTransaction = widget.initialTransaction;
+    // New transfers and linked pairs need both ends; a legacy unlinked leg
+    // only knows its own account.
+    final savesTransferPair =
+        _type == TransactionType.transfer &&
+        (existingTransaction == null || _pairOut != null);
+    if (savesTransferPair && _selectedToAccountId == null) {
+      _showFormError(
+        context.l10n.txSelectDestinationError,
+        color: AikoColors.warningOrange,
       );
+      return;
+    }
+
+    final recurringError = _recurringSettingsError();
+    if (recurringError != null) {
+      _showFormError(recurringError, color: AikoColors.warningOrange);
       return;
     }
 
@@ -1110,15 +1187,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     if (accountCurrency != null && accountCurrency != _selectedCurrency) {
       final rate = Decimal.tryParse(_exchangeRateController.text.trim());
       if (rate == null || rate <= Decimal.zero) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.txEnterPositiveRate),
-            backgroundColor: AikoColors.warningOrange,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+        _showFormError(
+          context.l10n.txEnterPositiveRate,
+          color: AikoColors.warningOrange,
         );
         return;
       }
@@ -1126,18 +1197,18 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       effectiveCurrency = accountCurrency;
     }
 
-    // When editing a transfer leg, keep its original direction (transferIn /
-    // transferOut) rather than collapsing back to a plain transfer.
+    // An edited row keeps its stored type (a refund stays a refund, a
+    // transfer leg keeps its direction) unless the user picked another one.
     final txType =
-        (_type == TransactionType.transfer && widget.initialTransaction != null)
-        ? widget.initialTransaction!.type
+        existingTransaction != null &&
+            _type == _formTypeFor(existingTransaction.type)
+        ? existingTransaction.type
         : switch (_type) {
             TransactionType.income => TransactionType.income,
             TransactionType.transfer => TransactionType.transfer,
             _ => TransactionType.expense,
           };
 
-    final existingTransaction = widget.initialTransaction;
     final txId = existingTransaction?.id ?? const Uuid().v4();
     final pendingTagText = _tagInputController.text.trim();
     final tags = {
@@ -1153,10 +1224,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _selectedCategoryId,
     );
 
-    // A new transfer is recorded as a paired outflow/inflow: one leg leaves the
-    // source account, the other arrives in the destination. Editing an existing
-    // transfer leg falls through to the single-row path below.
-    if (_type == TransactionType.transfer && existingTransaction == null) {
+    // A transfer is recorded as a linked outflow/inflow pair: one leg leaves
+    // the source account, the other arrives in the destination. Editing a
+    // linked leg re-saves both; a legacy unlinked leg falls through to the
+    // single-row path below.
+    if (savesTransferPair) {
       // The destination leg converts from the entered amount into the
       // destination account's currency, so its balance changes too.
       final toCurrency = _accountCurrencyFor(accounts, _selectedToAccountId);
@@ -1165,15 +1237,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       if (toCurrency != null && toCurrency != _selectedCurrency) {
         final rate = Decimal.tryParse(_toExchangeRateController.text.trim());
         if (rate == null || rate <= Decimal.zero) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.txEnterPositiveRate),
-              backgroundColor: AikoColors.warningOrange,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
+          _showFormError(
+            context.l10n.txEnterPositiveRate,
+            color: AikoColors.warningOrange,
           );
           return;
         }
@@ -1183,6 +1249,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       await _submitTransferPair(
         amount: effectiveAmount,
         currency: effectiveCurrency,
+        enteredAmount: amount,
         inAmount: inAmount,
         inCurrency: inCurrency,
         tags: tags,
@@ -1209,6 +1276,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       recurringFrequency: _isRecurring ? _recurringFrequency : null,
       recurringSettings: _isRecurring ? _buildRecurringSettings() : null,
       reminderAt: _reminderAt,
+      transferGroupId: existingTransaction?.transferGroupId,
     );
 
     final saved = await ref
@@ -1219,29 +1287,26 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     await _saveAttachmentsFor(txId);
 
     if (!mounted) return;
-
-    if (ref.read(transactionsProvider).hasError) {
-      _showSaveError();
-      return;
-    }
-
     _showSaveSuccess(context.l10n.txSaved);
     Navigator.of(context).pop(saved);
   }
 
-  /// Saves a new transfer as two linked rows: an outflow leaving the source
-  /// account and an inflow arriving in the destination. When the user leaves
-  /// the item name blank we default to a sensible `Transfer to/from <account>`
-  /// label so each leg reads clearly in the transaction list.
+  /// Saves a transfer as two linked rows: an outflow leaving the source
+  /// account and an inflow arriving in the destination, sharing one
+  /// `transferGroupId`. When editing a linked pair both rows are updated in
+  /// place. When the user leaves the item name blank we default to a sensible
+  /// `Transfer to/from <account>` label so each leg reads clearly in the list.
   Future<void> _submitTransferPair({
     required Decimal amount,
     required String currency,
+    required Decimal enteredAmount,
     required Decimal inAmount,
     required String inCurrency,
     required List<String> tags,
     required String note,
     required String itemName,
   }) async {
+    final l10n = context.l10n;
     final accounts =
         ref.read(accountsProvider).whenOrNull(data: (value) => value) ??
         const <Account>[];
@@ -1249,62 +1314,106 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       for (final account in accounts) {
         if (account.id == id) return account.name;
       }
-      return 'account';
+      return l10n.txUnknownAccount;
     }
 
-    final fromName = nameFor(_selectedAccountId);
+    final pairOut = _pairOut;
+    final pairIn = _pairIn;
+    var outMoney = Money(amount: amount, currency: currency);
+    var inMoney = Money(amount: inAmount, currency: inCurrency);
+    if (pairOut != null &&
+        pairIn != null &&
+        pairOut.amount.currency != pairIn.amount.currency) {
+      // A cross-currency pair keeps its stored amounts: re-converting would
+      // drift through rounding, so amount/currency/account edits are blocked.
+      final unchanged =
+          enteredAmount == pairOut.amount.amount &&
+          _selectedCurrency == _normalizeCurrency(pairOut.amount.currency) &&
+          _selectedAccountId == pairOut.accountId &&
+          _selectedToAccountId == pairIn.accountId &&
+          _toExchangeRateController.text.trim() == _pairToRateText;
+      if (!unchanged) {
+        _showFormError(
+          l10n.txTransferCrossCurrencyLocked,
+          color: AikoColors.warningOrange,
+        );
+        return;
+      }
+      outMoney = pairOut.amount;
+      inMoney = pairIn.amount;
+    }
+
     final toName = nameFor(_selectedToAccountId);
-    final money = Money(amount: amount, currency: currency);
-
-    final outLeg = FinanceTransaction(
-      id: const Uuid().v4(),
-      userId: '',
-      accountId: _selectedAccountId!,
-      type: TransactionType.transferOut,
-      amount: money,
-      date: _selectedDate,
-      merchant: itemName.isEmpty
-          ? context.l10n.txTransferToName(toName)
-          : itemName,
-      note: note,
-      tags: tags,
-      reminderAt: _reminderAt,
-    );
-    final inLeg = FinanceTransaction(
-      id: const Uuid().v4(),
-      userId: '',
-      accountId: _selectedToAccountId!,
-      type: TransactionType.transferIn,
-      amount: Money(amount: inAmount, currency: inCurrency),
-      date: _selectedDate,
-      merchant: itemName.isEmpty
-          ? context.l10n.txTransferFromName(fromName)
-          : itemName,
-      note: note,
-      tags: tags,
-    );
-
-    final notifier = ref.read(transactionsProvider.notifier);
-    await notifier.saveTransaction(outLeg);
-    if (!mounted) return;
-    if (ref.read(transactionsProvider).hasError) {
-      _showSaveError();
-      return;
+    final fromName = nameFor(_selectedAccountId);
+    // An untouched title on an edited pair leaves each leg's own label.
+    final titleUnchanged =
+        pairOut != null && itemName == (pairOut.merchant ?? '').trim();
+    String merchantFor(FinanceTransaction? existing, String defaultLabel) {
+      if (itemName.isEmpty) return defaultLabel;
+      if (titleUnchanged && existing != null) {
+        return existing.merchant ?? defaultLabel;
+      }
+      return itemName;
     }
-    final savedIn = await notifier.saveTransaction(inLeg);
-    if (!mounted) return;
-    if (ref.read(transactionsProvider).hasError) {
-      _showSaveError();
-      return;
-    }
+
+    final groupId =
+        pairOut?.transferGroupId ??
+        pairIn?.transferGroupId ??
+        const Uuid().v4();
+    final outLeg =
+        (pairOut ??
+                FinanceTransaction(
+                  id: const Uuid().v4(),
+                  userId: '',
+                  accountId: _selectedAccountId!,
+                  type: TransactionType.transferOut,
+                  amount: outMoney,
+                  date: _selectedDate,
+                ))
+            .copyWith(
+              accountId: _selectedAccountId!,
+              amount: outMoney,
+              date: _selectedDate,
+              merchant: merchantFor(pairOut, l10n.txTransferToName(toName)),
+              note: note,
+              tags: tags,
+              reminderAt: _reminderAt,
+              clearReminderAt: _reminderAt == null,
+              transferGroupId: groupId,
+            );
+    final inLeg =
+        (pairIn ??
+                FinanceTransaction(
+                  id: const Uuid().v4(),
+                  userId: '',
+                  accountId: _selectedToAccountId!,
+                  type: TransactionType.transferIn,
+                  amount: inMoney,
+                  date: _selectedDate,
+                ))
+            .copyWith(
+              accountId: _selectedToAccountId!,
+              amount: inMoney,
+              date: _selectedDate,
+              merchant: merchantFor(pairIn, l10n.txTransferFromName(fromName)),
+              note: note,
+              tags: tags,
+              transferGroupId: groupId,
+            );
+
+    final saved = await ref
+        .read(transactionsProvider.notifier)
+        .saveTransactions([outLeg, inLeg]);
 
     // Reminder + receipts/docs attach to the outflow leg.
     await _syncReminder(outLeg);
     await _saveAttachmentsFor(outLeg.id);
     if (!mounted) return;
 
-    _showSaveSuccess(context.l10n.txTransferSaved);
-    Navigator.of(context).pop(savedIn);
+    _showSaveSuccess(l10n.txTransferSaved);
+    // Hand back the leg that was opened (the inflow for a new transfer).
+    final openedId = widget.initialTransaction?.id ?? inLeg.id;
+    Navigator.of(context).pop(saved.firstWhere((leg) => leg.id == openedId));
   }
 
   Future<void> _saveAttachmentsFor(String txId) async {
@@ -1352,7 +1461,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           children: [
             const Icon(Icons.check_circle_outline, color: Colors.white),
             const SizedBox(width: 8),
-            Text(message),
+            Expanded(child: Text(message)),
           ],
         ),
         backgroundColor: AikoColors.successGreen,
@@ -1434,17 +1543,21 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         : now.add(const Duration(hours: 1));
   }
 
-  /// Recomputes [_reminderAt] from [_selectedDate] and [_reminderLead].
+  /// Recomputes an existing [_reminderAt] from [_selectedDate] and
+  /// [_reminderLead].
   ///
-  /// Called whenever the transaction date or lead changes. The `custom` lead
-  /// leaves an existing [_reminderAt] untouched; otherwise the reminder is
-  /// pinned to `transactionDate - lead`.
+  /// Called whenever the transaction date or lead changes. Does nothing when
+  /// no reminder is set (picking a date must not turn one on). The `custom`
+  /// lead leaves [_reminderAt] untouched; otherwise the reminder is pinned to
+  /// `transactionDate - lead`.
   void _recomputeReminderForLead() {
-    if (_reminderLead == ReminderLead.custom) return;
-    _reminderAt = _selectedDate.subtract(
-      Duration(minutes: _reminderLead.minutes!),
-    );
+    if (_reminderAt == null || _reminderLead == ReminderLead.custom) return;
+    _reminderAt = _leadReminderTime();
   }
+
+  /// `transactionDate - lead` for the current preset lead.
+  DateTime _leadReminderTime() =>
+      _selectedDate.subtract(Duration(minutes: _reminderLead.minutes ?? 0));
 
   /// Sets the reminder lead and recomputes [_reminderAt] accordingly.
   void _setReminderLead(ReminderLead lead) {
@@ -1567,22 +1680,36 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 value: TransactionType.expense,
                 label: Text(context.l10n.transactionTypeExpense),
                 icon: Icon(Icons.north_east),
+                enabled: _canSwitchTo(TransactionType.expense),
               ),
               ButtonSegment<TransactionType>(
                 value: TransactionType.income,
                 label: Text(context.l10n.transactionTypeIncome),
                 icon: Icon(Icons.south_west),
+                enabled: _canSwitchTo(TransactionType.income),
               ),
               ButtonSegment<TransactionType>(
                 value: TransactionType.transfer,
                 label: Text(context.l10n.transactionTypeTransfer),
                 icon: Icon(Icons.swap_horiz),
+                enabled: _canSwitchTo(TransactionType.transfer),
               ),
             ],
             selected: {_type},
             onSelectionChanged: (selection) =>
                 _onTransactionTypeChanged(selection.first),
           ),
+          if (_isEditing) ...[
+            const SizedBox(height: 6),
+            Text(
+              _type == TransactionType.transfer
+                  ? context.l10n.txTypeLockedTransfer
+                  : context.l10n.txTypeLockedNonTransfer,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           _ItemNameInput(
             controller: _titleController,
@@ -1612,6 +1739,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  // Digits, one decimal point and thousands commas.
+                  inputFormatters: [AmountInputFormatter()],
                 ),
               ),
               const SizedBox(width: 12),
@@ -1712,6 +1841,26 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 return Text(context.l10n.txNoAccounts);
               }
 
+              if (_isUnlinkedTransferLeg) {
+                // A legacy leg only knows its own account: label it by side.
+                final isInflow =
+                    widget.initialTransaction!.type ==
+                    TransactionType.transferIn;
+                return _AccountPicker(
+                  label: isInflow
+                      ? context.l10n.txToAccount
+                      : context.l10n.txFromAccount,
+                  fieldKey: isInflow ? 'to-account' : 'from-account',
+                  accounts: activeAccounts,
+                  selectedAccountId: _selectedAccountId,
+                  onSelected: (value) {
+                    setState(() => _selectedAccountId = value);
+                    _maybeAutofillRate(
+                      _accountCurrencyFor(accountSnapshot, value),
+                    );
+                  },
+                );
+              }
               if (_type == TransactionType.transfer) {
                 // Show the source and destination side by side with an arrow
                 // between them, so the money visibly moves left → right.
@@ -1865,55 +2014,58 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           ),
           const SizedBox(height: 12),
 
-          _RecurringSection(
-            isRecurring: _isRecurring,
-            frequency: _recurringFrequency,
-            endDate: _recurringEndDate,
-            maxOccurrences: _recurringMaxOccurrences,
-            dayOfWeek: _recurringDayOfWeek,
-            dayOfMonth: _recurringDayOfMonth,
-            monthOfYear: _recurringMonthOfYear,
-            occurrenceTime: TimeOfDay.fromDateTime(_selectedDate),
-            onToggle: (value) {
-              setState(() {
-                _isRecurring = value;
-                if (value) {
-                  // Re-derive the cadence-specific knobs for the active
-                  // frequency so the per-cadence panel is always populated.
-                  _applyFrequencyDefaults(_recurringFrequency);
-                }
-              });
-            },
-            onFrequencyChanged: (frequency) {
-              setState(() {
-                _recurringFrequency = frequency;
-                _applyFrequencyDefaults(frequency);
-              });
-            },
-            onEndDateChanged: (value) =>
-                setState(() => _recurringEndDate = value),
-            onMaxOccurrencesChanged: (value) =>
-                setState(() => _recurringMaxOccurrences = value),
-            onDayOfWeekChanged: (value) =>
-                setState(() => _recurringDayOfWeek = value),
-            onDayOfMonthChanged: (value) =>
-                setState(() => _recurringDayOfMonth = value),
-            onMonthOfYearChanged: (value) =>
-                setState(() => _recurringMonthOfYear = value),
-            onOccurrenceTimeChanged: (value) {
-              setState(() {
-                _selectedDate = DateTime(
-                  _selectedDate.year,
-                  _selectedDate.month,
-                  _selectedDate.day,
-                  value.hour,
-                  value.minute,
-                );
-                _recomputeReminderForLead();
-              });
-            },
-          ),
-          const SizedBox(height: 12),
+          // Transfers don't repeat: the pair is saved once.
+          if (_type != TransactionType.transfer) ...[
+            _RecurringSection(
+              isRecurring: _isRecurring,
+              frequency: _recurringFrequency,
+              endDate: _recurringEndDate,
+              maxOccurrences: _recurringMaxOccurrences,
+              dayOfWeek: _recurringDayOfWeek,
+              dayOfMonth: _recurringDayOfMonth,
+              monthOfYear: _recurringMonthOfYear,
+              occurrenceTime: TimeOfDay.fromDateTime(_selectedDate),
+              onToggle: (value) {
+                setState(() {
+                  _isRecurring = value;
+                  if (value) {
+                    // Re-derive the cadence-specific knobs for the active
+                    // frequency so the per-cadence panel is always populated.
+                    _applyFrequencyDefaults(_recurringFrequency);
+                  }
+                });
+              },
+              onFrequencyChanged: (frequency) {
+                setState(() {
+                  _recurringFrequency = frequency;
+                  _applyFrequencyDefaults(frequency);
+                });
+              },
+              onEndDateChanged: (value) =>
+                  setState(() => _recurringEndDate = value),
+              onMaxOccurrencesChanged: (value) =>
+                  setState(() => _recurringMaxOccurrences = value),
+              onDayOfWeekChanged: (value) =>
+                  setState(() => _recurringDayOfWeek = value),
+              onDayOfMonthChanged: (value) =>
+                  setState(() => _recurringDayOfMonth = value),
+              onMonthOfYearChanged: (value) =>
+                  setState(() => _recurringMonthOfYear = value),
+              onOccurrenceTimeChanged: (value) {
+                setState(() {
+                  _selectedDate = DateTime(
+                    _selectedDate.year,
+                    _selectedDate.month,
+                    _selectedDate.day,
+                    value.hour,
+                    value.minute,
+                  );
+                  _recomputeReminderForLead();
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
 
           _ReminderSection(
             reminderAt: _reminderAt,
@@ -1921,13 +2073,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             transactionDate: _selectedDate,
             onToggle: (value) {
               setState(() {
-                if (value) {
-                  _recomputeReminderForLead();
-                  if (_reminderLead == ReminderLead.custom) {
-                    _reminderAt ??= _defaultReminderTime();
-                  }
-                } else {
+                if (!value) {
                   _reminderAt = null;
+                } else if (_reminderLead == ReminderLead.custom) {
+                  _reminderAt ??= _defaultReminderTime();
+                } else {
+                  _reminderAt = _leadReminderTime();
                 }
               });
             },
@@ -1936,8 +2087,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
-            onPressed: _submitForm,
-            icon: const Icon(Icons.check),
+            onPressed: _isSaving ? null : _submitForm,
+            icon: _isSaving
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.check),
             label: Text(
               widget.initialTransaction == null
                   ? context.l10n.txSaveTransaction
@@ -2181,7 +2337,7 @@ class _CurrencyConversionPrompt extends StatelessWidget {
           ]),
           builder: (context, _) {
             final rate = Decimal.tryParse(exchangeRateController.text.trim());
-            final amount = Decimal.tryParse(amountController.text.trim());
+            final amount = parseAmountInput(amountController.text);
             final preview = (rate != null && amount != null)
                 ? '≈ ${(amount * rate).toStringAsFixed(2)} $accountCurrency'
                 : null;
@@ -3921,7 +4077,14 @@ class _DateField extends StatelessWidget {
   }
 }
 
-class _IntField extends StatelessWidget {
+/// Upper bound for "or after N occurrences".
+const _maxOccurrencesLimit = 999;
+
+/// Whole-number field for recurring settings. Keeps one controller (so the
+/// cursor doesn't jump on each keystroke) and reports what was typed; an
+/// out-of-range number shows an error instead of being silently changed, and
+/// the form refuses to save until it's fixed.
+class _IntField extends StatefulWidget {
   const _IntField({
     required this.label,
     required this.hint,
@@ -3939,29 +4102,50 @@ class _IntField extends StatelessWidget {
   final int max;
 
   @override
+  State<_IntField> createState() => _IntFieldState();
+}
+
+class _IntFieldState extends State<_IntField> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.value == null ? '' : '${widget.value}',
+  );
+
+  @override
+  void didUpdateWidget(covariant _IntField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Follow outside changes (e.g. frequency defaults) without fighting typing.
+    final typed = int.tryParse(_controller.text.trim());
+    if (widget.value != typed) {
+      _controller.text = widget.value == null ? '' : '${widget.value}';
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final controller = TextEditingController(
-      text: value == null ? '' : '$value',
-    );
+    final value = widget.value;
+    final outOfRange =
+        value != null && (value < widget.min || value > widget.max);
     return TextField(
-      controller: controller,
+      controller: _controller,
       decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
+        labelText: widget.label,
+        hintText: widget.hint,
         border: const OutlineInputBorder(),
+        errorText: outOfRange
+            ? context.l10n.txNumberRange(widget.min, widget.max)
+            : null,
       ),
       keyboardType: const TextInputType.numberWithOptions(),
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       onChanged: (raw) {
         final trimmed = raw.trim();
-        if (trimmed.isEmpty) {
-          onChanged(null);
-          return;
-        }
-        final parsed = int.tryParse(trimmed);
-        if (parsed == null) {
-          return;
-        }
-        onChanged(parsed.clamp(min, max));
+        widget.onChanged(trimmed.isEmpty ? null : int.tryParse(trimmed));
       },
     );
   }
@@ -4011,6 +4195,7 @@ class _DailySettings extends StatelessWidget {
           hint: context.l10n.exampleValue(30),
           value: maxOccurrences,
           onChanged: onMaxOccurrencesChanged,
+          max: _maxOccurrencesLimit,
         ),
       ],
     );
@@ -4068,6 +4253,7 @@ class _WeeklySettings extends StatelessWidget {
           hint: context.l10n.exampleValue(12),
           value: maxOccurrences,
           onChanged: onMaxOccurrencesChanged,
+          max: _maxOccurrencesLimit,
         ),
       ],
     );
@@ -4115,6 +4301,7 @@ class _MonthlySettings extends StatelessWidget {
           hint: context.l10n.exampleValue(12),
           value: maxOccurrences,
           onChanged: onMaxOccurrencesChanged,
+          max: _maxOccurrencesLimit,
         ),
       ],
     );
@@ -4193,6 +4380,7 @@ class _AnnualSettings extends StatelessWidget {
           hint: context.l10n.exampleValue(5),
           value: maxOccurrences,
           onChanged: onMaxOccurrencesChanged,
+          max: _maxOccurrencesLimit,
         ),
       ],
     );
@@ -4226,7 +4414,7 @@ class _AmountCalculatorSheetState extends State<_AmountCalculatorSheet> {
   @override
   void initState() {
     super.initState();
-    final initialAmount = Decimal.tryParse(widget.initialUnitPrice.trim());
+    final initialAmount = parseAmountInput(widget.initialUnitPrice);
     _currentInput = initialAmount == null ? '0' : _formatDecimal(initialAmount);
   }
 

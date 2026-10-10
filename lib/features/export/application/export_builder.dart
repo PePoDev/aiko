@@ -8,23 +8,13 @@ import '../../../l10n/app_localizations.dart';
 import '../../../l10n/domain_labels.dart';
 import '../../transactions/domain/transaction.dart';
 
-/// Transaction types that bring money in. Every other type is money going
-/// out and is exported with a minus sign.
-const exportInflowTypes = {
-  TransactionType.income,
-  TransactionType.transferIn,
-  TransactionType.refund,
-  TransactionType.dividend,
-  TransactionType.interest,
-  TransactionType.investmentSell,
-};
-
-bool isExportInflow(FinanceTransaction tx) =>
-    exportInflowTypes.contains(tx.type);
+/// Whether [tx] brings money in (`FinanceTransaction.isInflow`: income,
+/// incoming transfers, refunds, dividends, interest, investment sales and
+/// positive adjustments). Everything else is exported with a minus sign.
+bool isExportInflow(FinanceTransaction tx) => tx.isInflow;
 
 /// [tx]'s amount signed by direction: positive in, negative out.
-Decimal signedAmount(FinanceTransaction tx) =>
-    isExportInflow(tx) ? tx.amount.amount : -tx.amount.amount;
+Decimal signedAmount(FinanceTransaction tx) => tx.signedAmount.amount;
 
 /// Stops a text cell from running as a spreadsheet formula: a value starting
 /// with `=`, `+`, `-`, `@`, a tab or a carriage return gets a leading
@@ -116,7 +106,7 @@ String buildStatementHtml({
               <td>${escape(tx.merchant ?? '—')}</td>
               <td>${escape(categoryName(tx))}</td>
               <td class="type-caps">${escape(tx.type.label(l10n))}</td>
-              <td class="${inflow ? 'amount-income' : 'amount-expense'}">${inflow ? '+' : '−'} ${money(tx.amount.amount, tx.amount.currency)}</td>
+              <td class="${inflow ? 'amount-income' : 'amount-expense'}">${inflow ? '+' : '−'} ${money(tx.absoluteAmount.amount, tx.amount.currency)}</td>
             </tr>
 ''');
   }

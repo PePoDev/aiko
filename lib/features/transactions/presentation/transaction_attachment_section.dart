@@ -111,6 +111,7 @@ class _AttachmentThumb extends StatelessWidget {
   }
 }
 
+/// Small visual badge inside a full 48px touch target, with a tooltip.
 class _RemoveButton extends StatelessWidget {
   const _RemoveButton({required this.onPressed});
 
@@ -118,18 +119,17 @@ class _RemoveButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black54,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topRight: Radius.circular(10),
-          bottomLeft: Radius.circular(10),
+    return IconButton(
+      tooltip: context.l10n.txRemoveAttachment,
+      onPressed: onPressed,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+      icon: const DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.black54,
+          shape: BoxShape.circle,
         ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onPressed,
-        child: const Padding(
+        child: Padding(
           padding: EdgeInsets.all(4),
           child: Icon(Icons.close, size: 16, color: Colors.white),
         ),
@@ -140,21 +140,55 @@ class _RemoveButton extends StatelessWidget {
 
 /// Renders the image bytes directly when the attachment is previewable;
 /// otherwise falls back to a type-aware icon.
-class _ThumbnailContent extends StatelessWidget {
+class _ThumbnailContent extends StatefulWidget {
   const _ThumbnailContent({required this.attachment});
 
   final TransactionAttachment attachment;
 
   @override
+  State<_ThumbnailContent> createState() => _ThumbnailContentState();
+}
+
+class _ThumbnailContentState extends State<_ThumbnailContent> {
+  // Read once per attachment, not on every rebuild.
+  Future<Uint8List>? _bytes;
+
+  TransactionAttachment get attachment => widget.attachment;
+
+  @override
+  void initState() {
+    super.initState();
+    _bytes = _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ThumbnailContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.attachment.id != attachment.id ||
+        oldWidget.attachment.storagePath != attachment.storagePath) {
+      _bytes = _load();
+    }
+  }
+
+  Future<Uint8List>? _load() => attachment.isImagePreviewable
+      ? const TransactionAttachmentRepository().readBytes(attachment)
+      : null;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (attachment.isImagePreviewable) {
+      // Decode at thumbnail size instead of the full photo.
+      final cacheWidth =
+          (_AttachmentThumb._size * MediaQuery.devicePixelRatioOf(context))
+              .round();
       return FutureBuilder<Uint8List>(
-        future: const TransactionAttachmentRepository().readBytes(attachment),
+        future: _bytes,
         builder: (context, snapshot) => snapshot.hasData
             ? Image.memory(
                 snapshot.data!,
                 fit: BoxFit.cover,
+                cacheWidth: cacheWidth,
                 errorBuilder: (_, _, _) =>
                     const Icon(Icons.broken_image_outlined),
               )

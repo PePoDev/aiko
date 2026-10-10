@@ -23,6 +23,11 @@ class RecurringProjection {
   /// (`year`/`month`), strictly after the template's own anchor date and
   /// before the series ends (end date / max occurrences).
   ///
+  /// Each occurrence is computed from the anchor (never from the previous
+  /// occurrence), so a month-end day doesn't drift: Jan 31 → Feb 28 → Mar 31.
+  /// `dayOfWeek` / `dayOfMonth` / `monthOfYear` from the settings pick the
+  /// cadence day when set; otherwise the anchor's own day is used.
+  ///
   /// `maxSteps` is a safety valve so an open-ended daily series can't loop
   /// forever while we scan toward the window.
   // ponytail: O(steps) walk from the anchor — fine for one-per-day worst case
@@ -45,15 +50,19 @@ class RecurringProjection {
     final windowEnd = DateTime(year, month + 1, 0, 23, 59, 59);
 
     final result = <FinanceTransaction>[];
-    var date = template.date;
-    var occurrence = 1; // the anchor itself is occurrence #1
-    for (var step = 0; step < maxSteps; step++) {
-      date = _advance(date, frequency);
-      occurrence++;
+    // The anchor itself is occurrence #1; previews start at #2.
+    for (var n = 1; n <= maxSteps; n++) {
+      final occurrence = n + 1;
       if (settings.maxOccurrences != null &&
           occurrence > settings.maxOccurrences!) {
         break;
       }
+      final date = nthOccurrenceAfterAnchor(
+        template.date,
+        frequency,
+        settings,
+        n,
+      );
       if (settings.endDate != null && date.isAfter(settings.endDate!)) {
         break;
       }
@@ -68,32 +77,62 @@ class RecurringProjection {
     return result;
   }
 
-  DateTime _advance(DateTime from, RecurringFrequency frequency) {
+  /// The [n]th occurrence (n ≥ 1) after [anchor] for [frequency], at the
+  /// anchor's time of day. The first one is the earliest cadence day strictly
+  /// after the anchor; later ones step whole days/weeks/months/years from it.
+  /// Days past a month's end clamp to its last day (31 → Feb 28/29).
+  static DateTime nthOccurrenceAfterAnchor(
+    DateTime anchor,
+    RecurringFrequency frequency,
+    RecurringSettings settings,
+    int n,
+  ) {
+    DateTime at(int y, int m, int d) =>
+        DateTime(y, m, d, anchor.hour, anchor.minute);
+
     switch (frequency) {
-      case RecurringFrequency.daily:
-        return from.add(const Duration(days: 1));
-      case RecurringFrequency.weekly:
-        return from.add(const Duration(days: 7));
-      case RecurringFrequency.monthly:
-        return _clampDay(from.year, from.month + 1, from.day, from);
-      case RecurringFrequency.annually:
-        return _clampDay(from.year + 1, from.month, from.day, from);
       case RecurringFrequency.once:
-        return from;
+        return anchor;
+      case RecurringFrequency.daily:
+        return at(anchor.year, anchor.month, anchor.day + n);
+      case RecurringFrequency.weekly:
+        final weekday = settings.dayOfWeek ?? anchor.weekday;
+        var offset = (weekday - anchor.weekday) % 7;
+        if (offset == 0) offset = 7;
+        return at(anchor.year, anchor.month, anchor.day + offset + 7 * (n - 1));
+      case RecurringFrequency.monthly:
+        final day = settings.dayOfMonth ?? anchor.day;
+        // Same month counts when its cadence day is still ahead of the anchor.
+        final startsThisMonth =
+            _clampedDay(anchor.year, anchor.month, day) > anchor.day;
+        final targetMonth = anchor.month + n - (startsThisMonth ? 1 : 0);
+        return at(
+          anchor.year,
+          targetMonth,
+          _clampedDay(anchor.year, targetMonth, day),
+        );
+      case RecurringFrequency.annually:
+        final monthOfYear = settings.monthOfYear ?? anchor.month;
+        final day = settings.dayOfMonth ?? anchor.day;
+        final thisYear = at(
+          anchor.year,
+          monthOfYear,
+          _clampedDay(anchor.year, monthOfYear, day),
+        );
+        final targetYear = anchor.year + n - (thisYear.isAfter(anchor) ? 1 : 0);
+        return at(
+          targetYear,
+          monthOfYear,
+          _clampedDay(targetYear, monthOfYear, day),
+        );
     }
   }
 
-  /// Same day-of-month/time as [anchor] in the target month, clamped to that
-  /// month's last day (so Jan 31 → Feb 28/29, not Mar 3).
-  DateTime _clampDay(int year, int month, int day, DateTime anchor) {
+  /// [day] limited to the length of [month] in [year] (month may overflow 12;
+  /// DateTime normalises it).
+  static int _clampedDay(int year, int month, int day) {
     final lastDay = DateTime(year, month + 1, 0).day;
-    return DateTime(
-      year,
-      month,
-      day > lastDay ? lastDay : day,
-      anchor.hour,
-      anchor.minute,
-    );
+    return day > lastDay ? lastDay : day;
   }
 
   FinanceTransaction _preview(FinanceTransaction template, DateTime date) {

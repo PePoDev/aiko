@@ -21,9 +21,20 @@ void main() {
     );
   });
 
+  test('transfer link migration adds transfer_group_id to transactions', () {
+    final source = File(
+      'lib/brick/db/20261010120000.migration.dart',
+    ).readAsStringSync();
+
+    expect(source, contains('InsertColumn('));
+    expect(source, contains("'transfer_group_id'"));
+    expect(source, contains("onTable: 'OfflineTransaction'"));
+  });
+
   test('generated schema version matches the latest migration', () {
     final source = File('lib/brick/db/schema.g.dart').readAsStringSync();
 
-    expect(source, contains('final schema = Schema(\n  20260725185723,'));
+    expect(source, contains('final schema = Schema(\n  20261010120000,'));
+    expect(source, contains('const Migration20261010120000(),'));
   });
 }

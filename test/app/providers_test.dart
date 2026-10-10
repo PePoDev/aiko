@@ -1,5 +1,7 @@
+import 'package:aiko/app/locale_controller.dart';
 import 'package:aiko/app/providers.dart';
 import 'package:aiko/core/money/money.dart';
+import 'package:aiko/core/storage/secure_storage_service.dart';
 import 'package:aiko/features/accounts/data/account_repository.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/categories/data/category_group_repository.dart';
@@ -232,6 +234,272 @@ void main() {
     });
   });
 
+  group('transfer pairs', () {
+    FinanceTransaction leg(
+      String id,
+      String accountId,
+      TransactionType type, {
+      String? groupId = 'pair-1',
+    }) => FinanceTransaction(
+      id: id,
+      userId: 'user',
+      accountId: accountId,
+      type: type,
+      amount: Money.parse('300', 'THB'),
+      date: DateTime(2026, 10, 3),
+      transferGroupId: groupId,
+    );
+
+    ProviderContainer containerFor(
+      _FakeAccountRepository accounts,
+      _FakeTransactionRepository transactions,
+    ) {
+      final container = ProviderContainer(
+        overrides: [
+          accountRepositoryProvider.overrideWithValue(accounts),
+          transactionRepositoryProvider.overrideWithValue(transactions),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    List<Account> twoAccounts() => [
+      Account(
+        id: 'checking',
+        userId: 'user',
+        name: 'Checking',
+        type: AccountType.bank,
+        currentBalance: Money.parse('1000', 'THB'),
+      ),
+      Account(
+        id: 'savings',
+        userId: 'user',
+        name: 'Savings',
+        type: AccountType.bank,
+        currentBalance: Money.parse('0', 'THB'),
+      ),
+    ];
+
+    String balanceOf(_FakeAccountRepository repo, String id) => repo.accounts
+        .singleWhere((account) => account.id == id)
+        .currentBalance
+        .amount
+        .toString();
+
+    test('deleting one linked leg deletes its partner and restores both '
+        'balances', () async {
+      final accounts = _FakeAccountRepository(twoAccounts());
+      final container = containerFor(accounts, _FakeTransactionRepository());
+      await container.read(transactionsProvider.future);
+      final notifier = container.read(transactionsProvider.notifier);
+
+      await notifier.saveTransactions([
+        leg('out', 'checking', TransactionType.transferOut),
+        leg('in', 'savings', TransactionType.transferIn),
+      ]);
+      expect(balanceOf(accounts, 'checking'), '700');
+      expect(balanceOf(accounts, 'savings'), '300');
+
+      final deleted = await notifier.deleteTransaction('in');
+
+      expect(deleted.toSet(), {'in', 'out'});
+      expect(container.read(transactionsProvider).value, isEmpty);
+      expect(balanceOf(accounts, 'checking'), '1000');
+      expect(balanceOf(accounts, 'savings'), '0');
+    });
+
+    test('an unlinked legacy leg is deleted on its own', () async {
+      final accounts = _FakeAccountRepository(twoAccounts());
+      final container = containerFor(
+        accounts,
+        _FakeTransactionRepository([
+          leg('out', 'checking', TransactionType.transferOut, groupId: null),
+          leg('in', 'savings', TransactionType.transferIn, groupId: null),
+        ]),
+      );
+      await container.read(transactionsProvider.future);
+
+      final deleted = await container
+          .read(transactionsProvider.notifier)
+          .deleteTransaction('out');
+
+      expect(deleted, ['out']);
+      expect(container.read(transactionsProvider).value!.map((t) => t.id), [
+        'in',
+      ]);
+    });
+
+    test('editing a pair updates both legs in place', () async {
+      final accounts = _FakeAccountRepository(twoAccounts());
+      final container = containerFor(accounts, _FakeTransactionRepository());
+      await container.read(transactionsProvider.future);
+      final notifier = container.read(transactionsProvider.notifier);
+      final out = leg('out', 'checking', TransactionType.transferOut);
+      final inLeg = leg('in', 'savings', TransactionType.transferIn);
+      await notifier.saveTransactions([out, inLeg]);
+
+      final bigger = Money.parse('450', 'THB');
+      await notifier.saveTransactions([
+        out.copyWith(amount: bigger),
+        inLeg.copyWith(amount: bigger),
+      ]);
+
+      final rows = container.read(transactionsProvider).value!;
+      expect(rows, hasLength(2));
+      expect(rows.every((row) => row.amount == bigger), isTrue);
+      expect(balanceOf(accounts, 'checking'), '550');
+      expect(balanceOf(accounts, 'savings'), '450');
+    });
+  });
+
+  test('saving never drops the list to a loading state', () async {
+    final container = ProviderContainer(
+      overrides: [
+        accountRepositoryProvider.overrideWithValue(
+          _FakeAccountRepository(const []),
+        ),
+        transactionRepositoryProvider.overrideWithValue(
+          _FakeTransactionRepository([
+            FinanceTransaction(
+              id: 'old',
+              userId: 'user',
+              accountId: 'cash',
+              type: TransactionType.expense,
+              amount: Money.parse('10', 'THB'),
+              date: DateTime(2026, 10, 1),
+            ),
+          ]),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(transactionsProvider.future);
+    final states = <AsyncValue<List<FinanceTransaction>>>[];
+    container.listen(
+      transactionsProvider,
+      (_, next) => states.add(next),
+      fireImmediately: false,
+    );
+
+    await container
+        .read(transactionsProvider.notifier)
+        .saveTransaction(
+          FinanceTransaction(
+            id: 'new',
+            userId: 'user',
+            accountId: 'cash',
+            type: TransactionType.expense,
+            amount: Money.parse('20', 'THB'),
+            date: DateTime(2026, 10, 5),
+          ),
+        );
+
+    expect(states.any((state) => state.isLoading), isFalse);
+    expect(container.read(transactionsProvider).value!.map((t) => t.id), [
+      'new',
+      'old',
+    ]);
+  });
+
+  test('a failed save keeps the previous list and rethrows', () async {
+    final existing = FinanceTransaction(
+      id: 'old',
+      userId: 'user',
+      accountId: 'cash',
+      type: TransactionType.expense,
+      amount: Money.parse('10', 'THB'),
+      date: DateTime(2026, 10, 1),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        accountRepositoryProvider.overrideWithValue(
+          _FakeAccountRepository(const []),
+        ),
+        transactionRepositoryProvider.overrideWithValue(
+          _FailingTransactionRepository([existing]),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(transactionsProvider.future);
+
+    await expectLater(
+      container
+          .read(transactionsProvider.notifier)
+          .saveTransaction(existing.copyWith(amount: Money.parse('5', 'THB'))),
+      throwsStateError,
+    );
+    await expectLater(
+      container.read(transactionsProvider.notifier).deleteTransaction('old'),
+      throwsStateError,
+    );
+
+    final state = container.read(transactionsProvider);
+    expect(state.hasError, isFalse);
+    expect(state.value, [existing]);
+  });
+
+  test('monthly report covers the requested month', () async {
+    const userId = 'local:report-user';
+    final container = ProviderContainer(
+      overrides: [
+        appLocaleControllerProvider.overrideWith(
+          () => AppLocaleController(storage: MemorySecureStorageService()),
+        ),
+        accountRepositoryProvider.overrideWithValue(
+          _FakeAccountRepository(const []),
+        ),
+        categoryRepositoryProvider.overrideWithValue(
+          _FakeCategoryRepository(userId),
+        ),
+        categoryGroupRepositoryProvider.overrideWithValue(
+          _FakeCategoryGroupRepository(userId),
+        ),
+        transactionRepositoryProvider.overrideWithValue(
+          _FakeTransactionRepository([
+            FinanceTransaction(
+              id: 'may-pay',
+              userId: userId,
+              accountId: 'cash',
+              type: TransactionType.income,
+              amount: Money.parse('500', 'THB'),
+              date: DateTime(2026, 5, 10),
+            ),
+            FinanceTransaction(
+              id: 'june-pay',
+              userId: userId,
+              accountId: 'cash',
+              type: TransactionType.income,
+              amount: Money.parse('900', 'THB'),
+              date: DateTime(2026, 6, 10),
+            ),
+            FinanceTransaction(
+              id: 'opening',
+              userId: userId,
+              accountId: 'cash',
+              type: TransactionType.adjustment,
+              amount: Money.parse('10000', 'THB'),
+              date: DateTime(2026, 5, 1),
+            ),
+          ]),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final may = await container.read(
+      monthlyReportProvider(DateTime(2026, 5)).future,
+    );
+    final june = await container.read(
+      monthlyReportProvider(DateTime(2026, 6)).future,
+    );
+
+    // The opening-balance adjustment is not income.
+    expect(may.income, Money.parse('500', 'THB'));
+    expect(june.income, Money.parse('900', 'THB'));
+  });
+
   group('default category clones', () {
     const userId = '11111111-1111-4111-8111-111111111111';
 
@@ -387,6 +655,23 @@ class _FakeTransactionRepository extends TransactionRepository {
   Future<void> delete(String id) async {
     _transactions.removeWhere((item) => item.id == id);
   }
+}
+
+/// Lists fine but every write fails, like a broken offline store.
+class _FailingTransactionRepository extends TransactionRepository {
+  _FailingTransactionRepository(this._transactions);
+
+  final List<FinanceTransaction> _transactions;
+
+  @override
+  Future<List<FinanceTransaction>> list() async => List.of(_transactions);
+
+  @override
+  Future<FinanceTransaction> save(FinanceTransaction transaction) async =>
+      throw StateError('write failed');
+
+  @override
+  Future<void> delete(String id) async => throw StateError('write failed');
 }
 
 class _FakeCategoryRepository extends CategoryRepository {

@@ -222,8 +222,8 @@ class CapturedMessageProcessor {
         .firstOrNull;
     if (account == null) return 0; // capture account was deleted
 
-    final currency =
-        _ref.read(profileProvider).value?.baseCurrency ?? account.currency;
+    // A bank's message states amounts in that account's currency.
+    final currency = account.currency;
     final rules = await _ref.read(transactionRulesProvider.future);
     final notifier = _ref.read(transactionsProvider.notifier);
 

@@ -68,12 +68,12 @@ The app bar opens **Notifications** (`/notifications`) and **Settings** (`/setti
 
 - **List** (`TransactionListScreen`): month ranges (`TransactionMonthRangeService`), search, recurring previews (`RecurringProjection`). App bar buttons open Search, Rules and Travel Mode; tapping the month summary card opens the Monthly report.
 - **Form** (`TransactionFormScreen`, pushed): amount-first entry; all 15 types; transfers create a `transferOut` and a `transferIn` leg; category, merchant, note, tags; recurring schedules (once/daily/weekly/monthly/annually with an end date or occurrence cap); reminder time; attachments.
-  - **Currency conversion**: when the amount's currency differs from the account's, `ExchangeRateService` fetches a rate from `open.er-api.com` (no key, falls back to a manual rate).
+  - **Currency conversion**: when the amount's currency differs from the account's, `ExchangeRateService` fetches a rate from `open.er-api.com` (no key, falls back to a manual rate), and the amount is saved in the account's currency. A transfer converts each leg into its own account's currency, with a second rate for the destination when it differs. Auto-captured bank messages use the capture account's currency.
   - **Receipt OCR**: `ReceiptOcrService` sends the image to the `ocrScanner` function and parses the text into a draft.
   - **Voice entry**: a "Voice Entry Assistant" dialog takes a sentence in English or Thai ("spent 25 at Amazon yesterday", "ซื้อกาแฟ 65 บาท ที่ร้านสตาร์บัคส์ เมื่อวาน"); `VoiceTransactionParser` turns it into a draft. There is no speech-recognition plugin, so dictation relies on the keyboard's microphone.
 - **Rules** (`TransactionRulesScreen`): match on merchant, keyword, amount, account, category or type with contains/equals/starts with/ends with. Rules apply in ascending priority: the first match sets the category, and every match adds its tags. Rules are stored as a synced preference.
 - **Attachments**: up to 10 MiB each; image, PDF and text previews in-app; HEIC and Word show a fallback. Bytes are cached on the device first and upload when possible.
-- **Reminders**: `TransactionReminderService` schedules local notifications on Android/iOS. Repeating reminders follow the recurring cadence. The web stores the reminder time only.
+- **Reminders**: `TransactionReminderService` schedules local notifications on Android/iOS. Repeating reminders follow the recurring cadence: an open-ended series uses one native repeating notification; a series with an end date or occurrence limit books its next 12 occurrences one by one, topped up at each launch, and stops at the bound. Signing out cancels every reminder. The web stores the reminder time only.
 
 ## Auto-capture (Android)
 
@@ -170,15 +170,11 @@ Current behavior that differs from what the UI or the README suggests. Fix the c
 | --- | --- |
 | Split transactions | `TransactionSplit` and its validation exist, but no screen creates splits and the codec does not persist them. |
 | Duplicate transactions | No duplicate detection. `TransactionRepository.duplicate` copies a transaction but nothing calls it. |
-| Budget rollover | `rolloverUnused` / `budget_rollover` is stored and editable, but no budget, notification or safe-to-spend calculation applies it. |
 | Change password | The Profile row only shows a "Password flow opened." snackbar. Password reset works from Login ("Forgot password?"). |
 | Account deletion | Requires a sign-in within 5 minutes; older sessions get a generic "Unable to delete account right now." with no prompt to sign in again. |
 | App lock | `SecurityStatus` has `pinEnabled`/`biometricEnabled` and matching strings, but no PIN or biometric lock is implemented. |
 | Aiko character | `aiko.riv` is not in `assets/rive/` yet; the PNG fallback is always used until it is added. |
 | Ask Aiko offline | No on-device answers; local-only builds cannot chat. |
-| Multi-currency totals | Dashboard net worth and cash add raw amounts across currencies under the first currency found; transactions in a currency other than their account's don't change its balance. |
-| AI net worth | `aiko_account_summary` negates `loan`/`liability`/`creditCard` balances, but the app already stores debts as negative balances, so Ask Aiko can overstate net worth. |
 | Travel Mode rate | Starts at 1.0 until refreshed or set manually. |
 | Rebalance targets | Fixed at Stocks 70% / Bonds 30%; the stored `target_allocation_percent` has no input. |
-| Reminders | Repeating native reminders ignore the series end date and occurrence cap. |
 | "PDF" export | Produces an HTML statement, not a PDF file. |

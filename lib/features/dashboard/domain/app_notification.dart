@@ -1,6 +1,7 @@
 import '../../../core/formatting/money_formatter.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../accounts/domain/account.dart';
+import '../../categories/application/category_budget_progress_service.dart';
 import '../../categories/domain/category.dart';
 import '../../categories/presentation/category_names.dart';
 import '../../transactions/domain/transaction.dart';
@@ -43,22 +44,14 @@ List<AppNotification> buildNotifications({
 }) {
   final result = <AppNotification>[];
 
-  // Budget alerts: this-month posted expense vs the category's limit, against
-  // its own alert thresholds (default 50/75/90/100%).
-  final spentByCategory = <String, double>{};
-  for (final tx in transactions) {
-    if (!tx.isExpense || tx.status != TransactionStatus.posted) continue;
-    if (tx.date.year != asOf.year || tx.date.month != asOf.month) continue;
-    final id = tx.categoryId;
-    if (id == null) continue;
-    spentByCategory[id] =
-        (spentByCategory[id] ?? 0) + tx.amount.amount.toDouble();
-  }
+  // Budget alerts: posted expense in each budget's own period (day, week,
+  // month or year, with any rollover) against its alert thresholds (default
+  // 50/75/90/100%).
+  const progressService = CategoryBudgetProgressService();
   for (final cat in categories) {
     if (!cat.hasBudget) continue;
-    final limit = cat.monthlyLimit!.amount.toDouble();
-    if (limit <= 0) continue;
-    final pct = ((spentByCategory[cat.id] ?? 0) / limit * 100).round();
+    final progress = progressService.progressFor(cat, transactions, asOf: asOf);
+    final pct = (progress.ratio * 100).round();
     int? crossed;
     for (final t in [...cat.alertThresholds]..sort()) {
       if (pct >= t) crossed = t;

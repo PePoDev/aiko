@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:decimal/decimal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/config/app_config.dart';
+import '../core/notifications/transaction_reminder_service.dart';
+import '../features/dashboard/application/dashboard_summary_builder.dart';
 import '../features/transactions/data/transaction_repository.dart';
 import '../features/accounts/application/shared_limit_resolver.dart';
 import '../features/accounts/data/account_repository.dart';
@@ -70,6 +75,10 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
       final repo = ref.watch(transactionRepositoryProvider);
       final transactions = await repo.list();
       await _reconcileAccountBalances(transactions);
+      // Top up bounded reminder series (once per launch; no-op on web).
+      unawaited(
+        TransactionReminderService.instance.resyncBounded(transactions),
+      );
       // Cache the loaded data so leaving and returning to a screen (e.g. the
       // Overview tab) reuses it instead of showing a loading state again. A
       // failed load is not cached, so it still retries on the next visit.
@@ -599,18 +608,46 @@ final profileProvider = FutureProvider.autoDispose<Profile>((ref) {
   }
 });
 
+/// Exchange rates quoted against a base currency, fetched once per session
+/// (one request) and only by callers that hold foreign-currency amounts.
+/// Empty when offline; callers leave unconverted amounts out and say so.
+final fxRatesProvider = FutureProvider.autoDispose
+    .family<Map<String, Decimal>, String>((ref, baseCurrency) async {
+      final rates = await ref
+          .read(exchangeRateServiceProvider)
+          .fetchRates(baseCurrency);
+      if (rates == null) return const {};
+      ref.keepAlive();
+      return rates;
+    });
+
 final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummary>((
   ref,
 ) async {
   try {
     final accounts = await ref.watch(accountsProvider.future);
     final transactions = await ref.watch(transactionsProvider.future);
-    final categories = await ref.watch(categoriesProvider.future);
-    final summary = _buildDashboardSummary(
+    String baseCurrency;
+    try {
+      baseCurrency = (await ref.watch(profileProvider.future)).baseCurrency;
+    } catch (_) {
+      baseCurrency = kDefaultBaseCurrency;
+    }
+    final now = DateTime.now();
+    final needsRates = foreignCurrencies(
+      baseCurrency: baseCurrency,
       accounts: accounts,
       transactions: transactions,
-      categories: categories,
-      now: DateTime.now(),
+      now: now,
+    ).isNotEmpty;
+    final rates = needsRates
+        ? await ref.watch(fxRatesProvider(baseCurrency).future)
+        : const <String, Decimal>{};
+    final summary = buildDashboardSummary(
+      accounts: accounts,
+      transactions: transactions,
+      converter: CurrencyConverter(baseCurrency, rates),
+      now: now,
     );
     // Keep the computed summary cached across tab switches so the Overview
     // shows instantly on return; pull-to-refresh recomputes it on demand.
@@ -622,98 +659,6 @@ final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummary>((
     Error.throwWithStackTrace(error, stackTrace);
   }
 });
-
-DashboardSummary _buildDashboardSummary({
-  required List<Account> accounts,
-  required List<FinanceTransaction> transactions,
-  required List<Category> categories,
-  required DateTime now,
-}) {
-  final periodStart = DateTime(now.year, now.month);
-  final periodEnd = DateTime(now.year, now.month + 1, 0);
-  final activeAccounts = accounts
-      .where((account) => account.isActive)
-      .toList(growable: false);
-  final monthTransactions = transactions
-      .where(
-        (transaction) =>
-            !transaction.date.isBefore(periodStart) &&
-            !transaction.date.isAfter(periodEnd),
-      )
-      .toList(growable: false);
-  final budgetedCategories = categories
-      .where(
-        (category) =>
-            category.monthlyLimit != null &&
-            category.monthlyLimit!.amount > Decimal.zero,
-      )
-      .toList(growable: false);
-
-  final currency = _firstCurrency(
-    activeAccounts,
-    monthTransactions,
-    budgetedCategories,
-  );
-  var netWorth = Decimal.zero;
-  var totalCash = Decimal.zero;
-  for (final account in activeAccounts) {
-    if (account.type == AccountType.goal) continue;
-    final amount = account.currentBalance.amount;
-    if (account.includeInNetWorth) {
-      netWorth += amount;
-    }
-    if (account.type == AccountType.cash || account.type == AccountType.bank) {
-      totalCash += amount;
-    }
-  }
-
-  var monthlyIncome = Decimal.zero;
-  var monthlySpending = Decimal.zero;
-  for (final transaction in monthTransactions) {
-    final amount = transaction.amount.amount;
-    if (transaction.type == TransactionType.income) {
-      monthlyIncome += amount;
-    } else if (transaction.type == TransactionType.expense) {
-      monthlySpending += amount;
-    }
-  }
-
-  final weeklyFlow = ((monthlyIncome - monthlySpending) / Decimal.parse('4.33'))
-      .toDecimal(scaleOnInfinitePrecision: 2);
-  final safeToSpend = weeklyFlow > Decimal.zero ? weeklyFlow : Decimal.zero;
-
-  return DashboardSummary(
-    netWorth: Money(amount: netWorth, currency: currency),
-    totalCash: Money(amount: totalCash, currency: currency),
-    monthlyIncome: Money(amount: monthlyIncome, currency: currency),
-    monthlySpending: Money(amount: monthlySpending, currency: currency),
-    safeToSpend: Money(amount: safeToSpend, currency: currency),
-  );
-}
-
-String _firstCurrency(
-  Iterable<Account> accounts,
-  Iterable<FinanceTransaction> transactions,
-  Iterable<Category> categories,
-) {
-  for (final account in accounts) {
-    if (account.currentBalance.currency.isNotEmpty) {
-      return account.currentBalance.currency;
-    }
-  }
-  for (final transaction in transactions) {
-    if (transaction.amount.currency.isNotEmpty) {
-      return transaction.amount.currency;
-    }
-  }
-  for (final category in categories) {
-    final currency = category.monthlyLimit?.currency;
-    if (currency != null && currency.isNotEmpty) {
-      return currency;
-    }
-  }
-  return 'USD';
-}
 
 /// Monthly Report figures derived live from the user's real transactions and
 /// categories. No mock data — returns an empty-but-valid report when there is

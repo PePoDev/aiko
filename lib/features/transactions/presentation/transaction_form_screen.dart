@@ -76,6 +76,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _titleController = TextEditingController();
   final _amountController = TextEditingController();
   final _exchangeRateController = TextEditingController(text: '1.00');
+
+  /// Rate from the entered currency to a transfer's destination account,
+  /// when that account tracks another currency.
+  final _toExchangeRateController = TextEditingController(text: '1.00');
   final _noteController = TextEditingController();
   final _tagInputController = TextEditingController();
   final _tagFocusNode = FocusNode();
@@ -94,6 +98,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   // don't refetch on every rebuild, and a flag for the in-flight spinner.
   String? _fetchedRatePair;
   bool _isFetchingRate = false;
+  String? _fetchedToRatePair;
+  bool _isFetchingToRate = false;
   DateTime _selectedDate = DateTime.now();
   String? _selectedCategoryId;
   String? _selectedAccountId;
@@ -122,6 +128,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _titleController.dispose();
     _amountController.dispose();
     _exchangeRateController.dispose();
+    _toExchangeRateController.dispose();
     _noteController.dispose();
     _tagInputController.dispose();
     _tagFocusNode.dispose();
@@ -241,6 +248,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _amountController.clear();
       _selectedCurrency = _baseCurrency;
       _exchangeRateController.text = '1.00';
+      _toExchangeRateController.text = '1.00';
+      _fetchedToRatePair = null;
       _noteController.clear();
       _selectedCategoryId = null;
       _selectedAccountId = null;
@@ -313,6 +322,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       }
       _selectedAccountId = selectedAccountId;
     });
+    _autofillTransferRates();
   }
 
   void _onTransferToAccountSelected(String selectedAccountId) {
@@ -322,6 +332,18 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       }
       _selectedToAccountId = selectedAccountId;
     });
+    _autofillTransferRates();
+  }
+
+  /// Both legs of a transfer convert from the entered currency: the source
+  /// leg into the source account's currency, the destination leg into the
+  /// destination's.
+  void _autofillTransferRates() {
+    final accounts =
+        ref.read(accountsProvider).whenOrNull(data: (value) => value) ??
+        const <Account>[];
+    _maybeAutofillRate(_accountCurrencyFor(accounts, _selectedAccountId));
+    _maybeAutofillToRate(_accountCurrencyFor(accounts, _selectedToAccountId));
   }
 
   void _autofillForm({
@@ -635,15 +657,45 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     });
   }
 
+  /// Like [_maybeAutofillRate], for a transfer's destination account.
+  Future<void> _maybeAutofillToRate(String? accountCurrency) async {
+    if (accountCurrency == null || accountCurrency == _selectedCurrency) {
+      return;
+    }
+    final pair = '$_selectedCurrency>$accountCurrency';
+    if (_isFetchingToRate || _fetchedToRatePair == pair) {
+      return;
+    }
+    setState(() {
+      _isFetchingToRate = true;
+      _fetchedToRatePair = pair;
+    });
+    final rate = await ref
+        .read(exchangeRateServiceProvider)
+        .fetchRate(_selectedCurrency, accountCurrency);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isFetchingToRate = false;
+      if (rate != null) {
+        _toExchangeRateController.text = rate.toStringAsFixed(4);
+      }
+    });
+  }
+
   /// Lets the user override the auto-filled rate. The amount itself is left in
   /// its entered currency — the conversion happens at save time.
+  /// [destination] edits the rate for a transfer's destination account.
   Future<void> _editRateManually(
     String selectedCurrency,
-    String accountCurrency,
-  ) async {
-    final controller = TextEditingController(
-      text: _exchangeRateController.text.trim(),
-    );
+    String accountCurrency, {
+    bool destination = false,
+  }) async {
+    final rateController = destination
+        ? _toExchangeRateController
+        : _exchangeRateController;
+    final controller = TextEditingController(text: rateController.text.trim());
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -674,9 +726,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
     setState(() {
-      _exchangeRateController.text = rate.toStringAsFixed(4);
+      rateController.text = rate.toStringAsFixed(4);
       // A manual rate sticks — don't let an auto-fetch overwrite it.
-      _fetchedRatePair = '$_selectedCurrency>$accountCurrency';
+      if (destination) {
+        _fetchedToRatePair = '$_selectedCurrency>$accountCurrency';
+      } else {
+        _fetchedRatePair = '$_selectedCurrency>$accountCurrency';
+      }
     });
   }
 
@@ -1101,9 +1157,34 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     // source account, the other arrives in the destination. Editing an existing
     // transfer leg falls through to the single-row path below.
     if (_type == TransactionType.transfer && existingTransaction == null) {
+      // The destination leg converts from the entered amount into the
+      // destination account's currency, so its balance changes too.
+      final toCurrency = _accountCurrencyFor(accounts, _selectedToAccountId);
+      var inAmount = amount;
+      var inCurrency = _selectedCurrency;
+      if (toCurrency != null && toCurrency != _selectedCurrency) {
+        final rate = Decimal.tryParse(_toExchangeRateController.text.trim());
+        if (rate == null || rate <= Decimal.zero) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(context.l10n.txEnterPositiveRate),
+              backgroundColor: AikoColors.warningOrange,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+          return;
+        }
+        inAmount = amount * rate;
+        inCurrency = toCurrency;
+      }
       await _submitTransferPair(
         amount: effectiveAmount,
         currency: effectiveCurrency,
+        inAmount: inAmount,
+        inCurrency: inCurrency,
         tags: tags,
         note: _noteController.text.trim(),
         itemName: itemName,
@@ -1155,6 +1236,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   Future<void> _submitTransferPair({
     required Decimal amount,
     required String currency,
+    required Decimal inAmount,
+    required String inCurrency,
     required List<String> tags,
     required String note,
     required String itemName,
@@ -1192,7 +1275,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       userId: '',
       accountId: _selectedToAccountId!,
       type: TransactionType.transferIn,
-      amount: money,
+      amount: Money(amount: inAmount, currency: inCurrency),
       date: _selectedDate,
       merchant: itemName.isEmpty
           ? context.l10n.txTransferFromName(fromName)
@@ -1377,38 +1460,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
   /// Schedules (or clears) the OS reminder for [transaction]. Best-effort —
   /// failures are swallowed inside the service so a save never fails here.
-  Future<void> _syncReminder(FinanceTransaction transaction) async {
-    final service = TransactionReminderService.instance;
-    final when = transaction.reminderAt;
-    if (when == null) {
-      await service.cancel(transaction.id);
-      return;
-    }
-    final l10n = context.l10n;
-    final label = transaction.merchant?.trim().isNotEmpty == true
-        ? transaction.merchant!.trim()
-        : l10n.txReminderDefaultTitle;
-    // A recurring transaction's reminder recurs with it; a one-off reminds once.
-    final repeat = transaction.isRecurring
-        ? switch (transaction.recurringFrequency) {
-            RecurringFrequency.daily => ReminderRepeat.daily,
-            RecurringFrequency.weekly => ReminderRepeat.weekly,
-            RecurringFrequency.monthly => ReminderRepeat.monthly,
-            RecurringFrequency.annually => ReminderRepeat.yearly,
-            RecurringFrequency.once || null => ReminderRepeat.none,
-          }
-        : ReminderRepeat.none;
-    await service.schedule(
-      transactionId: transaction.id,
-      title: label,
-      body: l10n.txReminderBody(
-        transaction.amount.format(),
-        transaction.type.label(l10n),
-      ),
-      when: when,
-      repeat: repeat,
-    );
-  }
+  Future<void> _syncReminder(FinanceTransaction transaction) =>
+      TransactionReminderService.instance.scheduleFor(
+        transaction,
+        context.l10n,
+      );
 
   Future<void> _pickReminderTime() async {
     final initial = _reminderAt ?? _defaultReminderTime();
@@ -1452,6 +1508,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     final showCurrencyConversion =
         selectedAccountCurrency != null &&
         selectedAccountCurrency != _selectedCurrency;
+    final toAccountCurrency = _type == TransactionType.transfer
+        ? _accountCurrencyFor(accountSnapshot, _selectedToAccountId)
+        : null;
+    final showToCurrencyConversion =
+        toAccountCurrency != null && toAccountCurrency != _selectedCurrency;
     final selectedTypeColor = _transactionTypeColor(_type);
 
     return Scaffold(
@@ -1574,6 +1635,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                           _selectedAccountId,
                         ),
                       );
+                      if (_type == TransactionType.transfer) {
+                        _maybeAutofillToRate(
+                          _accountCurrencyFor(
+                            accountSnapshot,
+                            _selectedToAccountId,
+                          ),
+                        );
+                      }
                     }
                   },
                 ),
@@ -1702,6 +1771,25 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               },
               onEditRate: () =>
                   _editRateManually(_selectedCurrency, selectedAccountCurrency),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (showToCurrencyConversion) ...[
+            _CurrencyConversionPrompt(
+              selectedCurrency: _selectedCurrency,
+              accountCurrency: toAccountCurrency,
+              exchangeRateController: _toExchangeRateController,
+              amountController: _amountController,
+              isFetchingRate: _isFetchingToRate,
+              onRefreshRate: () {
+                _fetchedToRatePair = null;
+                _maybeAutofillToRate(toAccountCurrency);
+              },
+              onEditRate: () => _editRateManually(
+                _selectedCurrency,
+                toAccountCurrency,
+                destination: true,
+              ),
             ),
             const SizedBox(height: 12),
           ],

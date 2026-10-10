@@ -28,22 +28,25 @@ Balances are signed: money you have is positive, money you owe (a used credit ca
 
 ## Dashboard summary
 
-`dashboardSummaryProvider` (`lib/app/providers.dart`), current calendar month, active accounts only:
+`buildDashboardSummary` (`lib/features/dashboard/application/dashboard_summary_builder.dart`, through `dashboardSummaryProvider`), current calendar month (the whole last day included), active accounts only, in the profile's **base currency**:
 
 | Figure | Rule |
 | --- | --- |
-| Net worth | Sum of signed `current_balance` over active non-goal accounts with `include_in_net_worth`, all currencies added together |
+| Net worth | Sum of signed `current_balance` over active non-goal accounts with `include_in_net_worth` |
 | Total cash | Sum over active `cash` and `bank` accounts |
-| Monthly income | Sum of `income` transactions this month |
-| Monthly spending | Sum of `expense` transactions this month |
+| Monthly income | Sum of `income` transactions this month, voided and archived ones excluded |
+| Monthly spending | Sum of `expense` transactions this month, voided and archived ones excluded |
+| Today's spending | Posted expenses dated today |
 | Safe to spend (weekly) | `max(0, (income − spending) ÷ 4.33)`, rounded to 2 decimals |
+
+Amounts in other currencies are converted with `CurrencyConverter`, using rates quoted against the base currency from `fxRatesProvider` (`ExchangeRateService.fetchRates`, one request per session, made only when another currency is present). Without a rate (offline), those amounts are left out and the Daily spending card names the currencies it couldn't count. Ask Aiko's on-device snapshot converts with the rates already fetched and never waits on the network.
 
 ## Daily spending reaction
 
 `_DailySpendingPanel` (`lib/features/dashboard/presentation/home_dashboard_screen.dart`) and `DailySpendingReaction` (`lib/features/dashboard/domain/daily_spending_reaction.dart`):
 
 ```text
-used       = today's posted expenses (in the first currency found today)
+used       = today's posted expenses, in the base currency
 daily safe = weekly safe to spend ÷ 7
 ratio      = used ÷ daily safe   (0 when daily safe ≤ 0)
 ```
@@ -61,7 +64,7 @@ The panel also shows the month's net cash flow (income − spending) and "left t
 `BudgetInsightsService.safeToSpend` (`lib/features/overview/application/budget_insights_service.dart`), current month:
 
 ```text
-reserved  = Σ over budgeted categories of max(0, limit − this month's spend in that category)
+reserved  = Σ over budgeted categories of what's left of their budget in its current period (with rollover)
 leftover  = income − spent − reserved
 daysRemaining = days left in the month, including today
 ```
@@ -70,14 +73,16 @@ daysRemaining = days left in the month, including today
 
 `CategoryBudgetProgressService` (`lib/features/categories/application/category_budget_progress_service.dart`) sums expenses in the category over its period:
 
-| Period | Window |
+| Period | Window (`budgetPeriodWindow`, start inclusive, end exclusive) |
 | --- | --- |
-| daily | today 00:00 – 23:59:59 |
-| weekly | Monday – Sunday of the current week |
-| monthly | calendar month |
-| yearly | calendar year |
+| daily | today 00:00 to tomorrow 00:00 |
+| weekly | Monday 00:00 to the next Monday 00:00 |
+| monthly | the 1st to the 1st of next month |
+| yearly | 1 January to 1 January |
 
-The budget's rollover flag is not applied: each period starts from the plain limit. The recommendation is "Keep this category under `remaining ÷ daysLeft` `<currency>`/day to stay on track", or a gentle over-budget message. Budget **notifications** use this month's posted expenses against the category limit and fire at the highest crossed threshold (default 50/75/90/100%). They are warnings below 100% and danger at 100% or more.
+**Rollover**: with `rolloverUnused`, what was left of the previous period's limit is added to this period's limit (one period back; overspending doesn't reduce the next limit). Nothing carries into the category's first period (`created_at`, or its first transaction for older rows).
+
+The recommendation is "Keep this category under `remaining ÷ daysLeft` `<currency>`/day to stay on track", or a gentle over-budget message. The Categories screen, budget **notifications**, safe-to-spend, Ask Aiko's snapshot and the Overview's Category budgets card all use this progress, each budget in its own period. Notifications fire at the highest crossed threshold (default 50/75/90/100%): warnings below 100% and danger at 100% or more. The Category budgets card charts the month's spending, so it compares only monthly budgets.
 
 ## Cash flow
 
@@ -176,7 +181,7 @@ Amounts in baht per tax year. Update `thai_tax_rules.dart` and its tests when th
 
 Server-side tools compute with `decimal.js` and return decimal strings ([Backend](backend.md#aikochat)):
 
-- `aiko_account_summary`: net worth per currency. It multiplies `loan`, `liability` and `creditCard` balances by −1, which double-negates debts the app already stores as negative ([Known gaps](features.md#known-gaps)).
+- `aiko_account_summary`: net worth per currency: the sum of signed balances (debts are already negative) of active non-goal accounts included in net worth.
 - `aiko_budget_status`: spend per budgeted category in the budget's currency over a date range.
 - `aiko_spending_by_category`: expenses per category and currency, highest first, top 50.
 - `aiko_cashflow_summary`: income, expense and net per currency.

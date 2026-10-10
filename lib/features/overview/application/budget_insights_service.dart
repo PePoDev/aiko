@@ -1,6 +1,7 @@
 import 'package:decimal/decimal.dart';
 
 import '../../../core/money/money.dart';
+import '../../categories/application/category_budget_progress_service.dart';
 import '../../categories/domain/category.dart';
 import '../../transactions/domain/transaction.dart';
 
@@ -36,7 +37,6 @@ class BudgetInsightsService {
     required DateTime asOf,
   }) {
     final currency = _currency(transactions, categories);
-    final spentByCategory = _spentByCategory(transactions, asOf);
     final start = DateTime(asOf.year, asOf.month);
     final end = DateTime(asOf.year, asOf.month + 1, 0, 23, 59, 59, 999);
 
@@ -48,14 +48,16 @@ class BudgetInsightsService {
       if (t.type == TransactionType.expense) spent += t.amount.amount;
     }
 
-    // Money still earmarked by budgets the user hasn't spent yet.
+    // Money still earmarked by budgets the user hasn't spent yet, each in
+    // its own period and with any rollover.
+    const progressService = CategoryBudgetProgressService();
     var reserved = Decimal.zero;
     for (final category in categories) {
       if (!category.hasBudget) continue;
-      final remaining =
-          category.monthlyLimit!.amount -
-          (spentByCategory[category.id] ?? Decimal.zero);
-      if (remaining > Decimal.zero) reserved += remaining;
+      final remaining = progressService
+          .progressFor(category, transactions, asOf: asOf)
+          .remaining;
+      if (remaining != null) reserved += remaining.amount;
     }
 
     final leftover = income - spent - reserved;
@@ -68,22 +70,6 @@ class BudgetInsightsService {
       leftover: Money(amount: leftover, currency: currency),
       daysRemaining: (periodEnd - asOf.day) + 1,
     );
-  }
-
-  Map<String?, Decimal> _spentByCategory(
-    List<FinanceTransaction> transactions,
-    DateTime asOf,
-  ) {
-    final start = DateTime(asOf.year, asOf.month);
-    final end = DateTime(asOf.year, asOf.month + 1, 0, 23, 59, 59, 999);
-    final byCategory = <String?, Decimal>{};
-    for (final t in transactions) {
-      if (t.type != TransactionType.expense) continue;
-      if (t.date.isBefore(start) || t.date.isAfter(end)) continue;
-      byCategory[t.categoryId] =
-          (byCategory[t.categoryId] ?? Decimal.zero) + t.amount.amount;
-    }
-    return byCategory;
   }
 
   static String _currency(

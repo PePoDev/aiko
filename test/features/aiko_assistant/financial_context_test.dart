@@ -2,7 +2,9 @@ import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/aiko_assistant/application/financial_context.dart';
 import 'package:aiko/features/categories/domain/category.dart';
+import 'package:aiko/features/dashboard/application/dashboard_summary_builder.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
+import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -33,20 +35,60 @@ void main() {
     categoryId: categoryId,
   );
 
-  test('net worth subtracts credit/loan/liability balances', () {
+  test('net worth adds signed balances: debts are already negative', () {
     final ctx = AikoFinancialContext.from(
       baseCurrency: 'USD',
       accounts: [
         account('Checking', AccountType.bank, '1000'),
-        account('Visa', AccountType.creditCard, '200'),
+        account('Visa', AccountType.creditCard, '-200'),
+        account('Car loan', AccountType.loan, '-300'),
+        // A card in credit (overpaid) adds to net worth.
+        account('Amex', AccountType.creditCard, '50'),
       ],
       categories: const [],
       transactions: const [],
       now: now,
     );
 
-    expect(ctx.netWorth, 800.0);
-    expect(ctx.accounts, hasLength(2));
+    expect(ctx.netWorth, 550.0);
+    expect(ctx.accounts, hasLength(4));
+  });
+
+  test('net worth converts other currencies when rates are given', () {
+    final ctx = AikoFinancialContext.from(
+      baseCurrency: 'THB',
+      accounts: [
+        Account(
+          id: 'thb',
+          userId: 'u',
+          name: 'Bank',
+          type: AccountType.bank,
+          currentBalance: Money.parse('1000', 'THB'),
+        ),
+        Account(
+          id: 'usd',
+          userId: 'u',
+          name: 'Wise',
+          type: AccountType.bank,
+          currentBalance: Money.parse('10', 'USD'),
+        ),
+        Account(
+          id: 'eur',
+          userId: 'u',
+          name: 'Euro',
+          type: AccountType.bank,
+          currentBalance: Money.parse('10', 'EUR'),
+        ),
+      ],
+      categories: const [],
+      transactions: const [],
+      now: now,
+      converter: CurrencyConverter('THB', {'USD': Decimal.parse('0.025')}),
+    );
+
+    // 1,000 + 10 USD × 40; EUR has no rate and is left out.
+    expect(ctx.netWorth, 1400.0);
+    expect(ctx.accounts.map((a) => a.currency), ['THB', 'USD', 'EUR']);
   });
 
   test('this-month income/spending only counts the current month', () {

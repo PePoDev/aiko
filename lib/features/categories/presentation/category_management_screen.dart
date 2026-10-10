@@ -9,6 +9,7 @@ import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../transactions/domain/transaction.dart';
+import '../application/category_budget_progress_service.dart';
 import '../domain/category.dart';
 import '../domain/category_defaults.dart';
 import 'category_budget_sheet.dart';
@@ -129,6 +130,7 @@ class CategoryManagementScreen extends ConsumerWidget {
               transactions:
                   transactionsAsync.value ?? const <FinanceTransaction>[],
               baseCurrency: baseCurrency,
+              categories: categories,
             );
 
             return ListView(
@@ -502,6 +504,7 @@ class _GroupAccordion extends StatelessWidget {
                           _CategoryRow(
                             category: category,
                             amount: totals.amountForCategory(category.id),
+                            budget: totals.budgetFor(category.id),
                             count: totals.countForCategory(category.id),
                             onTap: category.isDefault
                                 ? null
@@ -839,13 +842,19 @@ class _CategoryRow extends StatelessWidget {
   const _CategoryRow({
     required this.category,
     required this.amount,
+    required this.budget,
     required this.count,
     required this.onTap,
     required this.onBudgetTap,
   });
 
   final Category category;
+
+  /// This month's total, for categories without a budget.
   final Money? amount;
+
+  /// Spend against the budget in its own period, with any rollover.
+  final CategoryBudgetProgress? budget;
   final int count;
   final VoidCallback? onTap;
   final VoidCallback onBudgetTap;
@@ -856,12 +865,9 @@ class _CategoryRow extends StatelessWidget {
     final color = aikoHexColor(category.color);
     final icon = aikoCategoryIcon(category.icon);
     final hasActivity = count > 0;
-    final limit = category.hasBudget ? category.monthlyLimit : null;
+    final limit = budget?.limit;
     final leftSub = limit != null
-        ? context.l10n.categoriesSpentOf(
-            (amount ?? Money.zero(limit.currency)).format(),
-            limit.format(),
-          )
+        ? context.l10n.categoriesSpentOf(budget!.used.format(), limit.format())
         : (hasActivity ? context.l10n.categoriesThisMonthCount(count) : null);
 
     return InkWell(
@@ -925,8 +931,8 @@ class _CategoryRow extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               _BudgetTrailing(
-                amount: amount,
-                limit: category.hasBudget ? category.monthlyLimit : null,
+                amount: budget?.used ?? amount,
+                limit: limit,
                 period: category.budgetPeriod,
                 categoryId: category.id,
                 onTap: onBudgetTap,
@@ -1122,36 +1128,33 @@ class _RemainingFirst extends StatelessWidget {
 /// Whole days left in the current budget [period], today inclusive (min 1).
 int _periodDaysLeft(CategoryBudgetPeriod period) {
   final now = DateTime.now();
-  final end = switch (period) {
-    CategoryBudgetPeriod.daily => DateTime(
-      now.year,
-      now.month,
-      now.day,
-      23,
-      59,
-    ),
-    CategoryBudgetPeriod.weekly => now.add(
-      Duration(days: DateTime.daysPerWeek - now.weekday),
-    ),
-    CategoryBudgetPeriod.monthly => DateTime(now.year, now.month + 1, 0),
-    CategoryBudgetPeriod.yearly => DateTime(now.year + 1, 1, 0),
-  };
-  return (end.difference(now).inHours / 24).ceil().clamp(1, 366);
+  final today = DateTime(now.year, now.month, now.day);
+  final end = budgetPeriodWindow(period, now).end;
+  // Hours, rounded, so a daylight-saving change doesn't drop a day.
+  return (end.difference(today).inHours / 24).round().clamp(1, 366);
 }
 
 class _CategoryTotals {
-  const _CategoryTotals(this._amounts, this._counts);
-
-  static const _CategoryTotals empty = _CategoryTotals(
-    <String, Money>{},
-    <String, int>{},
-  );
+  const _CategoryTotals(
+    this._amounts,
+    this._counts, [
+    this._budgets = const {},
+  ]);
 
   factory _CategoryTotals.compute({
     required List<FinanceTransaction> transactions,
     required String baseCurrency,
+    required List<Category> categories,
   }) {
-    if (transactions.isEmpty) return empty;
+    const progressService = CategoryBudgetProgressService();
+    final budgets = <String, CategoryBudgetProgress>{
+      for (final category in categories)
+        if (category.hasBudget)
+          category.id: progressService.progressFor(category, transactions),
+    };
+    if (transactions.isEmpty) {
+      return _CategoryTotals(const {}, const {}, budgets);
+    }
     final now = DateTime.now();
     final monthStart = DateTime(now.year, now.month);
     final monthEnd = DateTime(now.year, now.month + 1);
@@ -1169,7 +1172,7 @@ class _CategoryTotals {
       amounts[categoryId] = existing == null ? tx.amount : existing + tx.amount;
       counts[categoryId] = (counts[categoryId] ?? 0) + 1;
     }
-    return _CategoryTotals(amounts, counts);
+    return _CategoryTotals(amounts, counts, budgets);
   }
 
   static bool _isCategoryTotalable(TransactionType type) {
@@ -1196,6 +1199,9 @@ class _CategoryTotals {
 
   final Map<String, Money> _amounts;
   final Map<String, int> _counts;
+  final Map<String, CategoryBudgetProgress> _budgets;
+
+  CategoryBudgetProgress? budgetFor(String categoryId) => _budgets[categoryId];
 
   Money? amountForCategory(String? categoryId) {
     if (categoryId == null) return null;

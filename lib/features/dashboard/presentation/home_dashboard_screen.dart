@@ -15,6 +15,7 @@ import '../../../shared/widgets/aiko_data_widgets.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../categories/application/category_budget_progress_service.dart';
 import '../../categories/domain/category.dart';
 import '../../categories/presentation/category_names.dart';
 import '../../transactions/domain/transaction.dart';
@@ -131,7 +132,9 @@ class _DailySpendingPanel extends ConsumerWidget {
         final baseCurrency =
             ref.watch(profileProvider).value?.baseCurrency ??
             kDefaultBaseCurrency;
-        final used = _dailySpendingUsed(transactions, baseCurrency);
+        final used =
+            summary?.todaySpending ??
+            _dailySpendingUsed(transactions, baseCurrency);
 
         // Gauge measures today's spend against a daily slice of the weekly
         // safe-to-spend (Safe this week ÷ 7). The arc fills 0→100%; the big
@@ -197,6 +200,18 @@ class _DailySpendingPanel extends ConsumerWidget {
                   ),
                 ],
               ),
+              if (summary?.excludedCurrencies case final excluded?
+                  when excluded.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  context.l10n.dashExcludedCurrencies(
+                    (excluded.toList()..sort()).join(', '),
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ],
           ),
         );
@@ -1105,6 +1120,8 @@ class _CategoryBudgetCard extends StatelessWidget {
         .where(
           (tx) =>
               tx.type == TransactionType.expense &&
+              tx.status != TransactionStatus.voided &&
+              tx.status != TransactionStatus.archived &&
               tx.date.year == now.year &&
               tx.date.month == now.month,
         )
@@ -1119,10 +1136,18 @@ class _CategoryBudgetCard extends StatelessWidget {
     final categoryById = {
       for (final category in categories) category.id: category,
     };
+    // This chart is the month's spending, so only monthly budgets (with any
+    // rollover) compare with it.
+    const progressService = CategoryBudgetProgressService();
     final budgetByCategory = {
       for (final category in categories)
-        if (category.monthlyLimit != null)
-          category.id: category.monthlyLimit!.amount.toDouble(),
+        if (category.hasBudget &&
+            category.budgetPeriod == CategoryBudgetPeriod.monthly)
+          category.id: progressService
+              .progressFor(category, transactions, asOf: now)
+              .limit!
+              .amount
+              .toDouble(),
     };
     final rows =
         usageByCategory.entries

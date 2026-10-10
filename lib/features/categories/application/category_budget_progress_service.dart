@@ -1,16 +1,61 @@
+import 'package:decimal/decimal.dart';
+
 import '../../../core/money/money.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../categories/domain/category.dart';
 import '../../transactions/domain/transaction.dart';
 
+/// The budget period that contains [asOf]: [start] inclusive, [end]
+/// exclusive. Weeks start on Monday.
+({DateTime start, DateTime end}) budgetPeriodWindow(
+  CategoryBudgetPeriod period,
+  DateTime asOf,
+) {
+  switch (period) {
+    case CategoryBudgetPeriod.daily:
+      return (
+        start: DateTime(asOf.year, asOf.month, asOf.day),
+        end: DateTime(asOf.year, asOf.month, asOf.day + 1),
+      );
+    case CategoryBudgetPeriod.weekly:
+      final monday = asOf.day - (asOf.weekday - DateTime.monday);
+      return (
+        start: DateTime(asOf.year, asOf.month, monday),
+        end: DateTime(asOf.year, asOf.month, monday + 7),
+      );
+    case CategoryBudgetPeriod.monthly:
+      return (
+        start: DateTime(asOf.year, asOf.month),
+        end: DateTime(asOf.year, asOf.month + 1),
+      );
+    case CategoryBudgetPeriod.yearly:
+      return (start: DateTime(asOf.year), end: DateTime(asOf.year + 1));
+  }
+}
+
 /// Result of computing spend vs. a [Category]'s budget over a period.
 class CategoryBudgetProgress {
-  const CategoryBudgetProgress({required this.category, required this.used});
+  const CategoryBudgetProgress({
+    required this.category,
+    required this.used,
+    this.carriedOver,
+  });
 
   final Category category;
   final Money used;
 
-  Money? get limit => category.monthlyLimit;
+  /// Unspent budget from the previous period, when the category rolls over
+  /// unused budget; already included in [limit].
+  final Money? carriedOver;
+
+  /// The period's limit, plus [carriedOver].
+  Money? get limit {
+    final base = category.monthlyLimit;
+    final carried = carriedOver;
+    if (base == null || carried == null) return base;
+    return Money(amount: base.amount + carried.amount, currency: base.currency);
+  }
+
   Money? get remaining {
     final limit = this.limit;
     if (limit == null) return null;
@@ -53,18 +98,67 @@ class CategoryBudgetProgress {
 class CategoryBudgetProgressService {
   const CategoryBudgetProgressService();
 
-  /// Computes spend for [category] across [transactions] for the
-  /// [periodStart, periodEnd] window. The window is inclusive on both ends.
+  /// Spend for [category] across [transactions] in its budget period at
+  /// [asOf] (default now), or in an explicit window ([periodStart] to
+  /// [periodEnd], both inclusive).
+  ///
+  /// With `rolloverUnused`, what was left of the previous period's limit is
+  /// added to this period's limit (one period back; overspending doesn't
+  /// reduce it). Nothing carries over into the category's first period.
   CategoryBudgetProgress progressFor(
     Category category,
     List<FinanceTransaction> transactions, {
+    DateTime? asOf,
     DateTime? periodStart,
     DateTime? periodEnd,
   }) {
-    final start = periodStart ?? _defaultStart(category);
-    final end = periodEnd ?? _defaultEnd(category);
+    final window = budgetPeriodWindow(
+      category.budgetPeriod,
+      asOf ?? DateTime.now(),
+    );
+    final start = periodStart ?? window.start;
+    // Inclusive end for the sum below.
+    final end =
+        periodEnd ?? window.end.subtract(const Duration(microseconds: 1));
     final used = _sumExpenses(transactions, category, start, end);
-    return CategoryBudgetProgress(category: category, used: used);
+    return CategoryBudgetProgress(
+      category: category,
+      used: used,
+      carriedOver: periodStart == null && periodEnd == null
+          ? _carriedOver(category, transactions, window.start)
+          : null,
+    );
+  }
+
+  Money? _carriedOver(
+    Category category,
+    List<FinanceTransaction> transactions,
+    DateTime periodStart,
+  ) {
+    final limit = category.monthlyLimit;
+    if (!category.rolloverUnused || !category.hasBudget || limit == null) {
+      return null;
+    }
+    final createdAt = category.createdAt;
+    final existedBefore = createdAt != null
+        ? createdAt.isBefore(periodStart)
+        : transactions.any(
+            (t) => t.categoryId == category.id && t.date.isBefore(periodStart),
+          );
+    if (!existedBefore) return null;
+    final previous = budgetPeriodWindow(
+      category.budgetPeriod,
+      periodStart.subtract(const Duration(days: 1)),
+    );
+    final spent = _sumExpenses(
+      transactions,
+      category,
+      previous.start,
+      previous.end.subtract(const Duration(microseconds: 1)),
+    );
+    final unused = limit.amount - spent.amount;
+    if (unused <= Decimal.zero) return null;
+    return Money(amount: unused, currency: limit.currency);
   }
 
   /// A warm tone message in [l10n]'s language. Non-judgmental (per
@@ -87,41 +181,6 @@ class CategoryBudgetProgressService {
     }
     final daily = remaining.amount.toDouble() / daysLeft.clamp(1, 31);
     return l10n.budgetAdviceDaily(daily.toStringAsFixed(0), limit.currency);
-  }
-
-  DateTime _defaultStart(Category category) {
-    final now = DateTime.now();
-    return switch (category.budgetPeriod) {
-      CategoryBudgetPeriod.daily => DateTime(now.year, now.month, now.day),
-      CategoryBudgetPeriod.weekly => now.subtract(
-        Duration(days: now.weekday - 1),
-      ),
-      CategoryBudgetPeriod.monthly => DateTime(now.year, now.month),
-      CategoryBudgetPeriod.yearly => DateTime(now.year),
-    };
-  }
-
-  DateTime _defaultEnd(Category category) {
-    final now = DateTime.now();
-    return switch (category.budgetPeriod) {
-      CategoryBudgetPeriod.daily => DateTime(
-        now.year,
-        now.month,
-        now.day,
-        23,
-        59,
-        59,
-      ),
-      CategoryBudgetPeriod.weekly => now.add(
-        Duration(days: DateTime.daysPerWeek - now.weekday),
-      ),
-      CategoryBudgetPeriod.monthly => DateTime(now.year, now.month + 1, 0),
-      CategoryBudgetPeriod.yearly => DateTime(
-        now.year + 1,
-        1,
-        1,
-      ).subtract(const Duration(seconds: 1)),
-    };
   }
 
   Money _sumExpenses(

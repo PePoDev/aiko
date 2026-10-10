@@ -1,3 +1,4 @@
+import '../../../core/notifications/transaction_reminder_service.dart';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -60,7 +61,13 @@ class AuthRepository {
   Future<AuthSession> _finish(UserCredential credential) async {
     final user = credential.user;
     if (user == null) throw StateError('Sign-in did not return a user.');
-    await _ensureDefaultsOnce(user.uid, user.email ?? '');
+    // The user is signed in at this point; failing to seed defaults must not
+    // report the sign-in as failed (restoreSession retries it).
+    try {
+      await _ensureDefaultsOnce(user.uid, user.email ?? '');
+    } catch (error) {
+      debugPrint('[auth] defaults seeding failed: $error');
+    }
     await OfflineDataMigrator().claimAnonymousData(user.uid);
     await _storage.write(_knownAccountKey, 'true');
     return AuthSession(userId: user.uid, email: user.email ?? '');
@@ -134,7 +141,13 @@ class AuthRepository {
       false;
 
   Future<void> signOut() async {
-    await (_auth ?? FirebaseBackend.auth)?.signOut();
+    final auth = _auth ?? FirebaseBackend.auth;
+    // Local-only builds have no account to leave; starting a new anonymous
+    // owner would hide everything the user recorded.
+    if (auth == null) return;
+    // Reminders name merchants and amounts; the next user mustn't get them.
+    await TransactionReminderService.instance.cancelAll();
+    await auth.signOut();
     await OfflineUserContext.startAnonymousSession(_storage);
   }
 
@@ -142,6 +155,8 @@ class AuthRepository {
       _requiredAuth.sendPasswordResetEmail(email: email);
   Future<void> deleteAccount() async {
     await FirebaseBackend.functions.httpsCallable('deleteAccount').call<void>();
+    // A deleted account is no longer "known": the next launch shows Welcome.
+    await _storage.delete(_knownAccountKey);
     await signOut();
   }
 

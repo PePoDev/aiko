@@ -2402,5 +2402,13 @@
   "chatBusyHint": "Aiko is busy...",
   "chatInputHint": "Ask about your money...",
   "chatNeedsCloud": "Aiko chat needs the cloud. Connect to Aiko cloud to start chatting.",
-  "chatThinking": "Aiko is thinking"
+  "chatThinking": "Aiko is thinking",
+  "dashExcludedCurrencies": "Not counted yet: amounts in {currencies}, because no exchange rate is available right now.",
+  "@dashExcludedCurrencies": {
+    "placeholders": {
+      "currencies": {
+        "type": "Object"
+      }
+    }
+  }
 }

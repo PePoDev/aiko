@@ -38,4 +38,23 @@ void main() {
     );
     expect(await missing.fetchRate('THB', 'XYZ'), isNull);
   });
+
+  test('fetches every rate for a base in one request', () async {
+    var requests = 0;
+    final service = ExchangeRateService(
+      client: MockClient((req) async {
+        requests++;
+        expect(req.url.path, endsWith('/THB'));
+        return http.Response(
+          '{"result":"success","rates":{"usd":0.0277,"EUR":0.026,"BAD":"x"}}',
+          200,
+        );
+      }),
+    );
+    expect(await service.fetchRates('thb'), {
+      'USD': Decimal.parse('0.0277'),
+      'EUR': Decimal.parse('0.026'),
+    });
+    expect(requests, 1);
+  });
 }

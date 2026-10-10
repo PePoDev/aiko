@@ -119,7 +119,7 @@ Domain: `Category` (`lib/features/categories/domain/category.dart`). SQLite: `Of
 | `budget_enabled` | bool | |
 | `budget_amount`, `budget_currency` | decimal string?, string? | The category's budget limit |
 | `budget_period` | string | `daily`, `weekly`, `monthly`, `yearly` |
-| `budget_rollover` | bool | Intended to roll unused budget into the next period; stored but not applied by any calculation yet |
+| `budget_rollover` | bool | Carries what was left of the previous period's budget into the current one ([Calculations](calculations.md#category-budget-progress)) |
 | `alert_thresholds` | int[] | Default `[50, 75, 90, 100]` percent |
 | `updated_at`, `version` | string, int | |
 

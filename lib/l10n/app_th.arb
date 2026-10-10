@@ -1412,5 +1412,6 @@
   "chatBusyHint": "Aiko กำลังตอบอยู่...",
   "chatInputHint": "ถามเรื่องเงินของคุณได้เลย...",
   "chatNeedsCloud": "แชตกับ Aiko ต้องใช้คลาวด์ เชื่อมต่อ Aiko cloud เพื่อเริ่มแชต",
-  "chatThinking": "Aiko กำลังคิด"
+  "chatThinking": "Aiko กำลังคิด",
+  "dashExcludedCurrencies": "ยังไม่รวมยอดในสกุลเงิน {currencies} เพราะยังไม่มีอัตราแลกเปลี่ยนในขณะนี้"
 }

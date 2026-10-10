@@ -10,7 +10,9 @@ void main() {
     expect(await repository.hasKnownAccount(), isFalse);
   });
 
-  test('signOut starts a fresh anonymous offline identity', () async {
+  test('signOut without cloud sign-in keeps the local data owner', () async {
+    // Local-only builds have no account to leave; a new anonymous owner would
+    // hide everything the user recorded.
     final storage = MemorySecureStorageService();
     final context = OfflineUserContext(storage: storage);
     final previousId = await context.resolveUserId();
@@ -18,8 +20,6 @@ void main() {
 
     await repository.signOut();
 
-    final anonymousId = await context.resolveUserId();
-    expect(anonymousId, startsWith(OfflineUserContext.localUserIdPrefix));
-    expect(anonymousId, isNot(previousId));
+    expect(await context.resolveUserId(), previousId);
   });
 }

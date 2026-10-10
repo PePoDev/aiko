@@ -27,14 +27,24 @@ class ExchangeRateService {
     if (fromCode == toCode) {
       return Decimal.one;
     }
-    if (fromCode.length != 3 || toCode.length != 3) {
+    if (toCode.length != 3) {
+      return null;
+    }
+    return (await fetchRates(fromCode))?[toCode];
+  }
+
+  /// Every rate quoted against [base] (how many units of each currency one
+  /// [base] unit buys), from a single request; `null` on failure.
+  Future<Map<String, Decimal>?> fetchRates(String base) async {
+    final baseCode = base.trim().toUpperCase();
+    if (baseCode.length != 3) {
       return null;
     }
 
     final httpClient = client ?? http.Client();
     try {
       final response = await httpClient
-          .get(Uri.parse('$_base/$fromCode'))
+          .get(Uri.parse('$_base/$baseCode'))
           .timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) {
         return null;
@@ -45,11 +55,14 @@ class ExchangeRateService {
         return null;
       }
       final rates = body['rates'] as Map<String, dynamic>?;
-      final rate = rates?[toCode];
-      if (rate == null) {
+      if (rates == null) {
         return null;
       }
-      return Decimal.parse(rate.toString());
+      return {
+        for (final entry in rates.entries)
+          if (Decimal.tryParse(entry.value.toString()) case final rate?)
+            if (rate > Decimal.zero) entry.key.toUpperCase(): rate,
+      };
     } catch (_) {
       return null;
     } finally {

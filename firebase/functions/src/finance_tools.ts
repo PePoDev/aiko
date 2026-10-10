@@ -17,10 +17,10 @@ export function summarize(name: string, args: Row, accounts: Row[], transactions
   switch (name) {
     case 'aiko_account_summary': {
       const totals: Record<string, Decimal> = {};
+      // Balances are signed: debts (a used card, a loan) are already negative.
       for (const account of active) {
-        if (!account.include_in_net_worth) continue;
-        const sign = ['loan', 'liability', 'creditCard'].includes(account.type) ? -1 : 1;
-        totals[account.currency] = (totals[account.currency] ?? new Decimal(0)).plus(number(account.current_balance).mul(sign));
+        if (!account.include_in_net_worth || account.type === 'goal') continue;
+        totals[account.currency] = (totals[account.currency] ?? new Decimal(0)).plus(number(account.current_balance));
       }
       return { net_worth_by_currency: Object.fromEntries(Object.entries(totals).map(([k, v]) => [k, v.toFixed()])),
         accounts: active.map(a => ({name: a.name, type: a.type, currency: a.currency, balance: a.current_balance})) };

@@ -1,9 +1,12 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/money/money.dart';
 import '../../accounts/domain/account.dart';
 import '../../categories/application/category_budget_progress_service.dart';
 import '../../categories/domain/category.dart';
+import '../../dashboard/application/dashboard_summary_builder.dart';
 import '../../transactions/domain/transaction.dart';
 
 /// Layer 1 of Aiko's data access: a compact, read-only snapshot of the user's
@@ -32,7 +35,8 @@ class AikoFinancialContext {
   final String baseCurrency;
   final String asOf;
   final double netWorth;
-  final List<({String name, String type, double balance})> accounts;
+  final List<({String name, String type, String currency, double balance})>
+  accounts;
   final double monthIncome;
   final double monthSpending;
   final List<({String name, double limit, double spent, String pace})> budgets;
@@ -46,9 +50,10 @@ class AikoFinancialContext {
   static const _maxTransactions = 15;
 
   /// Pure builder over already-loaded domain data (no I/O) so it can be unit
-  /// tested without Riverpod. Amounts are summed as doubles in the reported
-  /// base currency; multi-currency holdings are treated as approximate, which
-  /// is acceptable for advisory context.
+  /// tested without Riverpod. Totals are summed as doubles in the base
+  /// currency: [converter] converts other currencies, and amounts it has no
+  /// rate for are left out of the totals. Without a converter, amounts are
+  /// summed as they are.
   ///
   /// Budgets are sourced from [Category]s that have a `monthlyLimit`, and goals
   /// are [Account]s with `type = AccountType.goal`.
@@ -58,7 +63,13 @@ class AikoFinancialContext {
     required List<Category> categories,
     required List<FinanceTransaction> transactions,
     required DateTime now,
+    CurrencyConverter? converter,
   }) {
+    double inBase(Money money) {
+      if (converter == null) return money.amount.toDouble();
+      return converter.toBase(money)?.toDouble() ?? 0;
+    }
+
     final monthStart = DateTime(now.year, now.month, 1);
     final monthEnd = DateTime(now.year, now.month + 1, 1);
     bool inThisMonth(FinanceTransaction t) =>
@@ -75,13 +86,8 @@ class AikoFinancialContext {
     for (final a in activeAccounts) {
       if (!a.includeInNetWorth) continue;
       if (a.type == AccountType.goal) continue;
-      final sign =
-          a.type == AccountType.loan ||
-              a.type == AccountType.liability ||
-              a.type == AccountType.creditCard
-          ? -1.0
-          : 1.0;
-      netWorth += a.currentBalance.amount.toDouble() * sign;
+      // Balances are signed: debts (a used card, a loan) are already negative.
+      netWorth += inBase(a.currentBalance);
     }
 
     double monthIncome = 0;
@@ -89,23 +95,16 @@ class AikoFinancialContext {
     for (final t in transactions) {
       if (!isPosted(t) || !inThisMonth(t)) continue;
       if (t.type == TransactionType.income) {
-        monthIncome += t.amount.amount.toDouble();
+        monthIncome += inBase(t.amount);
       } else if (t.type == TransactionType.expense) {
-        monthSpending += t.amount.amount.toDouble();
+        monthSpending += inBase(t.amount);
       }
     }
 
     const progressService = CategoryBudgetProgressService();
-    final monthEndInclusive = monthEnd.subtract(
-      const Duration(microseconds: 1),
-    );
     final budgetRows = categories.where((c) => c.hasBudget).map((c) {
-      final progress = progressService.progressFor(
-        c,
-        transactions,
-        periodStart: monthStart,
-        periodEnd: monthEndInclusive,
-      );
+      // Each budget's own period (day, week, month or year), with rollover.
+      final progress = progressService.progressFor(c, transactions, asOf: now);
       final pct = progress.ratio * 100;
       final pace = pct >= 100
           ? 'over'
@@ -114,7 +113,7 @@ class AikoFinancialContext {
           : 'ok';
       return (
         name: c.name,
-        limit: _round2(c.monthlyLimit!.amount.toDouble()),
+        limit: _round2(progress.limit!.amount.toDouble()),
         spent: _round2(progress.used.amount.toDouble()),
         pace: pace,
       );
@@ -154,6 +153,7 @@ class AikoFinancialContext {
             (a) => (
               name: a.name,
               type: a.type.name,
+              currency: a.currency,
               balance: _round2(a.currentBalance.amount.toDouble()),
             ),
           )
@@ -172,7 +172,12 @@ class AikoFinancialContext {
     'netWorth': netWorth,
     'accounts': [
       for (final a in accounts)
-        {'name': a.name, 'type': a.type, 'balance': a.balance},
+        {
+          'name': a.name,
+          'type': a.type,
+          'currency': a.currency,
+          'balance': a.balance,
+        },
     ],
     'thisMonth': {
       'income': monthIncome,
@@ -225,11 +230,16 @@ Future<AikoFinancialContext?> _readFinancialContext(Ref ref) async {
   final accounts = await ref.read(accountRepositoryProvider).list();
   final categories = await ref.read(categoryRepositoryProvider).list();
   final transactions = await ref.read(transactionRepositoryProvider).list();
+  // Use rates the Overview already fetched; never wait on the network here.
+  final rates =
+      ref.read(fxRatesProvider(profile.baseCurrency)).value ??
+      const <String, Decimal>{};
   return AikoFinancialContext.from(
     baseCurrency: profile.baseCurrency,
     accounts: accounts,
     categories: categories,
     transactions: transactions,
     now: DateTime.now(),
+    converter: CurrencyConverter(profile.baseCurrency, rates),
   );
 }

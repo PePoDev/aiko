@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../theme/aiko_colors.dart';
+import '../../theme/aiko_status_colors.dart';
 
 class AikoDetailScaffold extends StatelessWidget {
   const AikoDetailScaffold({
@@ -156,7 +157,7 @@ class AikoMetricCard extends StatelessWidget {
               Text(
                 change!,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: accentColor,
+                  color: AikoStatusColors.of(context).textFor(accentColor),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -327,7 +328,7 @@ class AikoDataRow extends StatelessWidget {
                 value,
                 textAlign: TextAlign.end,
                 style: theme.textTheme.titleSmall?.copyWith(
-                  color: color,
+                  color: AikoStatusColors.of(context).textFor(color),
                   fontWeight: FontWeight.w700,
                 ),
               ),

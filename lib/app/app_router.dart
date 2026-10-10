@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/firebase/firebase_backend.dart';
 import '../features/accounts/presentation/accounts_screen.dart';
 import '../features/accounts/presentation/account_form/account_form_screen.dart';
 import '../features/accounts/domain/account.dart';
@@ -160,6 +161,16 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
       body: AikoScreenState.error(
         title: context.l10n.routeNotFoundTitle,
         message: context.l10n.routeNotFoundMessage(state.uri),
+        action: FilledButton.icon(
+          // Signed out (cloud builds), home is the Welcome screen.
+          onPressed: () => context.go(
+            FirebaseBackend.isConfigured && FirebaseBackend.userId == null
+                ? '/'
+                : '/home',
+          ),
+          icon: const Icon(Icons.home_outlined),
+          label: Text(context.l10n.routeNotFoundGoHome),
+        ),
       ),
     ),
   );

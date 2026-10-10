@@ -20,9 +20,17 @@ import '../../categories/domain/category_defaults.dart';
 import 'defaults_seed_marker.dart';
 
 class AuthSession {
-  const AuthSession({required this.userId, required this.email});
+  const AuthSession({
+    required this.userId,
+    required this.email,
+    this.isNewUser = false,
+  });
   final String userId;
   final String email;
+
+  /// The sign-in created the account (a sign-up, or a first Google sign-in),
+  /// so the app seeds its first-run defaults.
+  final bool isNewUser;
 }
 
 class AuthRepository {
@@ -70,7 +78,11 @@ class AuthRepository {
     }
     await OfflineDataMigrator().claimAnonymousData(user.uid);
     await _storage.write(_knownAccountKey, 'true');
-    return AuthSession(userId: user.uid, email: user.email ?? '');
+    return AuthSession(
+      userId: user.uid,
+      email: user.email ?? '',
+      isNewUser: credential.additionalUserInfo?.isNewUser ?? false,
+    );
   }
 
   Future<AuthSession> signUp({
@@ -133,6 +145,14 @@ class AuthRepository {
     }
     return true;
   }
+
+  /// Whether the signed-in user has an email-and-password sign-in, and so a
+  /// password to change.
+  bool hasPasswordSignIn() =>
+      (_auth ?? FirebaseBackend.auth)?.currentUser?.providerData.any(
+        (provider) => provider.providerId == 'password',
+      ) ??
+      false;
 
   bool isGoogleLinked() =>
       (_auth ?? FirebaseBackend.auth)?.currentUser?.providerData.any(

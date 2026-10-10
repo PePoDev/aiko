@@ -6,9 +6,9 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../../../core/offline/offline_user_context.dart';
 import '../../../core/firebase/firebase_backend.dart';
 
-/// Result of picking a new avatar: the local cache path is always populated
-/// so the UI can render instantly, and the cloud URL is populated when the
-/// upload to Firebase Storage succeeded.
+/// A saved avatar: the local cache path is always populated so the UI can
+/// render instantly, and the cloud URL is populated when the upload to
+/// Firebase Storage succeeded.
 class ProfileAvatar {
   const ProfileAvatar({required this.localPath, this.cloudUrl});
 
@@ -16,17 +16,33 @@ class ProfileAvatar {
   final String? cloudUrl;
 }
 
+/// A photo picked on the Profile screen but not saved yet. It is cached under
+/// a temporary key for the preview; the saved avatar (cache and cloud) only
+/// changes on [ProfileAvatarService.commit], so leaving without saving keeps
+/// the old photo.
+class PendingAvatar {
+  const PendingAvatar({
+    required this.previewPath,
+    required this.extension,
+    required this.bytes,
+  });
+
+  /// Cache path of the preview copy, shown as the draft profile's avatar.
+  final String previewPath;
+  final String extension;
+  final Uint8List bytes;
+}
+
 class ProfileAvatarService {
-  ProfileAvatarService();
+  ProfileAvatarService({Future<String> Function()? resolveUserId})
+    : _resolveUserId = resolveUserId ?? OfflineUserContext().resolveUserId;
 
   final ImagePicker _picker = ImagePicker();
+  final Future<String> Function() _resolveUserId;
 
-  /// Open the platform camera/gallery picker, persist the chosen image to
-  /// the app's documents directory, then attempt to upload it to the
-  /// `avatars` Firebase Storage bucket. Returns `null` when the user
-  /// cancelled the picker. Throws when the local write fails; cloud
-  /// upload failures are swallowed and the avatar still works offline.
-  Future<ProfileAvatar?> pickAndUpload({required ImageSource source}) async {
+  /// Opens the platform picker and stages the chosen image ([stage]).
+  /// Returns `null` when the user cancelled the picker.
+  Future<PendingAvatar?> pick({required ImageSource source}) async {
     final picked = await _picker.pickImage(
       source: source,
       imageQuality: 88,
@@ -35,15 +51,68 @@ class ProfileAvatarService {
     if (picked == null) {
       return null;
     }
+    return stage(await picked.readAsBytes(), fileName: picked.name);
+  }
 
-    final bytes = await picked.readAsBytes();
-    final ext = _extensionFor(picked.name);
-    final userId = await OfflineUserContext().resolveUserId();
-    final localPath = await _writeToCache(userId, ext, bytes);
+  /// Caches [bytes] under the user's temporary avatar key for a preview.
+  /// Throws when the local write fails.
+  Future<PendingAvatar> stage(
+    List<int> bytes, {
+    required String fileName,
+  }) async {
+    final extension = _extensionFor(fileName);
+    final userId = await _resolveUserId();
+    final previewPath = await LocalFileCache.write(
+      _pendingKey(userId, extension),
+      bytes,
+    );
+    return PendingAvatar(
+      previewPath: previewPath,
+      extension: extension,
+      bytes: Uint8List.fromList(bytes),
+    );
+  }
 
-    final cloudUrl = await _uploadToStorage(userId, ext, bytes);
-
+  /// Makes [pending] the saved avatar: moves it to the user's avatar cache key,
+  /// drops [replacedPath] (the previous avatar's cache path) when it differs,
+  /// and uploads it to Firebase Storage when signed in. Cloud upload failures
+  /// are swallowed and the avatar still works on this device.
+  Future<ProfileAvatar> commit(
+    PendingAvatar pending, {
+    String? replacedPath,
+  }) async {
+    final userId = await _resolveUserId();
+    final localPath = await LocalFileCache.write(
+      _avatarKey(userId, pending.extension),
+      pending.bytes,
+    );
+    await LocalFileCache.remove(pending.previewPath);
+    if (replacedPath != null && replacedPath != localPath) {
+      await removeFromCache(replacedPath);
+    }
+    final cloudUrl = await _uploadToStorage(
+      userId,
+      pending.extension,
+      pending.bytes,
+    );
     return ProfileAvatar(localPath: localPath, cloudUrl: cloudUrl);
+  }
+
+  /// Drops a picked photo that was never saved.
+  Future<void> discard(PendingAvatar pending) =>
+      LocalFileCache.remove(pending.previewPath);
+
+  /// Deletes a saved avatar that the user removed: the cached file and, best
+  /// effort, the copy in Firebase Storage.
+  Future<void> remove({String? localPath, String? cloudUrl}) async {
+    await removeFromCache(localPath);
+    if (cloudUrl == null || cloudUrl.isEmpty) return;
+    if (FirebaseBackend.userId == null) return;
+    try {
+      await FirebaseBackend.storage.refFromURL(cloudUrl).delete();
+    } catch (error) {
+      debugPrint('[aiko] avatar delete failed: $error');
+    }
   }
 
   /// Best-effort delete of the cached file. Safe to call with `null` or a
@@ -55,8 +124,10 @@ class ProfileAvatarService {
     await LocalFileCache.remove(localPath);
   }
 
-  Future<String> _writeToCache(String userId, String ext, List<int> bytes) =>
-      LocalFileCache.write('avatars/$userId.$ext', bytes);
+  static String _avatarKey(String userId, String ext) => 'avatars/$userId.$ext';
+
+  static String _pendingKey(String userId, String ext) =>
+      'avatars/pending/$userId.$ext';
 
   Future<String?> _uploadToStorage(
     String userId,

@@ -36,6 +36,11 @@ class ProfileRepository {
         securityStatus: SecurityStatus.notConfigured,
         preferredTheme: resolveInitialTheme(),
       );
+      // Signed in, the profile document is created once, at sign-in
+      // (AuthRepository.ensureProfileAndDefaultsExist). Writing one here
+      // would re-create the document of an account that is being deleted;
+      // the user's first Save stores it if it's still missing.
+      if (store.canSyncRemote) return profile;
       return save(profile);
     }
 

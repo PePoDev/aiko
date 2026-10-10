@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../core/firebase/firebase_backend.dart';
 import '../features/aiko_character/presentation/aiko_avatar.dart';
 import '../features/transactions/presentation/transaction_form_screen.dart';
 import '../l10n/l10n.dart';
@@ -32,12 +31,9 @@ class AikoSidebar extends StatelessWidget {
         icon: Icons.settings_outlined,
         label: l10n.settingsTitle,
       ),
-      if (FirebaseBackend.isConfigured)
-        (
-          path: '/profile',
-          icon: Icons.person_outline,
-          label: l10n.profileTitle,
-        ),
+      // Local-only builds show Profile too (name, photo, base currency);
+      // the screen hides the cloud-account sections there.
+      (path: '/profile', icon: Icons.person_outline, label: l10n.profileTitle),
     ];
     final selected = aikoSelectedPath(location, [
       for (final destination in aikoPrimaryDestinations) destination.path,

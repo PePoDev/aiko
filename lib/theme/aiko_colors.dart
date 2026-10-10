@@ -30,4 +30,15 @@ class AikoColors {
   static const dangerRed = Color(0xFFDC2626);
   static const premiumPurple = Color(0xFF7C3AED);
   static const analyticsTeal = Color(0xFF0D9488);
+
+  // Status colours for TEXT. The fills above (orange 1.9:1, green 2.9:1 on
+  // light panels) are too light for words, so status text uses these instead:
+  // at least 4.5:1 on light panels, and on dark panels for the *Dark set.
+  // Widgets read them through `AikoStatusColors.of(context)`.
+  static const warningText = Color(0xFF92400E);
+  static const successText = Color(0xFF166534);
+  static const dangerText = Color(0xFFB91C1C);
+  static const warningTextDark = Color(0xFFFBBF24);
+  static const successTextDark = Color(0xFF4ADE80);
+  static const dangerTextDark = Color(0xFFF87171);
 }

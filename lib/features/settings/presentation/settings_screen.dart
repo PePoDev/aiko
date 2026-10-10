@@ -9,6 +9,7 @@ import '../../../app/locale_controller.dart';
 import '../../../l10n/domain_labels.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
+import '../../../shared/widgets/aiko_snack_bar.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../domain/profile.dart';
@@ -113,6 +114,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _showAppearanceSettings(Profile profile) async {
     PreferredTheme selectedTheme = profile.preferredTheme;
+    final messenger = ScaffoldMessenger.of(context);
 
     await showAikoSheet<void>(
       context: context,
@@ -141,13 +143,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       groupValue: selectedTheme,
                       onChanged: (value) async {
                         if (value == null) return;
+                        final l10n = context.l10n;
+                        final navigator = Navigator.of(context);
                         setModalState(() => selectedTheme = value);
-                        await ref
-                            .read(profileRepositoryProvider)
-                            .save(profile.copyWith(preferredTheme: value));
-                        ref.invalidate(profileProvider);
+                        try {
+                          await ref
+                              .read(profileRepositoryProvider)
+                              .save(profile.copyWith(preferredTheme: value));
+                          ref.invalidate(profileProvider);
+                        } catch (error) {
+                          debugPrint('[settings] theme save failed: $error');
+                          if (context.mounted) navigator.pop();
+                          messenger.showSnackBar(
+                            aikoSnackBar(
+                              l10n.settingsAppearanceSaveFailed,
+                              tone: AikoSnackTone.error,
+                            ),
+                          );
+                          return;
+                        }
                         if (!context.mounted) return;
-                        Navigator.pop(context);
+                        navigator.pop();
                       },
                       child: Column(
                         children: [
@@ -183,7 +199,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ? l10n.languageSystemDefaultWith(_languageLabelFor(locale, l10n))
         : _languageLabelFor(locale, l10n);
     final profileAsync = ref.watch(profileProvider);
-    final profile = profileAsync.asData?.value;
+    final profile = profileAsync.value;
+    final profileFailed = profile == null && profileAsync.hasError;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.settingsTitle)),
@@ -202,15 +219,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             accentColor: AikoColors.premiumPurple,
             child: Column(
               children: [
+                // Phones reach Profile from here (wide screens also have it
+                // in the sidebar).
+                _SettingsRow(
+                  icon: Icons.person_outline,
+                  title: l10n.profileTitle,
+                  subtitle: l10n.settingsProfileSubtitle,
+                  onTap: () => context.push('/profile'),
+                ),
+                const Divider(),
                 _SettingsRow(
                   icon: Icons.palette_outlined,
                   title: l10n.appearanceTitle,
-                  subtitle: profile == null
-                      ? l10n.loadingEllipsis
-                      : _themeLabel(profile.preferredTheme, l10n),
-                  onTap: profile == null
-                      ? null
-                      : () => _showAppearanceSettings(profile),
+                  subtitle: profile != null
+                      ? _themeLabel(profile.preferredTheme, l10n)
+                      : profileFailed
+                      ? l10n.settingsAppearanceLoadFailed
+                      : l10n.loadingEllipsis,
+                  onTap: profile != null
+                      ? () => _showAppearanceSettings(profile)
+                      : profileFailed
+                      ? () => ref.invalidate(profileProvider)
+                      : null,
                 ),
                 const Divider(),
                 _SettingsRow(

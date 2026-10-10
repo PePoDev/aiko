@@ -48,6 +48,8 @@ class Profile {
       (avatarPath != null && avatarPath!.isNotEmpty) ||
       (avatarUrl != null && avatarUrl!.isNotEmpty);
 
+  /// Copies with the given fields replaced. The optional fields take a
+  /// function so they can be cleared: `copyWith(fullName: () => null)`.
   Profile copyWith({
     String? id,
     String? displayName,
@@ -56,12 +58,12 @@ class Profile {
     String? country,
     SecurityStatus? securityStatus,
     PreferredTheme? preferredTheme,
-    String? fullName,
+    String? Function()? fullName,
     Gender? gender,
-    DateTime? dateOfBirth,
-    String? phoneNumber,
-    String? avatarPath,
-    String? avatarUrl,
+    DateTime? Function()? dateOfBirth,
+    String? Function()? phoneNumber,
+    String? Function()? avatarPath,
+    String? Function()? avatarUrl,
   }) {
     return Profile(
       id: id ?? this.id,
@@ -71,12 +73,12 @@ class Profile {
       country: country ?? this.country,
       securityStatus: securityStatus ?? this.securityStatus,
       preferredTheme: preferredTheme ?? this.preferredTheme,
-      fullName: fullName ?? this.fullName,
+      fullName: fullName != null ? fullName() : this.fullName,
       gender: gender ?? this.gender,
-      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
-      phoneNumber: phoneNumber ?? this.phoneNumber,
-      avatarPath: avatarPath ?? this.avatarPath,
-      avatarUrl: avatarUrl ?? this.avatarUrl,
+      dateOfBirth: dateOfBirth != null ? dateOfBirth() : this.dateOfBirth,
+      phoneNumber: phoneNumber != null ? phoneNumber() : this.phoneNumber,
+      avatarPath: avatarPath != null ? avatarPath() : this.avatarPath,
+      avatarUrl: avatarUrl != null ? avatarUrl() : this.avatarUrl,
     );
   }
 }

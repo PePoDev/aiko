@@ -49,6 +49,10 @@ class _ConnectLineScreenState extends ConsumerState<ConnectLineScreen> {
       setState(
         () => _error = switch (e.reason) {
           LineLinkError.emptyCode => l10n.lineErrorEmptyCode,
+          LineLinkError.invalidCode => l10n.lineErrorInvalidCode,
+          LineLinkError.expiredCode => l10n.lineErrorExpiredCode,
+          LineLinkError.alreadyLinked => l10n.lineErrorAlreadyLinked,
+          LineLinkError.tooManyAttempts => l10n.lineErrorTooManyAttempts,
           LineLinkError.signedOut => l10n.lineErrorSignedOut,
           LineLinkError.failed => l10n.lineErrorFailed,
         },
@@ -95,10 +99,11 @@ class _ConnectLineScreenState extends ConsumerState<ConnectLineScreen> {
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _submitting ? null : _connect(),
           inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp('[A-Za-z0-9]')),
-            // Codes are at most 6 chars (see line-webhook newPairingCode).
-            LengthLimitingTextInputFormatter(6),
+            // Uppercase first, then keep only characters the bot's codes use
+            // (no I, L, O, 0 or 1), at most 6 of them.
             UpperCaseTextFormatter(),
+            FilteringTextInputFormatter.allow(linePairingCodeCharacter),
+            LengthLimitingTextInputFormatter(linePairingCodeLength),
           ],
           decoration: InputDecoration(
             labelText: context.l10n.linePairingCode,

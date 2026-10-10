@@ -1,6 +1,7 @@
 import '../features/travel_mode/application/travel_mode_provider.dart';
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/firebase/firebase_backend.dart';
@@ -10,6 +11,40 @@ import '../features/investments/application/investments_provider.dart';
 import '../features/transactions/data/transaction_rule_store.dart';
 import 'locale_controller.dart';
 import 'providers.dart';
+import 'user_session.dart';
+
+/// Holds back collection-change refreshes while an operation rewrites the
+/// user's data wholesale. Deleting the account removes every document; a
+/// refresh in the middle would re-read the profile and could write it back.
+class FirebaseSyncPause {
+  FirebaseSyncPause._();
+
+  static var _holds = 0;
+
+  static bool get isPaused => _holds > 0;
+
+  /// Runs [action] with refreshes paused. Changes made meanwhile are not
+  /// replayed; the sign-out that follows reloads everything anyway.
+  static Future<T> during<T>(Future<T> Function() action) async {
+    _holds++;
+    try {
+      return await action();
+    } finally {
+      _holds--;
+    }
+  }
+}
+
+/// Whether an auth event changes whose data the providers hold. The first
+/// event repeats the user the app started with (screens have already loaded
+/// that user's data), so it changes nothing; later events are sign-ins and
+/// sign-outs.
+@visibleForTesting
+bool authEventChangesUser({
+  required bool isFirstEvent,
+  required String? startupUid,
+  required String? eventUid,
+}) => !isFirstEvent || eventUid != startupUid;
 
 /// A single collection listener per signed-in app, shared by every screen.
 /// Firestore emits local writes, remote edits and deletes, and reconnects itself.
@@ -38,9 +73,16 @@ final firebaseSyncProvider = Provider<void>((ref) {
   // listeners instead of fetching every collection from the server too.
   final signedInUid = FirebaseBackend.userId;
   if (signedInUid != null) sync.beginListening(signedInUid, refresh.keys);
+  var isFirstEvent = true;
   final authSubscription = FirebaseBackend.auth?.authStateChanges().listen((
     user,
   ) async {
+    final userChanged = authEventChangesUser(
+      isFirstEvent: isFirstEvent,
+      startupUid: signedInUid,
+      eventUid: user?.uid,
+    );
+    isFirstEvent = false;
     final currentGeneration = ++generation;
     final previous = subscriptions.toList();
     subscriptions.clear();
@@ -57,8 +99,11 @@ final firebaseSyncProvider = Provider<void>((ref) {
     } else {
       sync.beginListening(user.uid, refresh.keys);
     }
-    for (final callback in refresh.values) {
-      callback();
+    if (userChanged) {
+      for (final callback in refresh.values) {
+        callback();
+      }
+      invalidateUserSessionState(ref.invalidate);
     }
     if (user == null) return;
     for (final entry in refresh.entries) {
@@ -80,7 +125,9 @@ final firebaseSyncProvider = Provider<void>((ref) {
                 timers[entry.key] = Timer(
                   const Duration(milliseconds: 150),
                   () {
-                    if (!disposed) entry.value();
+                    if (!disposed && !FirebaseSyncPause.isPaused) {
+                      entry.value();
+                    }
                   },
                 );
               },

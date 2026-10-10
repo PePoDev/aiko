@@ -832,8 +832,7 @@ final notificationsProvider = FutureProvider.autoDispose<List<AppNotification>>(
   },
 );
 
-/// All accounts with `type = goal`. Source of truth for the dashboard's
-/// Aiko Goal Simulator panel and the goal detail screens.
+/// All accounts with `type = goal`, derived from [accountsProvider].
 final goalAccountsDerivedProvider = Provider<AsyncValue<List<Account>>>((ref) {
   final accountsAsync = ref.watch(accountsProvider);
   return accountsAsync.whenData(

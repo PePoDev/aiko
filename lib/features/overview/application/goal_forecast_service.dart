@@ -14,8 +14,8 @@ class GoalForecast {
 }
 
 /// Monte Carlo goal forecast derived from a real goal account. Single source of
-/// truth for the dashboard Goal Simulator card and the Chance of Success
-/// screen, so both show identical assumptions. Pure function object.
+/// truth for `goalForecastProvider` and the Chance of Success screen, so every
+/// forecast uses the same assumptions. Pure function object.
 class GoalForecastService {
   const GoalForecastService({this.engine = const MonteCarloEngine()});
 

@@ -119,7 +119,19 @@ Add, search and remove holdings (asset class, symbol, quantity, average cost, cu
 
 `lib/features/calculators/`, `/calculators`.
 
-The library lists 30 calculators by category and searches by name in either language; each has a stable English id (`_CalculatorItem.id`) that picks its form. Money inputs show the base currency's symbol. Twelve have their own form and math in `CalculatorDetailScreen`: compound interest, loan, credit card payoff, savings goal, ROI, currency converter, Rule of 72, inflation, salary to hourly, tax equivalent yield, IRR/NPV, tip and percentage. The rest are listed but not yet built ([Known gaps](#known-gaps)). Calculations use `double`; results are estimates, not stored money.
+The library lists 30 calculators by category and searches by name in either language; each has a stable English id (`_CalculatorItem.id`) that picks its form in `calculatorForm` (`calculator_forms.dart`). `CalculatorDetailScreen` renders any form: number fields (money fields show the currency symbol), choices that show or hide fields (for example *Solve for* in Time value of money), hints under fields, and a result with a headline value, supporting rows and a short explanation. Fields start with Thai-scale example values, so Calculate works straight away.
+
+| Group | Calculators |
+| --- | --- |
+| Saving and investing | Compound interest, Savings goal, ROI, Time value of money (future value, present value or monthly saving), IRR / NPV, Fixed deposit (simple interest, 15% withholding tax), Bond yield (yield from price or price from yield), Tax equivalent yield, Rule of 72 |
+| Debt and cars | Loan, Credit card payoff, Car hire purchase vs. lease (Thai flat-rate hire purchase, its effective rate, and the net cost against leasing) |
+| Home and property | Bi-weekly mortgage, Refinance savings (with break-even month), Rent vs. buy, Home affordability (debt-to-income limit, 40–50% at Thai banks), Rental property cash flow (cap rate, gross yield) |
+| Retirement | Tax-saving funds (RMF or Thai ESG against the same saving without the deduction), Retirement drawdown (how long savings last, with inflation), Social Security pension (Section 33), Annuity payout |
+| Business and markets | WACC, Black-Scholes options, CAPM |
+| Tax and income | Income tax and take-home pay, Capital gains tax, Salary to hourly |
+| Everyday | Currency converter, Inflation, Tip and percentage |
+
+The calculators built on Thai rules (income tax, capital gains tax, tax-saving funds, Social Security pension) always work in baht; the others use the profile's base currency. Their rules are in `thai_tax_rules.dart` ([Calculations](calculations.md#calculators)). Calculations use `double`; results are estimates, not stored money. Scenarios aren't saved.
 
 ## Learning Hub
 
@@ -156,7 +168,6 @@ Current behavior that differs from what the UI or the README suggests. Fix the c
 
 | Area | Gap |
 | --- | --- |
-| Calculators | 18 of 30 library entries (TVM, CD, bond yield, bi-weekly mortgage, refinance, rent vs. buy, home affordability, rental property, IRA, RMD, Social Security, annuity, auto loan vs. lease, WACC, Black-Scholes, CAPM, capital gains, paycheck tax) have no form; tapping one opens the compound-interest calculator under that title. Some US-specific entries (IRA, RMD, Social Security) have no Thai equivalent yet. |
 | Split transactions | `TransactionSplit` and its validation exist, but no screen creates splits and the codec does not persist them. |
 | Duplicate transactions | No duplicate detection. `TransactionRepository.duplicate` copies a transaction but nothing calls it. |
 | Budget rollover | `rolloverUnused` / `budget_rollover` is stored and editable, but no budget, notification or safe-to-spend calculation applies it. |

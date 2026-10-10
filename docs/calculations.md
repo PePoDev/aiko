@@ -141,7 +141,36 @@ The forecast is cached per goal ID (`goalForecastProvider`), so the 1,000 runs a
 
 ## Calculators
 
-`CalculatorServices` (`lib/features/calculators/application/calculator_services.dart`) and `CalculatorDetailScreen` implement compound interest with monthly contributions, loan payment (amortization), credit card payoff, savings goal pace, ROI, currency conversion, Rule of 72, inflation-adjusted value, salary to hourly, tax-equivalent yield, NPV/IRR and tip. They are plain `double` estimates.
+Formulas live in `CalculatorServices` (`lib/features/calculators/application/calculator_services.dart`); Thai tax and social security rules in `ThaiIncomeTax` and `ThaiSocialSecurity` (`thai_tax_rules.dart`). They are plain `double` estimates. Rates are fractions (5% → 0.05); loans and savings compound monthly unless noted.
+
+| Calculator | Formula |
+| --- | --- |
+| Compound interest, Time value of money (future value) | Each month: (value + contribution) × (1 + rate/12) |
+| Time value of money (present value) | FV ÷ (1 + rate/12)^(12 × years) |
+| Time value of money (monthly saving) | FV × r ÷ ((1 + r)^n − 1), saving at the end of each month |
+| Loan, Annuity payout | Payment = P × r(1 + r)^n ÷ ((1 + r)^n − 1); P ÷ n at 0% |
+| IRR / NPV | NPV = Σ CFₜ ÷ (1 + rate)^t; IRR by bisection between −99% and 1,000%, none when the flows don't change sign |
+| Fixed deposit | Simple interest P × rate × months/12, less the withholding tax (15% in Thailand) |
+| Bond yield | Price = Σ coupon ÷ (1 + y/k)^t + face ÷ (1 + y/k)^n with k coupons a year; yield to maturity by bisection |
+| Bi-weekly mortgage | Half the monthly payment every two weeks at rate/26 until paid off |
+| Refinance savings | Payments left on the current loan − (new payments + costs); break-even = costs ÷ monthly saving, rounded up |
+| Rent vs. buy | Buying: down payment + loan payments + yearly ownership costs (share of the growing home value) − equity (home value − loan balance). Renting: rent rising yearly − what the down payment would have earned |
+| Home affordability | Payment limit = income × debt ratio − other debts; loan = present value of that payment over the term; price = loan + down payment |
+| Rental property cash flow | Rent × (1 − vacancy) − costs − loan payment; cap rate = yearly net operating income ÷ price; gross yield = yearly rent ÷ price |
+| Car hire purchase vs. lease | Interest = financed × flat rate × years; installment = (financed + interest) ÷ months; effective rate = the reducing-balance rate with that installment; buying = down payment + installments − resale value; leasing = lease payment × months |
+| WACC | E/V × cost of equity + D/V × cost of debt × (1 − tax) |
+| CAPM | Risk-free + β × (market − risk-free) |
+| Black-Scholes | European call and put with continuous dividend yield; normal CDF by Abramowitz–Stegun 7.1.26 |
+| Retirement drawdown | Withdraw monthly, raise the withdrawal by inflation every 12 months, grow the rest at (1 + return)^(1/12) − 1; stops at 100 years |
+
+### Thai rules
+
+Amounts in baht per tax year. Update `thai_tax_rules.dart` and its tests when the law changes.
+
+- **Personal income tax**: 0% to 150,000, then 5% to 300,000, 10% to 500,000, 15% to 750,000, 20% to 1,000,000, 25% to 2,000,000, 30% to 5,000,000 and 35% above. Employment income deducts 50% as expenses (at most 100,000) and the 60,000 personal allowance; *Income tax* also deducts 12 months of social security and the other deductions entered, and spreads the year's tax (bonus included) over 12 months of salary. The top bracket is the rate on the next baht.
+- **Capital gains tax**: gains on shares sold on the Stock Exchange of Thailand and on Thai mutual fund units are exempt for individuals. Other gains (for example foreign shares, taxable when brought into Thailand) are taxed as tax(other net income + gain) − tax(other net income).
+- **Tax-saving funds**: the deduction is the purchase up to 30% of income, at most 500,000 for RMF (shared with other retirement savings) or 300,000 for Thai ESG (the terms for purchases through 2026; they are due to tighten from 2027, so update the cap then). The yearly saving is tax(net income) − tax(net income − deduction). The fund and the reinvested refunds grow at the same return; the comparison is the same purchases without the deduction.
+- **Social Security pension (Section 33)**: wages count up to the ceiling (17,500 from 2026, 15,000 before; the default, editable). *Income tax* starts social security at 875 (5% of 17,500). From 180 months of contributions: a monthly pension of 20% of the average wage of the last 60 months, plus 1.5% for each full 12 months beyond 180. Below 180 months: a lump sum of 3% of the wage per month (the worker's old-age share), or 6% from 12 months (with the employer's), before the fund's returns.
 
 ## Cloud AI tools
 

@@ -298,10 +298,10 @@ class _CalculatorItem {
         l10n.calcCategoryInvesting,
         l10n.calcDescriptionIrrNpv,
       ),
-      'Certificate of deposit' => (
-        l10n.calcTitleCertificateOfDeposit,
+      'Fixed deposit' => (
+        l10n.calcTitleFixedDeposit,
         l10n.calcCategorySavingInvesting,
-        l10n.calcDescriptionCertificateOfDeposit,
+        l10n.calcDescriptionFixedDeposit,
       ),
       'Bond yield' => (
         l10n.calcTitleBondYield,
@@ -343,17 +343,17 @@ class _CalculatorItem {
         l10n.calcCategoryRealEstate,
         l10n.calcDescriptionRentalCashFlow,
       ),
-      'Traditional vs. Roth IRA' => (
-        l10n.calcTitleTraditionalVsRoth,
+      'Tax-saving funds' => (
+        l10n.calcTitleTaxSavingFunds,
         l10n.calcCategoryRetirement,
-        l10n.calcDescriptionTraditionalVsRoth,
+        l10n.calcDescriptionTaxSavingFunds,
       ),
-      'Required minimum distributions' => (
-        l10n.calcTitleRequiredMinimumDistributions,
+      'Retirement drawdown' => (
+        l10n.calcTitleRetirementDrawdown,
         l10n.calcCategoryRetirement,
-        l10n.calcDescriptionRequiredMinimumDistributions,
+        l10n.calcDescriptionRetirementDrawdown,
       ),
-      'Social Security estimate' => (
+      'Social Security pension' => (
         l10n.calcTitleSocialSecurity,
         l10n.calcCategoryRetirement,
         l10n.calcDescriptionSocialSecurity,
@@ -363,10 +363,10 @@ class _CalculatorItem {
         l10n.calcCategoryRetirement,
         l10n.calcDescriptionAnnuityPayout,
       ),
-      'Auto loan vs. lease' => (
-        l10n.calcTitleAutoLoanVsLease,
+      'Car hire purchase vs. lease' => (
+        l10n.calcTitleCarHirePurchase,
         l10n.calcCategoryAuto,
-        l10n.calcDescriptionAutoLoanVsLease,
+        l10n.calcDescriptionCarHirePurchase,
       ),
       'WACC' => (
         l10n.calcTitleWacc,
@@ -383,7 +383,7 @@ class _CalculatorItem {
         l10n.calcCategoryInvesting,
         l10n.calcDescriptionCapm,
       ),
-      'Capital gains' => (
+      'Capital gains tax' => (
         l10n.calcTitleCapitalGains,
         l10n.calcCategoryTax,
         l10n.calcDescriptionCapitalGains,
@@ -393,10 +393,10 @@ class _CalculatorItem {
         l10n.calcCategoryIncome,
         l10n.calcDescriptionSalaryToHourly,
       ),
-      'Paycheck tax' => (
-        l10n.calcTitlePaycheckTax,
+      'Income tax' => (
+        l10n.calcTitleIncomeTax,
         l10n.calcCategoryIncome,
-        l10n.calcDescriptionPaycheckTax,
+        l10n.calcDescriptionIncomeTax,
       ),
       'Inflation' => (
         l10n.calcTitleInflation,
@@ -420,7 +420,7 @@ const _calculatorItems = [
   _CalculatorItem(id: 'Currency converter', icon: Icons.currency_exchange),
   _CalculatorItem(id: 'Time value of money', icon: Icons.schedule),
   _CalculatorItem(id: 'IRR / NPV', icon: Icons.stacked_line_chart),
-  _CalculatorItem(id: 'Certificate of deposit', icon: Icons.savings_outlined),
+  _CalculatorItem(id: 'Fixed deposit', icon: Icons.savings_outlined),
   _CalculatorItem(id: 'Bond yield', icon: Icons.account_balance_outlined),
   _CalculatorItem(id: 'Tax equivalent yield', icon: Icons.percent),
   _CalculatorItem(id: 'Rule of 72', icon: Icons.av_timer),
@@ -429,26 +429,23 @@ const _calculatorItems = [
   _CalculatorItem(id: 'Rent vs. buy', icon: Icons.real_estate_agent_outlined),
   _CalculatorItem(id: 'Home affordability', icon: Icons.house_outlined),
   _CalculatorItem(id: 'Rental property cash flow', icon: Icons.apartment),
-  _CalculatorItem(id: 'Traditional vs. Roth IRA', icon: Icons.elderly_outlined),
+  _CalculatorItem(id: 'Tax-saving funds', icon: Icons.elderly_outlined),
+  _CalculatorItem(id: 'Retirement drawdown', icon: Icons.event_repeat_outlined),
   _CalculatorItem(
-    id: 'Required minimum distributions',
-    icon: Icons.event_repeat_outlined,
-  ),
-  _CalculatorItem(
-    id: 'Social Security estimate',
+    id: 'Social Security pension',
     icon: Icons.account_balance_wallet_outlined,
   ),
   _CalculatorItem(id: 'Annuity payout', icon: Icons.payments),
   _CalculatorItem(
-    id: 'Auto loan vs. lease',
+    id: 'Car hire purchase vs. lease',
     icon: Icons.directions_car_outlined,
   ),
   _CalculatorItem(id: 'WACC', icon: Icons.business_center_outlined),
   _CalculatorItem(id: 'Black-Scholes options', icon: Icons.candlestick_chart),
   _CalculatorItem(id: 'CAPM', icon: Icons.timeline),
-  _CalculatorItem(id: 'Capital gains', icon: Icons.receipt_long_outlined),
+  _CalculatorItem(id: 'Capital gains tax', icon: Icons.receipt_long_outlined),
   _CalculatorItem(id: 'Salary to hourly', icon: Icons.badge_outlined),
-  _CalculatorItem(id: 'Paycheck tax', icon: Icons.request_quote_outlined),
+  _CalculatorItem(id: 'Income tax', icon: Icons.request_quote_outlined),
   _CalculatorItem(id: 'Inflation', icon: Icons.price_change_outlined),
   _CalculatorItem(id: 'Tip and percentage', icon: Icons.restaurant_outlined),
 ];

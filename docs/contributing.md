@@ -77,11 +77,10 @@ All of [Adding a field](#adding-a-field), plus:
 
 ### Adding a calculator
 
-1. Add a `_CalculatorItem` to `lib/features/calculators/presentation/calculator_library_screen.dart`.
-2. Add its English and Thai title, category and description to the ARB files and to `_calculatorText`; the English title is the calculator's stable id.
-3. Add a `_CalculatorKind`, a `_CalculatorConfig.fromId` case (labels from `l10n`, `money: true` for amounts) and the math in `calculator_detail_screen.dart`, with pure formulas in `CalculatorServices`. Without a config case, the entry falls back to compound interest.
-4. Add tests in `test/features/calculators/`.
-5. Update [Features → Calculators](features.md#calculators) and the known-gaps list.
+1. Put the formula in `CalculatorServices` (or the rules in `thai_tax_rules.dart`) and test it in `test/features/calculators/`.
+2. Add a `_CalculatorItem` to `calculator_library_screen.dart` and its English and Thai title, category and description to the ARB files and `_calculatorText`. The id is a stable English name.
+3. Add a `CalculatorForm` for the id in `calculatorForm` (`calculator_forms.dart`): fields with labels from `l10n` (`money: true` for amounts, `suffixText: '%'` for rates, `options` for a choice, `showWhen` for fields that depend on it), example `initialValue`s, and `calculate`, which reads values through `CalculatorInputs` and returns a `CalculatorResult`. Set `currency: 'THB'` when the rules are Thai. `calculator_forms_test.dart` fails until every library id has a form that calculates from its starting values, for every choice.
+4. Update [Features → Calculators](features.md#calculators) and [Calculations](calculations.md#calculators).
 
 ### Adding a Cloud Function
 

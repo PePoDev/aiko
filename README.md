@@ -17,7 +17,7 @@
 
 ## What Is Aiko?
 
-Cross-platform (web + iOS + Android) personal finance app: Flutter + Firebase. **Aiko** (calm, anime-style, blue hair) gives friendly, non-judgmental money guidance. A data-first financial OS: 13 transaction types, category-owned budget limits (daily/weekly/monthly/yearly, alert thresholds, rollover flag) plus group envelopes, goal accounts (SMART target/date/priority, Monte Carlo probability), cash flow + Daily Spending reactions, credit card/loan/asset/liability accounts, portfolio + net worth, a 30-entry calculator library (12 interactive), Ask Aiko chat, monthly report, learning hub, multi-currency Travel Mode. Where the code still falls short of this spec: [Known gaps](docs/features.md#known-gaps).
+Cross-platform (web + iOS + Android) personal finance app: Flutter + Firebase. **Aiko** (calm, anime-style, blue hair) gives friendly, non-judgmental money guidance. A data-first financial OS: 13 transaction types, category-owned budget limits (daily/weekly/monthly/yearly, alert thresholds, rollover flag) plus group envelopes, goal accounts (SMART target/date/priority, Monte Carlo probability), cash flow + Daily Spending reactions, credit card/loan/asset/liability accounts, portfolio + net worth, a 30-calculator library (Thai tax, Social Security and tax-saving fund rules built in), Ask Aiko chat, monthly report, learning hub, multi-currency Travel Mode. Where the code still falls short of this spec: [Known gaps](docs/features.md#known-gaps).
 
 This is a single repo for the Aiko product surface: Flutter app, landing page, Firebase emulators/functions/rules, docs, visual references, and tests. Keep `landing/` and `screenshots/`; Firebase Emulator Suite replaces the former Docker backend workflow.
 
@@ -195,12 +195,14 @@ Use the SDK cache and shared listeners, not a new listener per widget. Keep file
 - **📱 Portfolio, Assets & Tax** — holdings with unrealized gain/loss, allocation by asset class, rebalance alerts against fixed Stocks 70% / Bonds 30% targets, live prices via `marketFeed`, dividend/interest/tax transactions, asset and liability accounts, receipt/document attachments. Not built yet: realized gains in the UI (a capital-gains service exists), allocation by currency/geography/risk, net worth trends, tax flagging, estimated tax reports.
 - **🌍 Travel Mode** — trip with home/local currency and budget, live or manual exchange rate, converter, foreign-fee log; accounts can use any currency. Not built yet: trip reports.
 
-## Calculator Suite (30 listed, 12 interactive)
+## Calculator Suite (30)
 
-Calculator scenario saving/comparison is not wired yet. Library: `calculator_library_screen.dart`; forms and math: `calculator_detail_screen.dart`, `CalculatorServices`.
+All 30 have a form and result in English and Thai. Calculator scenario saving/comparison is not wired yet. Library: `calculator_library_screen.dart`; forms: `calculator_forms.dart` (rendered by `calculator_detail_screen.dart`); math: `CalculatorServices` and `thai_tax_rules.dart`. Details: [Features → Calculators](docs/features.md#calculators), formulas: [Calculations](docs/calculations.md#calculators).
 
-- **Interactive:** Compound interest, Loan, Credit card payoff, Savings goal, ROI, Currency converter, IRR/NPV, Tax equivalent yield, Rule of 72, Salary to hourly, Inflation, Tip and percentage.
-- **Listed, no form yet** (open the compound-interest form): TVM, CD, Bond yield, Bi-weekly mortgage, Refinance savings, Rent vs. buy, Home affordability, Rental property cash flow, Traditional vs. Roth IRA, RMD, Social Security, Annuity payout, Auto loan vs. lease, WACC, Black-Scholes, CAPM, Capital gains, Paycheck tax.
+- **Saving & investing:** Compound interest, Savings goal, ROI, Time value of money, IRR/NPV, Fixed deposit, Bond yield, Tax equivalent yield, Rule of 72.
+- **Debt, home & cars:** Loan, Credit card payoff, Bi-weekly mortgage, Refinance savings, Rent vs. buy, Home affordability, Rental property cash flow, Car hire purchase vs. lease.
+- **Retirement:** Tax-saving funds (RMF, Thai ESG), Retirement drawdown, Social Security pension (Section 33), Annuity payout.
+- **Business, tax & everyday:** WACC, Black-Scholes, CAPM, Income tax and take-home pay, Capital gains tax, Salary to hourly, Currency converter, Inflation, Tip and percentage.
 - **Specified but not in the library:** Amortization & comparison, APR, Retirement savings & income planner, Minimum payment, Balance transfer, Expected return, Holding period return, Effective rate, Margin/markup.
 
 ## Prediction & AI System
@@ -434,7 +436,7 @@ Phases 1–6 ✅ (Foundation; Core Finance; Intelligence; Advanced Finance; Weal
 ## Common Tasks
 
 - **New feature module:** create `lib/features/<name>/` (4 layers); add routes; new collection → owner-scoped Firebase rules; offline → model + both codecs + SQLite migration; register app-wide providers; add model/repository-fallback/provider tests; use `Money`.
-- **New calculator:** add a `_CalculatorItem` in `calculator_library_screen.dart` and its `_CalculatorKind`/config in `calculator_detail_screen.dart` (pure math in `CalculatorServices`, with tests); add persistence/conversion only when the product flow exists.
+- **New calculator:** add a `_CalculatorItem` in `calculator_library_screen.dart` and its `CalculatorForm` in `calculator_forms.dart` (pure math in `CalculatorServices`, with tests); add persistence/conversion only when the product flow exists. See [Contributing → Adding a calculator](docs/contributing.md#adding-a-calculator).
 - **New generated insight surface:** add the product screen first, then define the generator, persistence model/table, provider, display states, source-data references, Security Rules, and tests.
 - **New backend field:** extend its document codec, local SQLite migration, Security Rules, and round-trip/emulator coverage.
 

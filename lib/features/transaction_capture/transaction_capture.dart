@@ -208,7 +208,15 @@ class CapturedMessageProcessor {
   final _matcher = const TransactionRuleMatcher();
   final _uuid = const Uuid();
 
-  Future<int> processInbox() async {
+  // Bootstrap and app resume can both call processInbox at once; a second
+  // caller joins the run in flight instead of draining (and booking) the same
+  // messages again.
+  static Future<int>? _inFlight;
+
+  Future<int> processInbox() =>
+      _inFlight ??= _processInbox().whenComplete(() => _inFlight = null);
+
+  Future<int> _processInbox() async {
     if (!(!kIsWeb && defaultTargetPlatform == TargetPlatform.android)) return 0;
     final settings = await TransactionCaptureSettings.load();
     if (!settings.enabled || settings.accountId == null) return 0;
@@ -228,13 +236,14 @@ class CapturedMessageProcessor {
     final notifier = _ref.read(transactionsProvider.notifier);
 
     final l10n = currentL10n();
-    var created = 0;
-    for (final message in messages) {
-      final parsed = _parser.parse(message.body);
-      if (parsed != null) {
+    return bookCapturedMessages(
+      messages,
+      draftFor: (message) {
+        final parsed = _parser.parse(message.body);
+        if (parsed == null) return null;
         // Run the captured draft through the user's rules so it lands
         // categorized/tagged the same way a manual entry would.
-        final draft = _matcher.apply(
+        return _matcher.apply(
           FinanceTransaction(
             id: _uuid.v4(),
             userId: '', // repository stamps the signed-in user
@@ -253,14 +262,46 @@ class CapturedMessageProcessor {
           ),
           rules,
         );
-        await notifier.addTransaction(draft);
+      },
+      add: notifier.addTransaction,
+      remove: _inbox.remove,
+    );
+  }
+}
+
+/// Books each captured message through [add] and removes it from the inbox
+/// through [remove]; returns how many transactions were created.
+///
+/// A message that doesn't parse ([draftFor] returns null), would book a zero
+/// or negative amount, or fails to build or save is dropped, never retried:
+/// the inbox is sorted, so a message left behind would come first on every
+/// resume and block everything captured after it.
+@visibleForTesting
+Future<int> bookCapturedMessages(
+  List<CapturedMessage> messages, {
+  required FinanceTransaction? Function(CapturedMessage message) draftFor,
+  required Future<void> Function(FinanceTransaction draft) add,
+  required Future<void> Function(String id) remove,
+}) async {
+  var created = 0;
+  for (final message in messages) {
+    try {
+      final draft = draftFor(message);
+      if (draft != null && draft.amount.amount > Decimal.zero) {
+        await add(draft);
         created++;
       }
-      // Drop whether parsed or not, so the queue never re-scans the same text.
-      await _inbox.remove(message.id);
+    } catch (error) {
+      debugPrint('Dropped captured message ${message.id}: $error');
     }
-    return created;
+    try {
+      // Drop whether booked or not, so the queue never re-scans the same text.
+      await remove(message.id);
+    } catch (error) {
+      debugPrint('Could not remove captured message ${message.id}: $error');
+    }
   }
+  return created;
 }
 
 /// Persisted on/off switch + the account auto-captured transactions land on.

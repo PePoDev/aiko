@@ -43,7 +43,12 @@ class ReceiptOcrService {
     }
   }
 
-  ReceiptAutofill parseRecognizedText(String text, {String currency = 'THB'}) {
+  /// [now] (default: the clock) bounds which dates count as plausible.
+  ReceiptAutofill parseRecognizedText(
+    String text, {
+    String currency = 'THB',
+    DateTime? now,
+  }) {
     final lines = text
         .split(RegExp(r'\r?\n'))
         .map((line) => line.trim())
@@ -51,7 +56,7 @@ class ReceiptOcrService {
         .toList(growable: false);
     final merchant = lines.isEmpty ? null : lines.first;
     final total = _extractTotal(lines, currency);
-    final date = _extractDate(lines);
+    final date = extractDate(lines, now: now);
     final populated = [merchant, total, date].where((value) => value != null);
 
     return ReceiptAutofill(
@@ -89,26 +94,52 @@ class ReceiptOcrService {
     return null;
   }
 
-  DateTime? _extractDate(List<String> lines) {
+  static final _datePattern = RegExp(
+    r'\b(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\b',
+  );
+  static final _monthFirstMarker = RegExp(
+    r'\bmm[/-]dd\b',
+    caseSensitive: false,
+  );
+
+  /// The receipt's date: the first d/m/y on any line that is a real calendar
+  /// date the transaction form can show, or null.
+  ///
+  /// - Day first (05/10/2026 = 5 October), as Thai receipts print it. Month
+  ///   first only when the middle number can't be a month (05/21/2026) or the
+  ///   receipt labels its dates MM/DD; never for Buddhist-era years.
+  /// - Four-digit years above 2400 are Buddhist era (2569 = 2026). A two-digit
+  ///   year more than one ahead of this year's (69 in 2026) is a Buddhist year
+  ///   too (2569); otherwise it is 20xx.
+  /// - Dates after tomorrow or before the date picker's first year (five years
+  ///   back) are skipped.
+  static DateTime? extractDate(List<String> lines, {DateTime? now}) {
+    final today = now ?? DateTime.now();
+    final earliest = DateTime(today.year - 5);
+    final latest = DateTime(today.year, today.month, today.day + 1);
+    final monthFirstLabel = lines.any(_monthFirstMarker.hasMatch);
+
     for (final line in lines) {
-      final match = RegExp(
-        r'\b(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\b',
-      ).firstMatch(line);
-      if (match != null) {
+      for (final match in _datePattern.allMatches(line)) {
         final first = int.parse(match.group(1)!);
         final second = int.parse(match.group(2)!);
         var year = int.parse(match.group(3)!);
+        var buddhistEra = year > 2400;
         if (year < 100) {
-          year += 2000;
+          buddhistEra = year > today.year % 100 + 1;
+          year += buddhistEra ? 2500 : 2000;
         }
-        // Thai receipts print Buddhist-era years (2569 = 2026) day-first.
-        final buddhistEra = year > 2400;
         if (buddhistEra) year -= 543;
-        final dayFirst = buddhistEra || first > 12;
-        final month = dayFirst ? second : first;
-        final day = dayFirst ? first : second;
-        if (month < 1 || month > 12 || day < 1 || day > 31) continue;
-        return DateTime(year, month, day);
+
+        final monthFirst =
+            !buddhistEra && first <= 12 && (second > 12 || monthFirstLabel);
+        final month = monthFirst ? first : second;
+        final day = monthFirst ? second : first;
+        if (month < 1 || month > 12 || day < 1) continue;
+        final date = DateTime(year, month, day);
+        if (date.month != month) continue; // 31/02 would roll into March
+        if (date.isBefore(earliest) || date.isAfter(latest)) continue;
+        return date;
       }
     }
     return null;

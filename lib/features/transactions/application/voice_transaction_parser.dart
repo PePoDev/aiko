@@ -36,7 +36,8 @@ class VoiceTransactionParser {
       type: type,
       amount: amount,
       date: _date(normalized, now),
-      merchant: _merchant(normalized),
+      // The transcript as typed, so the merchant keeps its casing.
+      merchant: _merchant(input.trim()),
       note: input.trim(),
     );
   }
@@ -94,14 +95,36 @@ class VoiceTransactionParser {
     return DateTime(now.year, now.month, now.day);
   }
 
+  // "at"/"from" name a place; "on"/"for" more often name what was bought, so
+  // they are only a fallback ("for lunch at KFC" → KFC).
+  static final _merchantAfter = [
+    RegExp(r"\b(?:at|from)\s+([a-z0-9][a-z0-9 &.'-]*)", caseSensitive: false),
+    RegExp(r"\b(?:on|for)\s+([a-z0-9][a-z0-9 &.'-]*)", caseSensitive: false),
+  ];
+
+  /// Where a merchant name ends: date words and connectives ("Amazon
+  /// yesterday", "Starbucks for coffee", "สตาร์บัคส์เมื่อวาน").
+  static final _merchantEnd = RegExp(
+    r'\s+(?:yesterday|today|tonight|tomorrow|last|on|for|with|at|from)\b|เมื่อวาน|วันนี้|พรุ่งนี้|เมื่อ',
+    caseSensitive: false,
+  );
+
   String? _merchant(String input) {
-    final match = RegExp(
-      r'\b(?:at|on|for|from)\s+([a-z0-9 &.-]+)',
-    ).firstMatch(input);
-    if (match != null) return match.group(1)?.trim();
+    for (final pattern in _merchantAfter) {
+      final name = _trimMerchant(pattern.firstMatch(input)?.group(1));
+      if (name != null) return name;
+    }
     // Thai: "…ที่ร้านสตาร์บัคส์ เมื่อวาน" → the word after ที่(ร้าน) or จาก(ร้าน).
     final thai = RegExp(r'(?:ที่|จาก)(?:ร้าน)?\s*([^\s\d]+)').firstMatch(input);
-    final name = thai?.group(1)?.trim();
-    return name == null || name.isEmpty ? null : name;
+    return _trimMerchant(thai?.group(1));
+  }
+
+  String? _trimMerchant(String? raw) {
+    if (raw == null) return null;
+    final end = _merchantEnd.firstMatch(raw);
+    final name = (end == null ? raw : raw.substring(0, end.start))
+        .replaceFirst(RegExp(r"[\s.,'-]+$"), '') // "Amazon." → "Amazon"
+        .trim();
+    return name.isEmpty ? null : name;
   }
 }

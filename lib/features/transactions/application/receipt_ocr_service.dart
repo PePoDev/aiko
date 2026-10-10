@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../../core/money/money.dart';
 import '../../../core/firebase/firebase_backend.dart';
 
@@ -34,7 +36,7 @@ class ReceiptOcrService {
     try {
       final response = await FirebaseBackend.functions
           .httpsCallable('ocrScanner')
-          .call({'fileName': fileName, 'imageBytes': imageBytes});
+          .call(cloudOcrRequest(imageBytes: imageBytes, fileName: fileName));
       final data = response.data as Map<String, dynamic>;
       final recognizedText = data['recognizedText'] as String? ?? '';
       return parseRecognizedText(recognizedText, currency: currency);
@@ -42,6 +44,13 @@ class ReceiptOcrService {
       return parseRecognizedText('', currency: currency);
     }
   }
+
+  /// The `ocrScanner` request. The image travels as base64, about a third
+  /// larger than the image; a JSON array of integers was 3–4 times larger.
+  static Map<String, Object> cloudOcrRequest({
+    required List<int> imageBytes,
+    required String fileName,
+  }) => {'fileName': fileName, 'imageBase64': base64Encode(imageBytes)};
 
   /// [now] (default: the clock) bounds which dates count as plausible.
   ReceiptAutofill parseRecognizedText(

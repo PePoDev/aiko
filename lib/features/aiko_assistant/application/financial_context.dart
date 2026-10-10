@@ -1,5 +1,6 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
@@ -226,10 +227,26 @@ Future<AikoFinancialContext?> buildAikoFinancialContext(Ref ref) async {
 }
 
 Future<AikoFinancialContext?> _readFinancialContext(Ref ref) async {
-  final profile = await ref.read(profileRepositoryProvider).load();
-  final accounts = await ref.read(accountRepositoryProvider).list();
-  final categories = await ref.read(categoryRepositoryProvider).list();
-  final transactions = await ref.read(transactionRepositoryProvider).list();
+  // Reads an auto-dispose provider, keeping it alive until it has loaded.
+  Future<T> read<T>(ProviderListenable<Future<T>> provider) async {
+    final subscription = ref.listen(provider, (_, _) {});
+    try {
+      return await subscription.read();
+    } finally {
+      subscription.close();
+    }
+  }
+
+  // The app's providers usually hold this data already (the Overview keeps
+  // the ledger loaded), so the snapshot costs no Firestore or SQLite reads;
+  // any that are not loaded yet load in parallel. The profile comes first
+  // so a broken profile store gives up at once instead of at the timeout.
+  final profile = await read(profileProvider.future);
+  final (accounts, categories, transactions) = await (
+    read(accountsProvider.future),
+    read(categoriesProvider.future),
+    read(transactionsProvider.future),
+  ).wait;
   // Use rates the Overview already fetched; never wait on the network here.
   final rates =
       ref.read(fxRatesProvider(profile.baseCurrency)).value ??

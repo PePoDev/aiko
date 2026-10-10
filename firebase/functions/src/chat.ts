@@ -1,3 +1,4 @@
+import * as logger from "firebase-functions/logger";
 import { FinanceReader, financeTool } from "./finance_tools";
 const SYSTEM_PROMPT = [
   "You are Aiko, a friendly, warm, and supportive personal finance companion in the Aiko app.",
@@ -50,7 +51,11 @@ function buildModel(): AiModel | null {
 }
 
 const MAX_TOOL_ROUNDS = 4;
+// Each provider request, including reading its whole body or stream.
 const REQUEST_TIMEOUT_MS = 60_000;
+// The whole answer (tool rounds + final answer), so a slow provider ends with
+// an error event well before the 300 s function timeout kills the request.
+const CHAT_DEADLINE_MS = 240_000;
 const MAX_USER_MSG = 1000; // server backstop; UI caps real input at 300 chars.
 
 // Truncate JSON sent to the model, keeping it valid by stuffing the marker
@@ -270,13 +275,12 @@ function payloadFor(
   };
 }
 
-function withTimeout(ms: number): { signal: AbortSignal; cancel: () => void } {
-  const c = new AbortController();
-  const t = setTimeout(
-    () => c.abort(new Error(`Request timed out after ${ms}ms`)),
-    ms,
-  );
-  return { signal: c.signal, cancel: () => clearTimeout(t) };
+// A provider request is cancelled when its own timeout elapses or `parent`
+// aborts (client gone, chat deadline). Body reads honor the same signal, so a
+// stalled body or stream cannot hold the request open.
+function requestSignal(parent?: AbortSignal): AbortSignal {
+  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+  return parent ? AbortSignal.any([parent, timeout]) : timeout;
 }
 
 function providerFetch(
@@ -296,35 +300,43 @@ function providerFetch(
 }
 
 // Layer 2 resolution: run the model through up to MAX_TOOL_ROUNDS, appending
-// each tool result to `messages`. Any error abandons tool resolution silently
-// and lets the streamed final answer proceed (existing behavior).
+// each tool result to `messages`. Returns the model's answer when a round ends
+// without tool calls, so the caller sends it instead of asking the provider a
+// second time. Returns null when the answer still has to be streamed: every
+// round asked for tools, the model wrote nothing, or an error occurred (tool
+// resolution is abandoned silently and the streamed answer proceeds).
 async function resolveTools(
   uid: string,
   messages: ChatMessage[],
   entry: AiModel,
-): Promise<void> {
+  signal?: AbortSignal,
+): Promise<string | null> {
   // One reader per request: tool calls share (and never repeat) Firestore reads.
   const reader = new FinanceReader(uid);
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const { signal, cancel } = withTimeout(REQUEST_TIMEOUT_MS);
-    let resp: Response;
+    if (signal?.aborted) return null;
+    let message: { content?: unknown; tool_calls?: unknown } | undefined;
     try {
-      resp = await providerFetch(
+      const resp = await providerFetch(
         entry,
         payloadFor(entry, messages, { stream: false, tools: TOOLS }),
-        signal,
+        requestSignal(signal),
       );
+      if (!resp.ok) {
+        await resp.body?.cancel().catch(() => {});
+        return null;
+      }
+      message = (await resp.json())?.choices?.[0]?.message;
     } catch {
-      cancel();
-      return;
+      return null;
     }
-    cancel();
-    if (!resp.ok) return;
+    if (!message) return null;
 
-    const json = await resp.json().catch(() => null);
-    const message = json?.choices?.[0]?.message;
-    const toolCalls = message?.tool_calls;
-    if (!message || !Array.isArray(toolCalls) || toolCalls.length === 0) return;
+    const toolCalls = message.tool_calls;
+    if (!Array.isArray(toolCalls) || toolCalls.length === 0) {
+      const content = message.content;
+      return typeof content === "string" && content.trim() !== "" ? content : null;
+    }
 
     messages.push({
       role: "assistant",
@@ -332,53 +344,95 @@ async function resolveTools(
       tool_calls: toolCalls,
     });
 
-    for (const call of toolCalls) {
-      const result = await runTool(
-        uid,
-        call?.function?.name,
-        call?.function?.arguments,
-        reader,
-      );
-      messages.push({ role: "tool", tool_call_id: call.id, content: result });
-    }
+    // Calls of one round are independent; FinanceReader shares their reads.
+    const results = await Promise.all(
+      toolCalls.map((call) =>
+        runTool(uid, call?.function?.name, call?.function?.arguments, reader)
+      ),
+    );
+    toolCalls.forEach((call, i) => {
+      messages.push({ role: "tool", tool_call_id: call?.id, content: results[i] });
+    });
   }
+  return null;
 }
 
-// Where streamed tokens go. The app path wraps a ReadableStream controller
-// (re-emitting SSE); the LINE path collects them into a single string.
+// Stable error codes sent to clients; provider details stay in the logs.
+// PROVIDER_DOWN: no answer text was sent (provider unreachable, non-2xx,
+// timeout, or an immediate stream break). STREAM_FAILED: the stream broke
+// after some text was sent.
+type ChatErrorCode = "PROVIDER_DOWN" | "STREAM_FAILED";
+
+// Where answer text goes. The app path re-emits it as SSE; the LINE path
+// collects it into a single reply.
 interface ChatSink {
   delta(text: string): void;
   done(): void;
-  fail(message: string, code?: string): void;
+  fail(code: ChatErrorCode): void;
+}
+
+function failChat(sink: ChatSink, code: ChatErrorCode, detail: string): void {
+  logger.warn("Aiko chat provider failure", { code, detail });
+  sink.fail(code);
+}
+
+const errorText = (e: unknown): string =>
+  e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+
+// Splits a finished answer into a few deltas (at a space where possible, never
+// inside a surrogate pair) so the app's streaming protocol and UI stay the same.
+function answerChunks(text: string, size = 80): string[] {
+  const chunks: string[] = [];
+  let start = 0;
+  while (start < text.length) {
+    let end = Math.min(start + size, text.length);
+    if (end < text.length) {
+      const space = text.lastIndexOf(" ", end - 1);
+      if (space > start) {
+        end = space + 1;
+      } else if (end - 1 > start && /[\uD800-\uDBFF]/.test(text[end - 1])) {
+        end -= 1;
+      }
+    }
+    chunks.push(text.slice(start, end));
+    start = end;
+  }
+  return chunks;
 }
 
 // Stream the final answer token-by-token. A failure before any token reaches
-// the client (network error, non-2xx, or an immediate stream break) is a
-// PROVIDER_DOWN error. Once tokens have flowed we can't safely restart, so a
-// mid-stream break is surfaced as a plain final `error` event.
+// the client is PROVIDER_DOWN. Once tokens have flowed we can't safely
+// restart, so a mid-stream break is STREAM_FAILED.
 async function streamAnswer(
   entry: AiModel,
   messages: ChatMessage[],
   sink: ChatSink,
+  signal?: AbortSignal,
 ): Promise<void> {
-  const { signal, cancel } = withTimeout(REQUEST_TIMEOUT_MS);
+  if (signal?.aborted) {
+    failChat(sink, "PROVIDER_DOWN", `Not sent: ${errorText(signal.reason)}`);
+    return;
+  }
+  const requestAbort = requestSignal(signal);
   let upstream: Response;
   try {
     upstream = await providerFetch(
       entry,
       payloadFor(entry, messages, { stream: true }),
-      signal,
+      requestAbort,
     );
   } catch (e) {
-    cancel();
-    sink.fail(`Provider unreachable: ${(e as Error).message}`, "PROVIDER_DOWN");
+    failChat(sink, "PROVIDER_DOWN", `Provider unreachable: ${errorText(e)}`);
     return;
   }
-  cancel();
 
   if (!upstream.ok || !upstream.body) {
     const text = await upstream.text().catch(() => "");
-    sink.fail(`Provider error ${upstream.status}: ${text.slice(0, 200)}`, "PROVIDER_DOWN");
+    failChat(
+      sink,
+      "PROVIDER_DOWN",
+      `Provider error ${upstream.status}: ${text.slice(0, 500)}`,
+    );
     return;
   }
 
@@ -412,20 +466,48 @@ async function streamAnswer(
     }
     sink.done();
   } catch (e) {
-    const err = (e as Error).message;
-    if (sentAny) sink.fail(`Stream failed: ${err}`);
-    else sink.fail(`Provider stream broke: ${err}`, "PROVIDER_DOWN");
+    // Reads reject when the request times out or the caller aborts too.
+    const reason = requestAbort.aborted ? requestAbort.reason : e;
+    if (sentAny) {
+      failChat(sink, "STREAM_FAILED", `Stream failed: ${errorText(reason)}`);
+    } else {
+      failChat(sink, "PROVIDER_DOWN", `Provider stream broke: ${errorText(reason)}`);
+    }
   } finally {
-    try {
-      reader.releaseLock();
-    } catch { /* noop */ }
+    // Frees the connection even when we stop at [DONE] before the body ends.
+    await reader.cancel().catch(() => {});
   }
 }
 
-// ============================================================
-// LINE bot — webhook handling + in-process chat (no second hop)
-// ============================================================
+// One chat answer: tool rounds, then either the answer the model already wrote
+// (a message that needs no tools costs one provider call) or a streamed one.
+// `signal` cancels everything, for example when the client disconnects; the
+// whole answer is also bounded by CHAT_DEADLINE_MS.
+async function answerChat(
+  uid: string,
+  messages: ChatMessage[],
+  entry: AiModel,
+  sink: ChatSink,
+  signal?: AbortSignal,
+): Promise<void> {
+  const deadline = AbortSignal.timeout(CHAT_DEADLINE_MS);
+  const bounded = signal ? AbortSignal.any([signal, deadline]) : deadline;
+  const answer = await resolveTools(uid, messages, entry, bounded);
+  if (answer !== null) {
+    for (const chunk of answerChunks(answer)) sink.delta(chunk);
+    sink.done();
+    return;
+  }
+  await streamAnswer(entry, messages, sink, bounded);
+}
 
-// Verify LINE's HMAC-SHA256 signature over the raw body.
-
-export { buildModel, isRequestBody, systemPromptFor, resolveTools, streamAnswer };
+export {
+  answerChat,
+  answerChunks,
+  buildModel,
+  isRequestBody,
+  resolveTools,
+  streamAnswer,
+  systemPromptFor,
+};
+export type { AiModel, ChatErrorCode, ChatSink };

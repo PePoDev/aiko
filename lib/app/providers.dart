@@ -1,3 +1,4 @@
+import '../core/money/money.dart';
 import 'dart:async';
 
 import 'package:decimal/decimal.dart';
@@ -259,21 +260,26 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
     try {
       final accounts = await ref.read(accountsProvider.future);
       final accountsNotifier = ref.read(accountsProvider.notifier);
+      final accountsById = {
+        for (final account in accounts) account.id: account,
+      };
 
-      for (final account in accounts) {
-        final accountTransactions = transactions.where(
-          (transaction) => transaction.accountId == account.id,
-        );
-        if (accountTransactions.isEmpty) {
+      // One pass over the ledger, in order: each account's balance replays
+      // only its own transactions.
+      final balances = <String, Money>{};
+      for (final transaction in transactions) {
+        final account = accountsById[transaction.accountId];
+        if (account == null) {
           continue;
         }
-
-        final balance = balanceFromTransactions(
-          accountTransactions,
-          account.currency,
+        balances[account.id] = transaction.applyToAccountBalance(
+          balances[account.id] ?? Money.zero(account.currency),
         );
+      }
 
-        if (balance != account.currentBalance) {
+      for (final account in accounts) {
+        final balance = balances[account.id];
+        if (balance != null && balance != account.currentBalance) {
           await accountsNotifier.saveAccount(
             account.copyWith(currentBalance: balance),
           );
@@ -645,11 +651,13 @@ class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
     state = await AsyncValue.guard(() async {
       final categoryRepo = ref.read(categoryRepositoryProvider);
       final categories = await categoryRepo.list();
-      for (final category in categories) {
-        if (category.groupId == id) {
-          await categoryRepo.save(category.copyWith(groupId: null));
-        }
-      }
+      // The repository has no batch write; the saves run concurrently
+      // instead of waiting on each one in turn.
+      await Future.wait([
+        for (final category in categories)
+          if (category.groupId == id)
+            categoryRepo.save(category.copyWith(groupId: null)),
+      ]);
 
       final groupRepo = ref.read(categoryGroupRepositoryProvider);
       await groupRepo.delete(id);

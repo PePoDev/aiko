@@ -91,17 +91,57 @@ void main() {
       expect(await migrator.claimAnonymousData(realUserId), 0);
     },
   );
+
+  test('signed in, rows are written in batches of at most 500', () async {
+    const localUserId = 'local:test-user';
+    const realUserId = '11111111-1111-4111-8111-111111111111';
+    final store = _ClaimStore([
+      for (var i = 0; i < 1201; i++)
+        OfflineTransaction(
+          id: 'transaction-$i',
+          userId: localUserId,
+          accountId: 'account',
+          type: 'expense',
+          amount: '10',
+          currency: 'THB',
+          date: DateTime(2026, 7, 26),
+        ),
+    ], canSyncRemote: true);
+
+    final migrated = await OfflineDataMigrator(
+      store: store,
+    ).claimAnonymousData(realUserId);
+
+    expect(migrated, 1201);
+    expect(store.batchSizes, [500, 500, 201]);
+    // Each local row is dropped once the server copy is written.
+    expect(store.localOnlyDeletes, hasLength(1201));
+    final claimed = store.rows.whereType<OfflineTransaction>();
+    expect(claimed, hasLength(1201));
+    expect(claimed.every((row) => row.userId == realUserId), isTrue);
+  });
 }
 
 class _ClaimStore implements OfflineStore {
-  _ClaimStore(this.rows);
+  _ClaimStore(this.rows, {this.canSyncRemote = false});
 
   final List<SqliteModel> rows;
   final List<Type> upsertOrder = [];
+  final List<int> batchSizes = [];
   final List<SqliteModel> localOnlyDeletes = [];
 
   @override
-  bool get canSyncRemote => false;
+  final bool canSyncRemote;
+
+  @override
+  Future<void> upsertBatch<TModel extends SqliteModel>(
+    List<TModel> models,
+  ) async {
+    batchSizes.add(models.length);
+    for (final model in models) {
+      await upsert<TModel>(model);
+    }
+  }
 
   @override
   Future<List<TModel>> get<TModel extends SqliteModel>({

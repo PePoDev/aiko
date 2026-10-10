@@ -99,6 +99,41 @@ class OfflineStore {
     return model;
   }
 
+  /// The most writes one Firestore batch may hold.
+  static const maxBatchWrites = 500;
+
+  /// Upserts up to [maxBatchWrites] models. Signed in, they are one Firestore
+  /// batch with a single acknowledgement instead of one acknowledged write
+  /// each; locally they are upserted one by one.
+  Future<void> upsertBatch<T extends SqliteModel>(List<T> models) async {
+    if (models.isEmpty) return;
+    if (!canSyncRemote) {
+      for (final model in models) {
+        await _repository.upsert<T>(model);
+      }
+      return;
+    }
+    if (models.length > maxBatchWrites) {
+      throw ArgumentError.value(
+        models.length,
+        'models',
+        'A batch holds at most $maxBatchWrites writes.',
+      );
+    }
+    final adapter = firestoreAdapters[T]!;
+    final uid = FirebaseBackend.userId!;
+    final collection = FirebaseBackend.collection(adapter.collectionName);
+    final batch = FirebaseBackend.firestore.batch();
+    for (final model in models) {
+      final row = await adapter.toFirestore(model);
+      if ((row['user_id'] ?? row['id']) != uid) {
+        throw StateError('Record owner does not match the signed-in user.');
+      }
+      batch.set(collection.doc(row['id'] as String), row);
+    }
+    await acceptWrite(batch.commit());
+  }
+
   Future<bool> delete<T extends SqliteModel>(
     T model, {
     Query? query,

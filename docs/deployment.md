@@ -66,7 +66,7 @@ Add these under **Settings → Secrets and variables → Actions**, or with `gh 
 | Variable | `FIREBASE_MESSAGING_SENDER_ID` | `messagingSenderId` |
 | Variable | `FIREBASE_STORAGE_BUCKET` | `storageBucket` |
 | Variable | `FIREBASE_AUTH_DOMAIN` | `authDomain` |
-| Variable (optional) | `FIREBASE_REGION` | Functions region; default `us-central1` |
+| Variable (optional) | `FIREBASE_REGION` | Region the app calls Functions in; default `us-central1`. Functions deploy to `us-central1`, so leave it unset ([Backend → Functions](backend.md#functions)) |
 | Variable (optional) | `FIREBASE_DEPLOY_ONLY` | Backend targets for `firebase deploy --only`; default `firestore` |
 
 The Firebase web options are public client configuration, so they are variables, not secrets. Then push a branch for a preview, or push `main` for the live site.
@@ -88,9 +88,18 @@ Both require the Blaze plan. Then:
 3. Grant the service account `roles/firebasestorage.admin` for Storage rules. For Functions also grant `roles/cloudfunctions.admin`, `roles/iam.serviceAccountUser`, `roles/secretmanager.admin` and `roles/artifactregistry.admin`, then add more if the deploy log asks for them.
 4. Set `FIREBASE_DEPLOY_ONLY` to `firestore,storage,functions`. Functions deploy in a separate `--force` call so CI can set the Artifact Registry cleanup policy and remove functions deleted from the `aiko` codebase. Rules and indexes deploy without `--force`, so indexes created in the console are kept. Hosting is not a valid value here; the web job deploys it after building the app.
 
+**Deploy Functions before the app.** On `main`, CI deploys Functions (when listed in `FIREBASE_DEPLOY_ONLY`) before the live site, which is the right order. If you deploy by hand, run `firebase deploy --only functions` first. A release can change a function's request format: the app now sends receipts to `ocrScanner` as `imageBase64`, which older `ocrScanner` versions reject, while the new function still accepts the old `imageBytes` from apps already open ([Backend](backend.md#ocrscanner-and-marketfeed)). Preview channels call the production Functions, so a preview of such a change works only once `main` has deployed them.
+
 ## Hosting configuration
 
-`firebase.json` serves `build/web` except `canvaskit/` (the app loads CanvasKit from Google's CDN), rewrites unknown paths to `index.html`, and sends `Cache-Control: no-cache` for every file. Flutter's `main.dart.js` and `flutter_bootstrap.js` are not content-hashed, so browsers must revalidate them after each release; unchanged files still return `304 Not Modified`. The same config powers the local Hosting emulator ([Getting started](getting-started.md)).
+`firebase.json` serves `build/web` except `canvaskit/` (the app loads CanvasKit from Google's CDN) and rewrites unknown paths to `index.html`. Cache headers:
+
+| Files | `Cache-Control` | Why |
+| --- | --- | --- |
+| Everything (`**`) | `no-cache` | Flutter's `main.dart.js` and `flutter_bootstrap.js` are not content-hashed, so browsers revalidate them after each release; unchanged files still return `304 Not Modified` |
+| `/assets/assets/**` (bundled fonts, images, SVGs) | `public, max-age=3600, stale-while-revalidate=86400` | They rarely change; a new version can take up to an hour to appear |
+
+The web job builds with `flutter build web --release --pwa-strategy=none`, so the page loads `main.dart.js` right away instead of first registering Flutter's deprecated service worker. The flag is itself deprecated; if Flutter drops it, the comment in `.github/workflows/deploy-web.yml` gives the replacement (a custom bootstrap script in `web/`). The same Hosting config powers the local Hosting emulator ([Getting started](getting-started.md)).
 
 Rollback: **Hosting → Release history → Roll back** in the Firebase console, or redeploy an earlier commit with **Actions → CI → Run workflow** on `main`.
 

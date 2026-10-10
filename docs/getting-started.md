@@ -97,7 +97,7 @@ All app configuration is compile-time `--dart-define`. Every value is public cli
 | `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_MESSAGING_SENDER_ID` | demo placeholders | Firebase app options |
 | `FIREBASE_STORAGE_BUCKET` | `<project>.appspot.com` | Storage bucket (new projects use `<project>.firebasestorage.app`, so set it) |
 | `FIREBASE_AUTH_DOMAIN` | `<project>.firebaseapp.com` | Auth domain for pop-up sign-in |
-| `FIREBASE_REGION` | `us-central1` | Functions region |
+| `FIREBASE_REGION` | `us-central1` | Region the app calls Functions in; Functions deploy to `us-central1`, so keep the default ([Backend](backend.md#functions)) |
 | `GOOGLE_WEB_CLIENT_ID` | empty | Android Google sign-in (`serverClientId`) |
 | `GOOGLE_IOS_CLIENT_ID` | empty | iOS Google sign-in |
 

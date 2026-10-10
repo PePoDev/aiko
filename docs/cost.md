@@ -59,6 +59,8 @@ Example: a user with 2,000 transactions who logs 10 a day used ~40,000 reads a d
 - No minimum instances, so idle cost is zero.
 - Ask Aiko tools (`FinanceReader` in `firebase/functions/src/finance_tools.ts`) read only what each tool needs. Date-ranged tools query only that range; recent transactions read only the newest rows; category names come from the referenced categories via `getAll`; account tools never read transactions. Everything is memoized for the length of one message. `firebase/test/finance_reads.test.cjs` asserts the document counts.
 - Per-user rate limits stop runaway loops ([Backend](backend.md#functions)).
+- Ask Aiko asks the AI provider once for a message that needs no tool; the tool round's reply is the answer. Each provider request times out after 60 s, the whole answer after 240 s, and a client that disconnects cancels the provider requests ([Backend → aikoChat](backend.md#aikochat)).
+- `ocrScanner` receives receipts as base64 rather than an integer array (3–4 times smaller) and runs with 512 MiB, serving 4 requests per instance. `deleteAccount` deletes Firestore and Storage data in parallel within a 300 s timeout.
 - CI deploys Functions with `--force`, which sets an Artifact Registry cleanup policy so old container images don't pile up ([Deployment](deployment.md#storage-and-functions)).
 
 ## Hosting
@@ -66,7 +68,8 @@ Example: a user with 2,000 transactions who logs 10 a day used ~40,000 reads a d
 - `canvaskit/` (37 MB) is excluded from deploys (`firebase.json` → `hosting.ignore`). The app always loads CanvasKit from Google's CDN, so the files were never served. If you build with `--no-web-resources-cdn`, remove that ignore entry.
 - `pubspec.yaml` bundles only the SVG marks from `assets/icons/`, plus Noto Sans Thai (five weights, about 240 KB) so Thai renders offline. The launcher-icon sources (`app_icon.png`, `app_icon_padded.png`, 3.3 MB) stay out of every web, Android and iOS build.
 - The Latin fonts and the renderer come from Google's CDN, so that transfer doesn't count toward Hosting. Hosting serves compressed files; `main.dart.js` is about 1.5 MB gzipped.
-- `Cache-Control: no-cache` makes browsers revalidate. Unchanged files return small `304` responses rather than full downloads.
+- `Cache-Control: no-cache` makes browsers revalidate. Unchanged files return small `304` responses rather than full downloads. Bundled assets under `/assets/assets/` are cached for an hour (`max-age=3600`, `stale-while-revalidate=86400`), so repeat visits don't revalidate each font and image ([Deployment → Hosting configuration](deployment.md#hosting-configuration)).
+- The web build uses `--pwa-strategy=none`: no service worker to register and wait for before the app starts.
 - Preview channels expire after 7 days. Live releases are kept until you limit them, so set a retention limit (below).
 
 ## One-time guardrails

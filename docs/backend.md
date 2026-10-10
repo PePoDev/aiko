@@ -5,7 +5,8 @@ The backend is Firebase: Auth, Firestore, Storage, and the Cloud Functions codeb
 | File | Contents |
 | --- | --- |
 | `firebase/functions/src/index.ts` | Function entry points, rate limiting, LINE, provider proxy |
-| `firebase/functions/src/chat.ts` | System prompt, tool definitions, OpenAI-compatible client, SSE streaming |
+| `firebase/functions/src/chat.ts` | System prompt, tool definitions, OpenAI-compatible client, tool rounds and answer streaming (`answerChat`) |
+| `firebase/functions/src/http.ts` | CORS for `aikoChat` (`applyCors`), receipt image validation and the OCR provider body |
 | `firebase/functions/src/finance_tools.ts` | Read-only finance tools over the caller's own data (`decimal.js`, never floats) |
 | `firebase/firestore.rules`, `firebase/storage.rules` | Security Rules |
 | `firebase/firestore.indexes.json` | Composite indexes (currently none) |
@@ -15,15 +16,15 @@ Build with `npm run functions:build`. Tests are in [Testing](testing.md).
 
 ## Functions
 
-All functions run in `FIREBASE_REGION` (default `us-central1`), scale to zero when idle, and are capped at 10 instances (`setGlobalOptions({maxInstances: 10})` in `index.ts`; each instance serves up to 80 concurrent requests). Every privileged call derives the user from verified authentication, never from request data.
+The functions set no region, so they deploy to Firebase's default, `us-central1`. The app's `FIREBASE_REGION` define (default `us-central1`) only says where to call them (`FirebaseBackend`), so it must match: leave it unset or `us-central1` unless you also set a region in `index.ts`. Functions scale to zero when idle and are capped at 10 instances (`setGlobalOptions({maxInstances: 10})` in `index.ts`; each instance serves up to 80 concurrent requests). Every privileged call derives the user from verified authentication, never from request data.
 
 | Function | Type | Auth | Rate limit | Secrets |
 | --- | --- | --- | --- | --- |
-| `aikoChat` | HTTPS (`onRequest`, CORS on, 300 s) | Firebase ID token (`Authorization: Bearer`) | 30/min | `AI_API_KEY`, `AI_MODEL`, `AI_BASE_URL` |
-| `deleteAccount` | Callable | Signed in within the last 5 minutes | none | none |
+| `aikoChat` | HTTPS (`onRequest`, CORS in the function, 300 s) | Firebase ID token (`Authorization: Bearer`) | 30/min | `AI_API_KEY`, `AI_MODEL`, `AI_BASE_URL` |
+| `deleteAccount` | Callable (300 s) | Signed in within the last 5 minutes | none | none |
 | `redeemLinePairing` | Callable | Signed in | 5/min | none |
 | `lineWebhook` | HTTPS (300 s) | LINE HMAC signature | 30/min per linked user | AI secrets + `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN` |
-| `ocrScanner` | Callable | Signed in | 10/min | `OCR_API_URL`, `OCR_API_KEY` |
+| `ocrScanner` | Callable (512 MiB, 60 s, 4 requests per instance) | Signed in | 10/min | `OCR_API_URL`, `OCR_API_KEY` |
 | `marketFeed` | Callable | Signed in | 30/min | `MARKET_API_URL`, `MARKET_API_KEY` |
 
 Rate limits are fixed one-minute windows stored in `rate_limits/{uid}:{action}`. Exceeding one returns `429` (HTTP) or `resource-exhausted` (callable). A secret that is unset or equals `local-unconfigured` makes its provider report unavailable rather than fail.
@@ -31,6 +32,8 @@ Rate limits are fixed one-minute windows stored in `rate_limits/{uid}:{action}`.
 ### `aikoChat`
 
 Endpoint: `https://<region>-<project>.cloudfunctions.net/aikoChat`; with emulators, `http://<host>:5001/<project>/<region>/aikoChat` (`FirebaseBackend.chatUrl`).
+
+CORS is handled in the function by `applyCors` (`http.ts`) rather than `cors: true`: any origin is allowed (the ID token, not the origin, authorizes a request), and a preflight (`OPTIONS`, answered `204`) carries `Access-Control-Max-Age: 3600`, so browsers don't send a preflight before every message.
 
 Request (`POST`, JSON):
 
@@ -41,13 +44,16 @@ Request (`POST`, JSON):
 }
 ```
 
+Checks run in this order:
+
 | Status | Meaning |
 | --- | --- |
+| `204` | CORS preflight (`OPTIONS`) |
 | `405` | Not a POST |
 | `401` | Missing or invalid ID token |
-| `429` | Rate limited |
 | `400` | `messages` missing or malformed |
 | `503` | AI provider not configured |
+| `429` | Rate limited |
 | `200` | `text/event-stream` |
 
 Stream events, one JSON object per `data:` line:
@@ -58,7 +64,14 @@ data: {"delta":"฿4,210 on food…"}
 data: {"done":true}
 ```
 
-`{"error":"…"}` replaces `done` when the provider fails. `HttpChatEngine` (`lib/features/aiko_assistant/application/chat_engine.dart`) turns these into `ChatReplyDelta`, `ChatReplyDone` and `ChatReplyError`.
+When the provider fails, an error event replaces `done`, with a stable code; provider details go to the function logs only:
+
+| Event | Meaning |
+| --- | --- |
+| `{"error":"PROVIDER_DOWN"}` | No answer text was sent: provider unreachable, non-2xx, timed out, or the stream broke at once |
+| `{"error":"STREAM_FAILED"}` | The stream broke after some text was sent |
+
+`HttpChatEngine` (`lib/features/aiko_assistant/application/chat_engine.dart`) turns these into `ChatReplyDelta`, `ChatReplyDone` and `ChatReplyError`, and maps HTTP statuses to `ChatFailure` values (`401` sign-in expired, `403` forbidden, `429` rate limited, others unavailable).
 
 How a request is answered:
 
@@ -69,28 +82,41 @@ sequenceDiagram
   participant DB as Firestore
   participant AI as AI provider
   App->>F: POST messages + financialContext (Bearer token)
-  F->>F: verify token, rate limit, validate body
-  F->>DB: read profile (base currency)
+  F->>F: verify token, validate body,<br/>check the provider is configured
+  par in parallel
+    F->>DB: rate limit (transaction)
+  and
+    F->>DB: read profile (base currency)
+  end
   F->>F: system prompt + snapshot (≤6,000 chars)<br/>last 10 user/assistant messages (≤1,000 chars each)
   loop up to 4 tool rounds
     F->>AI: chat/completions (tools, no stream)
-    AI-->>F: tool_calls
-    F->>DB: run tools for this uid only
+    alt reply has tool_calls
+      AI-->>F: tool_calls
+      F->>DB: run this round's tools in parallel, for this uid only
+    else reply is the answer
+      AI-->>F: answer text
+      F-->>App: SSE delta… (answer in ~80-character chunks), done
+    end
   end
-  F->>AI: chat/completions (stream)
-  AI-->>F: token deltas
-  F-->>App: SSE delta… done
+  opt every round asked for tools, or a round failed
+    F->>AI: chat/completions (stream, no tools)
+    AI-->>F: token deltas
+    F-->>App: SSE delta… done
+  end
 ```
 
+- **One provider call when no tool is needed.** A tool round whose reply asks for no tools already holds the answer, so the function sends that text as a few `delta` events instead of asking the provider again (`answerChat`). It streams a separate final answer only when all 4 rounds asked for tools, the model wrote nothing, or a round failed (tool resolution is then dropped silently).
+- **Time limits.** Each provider request, including reading its whole body or stream, times out after 60 s. The whole answer (tool rounds plus the final answer) has a 240 s deadline, so a slow provider ends with an error event before the 300 s function timeout. If the client disconnects, the function aborts its provider requests, so no more tokens are billed.
 - **Layer 1, snapshot:** `buildAikoFinancialContext` (`lib/features/aiko_assistant/application/financial_context.dart`) sends aggregates and a short recent slice, never the full ledger.
 - **Layer 2, tools:** `aiko_account_summary`, `aiko_budget_status`, `aiko_spending_by_category`, `aiko_cashflow_summary`, `aiko_recent_transactions` (1–50 rows), `aiko_goal_progress`. Each receives the verified uid and reads only `users/{uid}`, and only what it needs (`FinanceReader`). Date-ranged tools query just that `date` range; recent transactions read the newest rows; category names are fetched by ID; account tools never read transactions. Reads are memoized for the whole message ([Cost](cost.md#cloud-functions)). Results are capped at 4,000 characters; tool errors go back to the model as JSON instead of failing the chat.
 - **Prompt rules:** warm, non-judgmental, base-currency amounts, no invented numbers, finance topics only. Answers with figures end with a disclaimer line, which the app shows separately.
 - **Language:** the app sends `systemContext.locale` (`en` or `th`); `languageInstruction` makes Aiko reply in that language with the matching disclaimer ("Aiko provides estimates, not certified financial advice." / "Aiko ให้ข้อมูลเชิงประมาณการ ไม่ใช่คำแนะนำทางการเงินจากผู้เชี่ยวชาญที่ได้รับอนุญาต"). Without a locale (LINE) Aiko mirrors the language of the user's message.
-- **Provider:** any OpenAI-compatible Chat Completions API at `${AI_BASE_URL}/chat/completions`, temperature 0.4, 60 s timeout per request.
+- **Provider:** any OpenAI-compatible Chat Completions API at `${AI_BASE_URL}/chat/completions`, temperature 0.4.
 
 ### `deleteAccount`
 
-Requires a sign-in from the last 5 minutes (`auth_time`); otherwise it fails with `failed-precondition` ("Sign in again before deleting your account."). The Profile screen currently shows only a generic "Unable to delete account right now." for every failure ([Features → Known gaps](features.md#known-gaps)). It deletes the user's `line_links`, the whole `users/{uid}` subtree, every Storage object under `users/{uid}/`, and finally the Auth user. It is immediate and permanent. Returns `{deleted: true}`.
+Requires a sign-in from the last 5 minutes (`auth_time`); otherwise it fails with `failed-precondition`, and the Profile screen asks the user to sign out, sign in again and retry within 5 minutes (`profileDeleteNeedsRecentSignIn`); other failures show a generic message. It deletes the user's `line_links`, the whole `users/{uid}` subtree and every Storage object under `users/{uid}/` in parallel, then the Auth user. The timeout is 300 s, for large accounts. It is immediate and permanent. Returns `{deleted: true}`. While it runs, the app pauses collection refreshes (`FirebaseSyncPause`) so nothing re-creates the profile.
 
 ### LINE
 
@@ -114,6 +140,10 @@ sequenceDiagram
   end
 ```
 
+The webhook returns `503` when LINE isn't configured and `401` for a bad signature. Otherwise it handles each event on its own: an event that fails (deleted account, rate limit, LINE API error) is logged and skipped, and the webhook still answers `200`, so LINE doesn't retry the batch and the other events get their replies. The reply call to LINE times out after 10 s.
+
+`redeemLinePairing` errors map to `LineLinkError` in the app (`lineLinkErrorForCode`): `invalid-argument` (malformed code), `not-found` (unknown or expired code), `already-exists` (LINE account linked to another user), `resource-exhausted` (too many attempts), `unauthenticated`.
+
 No Firebase refresh token is stored for LINE. `line_links` and `line_pairings` are server-only.
 
 ### `ocrScanner` and `marketFeed`
@@ -122,8 +152,10 @@ Thin authenticated proxies to providers you configure. They `POST` JSON with `Au
 
 | Function | Request validated | Sent to provider | App reads |
 | --- | --- | --- | --- |
-| `ocrScanner` | `imageBytes`: array of 0–255 integers, 1 to 5,242,880 items; `fileName` | `{fileName, imageBytes}` | `recognizedText` (`ReceiptOcrService`) |
+| `ocrScanner` | `imageBase64`: base64 of 1 to 5,242,880 bytes (`receiptImage`); `fileName` (up to 255 characters) | `{fileName, imageBytes}` with `imageBytes` as an array of 0–255 integers, unchanged from before | `recognizedText` (`ReceiptOcrService`) |
 | `marketFeed` | `symbol` `^[A-Za-z0-9.^=-]{1,24}$`; `currency` three capital letters | `{symbol, currency}` | `price` (`InvestmentsNotifier.refreshPrices`) |
+
+The app sends receipts as `imageBase64`, about a third larger than the image; the integer array older apps send as `imageBytes` was 3–4 times larger. `ocrScanner` still accepts `imageBytes` for one release. An older function rejects `imageBase64`, so deploy Functions before the app ([Deployment](deployment.md#storage-and-functions)).
 
 ## Security Rules
 
@@ -142,7 +174,7 @@ Field validation:
 - `transactions`: `amount` matches `^-?[0-9]+([.][0-9]+)?$`; `currency` and `account_id` are strings.
 - `accounts`: `current_balance` is a decimal string.
 - `investment_holdings`: `quantity`, `average_cost` and `current_price` are decimal strings.
-- Default category and group clones (`template_id` set): updates may touch only `budget_amount`, `budget_currency`, `budget_period`, `budget_rollover`, `budget_enabled`, `alert_thresholds`, `updated_at` and `version`.
+- Default category and group clones (`template_id` set): updates may touch only `budget_amount`, `budget_currency`, `budget_period`, `budget_rollover`, `budget_enabled`, `alert_thresholds`, `updated_at` and `version`, plus `created_at` once: a clone seeded without it may get a string value, after which it is fixed. Clients keep a clone's stored `created_at` and never stamp one.
 
 ### Storage (`firebase/storage.rules`)
 

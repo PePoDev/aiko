@@ -20,6 +20,7 @@ flowchart LR
 - Firebase Auth with email/password and Google. Web sessions persist in IndexedDB (`Persistence.LOCAL`); mobile uses the platform default.
 - Callable functions and `aikoChat` verify the Firebase ID token and use its uid; request bodies never choose the owner.
 - Account deletion requires a sign-in within the last 5 minutes.
+- When a session ends, by Log out or elsewhere (token revoked, account deleted on another device), the app cancels every scheduled reminder (they name merchants and amounts) and stops using that user's id as the local data owner ([Architecture](architecture.md#signing-out-and-switching-users)).
 
 ## Authorization
 
@@ -27,7 +28,7 @@ Summarized from [Backend → Security Rules](backend.md#security-rules):
 
 - A user can only read and write `users/{their uid}/…`. Every finance document's `id` and `user_id` must match its path.
 - Money fields must be decimal strings, which stops float values from slipping in.
-- Default category clones keep their identity; only budget fields can change.
+- Default category clones keep their identity; only budget fields can change, and an empty `created_at` can be set once.
 - `integrations`, `line_links`, `line_pairings`, `rate_limits` and any unlisted path are server-only or denied.
 - Storage: owner-only, 10 MiB maximum, image/PDF/text/Word content types only.
 
@@ -62,9 +63,9 @@ Signing out clears the session but not the local caches. Clearing app or site da
 | Firebase | Your records, files and preferences | Signed in |
 | AI provider (via `aikoChat`) | System prompt, an aggregate financial snapshot (≤ 6,000 characters), the last 10 messages (≤ 1,000 characters each), and tool results computed from your data | Each Ask Aiko message |
 | LINE | Chat replies to your linked LINE account | Only after you pair LINE |
-| OCR provider (via `ocrScanner`) | The receipt image | When you scan a receipt |
+| OCR provider (via `ocrScanner`) | The receipt image (sent to the function as base64, to the provider as bytes) | When you scan a receipt |
 | Market provider (via `marketFeed`) | Ticker symbol and currency | When you refresh prices |
-| `open.er-api.com` | Two currency codes | Currency conversion and Travel Mode rate refresh |
+| `open.er-api.com` | One base currency code | Currency conversion in the transaction form, foreign-currency totals (Overview, Investments) and Travel Mode rate refresh |
 | Google (`fonts.gstatic.com`, `www.gstatic.com`) | Standard web requests for fonts, the Flutter renderer and the Firebase JS SDK | App load |
 
 The snapshot is designed to send aggregates and a short recent slice, not the full ledger. Aiko answers carry the disclaimer *"Aiko provides estimates, not certified financial advice."*
@@ -73,7 +74,8 @@ The snapshot is designed to send aggregates and a short recent slice, not the fu
 
 - Per-user, per-minute rate limits on chat (30), LINE chat (30), pairing (5), OCR (10) and market prices (30).
 - The LINE webhook verifies the `x-line-signature` HMAC with a constant-time comparison. Pairing codes are 6 characters from an unambiguous alphabet, stored only as SHA-256 hashes, expire after 10 minutes, and are consumed in a transaction.
-- Provider proxies validate inputs (image byte arrays ≤ 5 MiB, ticker and currency patterns) and time out after 30 s.
+- Provider proxies validate inputs (receipt images ≤ 5 MiB after decoding, ticker and currency patterns) and time out after 30 s.
+- `aikoChat` allows any origin (CORS): the ID token, not the origin, authorizes a request. Errors reach the client as stable codes (`PROVIDER_DOWN`, `STREAM_FAILED`); provider details stay in the function logs.
 
 ## Account deletion
 

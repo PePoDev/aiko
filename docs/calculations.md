@@ -13,18 +13,23 @@ General rules:
 `FinanceTransaction.applyToAccountBalance` / `reverseFromAccountBalance` (`lib/features/transactions/domain/transaction.dart`):
 
 ```text
-inflow  (income, transferIn):  balance + amount
-outflow (every other type):    balance - amount
-currency ≠ account currency:   balance unchanged
+inflow  (income, transferIn, refund, dividend,
+         interest, investmentSell):   balance + amount
+adjustment (signed amount):           balance + amount
+outflow (every other type):           balance - amount
+currency ≠ account currency:          balance unchanged
 ```
 
-- **Save** (`TransactionsNotifier.saveTransaction`): reverse the previous version from its old account, then apply the new version to its account, and save only the accounts whose balance changed.
-- **Delete**: reverse the transaction from its account.
-- **Reconcile on load** (`TransactionsNotifier.build`): for every account with at least one transaction, recompute the balance from zero by applying all its transactions; save it if it differs. Accounts with no transactions keep their manual balance.
+`TransactionType.isInflow` holds the inflow list; `FinanceTransaction.signedAmount` is the change a row makes (positive in, negative out). The transaction list's Net and the CSV export use the same sign.
+
+- **Save** (`TransactionsNotifier.saveTransactions`): for each row (both legs of a transfer), reverse the previous version from its old account, then apply the new version to its account, and save only the accounts whose balance changed.
+- **Delete**: reverse the transaction from its account; a linked transfer leg takes its partner with it.
+- **Opening balance and balance edits**: a new account's balance is saved as an `adjustment` row; editing the balance adds an adjustment for the difference between the new balance and what the account's rows add up to (`balanceFromTransactions`). Opening balances saved as income or expense by older versions are rewritten once as signed adjustments on load (`legacyOpeningBalanceFixes`), which leaves the balance unchanged.
+- **Reconcile on load** (`TransactionsNotifier.build`): for every account with at least one transaction, recompute the balance from zero by applying all its transactions in one pass; save it if it differs. Accounts with no transactions keep their stored balance.
 
 ### Sign convention and the Accounts summary
 
-Balances are signed: money you have is positive, money you owe (a used credit card, a loan) is negative, because expenses subtract from the balance. The **Accounts** screen summary (`_computeAssetsLiabilities` in `accounts_screen.dart`) uses net-worth accounts in the base currency only. It counts positive balances as assets and the absolute value of negative balances as liabilities, so assets − liabilities = net worth.
+Balances are signed: money you have is positive, money you owe (a used credit card, a loan) is negative, because expenses subtract from the balance. The **Accounts** screen summary (`summarizeAccounts` in `lib/features/accounts/application/account_balances.dart`) takes each balance from the ledger (`currentAccountBalances`) and counts the same accounts as the Overview's net worth: active, not goals, included in net worth (`countsTowardNetWorth`). Only accounts in the base currency count; others are skipped, not converted. Positive balances are assets and the absolute value of negative balances are liabilities, so assets − liabilities = net worth.
 
 ## Dashboard summary
 
@@ -51,11 +56,16 @@ daily safe = weekly safe to spend ÷ 7
 ratio      = used ÷ daily safe   (0 when daily safe ≤ 0)
 ```
 
-| Ratio | Reaction | Color |
+`assessDailySpending` picks the reaction:
+
+| Situation | Reaction | Color |
 | --- | --- | --- |
-| < 0.75 | comfortable | green |
-| 0.75 – < 1 | caution | orange |
-| ≥ 1 | exceeded | red |
+| Daily safe > 0, ratio < 0.75 | comfortable | green |
+| Daily safe > 0, ratio 0.75 – < 1 | caution | orange |
+| Daily safe > 0, ratio ≥ 1 | exceeded | red |
+| Daily safe ≤ 0, no income this month | needsIncome (asks you to log income) | blue |
+| Daily safe ≤ 0, something spent today | exceeded | red |
+| Daily safe ≤ 0, nothing spent today | idle | teal |
 
 The panel also shows the month's net cash flow (income − spending) and "left to save" (net cash flow − weekly safe to spend).
 
@@ -80,7 +90,7 @@ daysRemaining = days left in the month, including today
 | monthly | the 1st to the 1st of next month |
 | yearly | 1 January to 1 January |
 
-**Rollover**: with `rolloverUnused`, what was left of the previous period's limit is added to this period's limit (one period back; overspending doesn't reduce the next limit). Nothing carries into the category's first period (`created_at`, or its first transaction for older rows).
+**Rollover**: with `rolloverUnused`, what was left of the previous period's limit is added to this period's limit (one period back; overspending doesn't reduce the next limit). Nothing carries into the category's first period: the period of its `created_at`, or, when that is empty, of its first transaction. Default category clones usually have no `created_at`, so they use the first-transaction rule.
 
 The recommendation is "Keep this category under `remaining ÷ daysLeft` `<currency>`/day to stay on track", or a gentle over-budget message. The Categories screen, budget **notifications**, safe-to-spend, Ask Aiko's snapshot and the Overview's Category budgets card all use this progress, each budget in its own period. Notifications fire at the highest crossed threshold (default 50/75/90/100%): warnings below 100% and danger at 100% or more. The Category budgets card charts the month's spending, so it compares only monthly budgets.
 
@@ -93,42 +103,52 @@ The recommendation is "Keep this category under `remaining ÷ daysLeft` `<curren
 | Inflow | `income`, `refund`, `dividend`, `interest`, `investmentSell` |
 | Outflow | `expense`, `investmentBuy`, `loanPayment`, `creditCardPayment`, `taxPayment`, `fee` |
 
-Transfers between your own accounts are excluded from both sets.
+Transfers between your own accounts and balance adjustments are in neither set.
 
 - **Overview**: this month's `income` and `expense` totals and their difference, plus a 12-month trend of net = inflow − outflow per month.
 - **Sankey**: this month's inflow total, and outflow grouped by each category's 50/30/20 bucket (`needs`, `wants`, `savings`, `debt`, …; uncategorized → `custom`).
 
 ## Monthly report
 
-`MonthlyReportService` (`lib/features/overview/application/monthly_report_service.dart`) compares this month with last month:
+`MonthlyReportService` (`lib/features/overview/application/monthly_report_service.dart`) compares a month (this month, or the one in `/reports/monthly?month=YYYY-MM`) with the month before:
 
 - income, expenses, net cash flow, saved (`max(0, net)`), savings rate (net ÷ income);
-- percentage change for income, expenses and net against last month;
+- percentage change for income, expenses and net against the month before (shown green when good news, red when bad);
 - spending by category, top 5 slices with the rest folded into "Other".
 
 ## Upcoming bills
 
-`buildDashboardDueItems` (`lib/features/dashboard/domain/dashboard_due_item.dart`): for each active credit card with a positive amount due (minimum payment, else current balance), the next occurrence of its due day, clamped to the month's length. Items due within 30 days are listed. Bill **notifications** fire for items due within 7 days: warning at 2 days or less, info otherwise.
+`buildDashboardDueItems` (`lib/features/dashboard/domain/dashboard_due_item.dart`): for each active credit card with a positive amount due, the next occurrence of its due day (today included), clamped to the month's length. Items due within 30 days are listed.
+
+The amount due (`creditCardAmountDue`) reads the signed balance, so a used card owes −balance:
+
+```text
+minimum payment set:  min(minimum payment, owed)   (the minimum when nothing is owed)
+no minimum payment:   owed = −balance              (nothing when the balance is 0 or positive)
+```
+
+Days until due count calendar dates, not hours. Bill **notifications** fire for items due within 7 days: warning at 2 days or less, info otherwise.
 
 ## Goals
 
-`Account.goalRemaining` = `max(0, target − saved)`; `goalProgress` = `saved ÷ target`, clamped to 0–1. Goal notifications fire at ≥ 50% ("is N% funded") and ≥ 100% ("fully funded").
+`Account.goalRemaining` = `max(0, target − saved)`; `goalProgress` = `saved ÷ target`, clamped to 0–1. Goal notifications fire for active goals at ≥ 50% ("is N% funded") and ≥ 100% ("fully funded").
 
 ### Chance of Success (Monte Carlo)
 
-`GoalForecastService` (`lib/features/overview/application/goal_forecast_service.dart`) feeds `MonteCarloEngine` (`lib/core/prediction/monte_carlo_engine.dart`):
+`GoalForecastService` (`lib/features/overview/application/goal_forecast_service.dart`) feeds `MonteCarloEngine` (`lib/core/prediction/monte_carlo_engine.dart`). A goal is forecast only with a positive target amount and a target date that hasn't passed; otherwise `blockerFor` returns why (`GoalForecastBlocker`) and the screen shows an empty state naming what's missing. Inputs:
 
 | Input | Value |
 | --- | --- |
-| Months | Whole months from today to the target date (minimum 1; 12 when no date) |
-| Monthly contribution | Remaining ÷ months; 100 when the goal is already met |
+| Months | Calendar months from today to the target date (minimum 1) |
+| Monthly contribution | The goal account's average monthly net deposit (deposits − withdrawals, as they move its balance) over the current month and the 5 before it, or from the month of its first transaction when that is later. Voided, archived and other-currency rows are ignored; a negative average counts as 0 |
 | Expected annual return | 6% |
 | Annual volatility | 12% |
 | Iterations | 1,000 |
+| Random seed | 42 (`MonteCarloEngine.run`), so the same inputs always give the same odds |
 
 Each run compounds monthly: `balance = balance × (1 + r) + contribution`, with `r ~ Normal(6%/12, 12%/√12)` drawn by Box–Muller. Results:
 
-- **Probability**: share of runs ending at or above the target.
+- **Probability**: share of runs ending at or above the target. A goal already at or above its target is 100% without simulating.
 - **Conservative / expected / optimistic**: the 10th, 50th and 90th percentile final balances.
 
 The forecast is cached per goal ID (`goalForecastProvider`), so the 1,000 runs aren't repeated on every rebuild.
@@ -139,7 +159,7 @@ The forecast is cached per goal ID (`goalForecastProvider`), so the 1,000 runs a
 
 | Output | Rule |
 | --- | --- |
-| Allocation | Market value per asset class ÷ total market value × 100, largest first |
+| Allocation | Market value per asset class ÷ total market value × 100, largest first. Holdings are first converted to the base currency (`valueHoldingsIn`); holdings with no rate are left out |
 | Holding drift | `|actual % − target %| > 5` (default tolerance) |
 | Rebalance alert | Per target asset class, drift beyond the tolerance, with signed drift |
 | Capital gains on sale | proceeds = sale price × quantity; cost basis = average cost × quantity; gain = proceeds − cost basis. The quantity must be within the holding. |

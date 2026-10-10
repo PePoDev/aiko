@@ -55,10 +55,13 @@ sequenceDiagram
   participant U as OfflineUserContext
   M-->>M: AikoRiveRuntime.initialize() (background)
   M->>B: AppBootstrap.fromEnvironment()
-  B->>F: initialize(config)
-  Note over F: skip when no Firebase defines.<br/>Web emulator: prepare JS Auth first.<br/>Wait for the first auth state.<br/>Enable Firestore persistence.
-  B->>L: configure(config)
-  Note over L: open aiko_offline.sqlite,<br/>repair interrupted template_id migration,<br/>run all migrations in order
+  par in parallel
+    B->>F: initialize(config)
+    Note over F: skip when no Firebase defines.<br/>Web emulator: prepare JS Auth first.<br/>Wait for the first auth state.<br/>Enable Firestore persistence.
+  and
+    B->>L: configure(config)
+    Note over L: open aiko_offline.sqlite,<br/>repair interrupted template_id migration,<br/>run all migrations in order
+  end
   B->>U: resolveUserId()
   Note over U: Firebase uid, else cached id,<br/>else new "local:<uuid>"
   alt local-only
@@ -68,7 +71,9 @@ sequenceDiagram
   M->>M: runApp(AikoApp)
 ```
 
-`AikoApp` (`lib/app/aiko_app.dart`) builds the router with initial location `/home` in local-only mode and `/` (Welcome) otherwise. After the first frame it restores the session: an active session goes to `/home`; a device that has signed in before goes to `/auth`. Routes have no redirect guard. A signed-out deep link renders the shell, but signed-out reads come from local SQLite only, and Security Rules protect all cloud data.
+If any startup step throws, `main.dart` runs `StartupErrorApp` (`lib/app/startup_error_app.dart`) instead: an error screen in the device language with a **Retry** button that runs startup again.
+
+`AikoApp` (`lib/app/aiko_app.dart`) builds the router with initial location `/home` in local-only mode and `/` (Welcome) otherwise. After the first frame it restores the session: an active session goes to `/home`; a device that has signed in before goes to `/auth`. Routes have no redirect guard. A signed-out deep link renders the shell, but signed-out reads come from local SQLite only, and Security Rules protect all cloud data. `AikoApp` also listens for the session ending while the app is open ([Signing out and switching users](#signing-out-and-switching-users)).
 
 ## Navigation
 
@@ -93,7 +98,7 @@ Both are built from `aikoPrimaryDestinations` in `lib/app/aiko_navigation.dart`.
 | `/transaction-capture` | `TransactionCaptureScreen` | transaction_capture |
 | `/settings` | `SettingsScreen` | settings |
 | `/settings/chance-of-success` | `ChanceOfSuccessScreen` (`extra`: goal `Account`) | overview |
-| `/reports/monthly` | `MonthlyReportScreen` | overview |
+| `/reports/monthly` | `MonthlyReportScreen` (`?month=YYYY-MM`) | overview |
 | `/export` | `ExportScreen` | export |
 | `/account-form` | `AccountFormScreen` (`extra`: `Account` to edit) | accounts |
 | `/calculators` | `CalculatorLibraryScreen` | calculators |
@@ -101,11 +106,13 @@ Both are built from `aikoPrimaryDestinations` in `lib/app/aiko_navigation.dart`.
 | `/connect-line` | `ConnectLineScreen` | settings |
 | `/portfolio` | `InvestmentsScreen` | investments |
 | `/portfolio/allocation` | `AssetAllocationScreen` | overview |
-| `/portfolio/holding` | `HoldingDetailScreen` (`extra`: `InvestmentHolding`) | overview |
+| `/portfolio/holding` | `HoldingDetailScreen` (`?id=`, or `extra`: `InvestmentHolding`) | overview |
 | `/learning-hub` | `LearningHubScreen` | learning_hub |
 | `/travel-mode` | `TravelModeScreen` | travel_mode |
 
-Unknown paths render `AikoScreenState.error` ("Route not found"). Detail screens such as `TransactionFormScreen`, `TransactionDetailScreen`, `AccountDetailScreen`, `AccountFormScreen` and `CalculatorDetailScreen` have no path of their own: they open with `openAikoPage` (`lib/shared/layout/adaptive_presentation.dart`), a full-screen page on phones and a dialog on wide screens. The Tools list is defined in `aikoNavigationItems`; its order is the on-screen order in Settings and in the sidebar.
+Unknown paths render `AikoScreenState.error` ("Route not found") with a button home: `/` when a cloud build is signed out, otherwise `/home`. Two routes take query parameters so links survive a reload: `/reports/monthly?month=YYYY-MM` and `/portfolio/holding?id=<holding id>`. Detail screens such as `TransactionFormScreen`, `TransactionDetailScreen`, `AccountDetailScreen`, `AccountFormScreen`, `CalculatorDetailScreen`, `LessonScreen` and `LessonQuizScreen` have no path of their own: they open with `openAikoPage` (`lib/shared/layout/adaptive_presentation.dart`), a full-screen page on phones and, on wide screens, a dialog that a click outside or Escape doesn't close by default ([Design system → Dialogs and forms](design-system.md#dialogs-forms-and-messages)).
+
+On wide screens the page area of `AuthenticatedShell` is its own `Semantics` container. Each page route paints a modal barrier that hides earlier-painted semantics in the same container, so without it the sidebar would vanish for screen readers and keyboard users. Sidebar and bottom-bar entries are announced once (their label, with `excludeSemantics`) and keep a semantic tap action. The Tools list is defined in `aikoNavigationItems`; its order is the on-screen order in Settings and in the sidebar.
 
 ## State management
 
@@ -113,14 +120,17 @@ Riverpod 3. App-wide providers live in `lib/app/providers.dart`.
 
 | Provider | Kind | Holds |
 | --- | --- | --- |
-| `accountsProvider` | `AsyncNotifier` | Accounts, including goal accounts; `saveAccount`, `deleteAccount` (first turns off limit sharing on cards that shared the deleted card's limit) |
-| `transactionsProvider` | `AsyncNotifier` | Transactions; `saveTransaction` adjusts account balances; `build` reconciles every balance from its transactions |
-| `categoriesProvider` | `AsyncNotifier` | 81 defaults (per-user clones) plus active custom categories |
+| `accountsProvider` | `AsyncNotifier` | Accounts, including goal accounts; `saveAccount`; `deleteAccount` turns off limit sharing on cards that shared the deleted card's limit, deletes the account's transactions, then the account, and returns the deleted transactions so the caller can cancel their reminders |
+| `transactionsProvider` | `AsyncNotifier` | Transactions. `build` converts legacy opening balances to adjustments, then reconciles every balance from its transactions. `saveTransaction`/`saveTransactions` (both legs of a transfer) adjust account balances and update the list in place, with no loading state; `deleteTransaction` also deletes a linked transfer leg's partner |
+| `categoriesProvider` | `AsyncNotifier` | 81 defaults (per-user clones) plus active custom categories; pickers, lists and budgets use it |
+| `allCategoriesProvider` | `FutureProvider` | `categoriesProvider` plus archived custom categories, for looking up the name of a category a transaction still points at (transaction list, detail, export) |
 | `categoryGroupsProvider` | `AsyncNotifier` | User groups plus the 13 default groups; `deleteGroup` ungroups its categories |
-| `profileProvider` | `FutureProvider` | `Profile` (theme, base currency, personal fields) |
-| `investmentsProvider` | `AsyncNotifier` (`lib/features/investments/application/investments_provider.dart`) | Holdings; `refreshPrices` via `marketFeed` |
-| `dashboardSummaryProvider`, `monthlyReportProvider`, `cashFlowOverviewProvider`, `cashFlowSankeyProvider`, `safeToSpendProvider`, `portfolioAllocationProvider`, `goalForecastProvider(goalId)`, `dashboardDueItemsProvider`, `notificationsProvider` | `FutureProvider` | Derived views computed by pure services ([Calculations](calculations.md)) |
-| `transactionRulesProvider`, `storedTravelProvider`, `appLocaleControllerProvider` | Various | Small preferences stored as synced key/value documents |
+| `profileProvider` | `FutureProvider` | `Profile` (theme, base currency, personal fields). Signed in, loading never writes: the profile document is created at sign-in |
+| `fxRatesProvider(baseCurrency)` | `FutureProvider` | Exchange rates against the base currency from `ExchangeRateService.fetchRates`: one request per session, made only by callers holding another currency; empty offline |
+| `investmentsProvider` | `AsyncNotifier` (`lib/features/investments/application/investments_provider.dart`) | Holdings; `saveHolding`, `deleteHolding`, `refreshPrices` via `marketFeed` |
+| `dashboardSummaryProvider`, `monthlyReportProvider(month)`, `cashFlowOverviewProvider`, `cashFlowSankeyProvider`, `safeToSpendProvider`, `portfolioAllocationProvider`, `goalForecastProvider(goalId)`, `dashboardDueItemsProvider`, `allNotificationsProvider`, `notificationsProvider` | `FutureProvider` | Derived views computed by pure services ([Calculations](calculations.md)); `notificationsProvider` is `allNotificationsProvider` minus dismissed ids |
+| `transactionRulesProvider`, `storedTravelProvider`, `appLocaleControllerProvider`, `notificationDismissalsProvider`, `lessonProgressProvider` | Various | Small preferences stored as synced key/value documents |
+| `aikoChatControllerProvider`, `lineLinkedProvider` | Various | Per-user session state (Ask Aiko transcript, LINE link status), reset when the user changes |
 | `firebaseSyncProvider` | `Provider<void>` | One Firestore listener per collection (see below) |
 
 Long-lived list and summary providers call `ref.keepAlive()` only after a successful load, so tab switches reuse cached data and failures retry on the next visit. Errors are rethrown so screens can render `AikoScreenState.error`.
@@ -144,7 +154,7 @@ The Firestore SDK persists writes locally before acknowledging them and replays 
 
 ### Listeners
 
-`firebaseSyncProvider` (`lib/app/firebase_sync.dart`) is watched by the shell. On each auth change it cancels old listeners, registers the collections with `FirestoreSyncState`, invalidates every dependent provider, and (when signed in) opens one `snapshots(includeMetadataChanges: true)` listener per collection. The first server-confirmed snapshot marks a collection synced. The initial snapshot and metadata-only events don't reload providers, because readers already read that data from the cache. Data changes are debounced by 150 ms and invalidate the matching providers:
+`firebaseSyncProvider` (`lib/app/firebase_sync.dart`) is watched by the shell. On each auth change it cancels old listeners, registers the collections with `FirestoreSyncState`, and (when signed in) opens one `snapshots(includeMetadataChanges: true)` listener per collection. When the user changed, it also invalidates every dependent provider and the per-user session state; the first auth event, which repeats the user the app started with, reloads nothing (`authEventChangesUser`). The first server-confirmed snapshot marks a collection synced. The initial snapshot and metadata-only events don't reload providers, because readers already read that data from the cache. Data changes are debounced by 150 ms and invalidate the matching providers, except while `FirebaseSyncPause` holds them back (during account deletion, so a refresh can't re-read and re-create the profile):
 
 | Collection | Invalidates |
 | --- | --- |
@@ -162,9 +172,19 @@ Conflicts are last-write-wins per document. There is no custom outbox and no tra
 Before sign-in, records are owned by a `local:<uuid>` user ID (`OfflineUserContext`). After sign-in, `AuthRepository`:
 
 1. **`ensureProfileAndDefaultsExist`**: in one Firestore transaction, creates the profile, 13 category groups and 81 category clones only where missing. It never resets existing data. `DefaultsSeedMarker` makes it run once per user on each device, plus again when new defaults ship, rather than on every launch.
-2. **`OfflineDataMigrator.claimAnonymousData`**: re-saves every `local:` row (accounts, groups, categories, transactions, holdings) under the real uid, re-points default category IDs to the user's clones, and deletes the local copies.
+2. **`OfflineDataMigrator.claimAnonymousData`**: re-saves every `local:` row (accounts, groups, categories, transactions, holdings) under the real uid in batches, re-points default category IDs to the user's clones, and deletes the local copies.
 
-Sign-out starts a fresh anonymous session.
+A new account (sign-up, or a first Google sign-in) also gets the default Cash and Bank accounts from `completeOnboarding` ([Features → Onboarding](features.md#onboarding)). The login screen then calls `invalidateUserData` (`lib/app/user_session.dart`) so nothing from a previous user stays loaded, and opens `/home`.
+
+### Signing out and switching users
+
+| Event | What happens | Then opens |
+| --- | --- | --- |
+| **Log out** (Profile) | `AuthRepository.signOut` cancels every reminder, signs out and starts a fresh anonymous `local:` owner; `invalidateUserData` reloads everything | `/auth` |
+| **Delete account** | `deleteAccount` runs inside `FirebaseSyncPause.during`, then signs out like Log out and forgets the known-account flag | `/` |
+| Session ends elsewhere (token revoked, password changed, account deleted on another device) | `AikoApp`'s auth listener calls `AuthRepository.handleSessionEnded`: cancels reminders and, if the stored owner is still the old uid, switches to a fresh anonymous owner (`OfflineUserContext.leaveSignedInOwner`) | `/auth` on a device that knows the account, else `/` (`signedOutRedirect`); nothing when already on either |
+
+Whenever the signed-in user changes, `invalidateUserSessionState` resets the Ask Aiko transcript and the LINE link status, so the next user never sees or sends the previous user's conversation.
 
 ### Files
 

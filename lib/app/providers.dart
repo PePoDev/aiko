@@ -1,4 +1,5 @@
 import '../core/money/money.dart';
+import '../features/investments/application/portfolio_valuation.dart';
 import '../features/transactions/application/legacy_opening_balances.dart';
 import 'dart:async';
 
@@ -835,7 +836,27 @@ final safeToSpendProvider = FutureProvider.autoDispose<SafeToSpend>((
 final portfolioAllocationProvider =
     FutureProvider.autoDispose<PortfolioAllocation>((ref) async {
       final holdings = await ref.watch(investmentsProvider.future);
-      final result = const AllocationService().build(holdings);
+      String baseCurrency;
+      try {
+        baseCurrency = (await ref.watch(profileProvider.future)).baseCurrency;
+      } catch (_) {
+        baseCurrency = kDefaultBaseCurrency;
+      }
+      // Holdings in other currencies are re-priced into the base currency
+      // (like the Investments screen) so their shares add up; holdings with
+      // no rate are left out.
+      final needsRates = holdings.any(
+        (holding) =>
+            holding.currency.toUpperCase() != baseCurrency.toUpperCase(),
+      );
+      final rates = needsRates
+          ? await ref.watch(fxRatesProvider(baseCurrency).future)
+          : const <String, Decimal>{};
+      final valued = valueHoldingsIn(
+        holdings,
+        CurrencyConverter(baseCurrency, rates),
+      );
+      final result = const AllocationService().build(valued.holdings);
       ref.keepAlive();
       return result;
     });

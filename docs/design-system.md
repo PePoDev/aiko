@@ -7,7 +7,8 @@ The README's [Design System](../README.md#design-system) section holds the rules
 | File | Contents |
 | --- | --- |
 | `lib/theme/aiko_colors.dart` | Primitive color constants (`AikoColors`) |
-| `lib/theme/aiko_theme.dart` | `AikoTheme.light()` / `AikoTheme.dark()`: `ColorScheme`, scaffold color and component themes |
+| `lib/theme/aiko_status_colors.dart` | `AikoStatusColors`: readable status text colors per brightness (a theme extension) |
+| `lib/theme/aiko_theme.dart` | `AikoTheme.light()` / `AikoTheme.dark()`: `ColorScheme`, scaffold color, component themes and the status-color extension |
 | `lib/theme/aiko_typography.dart` | `AikoTypography.textTheme`: Hanken Grotesk headlines, Manrope body and labels, bundled Noto Sans Thai fallback (`assets/fonts/noto_sans_thai/`) |
 | `lib/shared/widgets/` | Shared components (below) |
 | `assets/icons/`, `assets/images/aiko/`, `assets/rive/` | App icon and SVG marks, Aiko PNG expressions, Rive character slot |
@@ -28,17 +29,31 @@ Use theme tokens (`Theme.of(context).colorScheme`) for anything that changes bet
 
 Semantic accents: `successGreen` `#16A34A`, `warningOrange` `#F59E0B`, `dangerRed` `#DC2626`, `analyticsTeal` `#0D9488`, `premiumPurple` `#7C3AED`.
 
+### Status text
+
+The green, orange and red accents are fills: bars, chips, and icons on tinted backgrounds. Words and small icons in a status color use `AikoStatusColors.of(context)` instead, whose shades keep at least 4.5:1 contrast on the panels in each theme (`test/theme/aiko_status_colors_test.dart`):
+
+| Token | Light | Dark |
+| --- | --- | --- |
+| `successText` | `#166534` | `#4ADE80` |
+| `warningText` | `#92400E` | `#FBBF24` |
+| `dangerText` | `#B91C1C` | `#F87171` |
+
+`textFor(accent)` maps a status fill to its text shade and returns any other color unchanged, so code that picks an accent per state can pass it through.
+
 `test/theme/dark_theme_guard_test.dart` fails the build if presentation or shared code uses neutral constants (`darkNavy`, `neutralInk`, `mutedText`, `surfacePanel*`, `border*`, `appBackground*`) directly. Use the scheme instead.
 
 Category colors are stored as `#RRGGBB` strings; `AikoColors.kAikoPrimaryColorHex` is the default.
 
 ## Typography
 
-`AikoTypography.textTheme(foreground)` builds the Material text theme from the README's type scale: Hanken Grotesk for display, headline and title styles; Manrope for body and label styles; Noto Sans Thai as the fallback so Thai renders consistently. Fonts load at runtime through `google_fonts` (nothing is bundled), so the first offline launch falls back to system fonts.
+`AikoTypography.textTheme(foreground)` builds the Material text theme from the README's type scale: Hanken Grotesk for display, headline and title styles; Manrope for body and label styles; Noto Sans Thai as the fallback so Thai renders consistently. Hanken Grotesk and Manrope load at runtime through `google_fonts`, so the first offline launch falls back to system fonts for Latin text; Noto Sans Thai is bundled ([Localization → Fonts](localization.md#fonts)).
 
 ## Component themes
 
 `AikoTheme._base` sets app-wide themes for the app bar, cards, chips, dividers, dropdown menus, filled/outlined/text/icon buttons, the FAB, inputs, list tiles, the navigation bar, progress indicators, segmented buttons, snack bars and switches. Prefer the default widget plus the theme over per-widget styling.
+
+Filled and outlined buttons have a minimum size of 64 × 48px: 48px tall touch targets, but only as wide as their label, so they fit list-tile trailing slots and dialog action rows. A full-width call to action gets its width from its parent (a stretched `Column`, a `ListView` or a `SizedBox`). Snack bars use a dark neutral background in both themes.
 
 ## Shared widgets
 
@@ -55,9 +70,18 @@ Category colors are stored as `#RRGGBB` strings; `AikoColors.kAikoPrimaryColorHe
 | `AikoDonutChart`, `AikoGauge` | `aiko_data_widgets.dart` | Labeled preview charts |
 | `AikoWordmark`, `AikoPrimaryButton`, `AikoSparkleBackdrop` | `aiko_idea_widgets.dart` | Brand moments on Welcome and Login |
 | `CachedAvatar` | `cached_avatar.dart` | Profile photo from the local cache or the Storage URL |
+| `aikoSnackBar`, `showAikoSnackBar` | `aiko_snack_bar.dart` | Status messages (below) |
+| `AikoDiscardChangesGuard`, `confirmDiscardChanges` | `discard_changes_guard.dart` | Asking before a form with unsaved input closes (below) |
 | `InlineGlossaryText` | `lib/features/learning_hub/presentation/inline_glossary_text.dart` | Inline term definitions in lessons |
 
 Charts elsewhere use `fl_chart`. Every chart needs a text summary (README rule).
+
+## Dialogs, forms and messages
+
+- **Pages as dialogs.** On wide screens `openAikoPage` shows the page as a dialog with `barrierDismissible: false` by default, so a click outside it or Escape doesn't close it and lose form input. Pass `true` only for read-only pages. The page's own close (×) button still closes it.
+- **Unsaved input.** Wrap a form's root in `AikoDiscardChangesGuard(hasUnsavedChanges: …)`. Every way out that goes through `Navigator.maybePop` (back or close button, system back gesture, a dialog barrier) then asks "Discard changes?" first. Closing in code after a save (`Navigator.pop`, `context.pop`) is never blocked. The transaction form, account form and Profile use it.
+- **Snack bars.** Build them with `aikoSnackBar(message, tone: AikoSnackTone.success)` (or `showAikoSnackBar(context, …)`). Every tone uses the theme's neutral background; the tone adds a status icon (success, warning, error) in the matching `AikoStatusColors` shade. Don't fill a snack bar with orange, green or red: white text on those fails contrast.
+- **Destructive confirmations** name the object and the effect, and confirm with a red button (`AikoColors.dangerRed`), for example deleting a transaction, an account or the user's account.
 
 ## Aiko artwork
 

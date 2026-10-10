@@ -76,7 +76,7 @@ Domain: `FinanceTransaction` (`lib/features/transactions/domain/transaction.dart
 | --- | --- | --- |
 | `id`, `user_id`, `account_id` | string | |
 | `type` | string | `TransactionType` (below) |
-| `amount` | decimal string | Must be > 0 except for `adjustment` |
+| `amount` | decimal string | Must be > 0, except `adjustment`, whose amount is signed (positive raises the balance, negative lowers it) |
 | `currency` | string | |
 | `date` | ISO string | |
 | `category_id` | string? | A default category's per-user clone ID or a custom category ID |
@@ -91,11 +91,12 @@ Domain: `FinanceTransaction` (`lib/features/transactions/domain/transaction.dart
 | `recurring_day_of_month` | int? | 1–31, clamped to month length |
 | `recurring_month_of_year` | int? | 1–12 |
 | `reminder_at` | ISO string? | Local time for a device reminder |
+| `transfer_group_id` | string? | Shared by the two legs of one transfer so they are edited and deleted together; null on other rows and on legs saved before legs were linked |
 | `updated_at`, `version` | string, int | |
 
-`TransactionType` values: `income`, `expense`, `transfer`, `transferOut`, `transferIn`, `refund`, `investmentBuy`, `investmentSell`, `dividend`, `interest`, `loanPayment`, `creditCardPayment`, `taxPayment`, `fee`, `adjustment`. A transfer is saved as a `transferOut` row on the source account and a `transferIn` row on the destination.
+`TransactionType` values: `income`, `expense`, `transfer`, `transferOut`, `transferIn`, `refund`, `investmentBuy`, `investmentSell`, `dividend`, `interest`, `loanPayment`, `creditCardPayment`, `taxPayment`, `fee`, `adjustment`. A transfer is saved as a `transferOut` row on the source account and a `transferIn` row on the destination, linked by `transfer_group_id`. `transfer` is a legacy single-row type. An `adjustment` is a balance correction: an account's opening balance, or the difference when its balance is edited; it is never income or spending.
 
-**Balance effect** (`applyToAccountBalance`): `income` and `transferIn` add to the account balance; every other type subtracts. A transaction whose currency differs from its account's currency leaves the balance unchanged, because no exchange rate is stored.
+**Balance effect** (`applyToAccountBalance`): the inflow types (`income`, `transferIn`, `refund`, `dividend`, `interest`, `investmentSell`) add their amount, an `adjustment` adds its signed amount, and every other type subtracts. A transaction whose currency differs from its account's currency leaves the balance unchanged, because no exchange rate is stored ([Calculations](calculations.md#account-balances)).
 
 Recurring rows are templates. `RecurringProjection` generates display-only future occurrences with IDs like `<id>#preview#<date>`; previews are never saved.
 
@@ -115,7 +116,7 @@ Domain: `Category` (`lib/features/categories/domain/category.dart`). SQLite: `Of
 | `group_id` | string? | User-visible category group |
 | `parent_id` | string? | |
 | `is_active` | bool | Custom categories are archived (`false`), not deleted |
-| `created_at` | ISO string? | |
+| `created_at` | ISO string? | Stamped on new custom categories. Default clones are seeded without it and clients never stamp them; Security Rules let a clone's empty `created_at` be set once |
 | `budget_enabled` | bool | |
 | `budget_amount`, `budget_currency` | decimal string?, string? | The category's budget limit |
 | `budget_period` | string | `daily`, `weekly`, `monthly`, `yearly` |
@@ -127,7 +128,7 @@ Budgets are fields on the category; there is no separate budgets collection.
 
 ### `category_groups`
 
-Domain: `CategoryGroup`. Fields: `id`, `user_id`, `template_id`, `name`, `icon`, `color`, `sort_order`, `created_at`, `budget_amount`, `budget_currency` (a group-level budget), `updated_at`, `version`.
+Domain: `CategoryGroup`. Fields: `id`, `user_id`, `template_id`, `name`, `icon`, `color`, `sort_order`, `created_at` (same rule as categories), `budget_amount`, `budget_currency` (a group-level budget), `updated_at`, `version`.
 
 ### `profiles`
 
@@ -172,7 +173,9 @@ Small synced settings stored as `{ "value": "<string>" }` through `SyncedPrefere
 | --- | --- | --- |
 | `aiko_language_code` | `en` or `th`; absent = follow device | `AppLocaleController` |
 | `transaction_rules_v1` | JSON array of `TransactionRule` | `TransactionRuleStore` |
-| `travel_mode_v1` | JSON of the active trip and exchange rate | `TravelModeNotifier` |
+| `travel_mode_v1` | JSON of the active trip and exchange rate. Each foreign fee is the money JSON plus an optional `merchant` (fees saved without one still load) | `TravelModeNotifier` |
+| `learning_progress_v1` | JSON object of lesson key → `notStarted`, `read` or `completed` | `LessonProgressStore` |
+| `dismissed_notifications_v1` | JSON array of dismissed notification ids; ids from past periods are dropped on the next dismissal | `NotificationDismissalStore` |
 
 ### `integrations/line`
 
@@ -187,13 +190,14 @@ These values never sync.
 | Secure storage | `aiko_offline_user_id` | Current owner ID (`local:<uuid>` or uid) |
 | Secure storage | `aiko_known_account` | `true` after a successful sign-in; routes returning users to `/auth` |
 | Secure storage | `aiko_defaults_seeded:<uid>` | Stamp recording that this device ensured the user's profile and default categories ([Cost](cost.md)) |
+| Secure storage | `aiko_default_accounts_seeded:<uid>` | `true` once this device seeded the user's default Cash and Bank accounts (`DefaultAccountsSeedMarker`) |
 | Secure storage | `transaction_capture_settings` | Android capture on/off and target account |
 | `aiko_files.sqlite` | `files(path, bytes)` | Attachment and avatar bytes; attachment metadata cache |
 | App support dir | `capture_inbox/*.json` | Captured SMS and notifications waiting to be processed (Android) |
 
 ## Local SQLite schema
 
-`AikoBrickRepository` (`lib/brick/repository.dart`) opens `aiko_offline.sqlite` with tables `OfflineAccount`, `OfflineTransaction`, `OfflineCategory`, `OfflineCategoryGroup`, `OfflineInvestmentHolding` and `OfflineProfile`. The schema is `lib/brick/db/schema.g.dart`. Migrations in `lib/brick/db/<timestamp>.migration.dart` run in version order at startup; the latest is `20260725185723` (`template_id` on categories and groups). Earlier migrations folded the old budgets table into categories and the old goals table into accounts.
+`AikoBrickRepository` (`lib/brick/repository.dart`) opens `aiko_offline.sqlite` with tables `OfflineAccount`, `OfflineTransaction`, `OfflineCategory`, `OfflineCategoryGroup`, `OfflineInvestmentHolding` and `OfflineProfile`. The schema is `lib/brick/db/schema.g.dart`. Migrations in `lib/brick/db/<timestamp>.migration.dart` run in version order at startup; the latest is `20261010120000` (`transfer_group_id` on transactions). Earlier migrations folded the old budgets table into categories and the old goals table into accounts.
 
 Rules for local schema changes:
 
@@ -215,7 +219,7 @@ Templates have fixed IDs (for example `00000000-0000-0000-c200-000000000001` for
 Uuid().v5(namespace, 'category:${uid.toLowerCase()}:${templateId.toLowerCase()}')
 ```
 
-So every device computes the same clone IDs, sign-in can create them idempotently, and imported transactions that reference template IDs are re-pointed to the user's clones (`CategoryDefaults.categoryIdForUser`). On clones, Security Rules allow edits only to the budget fields, and clones cannot be deleted. In local-only mode the templates are used directly, with stored budget overlays.
+So every device computes the same clone IDs, sign-in can create them idempotently, and imported transactions that reference template IDs are re-pointed to the user's clones (`CategoryDefaults.categoryIdForUser`). On clones, Security Rules allow edits only to the budget fields (plus setting an empty `created_at` once), and clones cannot be deleted. In local-only mode the templates are used directly, with stored budget overlays.
 
 ## Storage paths
 

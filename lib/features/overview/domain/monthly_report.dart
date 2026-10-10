@@ -54,3 +54,14 @@ class MonthlyReport {
 
   bool get hasActivity => !income.isZero || !expenses.isZero;
 }
+
+/// Whether a month-on-month change reads as good or bad news.
+enum ChangeTone { good, bad, flat }
+
+/// The tone of a change of [pct] percent: for metrics where
+/// [higherIsBetter] (income, net cash flow) a rise is good; for spending a
+/// fall is good.
+ChangeTone changeTone(double pct, {required bool higherIsBetter}) {
+  if (pct == 0) return ChangeTone.flat;
+  return (pct > 0) == higherIsBetter ? ChangeTone.good : ChangeTone.bad;
+}

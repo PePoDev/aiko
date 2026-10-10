@@ -1,18 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../l10n/l10n.dart';
+import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
-import '../../../l10n/l10n.dart';
+import '../application/lesson_progress.dart';
+import '../domain/lesson.dart';
 import 'inline_glossary_text.dart';
+import 'lesson_screens.dart';
 
-class LearningHubScreen extends StatelessWidget {
+class LearningHubScreen extends ConsumerWidget {
   const LearningHubScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final lessons = _lessons(l10n);
-    final glossary = _glossary(l10n);
+    final lessons = lessonsFor(l10n);
+    final glossary = learningGlossary(l10n);
+    // Progress that can't be read (offline storage error) shows as not
+    // started rather than blocking the lessons.
+    final progress =
+        ref.watch(lessonProgressProvider).value ??
+        const <String, LessonProgress>{};
+    LessonProgress progressOf(Lesson lesson) =>
+        progress[lesson.key] ?? LessonProgress.notStarted;
+
     return Scaffold(
       appBar: AppBar(title: Text(l10n.toolLearningHub)),
       body: SingleChildScrollView(
@@ -28,7 +41,11 @@ class LearningHubScreen extends StatelessWidget {
               child: Column(
                 children: [
                   for (final lesson in lessons)
-                    _LessonTile(lesson: lesson, glossary: glossary),
+                    _LessonTile(
+                      lesson: lesson,
+                      glossary: glossary,
+                      progress: progressOf(lesson),
+                    ),
                 ],
               ),
             ),
@@ -43,12 +60,26 @@ class LearningHubScreen extends StatelessWidget {
                   for (final lesson in lessons.where(
                     (lesson) => lesson.quizQuestions.isNotEmpty,
                   ))
-                    InlineGlossaryText(
-                      text: l10n.learningQuizSummary(
-                        lesson.title,
-                        lesson.quizQuestions.length,
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: InlineGlossaryText(
+                        text: l10n.learningQuizSummary(
+                          lesson.title,
+                          lesson.quizQuestions.length,
+                        ),
+                        glossary: glossary,
                       ),
-                      glossary: glossary,
+                      trailing: progressOf(lesson) == LessonProgress.completed
+                          ? Icon(
+                              Icons.check_circle,
+                              color: AikoColors.successGreen,
+                              semanticLabel: l10n.learningProgressCompleted,
+                            )
+                          : const Icon(Icons.chevron_right),
+                      onTap: () => openAikoPage<void>(
+                        context,
+                        LessonQuizScreen(lessonKey: lesson.key),
+                      ),
                     ),
                 ],
               ),
@@ -61,18 +92,26 @@ class LearningHubScreen extends StatelessWidget {
 }
 
 class _LessonTile extends StatelessWidget {
-  const _LessonTile({required this.lesson, required this.glossary});
+  const _LessonTile({
+    required this.lesson,
+    required this.glossary,
+    required this.progress,
+  });
 
-  final _Lesson lesson;
+  final Lesson lesson;
   final Map<String, String> glossary;
+  final LessonProgress progress;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: CircularProgressIndicator(
-        value: _completionPercent(lesson.progress),
+        value: progress.ringValue,
         strokeWidth: 4,
+        // A visible track, so a lesson not started reads as an empty ring.
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        semanticsLabel: lessonProgressLabel(progress, context.l10n),
       ),
       title: InlineGlossaryText(text: lesson.title, glossary: glossary),
       subtitle: InlineGlossaryText(
@@ -83,107 +122,8 @@ class _LessonTile extends StatelessWidget {
       ),
       isThreeLine: true,
       trailing: const Icon(Icons.chevron_right),
+      onTap: () =>
+          openAikoPage<void>(context, LessonScreen(lessonKey: lesson.key)),
     );
   }
 }
-
-typedef _Lesson = ({
-  String key,
-  String title,
-  String category,
-  String summary,
-  int estimatedMinutes,
-  _LessonProgress progress,
-  List<_LessonQuizQuestion> quizQuestions,
-});
-
-typedef _LessonQuizQuestion = ({
-  String prompt,
-  List<String> options,
-  int correctOptionIndex,
-});
-
-enum _LessonProgress { notStarted, inProgress, completed }
-
-double _completionPercent(_LessonProgress progress) => switch (progress) {
-  _LessonProgress.notStarted => 0,
-  _LessonProgress.inProgress => 0.5,
-  _LessonProgress.completed => 1,
-};
-
-/// Lessons in the current language. Glossary terms in their text are
-/// highlighted inline (see [_glossary]).
-List<_Lesson> _lessons(AppLocalizations l10n) => [
-  (
-    key: 'budget-basics',
-    title: l10n.lessonBudgetTitle,
-    category: l10n.lessonBudgetCategory,
-    summary: l10n.lessonBudgetSummary,
-    estimatedMinutes: 6,
-    progress: _LessonProgress.inProgress,
-    quizQuestions: [
-      (
-        prompt: l10n.lessonBudgetQuestion,
-        options: [l10n.lessonBudgetOptionCorrect, l10n.lessonBudgetOptionWrong],
-        correctOptionIndex: 0,
-      ),
-    ],
-  ),
-  (
-    key: 'emergency-fund',
-    title: l10n.lessonEmergencyTitle,
-    category: l10n.lessonEmergencyCategory,
-    summary: l10n.lessonEmergencySummary,
-    estimatedMinutes: 5,
-    progress: _LessonProgress.notStarted,
-    quizQuestions: [
-      (
-        prompt: l10n.lessonEmergencyQuestion,
-        options: [
-          l10n.lessonEmergencyOptionCorrect,
-          l10n.lessonEmergencyOptionWrong,
-        ],
-        correctOptionIndex: 0,
-      ),
-    ],
-  ),
-  (
-    key: 'credit-utilization',
-    title: l10n.lessonCreditTitle,
-    category: l10n.lessonCreditCategory,
-    summary: l10n.lessonCreditSummary,
-    estimatedMinutes: 7,
-    progress: _LessonProgress.completed,
-    quizQuestions: [
-      (
-        prompt: l10n.lessonCreditQuestion,
-        options: [l10n.lessonCreditOptionWrong, l10n.lessonCreditOptionCorrect],
-        correctOptionIndex: 1,
-      ),
-    ],
-  ),
-  (
-    key: 'portfolio-rebalancing',
-    title: l10n.lessonRebalanceTitle,
-    category: l10n.lessonRebalanceCategory,
-    summary: l10n.lessonRebalanceSummary,
-    estimatedMinutes: 6,
-    progress: _LessonProgress.notStarted,
-    quizQuestions: [
-      (
-        prompt: l10n.lessonRebalanceQuestion,
-        options: [
-          l10n.lessonRebalanceOptionCorrect,
-          l10n.lessonRebalanceOptionWrong,
-        ],
-        correctOptionIndex: 0,
-      ),
-    ],
-  ),
-];
-
-Map<String, String> _glossary(AppLocalizations l10n) => {
-  l10n.glossaryAprTerm: l10n.glossaryAprDefinition,
-  l10n.glossarySafeToSpendTerm: l10n.glossarySafeToSpendDefinition,
-  l10n.glossaryRebalancingTerm: l10n.glossaryRebalancingDefinition,
-};

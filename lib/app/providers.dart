@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/config/app_config.dart';
 import '../core/notifications/transaction_reminder_service.dart';
 import '../features/dashboard/application/dashboard_summary_builder.dart';
+import '../features/dashboard/application/notification_dismissals.dart';
 import '../features/transactions/data/transaction_repository.dart';
 import '../features/accounts/application/shared_limit_resolver.dart';
 import '../features/accounts/data/account_repository.dart';
@@ -32,6 +33,8 @@ import '../core/money/exchange_rate_service.dart';
 import '../core/firebase/firebase_backend.dart';
 import '../core/offline/firestore_sync_state.dart';
 import '../core/offline/offline_user_context.dart';
+import '../core/storage/secure_storage_service.dart';
+import '../core/storage/synced_preferences.dart';
 import '../l10n/app_localizations.dart';
 import 'locale_controller.dart';
 
@@ -733,9 +736,11 @@ final portfolioAllocationProvider =
 
 /// Monte Carlo goal forecast for a single goal account, keyed by goal id so the
 /// 1,000-run simulation is computed once and cached (stable across rebuilds).
-/// Returns null when the goal no longer exists.
+/// The saving rate comes from the goal account's own transactions. Returns
+/// null when the goal no longer exists; a goal missing its target or date, or
+/// past its date, comes back blocked instead of simulated.
 final goalForecastProvider = FutureProvider.autoDispose
-    .family<GoalForecast?, String>((ref, goalId) async {
+    .family<GoalForecastOutcome?, String>((ref, goalId) async {
       final goals = await ref.watch(accountsProvider.future);
       Account? goal;
       for (final a in goals) {
@@ -745,9 +750,10 @@ final goalForecastProvider = FutureProvider.autoDispose
         }
       }
       if (goal == null) return null;
-      final forecast = const GoalForecastService().forecast(goal);
+      final transactions = await ref.watch(transactionsProvider.future);
+      final outcome = const GoalForecastService().evaluate(goal, transactions);
       ref.keepAlive();
-      return forecast;
+      return outcome;
     });
 
 final dashboardDueItemsProvider =
@@ -775,29 +781,91 @@ AppLocalizations _l10nOf(Ref ref) => lookupAppLocalizations(
       AppLocaleController.fallbackLocale,
 );
 
-/// Notifications derived live from the user's real local data (budget
-/// breaches, upcoming bills, goal milestones). No notifications table — this
-/// recomputes on each open. Returns an empty list when nothing is noteworthy.
+/// Every notification derived live from the user's real local data (budget
+/// breaches, upcoming bills, goal milestones), dismissed or not. No
+/// notifications table — this recomputes on each open.
+final allNotificationsProvider =
+    FutureProvider.autoDispose<List<AppNotification>>((ref) async {
+      try {
+        final transactions = await ref.watch(transactionsProvider.future);
+        final categories = await ref.watch(categoriesProvider.future);
+        final accounts = await ref.watch(accountsProvider.future);
+        final dueItems = await ref.watch(dashboardDueItemsProvider.future);
+        return buildNotifications(
+          transactions: transactions,
+          categories: categories,
+          accounts: accounts,
+          dueItems: dueItems,
+          asOf: DateTime.now(),
+          l10n: _l10nOf(ref),
+        );
+      } catch (error, stackTrace) {
+        // Surface to `AikoScreenState.error`; a broken offline store renders a
+        // recoverable error widget instead of crashing the provider tree.
+        Error.throwWithStackTrace(error, stackTrace);
+      }
+    });
+
+/// Where dismissed notification ids are kept (a synced preference); overridden
+/// in tests.
+final notificationDismissalStorageProvider = Provider<SecureStorageService>(
+  (ref) => SyncedPreferences(),
+);
+
+/// Ids of the notifications the user dismissed (see
+/// [NotificationDismissalStore]).
+class NotificationDismissalsNotifier extends AsyncNotifier<Set<String>> {
+  NotificationDismissalStore get _store => NotificationDismissalStore(
+    ref.read(notificationDismissalStorageProvider),
+  );
+
+  @override
+  Future<Set<String>> build() => NotificationDismissalStore(
+    ref.watch(notificationDismissalStorageProvider),
+  ).load();
+
+  /// Writes one dismissal at a time, so quick taps don't overwrite each other.
+  Future<void> _writes = Future.value();
+
+  Future<void> dismiss(String id) {
+    final store = _store;
+    // Stored ids not among today's notifications belong to past periods and
+    // are dropped; without the list, keep everything already dismissed.
+    final keep =
+        ref.read(allNotificationsProvider).value?.map((n) => n.id).toList() ??
+        [...?state.value];
+    // Hide it straight away; the write follows.
+    state = AsyncData({...?state.value, id});
+    return _writes = _writes.then((_) async {
+      try {
+        final saved = await store.dismiss(id, keep);
+        if (ref.mounted) state = AsyncData({...saved, ...?state.value});
+      } catch (_) {
+        // Storage failed: it stays hidden for this session only.
+      }
+    });
+  }
+}
+
+final notificationDismissalsProvider =
+    AsyncNotifierProvider.autoDispose<
+      NotificationDismissalsNotifier,
+      Set<String>
+    >(NotificationDismissalsNotifier.new);
+
+/// The notifications to show: [allNotificationsProvider] without the ones the
+/// user dismissed. Returns an empty list when nothing is noteworthy.
 final notificationsProvider = FutureProvider.autoDispose<List<AppNotification>>(
   (ref) async {
+    final all = await ref.watch(allNotificationsProvider.future);
+    Set<String> dismissed;
     try {
-      final transactions = await ref.watch(transactionsProvider.future);
-      final categories = await ref.watch(categoriesProvider.future);
-      final accounts = await ref.watch(accountsProvider.future);
-      final dueItems = await ref.watch(dashboardDueItemsProvider.future);
-      return buildNotifications(
-        transactions: transactions,
-        categories: categories,
-        accounts: accounts,
-        dueItems: dueItems,
-        asOf: DateTime.now(),
-        l10n: _l10nOf(ref),
-      );
-    } catch (error, stackTrace) {
-      // Surface to `AikoScreenState.error`; a broken offline store renders a
-      // recoverable error widget instead of crashing the provider tree.
-      Error.throwWithStackTrace(error, stackTrace);
+      dismissed = await ref.watch(notificationDismissalsProvider.future);
+    } catch (_) {
+      // Unreadable dismissals shouldn't hide the notifications themselves.
+      dismissed = const {};
     }
+    return withoutDismissed(all, dismissed);
   },
 );
 

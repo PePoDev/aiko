@@ -69,3 +69,6 @@ firebase/functions/.env.*
 pubspec_overrides.yaml
 web/sqflite_sw.js
 web/sqlite3.wasm
+
+# Vercel CLI project link and prebuilt output
+.vercel/

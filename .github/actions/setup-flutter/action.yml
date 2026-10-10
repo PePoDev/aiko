@@ -1,0 +1,15 @@
+name: Set up Flutter
+description: Installs the pinned Flutter SDK and fetches Dart packages.
+
+runs:
+  using: composite
+  steps:
+    - uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+        # Single source for CI and deploys. Needs Dart >=3.12 (pubspec.lock).
+        flutter-version: 3.47.7
+        cache: true
+    - name: Fetch packages
+      shell: bash
+      run: flutter pub get

@@ -76,7 +76,7 @@ Open **http://localhost:8080**. Emulator UI: **http://127.0.0.1:4000**. Create a
 
 **Production configuration:** register web, Android and iOS apps in one Firebase project. Enable Email/Password and Google Auth; configure authorized web domains, Android signing SHA fingerprints, and the iOS reversed Google client-ID URL scheme. Supply each platform's `FIREBASE_PROJECT_ID`, `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_AUTH_DOMAIN`, and optional `FIREBASE_REGION`. Leave `FIREBASE_EMULATOR_HOST` unset. Native Google login also uses `GOOGLE_WEB_CLIENT_ID` and `GOOGLE_IOS_CLIENT_ID`. These client configuration values are public; provider secrets and Admin credentials never belong in the Flutter build.
 
-No cloud deployment happens automatically. Test rules/functions locally before an explicitly requested production deployment. See [Firebase migration and verification](docs/firebase.md) for data import, service configuration, and platform limits.
+**Deployment:** GitHub Actions (`.github/workflows/ci.yml`) runs the quality gates on every push and publishes a Vercel preview for non-`main` branches. On `main`, after the gates pass, it deploys Firebase rules/indexes (plus Storage/Functions when enabled) and the production web app. One-time Firebase, Vercel and GitHub setup: [Deployment](docs/deployment.md). Test rules/functions locally first. See [Firebase migration and verification](docs/firebase.md) for data import, service configuration, and platform limits.
 
 ---
 
@@ -100,6 +100,7 @@ lib/
 firebase/         # Firestore/Storage rules, Functions, emulator tests, legacy import tool
 web/              # Flutter web entrypoint and SQLite worker assets
 tool/             # Local emulator startup helpers
+.github/          # CI quality gates; Vercel and Firebase deploy workflows
 landing/          # standalone Aiko landing page
 screenshots/      # product/idea screenshots and visual references
 assets/           # icons/ (aiko_*.svg), images/aiko/ (6 expression variants)
@@ -226,7 +227,7 @@ Profile deletion calls the authenticated `deleteAccount` callable. It requires a
 
 `users/{uid}` contains `profiles`, `accounts`, `transactions`, `transaction_splits`, `categories`, `category_groups`, `attachments`, `investment_holdings`, `preferences`, and read-only `integrations`. Profiles use the UID as document ID; other entities keep their existing IDs and snake_case fields. Money values are decimal strings. Budgets remain category fields, goals remain account fields, recurring/reminder metadata remains on transactions, and attachment metadata references Storage paths. Global server-only `line_links`, `line_pairings`, and `rate_limits` cannot be read by clients. All other unspecified paths are denied.
 
-**Backend changes:** update `firebase/firestore.rules`, `firebase/storage.rules`, Functions and tests together. Run emulator tests and the function build; deployment requires an explicit request. `firebase/tools/import_legacy.cjs` imports existing exported users, records and files with stable IDs; dry run is the default. Historical SQL design notes under `docs/superpowers/` describe the replaced backend, not active deployment instructions.
+**Backend changes:** update `firebase/firestore.rules`, `firebase/storage.rules`, Functions and tests together. Run emulator tests and the function build; merging to `main` deploys them through CI once tests pass. `firebase/tools/import_legacy.cjs` imports existing exported users, records and files with stable IDs; dry run is the default. Historical SQL design notes under `docs/superpowers/` describe the replaced backend, not active deployment instructions.
 
 ---
 

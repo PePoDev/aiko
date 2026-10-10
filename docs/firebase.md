@@ -1,6 +1,6 @@
 # Firebase development and migration
 
-The web, Android and iOS apps use the same Firebase repositories, document codecs and domain logic. Local Emulator Suite replaces the previous Supabase/Docker backend. No hosted Firebase project or production data is configured in this checkout.
+The web, Android and iOS apps use the same Firebase repositories, document codecs and domain logic. Local Emulator Suite replaces the previous Supabase/Docker backend. The hosted project is configured through CI; see [Deployment](deployment.md).
 
 ## Start locally
 
@@ -38,7 +38,7 @@ Browser export/download, file/image/PDF previews and file selection use bytes. C
 - `OCR_API_URL`, `OCR_API_KEY`: authenticated HTTP OCR adapter.
 - `MARKET_API_URL`, `MARKET_API_KEY`: authenticated HTTP price adapter.
 
-The precise adapter request/response contracts are in `firebase/functions/src/index.ts`. Missing providers return an explicit unavailable error; local emulators do not supply AI or external APIs. No credentials are embedded in the web build. Production deployment and Secret Manager configuration are separate, explicitly requested actions.
+The precise adapter request/response contracts are in `firebase/functions/src/index.ts`. Missing providers return an explicit unavailable error; local emulators do not supply AI or external APIs. No credentials are embedded in the web build. Production Secret Manager values and Functions deployment are set up in [Deployment](deployment.md#storage-and-functions).
 
 ## Import an existing export
 

@@ -9,6 +9,13 @@ import '../../shared/widgets/aiko_data_widgets.dart';
 import '../accounts/domain/account.dart';
 import 'transaction_capture.dart';
 
+// The theme's FilledButton is full-width (infinite min width); inside a
+// ListTile's trailing slot that would swallow the whole row, so size it to its
+// label here.
+final _trailingButtonStyle = FilledButton.styleFrom(
+  minimumSize: const Size(64, 40),
+);
+
 /// Settings for reading bank SMS + other apps' notifications and turning them
 /// into transactions automatically. Android-only.
 class TransactionCaptureScreen extends ConsumerStatefulWidget {
@@ -121,6 +128,7 @@ class _TransactionCaptureScreenState
                   : context.l10n.captureNotGranted,
             ),
             trailing: FilledButton(
+              style: _trailingButtonStyle,
               onPressed: !android || _notificationsGranted
                   ? null
                   : _grantNotifications,
@@ -134,6 +142,7 @@ class _TransactionCaptureScreenState
             title: Text(context.l10n.captureSmsAccess),
             subtitle: Text(context.l10n.captureSmsAccessSubtitle),
             trailing: FilledButton(
+              style: _trailingButtonStyle,
               onPressed: android ? _grantSms : null,
               child: Text(context.l10n.captureGrant),
             ),

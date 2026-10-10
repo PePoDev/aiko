@@ -77,7 +77,7 @@ daysRemaining = days left in the month, including today
 | monthly | calendar month |
 | yearly | calendar year |
 
-The recommendation is "Keep this category under `remaining ÷ daysLeft` `<currency>`/day to stay on track", or a gentle over-budget message. Budget **notifications** use this month's posted expenses against the category limit and fire at the highest crossed threshold (default 50/75/90/100%). They are warnings below 100% and danger at 100% or more.
+The budget's rollover flag is not applied: each period starts from the plain limit. The recommendation is "Keep this category under `remaining ÷ daysLeft` `<currency>`/day to stay on track", or a gentle over-budget message. Budget **notifications** use this month's posted expenses against the category limit and fire at the highest crossed threshold (default 50/75/90/100%). They are warnings below 100% and danger at 100% or more.
 
 ## Cash flow
 

@@ -113,7 +113,7 @@ Services: `BudgetInsightsService` (safe-to-spend), `CashFlowService` (overview a
 
 `lib/features/investments/`, `/portfolio`.
 
-Add, search and remove holdings (asset class, symbol, quantity, average cost, current price). The summary shows value, total gain/loss, holding count and allocation status. `AllocationService` computes allocation, drift-based **rebalance alerts** (against fixed targets of Stocks 70% / Bonds 30% defined in `InvestmentsScreen`) and **capital-gains estimates**. "Refresh prices" calls `marketFeed` for each holding; failures keep the old price.
+Add, search and remove holdings (asset class, symbol, quantity, average cost, current price). The summary shows value, total gain/loss, holding count and allocation status. `AllocationService` computes allocation, drift-based **rebalance alerts** (against fixed targets of Stocks 70% / Bonds 30% defined in `InvestmentsScreen`) and **capital-gains estimates** (`capitalGainsOnSale`, tested but not shown in the UI yet). "Refresh prices" calls `marketFeed` for each holding; failures keep the old price.
 
 ## Calculators
 
@@ -156,6 +156,8 @@ Current behavior that differs from what the UI or the README suggests. Fix the c
 | --- | --- |
 | Calculators | 18 of 30 library entries (TVM, CD, bond yield, bi-weekly mortgage, refinance, rent vs. buy, home affordability, rental property, IRA, RMD, Social Security, annuity, auto loan vs. lease, WACC, Black-Scholes, CAPM, capital gains, paycheck tax) have no form; tapping one opens the compound-interest calculator under that title. |
 | Split transactions | `TransactionSplit` and its validation exist, but no screen creates splits and the codec does not persist them. |
+| Duplicate transactions | No duplicate detection. `TransactionRepository.duplicate` copies a transaction but nothing calls it. |
+| Budget rollover | `rolloverUnused` / `budget_rollover` is stored and editable, but no budget, notification or safe-to-spend calculation applies it. |
 | Change password | The Profile row only shows a "Password flow opened." snackbar. Password reset works from Login ("Forgot password?"). |
 | Account deletion | Requires a sign-in within 5 minutes; older sessions get a generic "Unable to delete account right now." with no prompt to sign in again. |
 | App lock | `SecurityStatus` has `pinEnabled`/`biometricEnabled` and matching strings, but no PIN or biometric lock is implemented. |

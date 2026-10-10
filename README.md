@@ -15,7 +15,7 @@
 
 ## What Is Aiko?
 
-Cross-platform (web + iOS + Android) personal finance app: Flutter + Firebase. **Aiko** (calm, anime-style, blue hair) gives friendly, non-judgmental money guidance. A data-first financial OS: 13 transaction types, category-owned budget limits (envelope / zero-based / 50-30-20, monthly/weekly/yearly/daily, rollover), goal accounts (SMART target/date/priority, Monte Carlo probability), cash flow + Daily Spending reactions, credit/debt/loan payoff, portfolio + net worth, tax organization, ~60 calculators, AI guidance, Ask Aiko chat, monthly Review, learning hub, multi-currency Travel Mode.
+Cross-platform (web + iOS + Android) personal finance app: Flutter + Firebase. **Aiko** (calm, anime-style, blue hair) gives friendly, non-judgmental money guidance. A data-first financial OS: 13 transaction types, category-owned budget limits (daily/weekly/monthly/yearly, alert thresholds, rollover flag) plus group envelopes, goal accounts (SMART target/date/priority, Monte Carlo probability), cash flow + Daily Spending reactions, credit card/loan/asset/liability accounts, portfolio + net worth, a 30-entry calculator library (12 interactive), Ask Aiko chat, monthly report, learning hub, multi-currency Travel Mode. Where the code still falls short of this spec: [Known gaps](docs/features.md#known-gaps).
 
 This is a single repo for the Aiko product surface: Flutter app, landing page, Firebase emulators/functions/rules, docs, visual references, and tests. Keep `landing/` and `screenshots/`; Firebase Emulator Suite replaces the former Docker backend workflow.
 
@@ -34,7 +34,7 @@ This is a single repo for the Aiko product surface: Flutter app, landing page, F
 
 | Component | Technology |
 | --- | --- |
-| Web & Mobile | Flutter & Dart (SDK ^3.11.5) |
+| Web & Mobile | Flutter & Dart (pubspec SDK `^3.11.5`; locked dependencies need Flutter ≥ 3.44 / Dart ≥ 3.12; CI pins Flutter 3.47.7) |
 | State | Riverpod |
 | Navigation | GoRouter |
 | Backend | Firebase Auth, Firestore, Storage, Cloud Functions, Security Rules |
@@ -52,7 +52,7 @@ This is a single repo for the Aiko product surface: Flutter app, landing page, F
 
 ## Getting Started
 
-**Prerequisites:** Flutter stable (Dart ^3.11.5), Node 22+, Java 21+; Android Studio/Xcode for native builds. No hosted project is needed for emulator development.
+**Prerequisites:** Flutter stable ≥ 3.44 (Dart ≥ 3.12), Node 22+, Java 21+; Android Studio/Xcode for native builds. No hosted project is needed for emulator development. Full setup, configuration reference and troubleshooting: [Getting started](docs/getting-started.md).
 
 ```sh
 flutter pub get
@@ -69,7 +69,7 @@ flutter build web --dart-define=FIREBASE_PROJECT_ID=demo-aiko \
 npm run firebase:start
 ```
 
-Open **http://localhost:8080**. Emulator UI: **http://127.0.0.1:4000**. Create an email/password account in the app. The emulator exports data to `.firebase-data/` on graceful shutdown and imports it on the next run. These files contain local account/data state and stay gitignored. Use the same host/port to preserve browser storage. Build once before starting Hosting on a fresh clone. For live Flutter development use `flutter run -d chrome --web-port=8082` with the same defines.
+Open **http://localhost:8080**. Emulator UI: **http://127.0.0.1:4000**. Create an email/password account in the app. The emulator exports data to `.firebase-data/` on graceful shutdown and imports it on the next run. These files contain local account/data state and stay gitignored. Use the same host/port to preserve browser storage. Build once before starting Hosting on a fresh clone. For live Flutter development use `flutter run -d chrome --web-port=8082` with the same defines (or `cp .env.example .env` and pass `--dart-define-from-file=.env`, as the VS Code launch configs do).
 
 **Mobile against the same backend:** run `flutter run -d <device>` with those defines; Android emulators use `FIREBASE_EMULATOR_HOST=10.0.2.2`. A physical phone needs the development machine's LAN address and emulator hosts explicitly bound to that interface. Share the same `demo-aiko` project and sign in with the same account. Google sign-in requires production Firebase/Google configuration; email/password works locally.
 
@@ -88,15 +88,15 @@ lib/
 ├── brick/        # Brick offline models, adapters, SQLite schema, mappers
 ├── main.dart     # Entry point
 ├── app/          # App wiring (router, bootstrap, providers)
-├── core/         # Framework utilities, no UI: config, errors, formatting, monetization,
-│                 #   money, notifications, offline, prediction, security, storage, firebase, sync
+├── core/         # Framework utilities, no UI: config, firebase, formatting, money,
+│                 #   notifications, offline, prediction, storage
 ├── features/     # 16 feature modules (accounts, aiko_assistant, aiko_character, auth,
 │                 #   calculators, categories, dashboard, export, investments, learning_hub,
 │                 #   onboarding, overview, settings, transaction_capture, transactions,
 │                 #   travel_mode)
-├── shared/       # Cross-feature widgets, state, test data
+├── shared/       # Cross-feature widgets (widgets/)
 ├── l10n/         # .arb sources; AppLocalizations is generated by Flutter
-└── theme/        # Design system (colors, typography, spacing, themes)
+└── theme/        # Design system (colors, typography, themes)
 
 firebase/         # Firestore/Storage rules, Functions, emulator tests, legacy import tool
 web/              # Flutter web entrypoint and SQLite worker assets
@@ -105,7 +105,7 @@ docs/             # How-it-works documentation; index: docs/README.md
 .github/          # CI quality gates; Firebase Hosting and backend deploy workflows
 landing/          # standalone Aiko landing page
 screenshots/      # product/idea screenshots and visual references
-assets/           # icons/ (aiko_*.svg), images/aiko/ (6 expression variants)
+assets/           # icons/ (app icon, aiko_*.svg marks), images/aiko/ (6 expressions), rive/ (character slot)
 test/             # Unit tests
 ```
 
@@ -117,13 +117,13 @@ Each feature module is layered: `application/` (services, orchestration), `data/
 
 GoRouter around a bottom-nav shell, 5 primary tabs:
 
-1. **Accounts (`/accounts`)** — Bank/Cash/Wallet accounts, including credit cards.
-2. **Categories (`/categories`)** — 13 default groups + custom categories.
-3. **Overview (`/home`)** — Static dashboard, fixed panel set/order (Aiko greeting, Daily spending, Safe this week, Daily summary, Net earnings, Category budgets, Spending calendar, This Month Overview, Cash flow mapping, Aiko Goal Simulator, balance/net-worth/asset summaries) + notifications action. Set/order defined by `_homeWidgets` in `home_dashboard_screen.dart`, **not** user-customizable.
-4. **Transactions (`/transactions`)** — Search, filters, recurring, auto-categorization rules.
-5. **Aiko (`/aiko`)** — Chat (`/aiko-assistant`), optimize (`/aiko-optimize`), course hub; opens the Settings hub.
+1. **Accounts (`/accounts`)** — Cash, bank, e-wallet, credit card, loan, investment, asset, liability and goal accounts; assets/liabilities summary.
+2. **Categories (`/categories`)** — 81 default categories in 13 groups + custom categories/groups; each category owns its budget.
+3. **Overview (`/home`)** — Static dashboard, fixed panel set/order: Daily spending (with safe this week, net cash flow, left to save), Daily summary, Net earnings, Category budgets, Spending calendar, Cash flow mapping. App bar: Notifications and Settings; floating quick-add. Set/order defined by `_homeWidgets` in `home_dashboard_screen.dart`, **not** user-customizable.
+4. **Transactions (`/transactions`)** — Month view, search, recurring previews; app bar opens Rules (→ Auto-capture) and Travel Mode; the month card opens the Monthly report.
+5. **Aiko (`/aiko`)** — Ask Aiko chat (needs Firebase); app-bar Profile button (`/profile`).
 
-**Settings (`/settings`)** — via Aiko tab settings icon. Flat tools list: Chance of Success, Investments, Asset Allocation, Holding Detail, Learning Hub, Calculators, and Export. App preferences include Appearance and Language.
+**Settings (`/settings`)** — via the Overview app-bar settings icon. Flat tools list: Chance of Success, Investments, Asset Allocation, Holding Detail, Learning Hub, Calculators, and Export. App preferences include Appearance and Language.
 
 **Secondary routes:** `/notifications`, `/transaction-rules`, `/transaction-capture`, `/settings/chance-of-success`, `/reports/monthly`, `/export`, `/account-form`, `/profile`, `/connect-line`, `/portfolio`, `/portfolio/allocation`, `/portfolio/holding`, `/calculators`, `/learning-hub`, `/travel-mode`.
 
@@ -153,7 +153,7 @@ Appearance/profile data, language, Travel Mode and transaction rules synchronize
 
 ### Code Conventions
 
-- **State:** Riverpod for all state; avoid `setState` outside trivial local UI. Top-level providers in `lib/app/providers.dart`; feature providers in-module; shared state in `lib/shared/state/`.
+- **State:** Riverpod for all state; avoid `setState` outside trivial local UI. Top-level and cross-feature providers in `lib/app/providers.dart`; feature providers in-module (`application/`).
 - **Provider caching:** long-lived list/summary providers call `ref.keepAlive()` *after* a successful load, so switching tabs reuses cached data (no full-screen skeleton flash). A failed load isn't cached and retries. Firebase collection listeners invalidate these providers when data changes on any client. Pull-to-refresh remains available for manual refresh.
 - **Routing:** all routes in `lib/app/app_router.dart`. Kebab-case paths. Idea-inspired screens belong to the existing feature owner — add subroutes/menus/inline tools, never duplicate a main screen. Accounts/Categories are primary nav tabs — don't add them as Planning/Menu cards.
 - **Money:** never `double`. Use `Money` (`lib/core/money/money.dart`, wraps `Decimal`); format via `lib/core/formatting/money_formatter.dart`. Base currency in profile; multi-currency for travel/portfolio.
@@ -184,30 +184,27 @@ Use the SDK cache and shared listeners, not a new listener per widget. Keep file
 ## Core Features
 
 - **🏠 Dashboard** — static fixed-order panels (above) + quick-add. Not user-customizable.
-- **💰 Money Tracking** — 13 transaction types (income, expense, transfer, refund, investment buy/sell, dividend, interest, loan payment, credit card payment, tax payment, fee, adjustment). Splits, receipts, recurring (Once/Daily/Weekly/Monthly/Annually, each with own end date), duplicate detection. Amount-first quick entry with OCR + voice. Rules auto-apply categories/tags/splits/names by merchant keyword, account, or amount.
-- **📊 Budgeting (in Categories)** — each Category owns an optional budget: monthly/weekly/yearly/daily, envelope / zero-based / 50-30-20, one-period rollover, thresholds (default 50/75/90/100%). Safe-to-Spend: `Leftover = Income − Fixed Bills − Reserves − Debt − Goals − Current Spending`. Daily Spending compares today's posted expenses with the daily safe amount and shows Aiko's green, orange, or red reaction.
+- **💰 Money Tracking** — 13 transaction types (income, expense, transfer, refund, investment buy/sell, dividend, interest, loan payment, credit card payment, tax payment, fee, adjustment); transfers save `transferOut`/`transferIn` legs. Receipts/attachments, recurring (Once/Daily/Weekly/Monthly/Annually, each with own end date or occurrence cap), reminders. Amount-first quick entry with cloud OCR and typed/dictated voice parsing. Rules auto-apply category and tags by merchant, keyword, amount, account, category or type. Not built yet: splits (modeled, not saved), duplicate detection.
+- **📊 Budgeting (in Categories)** — each Category owns an optional budget: daily/weekly/monthly/yearly, rollover flag (stored, not yet applied), thresholds (default 50/75/90/100%). Groups can hold an envelope budget; every category carries a fixed 50/30/20 bucket (needs/wants/savings/…) used by cash-flow views. Zero-based budgeting isn't built. Safe-to-Spend: `Leftover = Income − Spent − Unspent budgets` for the month; weekly safe = `(Income − Spending) ÷ 4.33` ([Calculations](docs/calculations.md)). Daily Spending compares today's posted expenses with the daily safe amount and shows Aiko's green, orange, or red reaction.
 - **🎯 Goals (in Accounts)** — goal accounts (`Account.type == goal`) carry SMART target, date, priority. `currentBalance` is saved amount; monthly contribution, Monte Carlo probability, saving plan all read the same row.
-- **📈 Insights & Predictions** — spending trends, cash flow + Sankey, leftover/safe-to-spend, end-of-month forecasts, overrun prediction, net worth projection, retirement readiness.
-- **🤖 Aiko AI Assistant** — chat, personalized guidance, budget recommendations, debt strategies, monthly reviews.
-- **💳 Credit & Debt** — statement balances, APR, rewards, due dates, utilization; snowball/avalanche payoff with extra-payment + interest-savings simulation.
-- **📱 Portfolio, Assets & Tax** — holdings (performance, allocation, dividends, realized/unrealized gains); allocation by class/currency/geography/risk; net worth trends; tax flagging, capital gains, document storage, estimated tax reports.
-- **🌍 Travel Mode** — multi-currency accounts, auto exchange rates, travel budgets, foreign-fee tracking, trip reports.
+- **📈 Insights & Predictions** — cash flow (month + 12-month trend) + Sankey, safe-to-spend, monthly report vs. last month, budget/bill/goal notifications, Monte Carlo goal probability. Not built yet: end-of-month forecasts, overrun prediction, net worth projection, retirement readiness.
+- **🤖 Aiko AI Assistant** — streaming chat grounded in an on-device snapshot plus six read-only server tools; rule-based budget recommendations on category budgets; monthly report. Debt strategies come only from the chat model.
+- **💳 Credit & Debt** — credit cards (limit or shared limit, statement/due day, APR, rewards, annual fee, minimum payment), loans (principal, rate, term, payment, next due date), upcoming-payment notifications, credit card payoff calculator. Not built yet: statement balances, utilization, snowball/avalanche simulation.
+- **📱 Portfolio, Assets & Tax** — holdings with unrealized gain/loss, allocation by asset class, rebalance alerts against fixed Stocks 70% / Bonds 30% targets, live prices via `marketFeed`, dividend/interest/tax transactions, asset and liability accounts, receipt/document attachments. Not built yet: realized gains in the UI (a capital-gains service exists), allocation by currency/geography/risk, net worth trends, tax flagging, estimated tax reports.
+- **🌍 Travel Mode** — trip with home/local currency and budget, live or manual exchange rate, converter, foreign-fee log; accounts can use any currency. Not built yet: trip reports.
 
-## Calculator Suite (~60 Tools)
+## Calculator Suite (30 listed, 12 interactive)
 
-Calculator scenario saving/comparison is not wired yet.
+Calculator scenario saving/comparison is not wired yet. Library: `calculator_library_screen.dart`; forms and math: `calculator_detail_screen.dart`, `CalculatorServices`.
 
-- **Finance & Investment:** TVM, Compound Interest, ROI, IRR/NPV, Savings Goal, CD, Bond, Tax Equivalent Yield, Rule of 72.
-- **Loan & Mortgage:** Amortization & Comparison, Refinance, APR, Rent vs. Buy, Home Affordability, bi-weekly, Rental Property.
-- **Retirement:** Savings & Income Planner, Traditional vs. Roth IRA, RMD, Social Security, Annuity.
-- **Credit Card & Auto:** CC Payoff & Minimum Payment, Balance Transfer, Auto Loan vs. Lease.
-- **Stock & Portfolio:** WACC, Black-Scholes, Expected Return, CAPM, Holding Period Return, Capital Gains.
-- **Everyday & Tax:** Salary to Hourly, Paycheck Tax, Inflation, Effective Rate, Margin/Markup, Tip & Percentage.
+- **Interactive:** Compound interest, Loan, Credit card payoff, Savings goal, ROI, Currency converter, IRR/NPV, Tax equivalent yield, Rule of 72, Salary to hourly, Inflation, Tip and percentage.
+- **Listed, no form yet** (open the compound-interest form): TVM, CD, Bond yield, Bi-weekly mortgage, Refinance savings, Rent vs. buy, Home affordability, Rental property cash flow, Traditional vs. Roth IRA, RMD, Social Security, Annuity payout, Auto loan vs. lease, WACC, Black-Scholes, CAPM, Capital gains, Paycheck tax.
+- **Specified but not in the library:** Amortization & comparison, APR, Retirement savings & income planner, Minimum payment, Balance transfer, Expected return, Holding period return, Effective rate, Margin/markup.
 
 ## Prediction & AI System
 
-- Rule-based forecasting (end-of-month balance, overrun risk, goal completion); moving averages for recurring-expense trends; seasonality detection.
-- Monte Carlo for advanced goal/retirement probability under three scenarios (optimistic/expected/conservative). Logic in `lib/core/prediction/`.
+- Rule-based summaries: safe-to-spend, cash flow, budget progress, threshold/bill/goal notifications, display-only recurring projections. Not built yet: end-of-month balance forecast, overrun risk, moving-average trends, seasonality detection.
+- Monte Carlo goal probability (1,000 runs, 6% return, 12% volatility) with conservative/expected/optimistic outcomes (10th/50th/90th percentile). Engine in `lib/core/prediction/`, inputs in `GoalForecastService`.
 - Ask Aiko streams guidance from the server-side chat function. Persist generated insight rows only when a real product screen and generator own them.
 - **Disclaimer required:** *AI insights are estimates, not certified financial, investment, or tax advice.*
 
@@ -217,7 +214,7 @@ Calculator scenario saving/comparison is not wired yet.
 
 `HttpChatEngine` streams `data: {"delta":"..."}` events from the `aikoChat` Firebase HTTPS function, ending with `{"done":true}` or an error. The function verifies the Firebase ID token, rate limits the user, and owns the system prompt. It accepts the on-device financial snapshot and six read-only tools for account summaries, budget status, spending by category, cash flow, recent transactions and goal progress. Every tool receives the verified UID and reads only that user's collections; model input cannot choose another owner. Provider failures before or during streaming are reported without inventing an answer.
 
-Server-only secrets: `AI_API_KEY`, `AI_MODEL`, `AI_BASE_URL` (OpenAI-compatible endpoint). Local values belong in `firebase/functions/.secret.local` (gitignored). Unconfigured cloud AI returns 503; builds without Firebase retain the existing local guidance engine. Production secrets use Firebase Secret Manager.
+Server-only secrets: `AI_API_KEY`, `AI_MODEL`, `AI_BASE_URL` (OpenAI-compatible endpoint). Local values belong in `firebase/functions/.secret.local` (gitignored). Unconfigured cloud AI returns 503; builds without Firebase have no chat (the Aiko tab replies "Connect to Aiko cloud to chat."). API reference: [Backend](docs/backend.md). Production secrets use Firebase Secret Manager.
 
 `lineWebhook` verifies the LINE HMAC; `redeemLinePairing` consumes a hashed, expiring code transactionally under Firebase Auth. Link records are server-only; the profile sees an `integrations/line` status document. Unlike the previous backend, no user refresh token is stored for LINE. Configure `LINE_CHANNEL_SECRET` and `LINE_CHANNEL_ACCESS_TOKEN`, then point LINE to `lineWebhook`. OCR (`ocrScanner`) and price refresh (`marketFeed`) use explicitly configured server providers (`OCR_API_URL`/`OCR_API_KEY`, `MARKET_API_URL`/`MARKET_API_KEY`); they report unavailable when unset.
 
@@ -227,7 +224,7 @@ Profile deletion calls the authenticated `deleteAccount` callable. It requires a
 
 ## Database Schema
 
-`users/{uid}` contains `profiles`, `accounts`, `transactions`, `transaction_splits`, `categories`, `category_groups`, `attachments`, `investment_holdings`, `preferences`, and read-only `integrations`. Profiles use the UID as document ID; other entities keep their existing IDs and snake_case fields. Money values are decimal strings. Budgets remain category fields, goals remain account fields, recurring/reminder metadata remains on transactions, and attachment metadata references Storage paths. Global server-only `line_links`, `line_pairings`, and `rate_limits` cannot be read by clients. All other unspecified paths are denied.
+`users/{uid}` contains `profiles`, `accounts`, `transactions`, `transaction_splits` (allowed by rules, not written yet), `categories`, `category_groups`, `attachments`, `investment_holdings`, `preferences`, and read-only `integrations`. Field reference: [Data model](docs/data-model.md). Profiles use the UID as document ID; other entities keep their existing IDs and snake_case fields. Money values are decimal strings. Budgets remain category fields, goals remain account fields, recurring/reminder metadata remains on transactions, and attachment metadata references Storage paths. Global server-only `line_links`, `line_pairings`, and `rate_limits` cannot be read by clients. All other unspecified paths are denied.
 
 **Backend changes:** update `firebase/firestore.rules`, `firebase/storage.rules`, Functions and tests together. Run emulator tests and the function build; merging to `main` deploys them through CI once tests pass. `firebase/tools/import_legacy.cjs` imports existing exported users, records and files with stable IDs; dry run is the default. Historical SQL design notes under `docs/superpowers/` describe the replaced backend, not active deployment instructions.
 
@@ -235,9 +232,9 @@ Profile deletion calls the authenticated `deleteAccount` callable. It requires a
 
 ## Design System
 
-Source of truth for visuals/patterns/components. Don't add one-off colors/radii when a token exists. Code: `lib/theme/aiko_colors.dart`, `aiko_theme.dart`, `aiko_typography.dart`, `aiko_spacing.dart`.
+Source of truth for visuals/patterns/components. Don't add one-off colors/radii when a token exists. Code: `lib/theme/aiko_colors.dart`, `aiko_theme.dart`, `aiko_typography.dart`; spacing and radii are applied in component themes and widgets (no spacing token file yet). Code map: [Design system implementation](docs/design-system.md).
 
-**Tokens — three layers:** Primitive (`AikoColors`, `AikoTypography`), Semantic (`ColorScheme`, theme extensions), Component (`AikoTheme`, shared widgets).
+**Tokens — three layers:** Primitive (`AikoColors`, `AikoTypography`), Semantic (`ColorScheme`; no custom theme extensions yet), Component (`AikoTheme`, shared widgets).
 
 ### Color
 
@@ -307,7 +304,7 @@ Shape: cards/rows/inputs/chips/segmented 8px radius; bottom sheets 20px top; FAB
 | Assistant & AI | Cite context, give actions/dismiss reasons, no filler, semantic finance states even with purple. |
 | Planning & education | Progressive disclosure. Show progress/saved state. Calculators: input → result → conversion. Reports pair charts with summary text. |
 | Supplemental tools | Extend an owning feature, never duplicate top-level screens. First viewport shows the task object. Sticky bottom bars for completion. |
-| Placeholders | State what the feature will do + one action. No fake dashboards. Use `AikoScreenState` / `AikoFeatureOverviewScreen`. |
+| Placeholders | State what the feature will do + one action. No fake dashboards. Use `AikoScreenState`. |
 
 ### Components
 
@@ -341,7 +338,7 @@ Use `AikoScreenState` for loading/empty/error/offline/locked.
 
 Material Icons primary; custom SVGs for brand moments only. Sizes: 16 inline, 20 list-leading, 24 toolbar, 48 hero. Colors: Default `onSurface`, Active `primary`, Destructive `danger`, AI/premium `tertiary`, Muted `mutedText`.
 
-Reusable SVGs in `assets/icons/` as `aiko_<name>.svg`, `viewBox="0 0 24 24"`, `currentColor`, stroke-based, single-color. Don't mix filled/duotone/outline in one group. New required SVGs need tests in `test/shared/widgets/aiko_svg_assets_test.dart` before UI reliance. Required: `aiko_home`, `aiko_transactions`, `aiko_budget`, `aiko_aiko`, `aiko_account`, `aiko_bank`, `aiko_wallet`, `aiko_credit_card`, `aiko_category`, `aiko_receipt`, `aiko_search_filter`, `aiko_goal`, `aiko_cash_flow`, `aiko_debt`, `aiko_loan`, `aiko_portfolio`, `aiko_tax`, `aiko_calculator`, `aiko_travel`, `aiko_security`, `aiko_notification`.
+Reusable SVGs in `assets/icons/` as `aiko_<name>.svg`, `viewBox="0 0 24 24"`, `currentColor`, stroke-based, single-color. Don't mix filled/duotone/outline in one group. Today only `aiko_aiko.svg` (avatar mark) and `aiko_title.svg` ship, and the UI uses Material Icons. Add an asset test (for example `test/shared/widgets/aiko_svg_assets_test.dart`) with each new brand SVG before the UI relies on it. Planned brand set (not drawn yet): `aiko_home`, `aiko_transactions`, `aiko_budget`, `aiko_aiko`, `aiko_account`, `aiko_bank`, `aiko_wallet`, `aiko_credit_card`, `aiko_category`, `aiko_receipt`, `aiko_search_filter`, `aiko_goal`, `aiko_cash_flow`, `aiko_debt`, `aiko_loan`, `aiko_portfolio`, `aiko_tax`, `aiko_calculator`, `aiko_travel`, `aiko_security`, `aiko_notification`.
 
 ### Aiko Character Usage
 
@@ -394,23 +391,29 @@ Account-type-specific inputs: add each from fresh state (subform appears/validat
 
 ```bash
 flutter test                       # money types, formatters, prediction, models, providers, rules,
-                                   # feature gating, parsers
+                                   # codecs/migrations, parsers
 ```
 
 **Quality gates — run all before any release:**
 
 ```bash
 npm --prefix firebase/functions test
-npm run test:rules                 # requires the emulators
+npm run test:rules                 # requires running emulators; or wrap it in
+                                   # npx firebase emulators:exec --project demo-aiko --only auth,firestore,storage,functions
 flutter build web
 dart format --set-exit-if-changed lib test
 flutter analyze lib test
 flutter test
+npm run docs:check
 ```
+
+CI runs these on every push ([Testing](docs/testing.md)).
 
 ---
 
 ## Monetization & Security
+
+Planned tiers. No plan gating exists in code yet; every feature is available to every user.
 
 | Plan | Includes |
 | --- | --- |
@@ -418,31 +421,31 @@ flutter test
 | **Premium** | Unlimited accounts, advanced reports, AI recommendations, forecasting, OCR, CC optimization, portfolio analytics, tax reports, PDF/Excel export, multi-device sync |
 | **Pro** | Double-entry accounting, balance sheets, reconciliation, business reports, invoices, multi-user, advanced tax, estate planning, full Monte Carlo, API access |
 
-**Security:** Secure token storage, remote device logout, conflict resolution, granular privacy (AI use acknowledged at onboarding, local-only mode).
+**Security:** secure storage for device keys, owner-only Security Rules, server-side secrets, last-write-wins sync, local-only mode. Not built yet: remote device logout, AI-use acknowledgement (the old onboarding consent flag was removed), PIN/biometric app lock. Details: [Security and privacy](docs/security.md).
 
 ---
 
 ## Roadmap
 
-Phases 1–6 ✅ (Foundation; Core Finance; Intelligence; Advanced Finance; Wealth; Platform). **Future:** Open Banking sync, advanced retirement, estate planning, automated AI advisor, Pro API access.
+Phases 1–6 ✅ (Foundation; Core Finance; Intelligence; Advanced Finance; Wealth; Platform): core flows shipped; unfinished items are in [Known gaps](docs/features.md#known-gaps). **Future:** Open Banking sync, advanced retirement, estate planning, automated AI advisor, Pro API access.
 
 ## Common Tasks
 
 - **New feature module:** create `lib/features/<name>/` (4 layers); add routes; new collection → owner-scoped Firebase rules; offline → model + both codecs + SQLite migration; register app-wide providers; add model/repository-fallback/provider tests; use `Money`.
-- **New calculator:** add file in `lib/features/calculators/`, register in the hub category list, and add persistence/conversion only when the product flow exists.
+- **New calculator:** add a `_CalculatorItem` in `calculator_library_screen.dart` and its `_CalculatorKind`/config in `calculator_detail_screen.dart` (pure math in `CalculatorServices`, with tests); add persistence/conversion only when the product flow exists.
 - **New generated insight surface:** add the product screen first, then define the generator, persistence model/table, provider, display states, source-data references, Security Rules, and tests.
 - **New backend field:** extend its document codec, local SQLite migration, Security Rules, and round-trip/emulator coverage.
 
 ## Key Principles
 
-1. Clarity first. 2. Data first, Aiko enhanced. 3. Decimal-safe money (never `double`). 4. Privacy by design (Security Rules everywhere, encrypted storage, AI acknowledged at onboarding). 5. Offline first. 6. Actionable insights. 7. Warm, non-judgmental tone. 8. Test before ship.
+1. Clarity first. 2. Data first, Aiko enhanced. 3. Decimal-safe money (never `double`). 4. Privacy by design (Security Rules everywhere, secrets server-side, local-only mode; planned: encrypted local storage, AI use acknowledged at onboarding). 5. Offline first. 6. Actionable insights. 7. Warm, non-judgmental tone. 8. Test before ship.
 
 ## Contributing
 
-Use `Money` (never `double`); go through repositories (screens never touch Firebase/Brick/SQLite); update local models/codecs for offline; add Security Rules to every new collection; consume shared widgets/tokens; write unit tests for new models/providers; run the QA checklist + all quality gates; keep Aiko's voice warm and non-judgmental.
+Use `Money` (never `double`); go through repositories (screens never touch Firebase/Brick/SQLite); update local models/codecs for offline; add Security Rules to every new collection; consume shared widgets/tokens; write unit tests for new models/providers; run the QA checklist + all quality gates; keep Aiko's voice warm and non-judgmental. Step-by-step recipes: [Contributing](docs/contributing.md).
 
 **License:** Private; not published to pub.dev. See `pubspec.yaml`.
 
 ## Task plan
 
-See [`TASKS.md`](./TASKS.md) for the prioritized, phased list. Phase 0 is small/low-risk (data-loss / security); Phases 1–7 grow in scope. Don't skip phases.
+There is no `TASKS.md`; open work is tracked in [Features → Known gaps](docs/features.md#known-gaps). Fix small, low-risk data-loss and security gaps first, then grow scope.

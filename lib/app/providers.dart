@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/config/app_config.dart';
 import '../core/notifications/transaction_reminder_service.dart';
 import '../features/dashboard/application/dashboard_summary_builder.dart';
+import '../features/transactions/application/transaction_totals.dart';
 import '../features/transactions/data/transaction_repository.dart';
 import '../features/accounts/application/shared_limit_resolver.dart';
 import '../features/accounts/data/account_repository.dart';
@@ -27,7 +28,6 @@ import '../features/settings/data/profile_repository.dart';
 import '../features/settings/domain/profile.dart';
 import '../features/transactions/domain/transaction.dart';
 import '../features/investments/data/investment_holding_repository.dart';
-import '../core/money/money.dart';
 import '../core/money/exchange_rate_service.dart';
 import '../core/firebase/firebase_backend.dart';
 import '../core/offline/firestore_sync_state.dart';
@@ -92,35 +92,46 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
     }
   }
 
+  /// Saves [transaction] (insert or update) and keeps account balances in
+  /// step. The list updates in place: no loading flash, and a failed save
+  /// leaves the previous list showing before rethrowing.
   Future<FinanceTransaction> saveTransaction(
     FinanceTransaction transaction, {
     bool updateAccountBalance = true,
   }) async {
-    late final FinanceTransaction saved;
-    final previousTransactions = state.hasValue ? state.value : null;
-    state = const AsyncValue.loading();
-    final nextState = await AsyncValue.guard(() async {
-      final repo = ref.read(transactionRepositoryProvider);
-      final transactions = previousTransactions ?? await repo.list();
-      final previousTransaction = _transactionById(
-        transactions,
-        transaction.id,
-      );
-      saved = await repo.save(transaction);
-      if (updateAccountBalance) {
-        await _syncAccountBalances(
-          previousTransaction: previousTransaction,
-          nextTransaction: saved,
+    final saved = await saveTransactions([
+      transaction,
+    ], updateAccountBalance: updateAccountBalance);
+    return saved.single;
+  }
+
+  /// Saves several rows (both legs of a transfer) and updates the list once.
+  /// Rows saved before a failure still appear; the error is rethrown.
+  Future<List<FinanceTransaction>> saveTransactions(
+    List<FinanceTransaction> transactions, {
+    bool updateAccountBalance = true,
+  }) async {
+    final repo = ref.read(transactionRepositoryProvider);
+    final current = state.value ?? await repo.list();
+    final saved = <FinanceTransaction>[];
+    try {
+      for (final transaction in transactions) {
+        final previousTransaction = _transactionById(current, transaction.id);
+        final result = await repo.save(transaction);
+        saved.add(result);
+        if (updateAccountBalance) {
+          await _syncAccountBalances(
+            previousTransaction: previousTransaction,
+            nextTransaction: result,
+          );
+        }
+      }
+    } finally {
+      if (ref.mounted && saved.isNotEmpty) {
+        state = AsyncValue.data(
+          upsertTransactionsByDate(state.value ?? current, saved),
         );
       }
-      return repo.list();
-    });
-    if (!ref.mounted) {
-      return saved;
-    }
-    state = nextState;
-    if (state.hasError) {
-      Error.throwWithStackTrace(state.error!, state.stackTrace!);
     }
     return saved;
   }
@@ -135,22 +146,35 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
     );
   }
 
-  Future<void> deleteTransaction(String id) async {
-    final previousTransactions = state.hasValue ? state.value : null;
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final repo = ref.read(transactionRepositoryProvider);
-      final transactions = previousTransactions ?? await repo.list();
-      final previousTransaction = _transactionById(transactions, id);
+  /// Deletes [id] and, for a linked transfer leg, its partner leg too, so a
+  /// transfer never loses one side. Returns the ids removed. A failure keeps
+  /// the previous list (minus anything already deleted) and rethrows.
+  Future<List<String>> deleteTransaction(String id) async {
+    final repo = ref.read(transactionRepositoryProvider);
+    final current = state.value ?? await repo.list();
+    final target = _transactionById(current, id);
+    final partners = target == null
+        ? const <FinanceTransaction>[]
+        : transferPartnersOf(target, current);
+    final deletedIds = <String>{};
+    try {
       await repo.delete(id);
-      await _syncAccountBalances(previousTransaction: previousTransaction);
-      return transactions
-          .where((transaction) => transaction.id != id)
-          .toList(growable: false);
-    });
-    if (state.hasError) {
-      Error.throwWithStackTrace(state.error!, state.stackTrace!);
+      deletedIds.add(id);
+      await _syncAccountBalances(previousTransaction: target);
+      for (final partner in partners) {
+        await repo.delete(partner.id);
+        deletedIds.add(partner.id);
+        await _syncAccountBalances(previousTransaction: partner);
+      }
+    } finally {
+      if (ref.mounted && deletedIds.isNotEmpty) {
+        state = AsyncValue.data([
+          for (final transaction in state.value ?? current)
+            if (!deletedIds.contains(transaction.id)) transaction,
+        ]);
+      }
     }
+    return deletedIds.toList(growable: false);
   }
 
   FinanceTransaction? _transactionById(
@@ -244,10 +268,10 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
           continue;
         }
 
-        var balance = Money.zero(account.currency);
-        for (final transaction in accountTransactions) {
-          balance = transaction.applyToAccountBalance(balance);
-        }
+        final balance = balanceFromTransactions(
+          accountTransactions,
+          account.currency,
+        );
 
         if (balance != account.currentBalance) {
           await accountsNotifier.saveAccount(
@@ -663,20 +687,21 @@ final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummary>((
 /// Monthly Report figures derived live from the user's real transactions and
 /// categories. No mock data — returns an empty-but-valid report when there is
 /// nothing logged this month.
-final monthlyReportProvider = FutureProvider.autoDispose<MonthlyReport>((
-  ref,
-) async {
-  final transactions = await ref.watch(transactionsProvider.future);
-  final categories = await ref.watch(categoriesProvider.future);
-  final report = const MonthlyReportService().build(
-    transactions: transactions,
-    categories: categories,
-    asOf: DateTime.now(),
-    l10n: _l10nOf(ref),
-  );
-  ref.keepAlive();
-  return report;
-});
+/// Monthly report for the calendar month containing the key (pass the
+/// month's first day, e.g. `DateTime(2026, 10)`).
+final monthlyReportProvider = FutureProvider.autoDispose
+    .family<MonthlyReport, DateTime>((ref, month) async {
+      final transactions = await ref.watch(transactionsProvider.future);
+      final categories = await ref.watch(categoriesProvider.future);
+      final report = const MonthlyReportService().build(
+        transactions: transactions,
+        categories: categories,
+        asOf: DateTime(month.year, month.month),
+        l10n: _l10nOf(ref),
+      );
+      ref.keepAlive();
+      return report;
+    });
 
 /// Cash-flow overview (this month's in/out/net + 12-month net trend) from real
 /// transactions.

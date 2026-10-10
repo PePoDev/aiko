@@ -739,8 +739,9 @@ class _RelatedTransactionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isIncome = transaction.type == TransactionType.income;
-    final amount = '${isIncome ? '+' : '-'}${transaction.amount.format()}';
+    final isIncome = transaction.isInflow;
+    final amount =
+        '${isIncome ? '+' : '-'}${transaction.absoluteAmount.format()}';
     final title = transaction.merchant?.trim().isNotEmpty == true
         ? transaction.merchant!.trim()
         : transaction.note?.trim().isNotEmpty == true

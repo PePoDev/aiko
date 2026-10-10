@@ -22,6 +22,7 @@ class OfflineTransaction extends SqliteModel {
     this.recurringDayOfMonth,
     this.recurringMonthOfYear,
     this.reminderAt,
+    this.transferGroupId,
     DateTime? updatedAt,
     this.version = 1,
   }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
@@ -73,6 +74,9 @@ class OfflineTransaction extends SqliteModel {
 
   /// Local time to fire a reminder notification. null = no reminder.
   final DateTime? reminderAt;
+
+  /// Links the two legs of one transfer. null on other rows and legacy legs.
+  final String? transferGroupId;
 
   @Sqlite(name: 'updated_at')
   final DateTime updatedAt;

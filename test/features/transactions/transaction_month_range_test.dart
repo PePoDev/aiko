@@ -77,4 +77,18 @@ void main() {
       const TransactionMonth(2026, 12),
     );
   });
+
+  test('month query value round-trips YYYY-MM', () {
+    const month = TransactionMonth(2026, 3);
+    expect(month.queryValue, '2026-03');
+    expect(TransactionMonth.tryParseQuery('2026-03'), month);
+  });
+
+  test('malformed month queries are ignored', () {
+    expect(TransactionMonth.tryParseQuery(null), isNull);
+    expect(TransactionMonth.tryParseQuery(''), isNull);
+    expect(TransactionMonth.tryParseQuery('2026-13'), isNull);
+    expect(TransactionMonth.tryParseQuery('2026-3'), isNull);
+    expect(TransactionMonth.tryParseQuery('March'), isNull);
+  });
 }

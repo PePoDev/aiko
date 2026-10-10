@@ -15,6 +15,7 @@ import '../../accounts/presentation/accounts_screen.dart';
 import '../../categories/domain/category.dart';
 import '../../categories/presentation/category_editor_sheet.dart';
 import '../../categories/presentation/category_names.dart';
+import '../../categories/presentation/category_visual.dart';
 import '../domain/transaction.dart';
 import 'transaction_form_screen.dart';
 
@@ -49,11 +50,20 @@ class _TransactionDetailScreenState
   }
 
   Future<void> _deleteTransaction() async {
+    // A linked transfer leg is deleted together with its partner.
+    final isLinkedTransfer = transferPartnersOf(
+      _transaction,
+      ref.read(transactionsProvider).value ?? const [],
+    ).isNotEmpty;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.txDeleteQuestion),
-        content: Text(context.l10n.txDeleteConfirm),
+        content: Text(
+          isLinkedTransfer
+              ? context.l10n.txDeleteTransferConfirm
+              : context.l10n.txDeleteConfirm,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -73,10 +83,12 @@ class _TransactionDetailScreenState
     }
 
     try {
-      await ref
+      final deletedIds = await ref
           .read(transactionsProvider.notifier)
           .deleteTransaction(_transaction.id);
-      await TransactionReminderService.instance.cancel(_transaction.id);
+      for (final id in deletedIds) {
+        await TransactionReminderService.instance.cancel(id);
+      }
       if (!mounted) {
         return;
       }
@@ -107,7 +119,8 @@ class _TransactionDetailScreenState
     final account = accountsAsync.whenOrNull(
       data: (accounts) => _accountFor(accounts, transaction.accountId),
     );
-    final accountName = account?.name ?? transaction.accountId;
+    // A deleted account or category shows a readable fallback, never its id.
+    final accountName = account?.name ?? context.l10n.txUnknownAccount;
 
     final category = transaction.categoryId == null
         ? null
@@ -117,25 +130,25 @@ class _TransactionDetailScreenState
           );
     final categoryName = transaction.categoryId == null
         ? null
-        : category?.displayName(context.l10n) ?? transaction.categoryId;
+        : category?.displayName(context.l10n) ?? context.l10n.uncategorized;
     final categoryIcon = transaction.categoryId != null
         ? (category == null
               ? Icons.category_outlined
-              : _categoryIconFor(category.icon))
+              : aikoCategoryIcon(category.icon))
         : null;
     final categoryColor = transaction.categoryId != null
         ? (category == null
               ? AikoColors.primaryBlue
-              : _parseHexColor(category.color))
+              : aikoHexColor(category.color))
         : null;
-    final fallbackIcon = transaction.type == TransactionType.income
+    final fallbackIcon = transaction.isInflow
         ? Icons.south_west
         : Icons.north_east;
     final accent =
         categoryColor ??
-        (transaction.type == TransactionType.income
-            ? AikoColors.successGreen
-            : AikoColors.deepBlue);
+        (transaction.isInflow ? AikoColors.successGreen : AikoColors.deepBlue);
+    // Adjustments mirror the account's balance; they're changed from there.
+    final isAdjustment = transaction.type == TransactionType.adjustment;
 
     return Scaffold(
       appBar: AppBar(
@@ -146,11 +159,12 @@ class _TransactionDetailScreenState
             onPressed: _deleteTransaction,
             icon: const Icon(Icons.delete_outline),
           ),
-          IconButton(
-            tooltip: context.l10n.txEditTitle,
-            onPressed: _editTransaction,
-            icon: const Icon(Icons.edit_outlined),
-          ),
+          if (!isAdjustment)
+            IconButton(
+              tooltip: context.l10n.txEditTitle,
+              onPressed: _editTransaction,
+              icon: const Icon(Icons.edit_outlined),
+            ),
         ],
       ),
       body: ListView(
@@ -210,6 +224,15 @@ class _TransactionDetailScreenState
                     value: transaction.tags.join(', '),
                   ),
                 ],
+                if (isAdjustment) ...[
+                  const Divider(),
+                  Text(
+                    context.l10n.txAdjustmentEditHint,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
                 if (transaction.reminderAt != null) ...[
                   const Divider(),
                   _DetailRow(
@@ -245,44 +268,8 @@ class _TransactionDetailScreenState
   }
 
   String _signedAmount(FinanceTransaction transaction) {
-    final sign = transaction.type == TransactionType.income ? '+' : '-';
-    return '$sign${transaction.amount.format()}';
-  }
-
-  IconData _categoryIconFor(String iconName) {
-    switch (iconName) {
-      case 'food':
-        return Icons.restaurant_outlined;
-      case 'housing':
-        return Icons.home_outlined;
-      case 'travel':
-        return Icons.flight_outlined;
-      case 'coffee':
-        return Icons.coffee_outlined;
-      case 'shopping':
-        return Icons.shopping_bag_outlined;
-      case 'savings':
-        return Icons.savings_outlined;
-      case 'investing':
-        return Icons.trending_up_outlined;
-      case 'gym':
-        return Icons.fitness_center_outlined;
-      case 'salary':
-        return Icons.attach_money_outlined;
-      case 'entertainment':
-        return Icons.movie_outlined;
-      default:
-        return Icons.category_outlined;
-    }
-  }
-
-  Color _parseHexColor(String hexStr) {
-    try {
-      final hexColor = hexStr.replaceAll('#', '');
-      return Color(int.parse('FF$hexColor', radix: 16));
-    } catch (_) {
-      return AikoColors.primaryBlue;
-    }
+    final sign = transaction.isInflow ? '+' : '-';
+    return '$sign${transaction.absoluteAmount.format()}';
   }
 
   Account? _accountFor(List<Account> accounts, String accountId) {
@@ -398,11 +385,11 @@ class _SplitRow extends StatelessWidget {
                       );
                       return category.displayName(context.l10n);
                     } catch (_) {
-                      return split.categoryId;
+                      return context.l10n.uncategorized;
                     }
                   },
                 ) ??
-                split.categoryId)
+                context.l10n.uncategorized)
             as String;
 
     return _DetailRow(label: categoryName, value: split.amount.format());

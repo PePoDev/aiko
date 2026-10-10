@@ -256,11 +256,17 @@ class _ChanceBody extends ConsumerWidget {
 }
 
 class MonthlyReportScreen extends ConsumerWidget {
-  const MonthlyReportScreen({super.key});
+  const MonthlyReportScreen({super.key, this.month});
+
+  /// Any day in the month to report on; the current month when null.
+  final DateTime? month;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final reportAsync = ref.watch(monthlyReportProvider);
+    final now = DateTime.now();
+    final target = DateTime((month ?? now).year, (month ?? now).month);
+    final isCurrentMonth = target.year == now.year && target.month == now.month;
+    final reportAsync = ref.watch(monthlyReportProvider(target));
     return AikoDetailScaffold(
       title: context.l10n.reportTitle,
       children: [
@@ -279,7 +285,11 @@ class MonthlyReportScreen extends ConsumerWidget {
             }
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: _reportBody(context, report),
+              children: _reportBody(
+                context,
+                report,
+                isCurrentMonth ? null : target,
+              ),
             );
           },
         ),
@@ -287,7 +297,12 @@ class MonthlyReportScreen extends ConsumerWidget {
     );
   }
 
-  List<Widget> _reportBody(BuildContext context, MonthlyReport report) {
+  /// [pastMonth] names the month in the headline when it isn't this one.
+  List<Widget> _reportBody(
+    BuildContext context,
+    MonthlyReport report,
+    DateTime? pastMonth,
+  ) {
     final savedMore = report.savedVsLastMonth;
     final savedAbs = Money(
       amount: savedMore.amount.abs(),
@@ -304,7 +319,9 @@ class MonthlyReportScreen extends ConsumerWidget {
       AikoInlineNotice(
         title: savedMore.isNegative
             ? context.l10n.reportWatchPace
-            : context.l10n.txFilterThisMonth,
+            : pastMonth == null
+            ? context.l10n.txFilterThisMonth
+            : DateFormat.yMMMM().format(pastMonth),
         message: headline,
         icon: savedMore.isNegative
             ? Icons.trending_down

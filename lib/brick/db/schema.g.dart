@@ -1,6 +1,7 @@
 // GENERATED CODE DO NOT EDIT
 // This file should be version controlled
 import 'package:brick_sqlite/db.dart';
+part '20261010120000.migration.dart';
 part '20260725185723.migration.dart';
 part '20260523055312.migration.dart';
 part '20260523183433.migration.dart';
@@ -23,6 +24,7 @@ part '20260620095103.migration.dart';
 
 /// All intelligently-generated migrations from all `@Migratable` classes on disk
 final migrations = <Migration>{
+  const Migration20261010120000(),
   const Migration20260725185723(),
   const Migration20260523055312(),
   const Migration20260523183433(),
@@ -46,7 +48,7 @@ final migrations = <Migration>{
 
 /// A consumable database structure including the latest generated migration.
 final schema = Schema(
-  20260725185723,
+  20261010120000,
   generatorVersion: 1,
   tables: <SchemaTable>{
     SchemaTable(
@@ -230,6 +232,7 @@ final schema = Schema(
         SchemaColumn('recurring_day_of_month', Column.integer),
         SchemaColumn('recurring_month_of_year', Column.integer),
         SchemaColumn('reminder_at', Column.datetime),
+        SchemaColumn('transfer_group_id', Column.varchar),
         SchemaColumn('updated_at', Column.datetime),
         SchemaColumn('version', Column.integer),
       },

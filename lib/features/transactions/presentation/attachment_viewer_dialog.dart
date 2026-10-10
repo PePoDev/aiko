@@ -15,7 +15,7 @@ import '../domain/transaction_attachment.dart';
 /// and plain-text-like files (txt/csv/md) as a scrollable monospace block.
 /// Anything else falls back to a "preview not available" message with the
 /// file path so the user can open it externally.
-class AttachmentViewerDialog extends StatelessWidget {
+class AttachmentViewerDialog extends StatefulWidget {
   const AttachmentViewerDialog({required this.attachment, super.key});
 
   final TransactionAttachment attachment;
@@ -32,6 +32,17 @@ class AttachmentViewerDialog extends StatelessWidget {
   }
 
   @override
+  State<AttachmentViewerDialog> createState() => _AttachmentViewerDialogState();
+}
+
+class _AttachmentViewerDialogState extends State<AttachmentViewerDialog> {
+  // Read once when the viewer opens, not on every rebuild.
+  late final Future<Uint8List> _bytes = const TransactionAttachmentRepository()
+      .readBytes(widget.attachment);
+
+  TransactionAttachment get attachment => widget.attachment;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Dialog(
@@ -40,32 +51,40 @@ class AttachmentViewerDialog extends StatelessWidget {
       child: Stack(
         children: [
           Positioned.fill(child: _body(context, theme)),
+          // Dark scrim so the white title and close button stay readable over
+          // light text and "preview unavailable" pages too.
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        attachment.fileName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
+            child: ColoredBox(
+              color: Colors.black54,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          attachment.fileName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: context.l10n.close,
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
+                      IconButton(
+                        tooltip: context.l10n.close,
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -77,7 +96,7 @@ class AttachmentViewerDialog extends StatelessWidget {
 
   Widget _body(BuildContext context, ThemeData theme) {
     return FutureBuilder<Uint8List>(
-      future: const TransactionAttachmentRepository().readBytes(attachment),
+      future: _bytes,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _Fallback(message: context.l10n.attachmentLoadFailed);

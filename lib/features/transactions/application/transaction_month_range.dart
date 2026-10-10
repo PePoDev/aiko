@@ -31,6 +31,19 @@ class TransactionMonth implements Comparable<TransactionMonth> {
 
   @override
   int get hashCode => Object.hash(year, month);
+
+  /// `YYYY-MM`, the form used in route queries (`/reports/monthly?month=`).
+  String get queryValue =>
+      '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}';
+
+  /// Parses [queryValue]'s `YYYY-MM`; null when missing or malformed.
+  static TransactionMonth? tryParseQuery(String? value) {
+    final match = RegExp(r'^(\d{4})-(\d{2})$').firstMatch(value?.trim() ?? '');
+    if (match == null) return null;
+    final month = int.parse(match[2]!);
+    if (month < 1 || month > 12) return null;
+    return TransactionMonth(int.parse(match[1]!), month);
+  }
 }
 
 class TransactionMonthRangeService {

@@ -47,6 +47,7 @@ Future<OfflineTransaction> _$OfflineTransactionFromFirestore(
         : data['reminder_at'] == null
         ? null
         : DateTime.tryParse(data['reminder_at'] as String),
+    transferGroupId: data['transfer_group_id'] as String?,
     updatedAt: data['updated_at'] == null
         ? null
         : DateTime.tryParse(data['updated_at'] as String),
@@ -80,6 +81,7 @@ Future<Map<String, dynamic>> _$OfflineTransactionToFirestore(
     'recurring_day_of_month': instance.recurringDayOfMonth,
     'recurring_month_of_year': instance.recurringMonthOfYear,
     'reminder_at': instance.reminderAt?.toIso8601String(),
+    'transfer_group_id': instance.transferGroupId,
     'updated_at': instance.updatedAt.toIso8601String(),
     'version': instance.version,
   };
@@ -131,6 +133,7 @@ Future<OfflineTransaction> _$OfflineTransactionFromSqlite(
         : data['reminder_at'] == null
         ? null
         : DateTime.tryParse(data['reminder_at'] as String),
+    transferGroupId: data['transfer_group_id'] as String?,
     updatedAt: DateTime.parse(data['updated_at'] as String),
     version: data['version'] as int,
   )..primaryKey = data['_brick_id'] as int;
@@ -162,6 +165,7 @@ Future<Map<String, dynamic>> _$OfflineTransactionToSqlite(
     'recurring_day_of_month': instance.recurringDayOfMonth,
     'recurring_month_of_year': instance.recurringMonthOfYear,
     'reminder_at': instance.reminderAt?.toIso8601String(),
+    'transfer_group_id': instance.transferGroupId,
     'updated_at': instance.updatedAt.toIso8601String(),
     'version': instance.version,
   };
@@ -300,6 +304,12 @@ class OfflineTransactionAdapter extends FirestoreAdapter<OfflineTransaction> {
       columnName: 'reminder_at',
       iterable: false,
       type: DateTime,
+    ),
+    'transferGroupId': const RuntimeSqliteColumnDefinition(
+      association: false,
+      columnName: 'transfer_group_id',
+      iterable: false,
+      type: String,
     ),
     'updatedAt': const RuntimeSqliteColumnDefinition(
       association: false,

@@ -21,7 +21,30 @@ enum TransactionType {
   creditCardPayment,
   taxPayment,
   fee,
-  adjustment,
+
+  /// Balance correction (an account's opening balance, or the difference when
+  /// the balance is edited). Its amount is SIGNED: positive raises the
+  /// balance, negative lowers it. Never income or spending.
+  adjustment;
+
+  /// Money coming into the account: income, the inbound transfer leg,
+  /// refunds, dividends, interest and investment sales. Every other type
+  /// (except a signed [adjustment]) takes money out.
+  bool get isInflow => switch (this) {
+    income ||
+    transferIn ||
+    refund ||
+    dividend ||
+    interest ||
+    investmentSell => true,
+    _ => false,
+  };
+
+  /// A transfer row (either leg, or a legacy single-row transfer). Transfers
+  /// move money between the user's own accounts, so they are neither income
+  /// nor spending.
+  bool get isTransfer =>
+      this == transfer || this == transferIn || this == transferOut;
 }
 
 enum TransactionStatus { draft, posted, voided, archived }
@@ -106,6 +129,7 @@ class FinanceTransaction {
     this.recurringFrequency,
     this.recurringSettings,
     this.reminderAt,
+    this.transferGroupId,
   }) : assert(
          !isRecurring || recurringFrequency != null,
          'A recurring transaction must declare a frequency.',
@@ -138,24 +162,41 @@ class FinanceTransaction {
   /// Local wall-clock time to fire a reminder notification. null = no reminder.
   final DateTime? reminderAt;
 
+  /// Shared by the two legs (`transferOut` + `transferIn`) of one transfer so
+  /// they are edited and deleted together. null on every other row and on
+  /// transfer legs saved before legs were linked.
+  final String? transferGroupId;
+
   bool get isExpense => type == TransactionType.expense;
 
   /// Whether this transaction adds to (rather than subtracts from) its
-  /// account balance: income and the inbound leg of a transfer.
-  bool get _isInflow =>
-      type == TransactionType.income || type == TransactionType.transferIn;
+  /// account balance. Adjustments carry their own sign.
+  bool get isInflow =>
+      type == TransactionType.adjustment ? !amount.isNegative : type.isInflow;
+
+  /// The change this row makes to its account's balance: positive for money
+  /// in, negative for money out.
+  Money get signedAmount {
+    if (type == TransactionType.adjustment || type.isInflow) return amount;
+    return Money(amount: -amount.amount, currency: amount.currency);
+  }
+
+  /// The amount without its sign, for display next to a `+`/`-` from
+  /// [isInflow].
+  Money get absoluteAmount =>
+      Money(amount: amount.amount.abs(), currency: amount.currency);
 
   // ponytail: no-FX rule — a transaction in a different currency than the
   // account leaves the balance untouched (no rate stored to convert with).
   // Add conversion here if/when transactions carry an exchange rate.
   Money applyToAccountBalance(Money balance) {
     if (amount.currency != balance.currency) return balance;
-    return _isInflow ? balance + amount : balance - amount;
+    return balance + signedAmount;
   }
 
   Money reverseFromAccountBalance(Money balance) {
     if (amount.currency != balance.currency) return balance;
-    return _isInflow ? balance - amount : balance + amount;
+    return balance - signedAmount;
   }
 
   FinanceTransaction copyWith({
@@ -175,6 +216,7 @@ class FinanceTransaction {
     RecurringSettings? recurringSettings,
     DateTime? reminderAt,
     bool clearReminderAt = false,
+    String? transferGroupId,
   }) {
     return FinanceTransaction(
       id: id,
@@ -193,8 +235,36 @@ class FinanceTransaction {
       recurringFrequency: recurringFrequency ?? this.recurringFrequency,
       recurringSettings: recurringSettings ?? this.recurringSettings,
       reminderAt: clearReminderAt ? null : (reminderAt ?? this.reminderAt),
+      transferGroupId: transferGroupId ?? this.transferGroupId,
     );
   }
+}
+
+/// The balance [transactions] add up to for an account in [currency],
+/// starting from zero (the opening balance is itself an adjustment row).
+Money balanceFromTransactions(
+  Iterable<FinanceTransaction> transactions,
+  String currency,
+) {
+  var balance = Money.zero(currency);
+  for (final transaction in transactions) {
+    balance = transaction.applyToAccountBalance(balance);
+  }
+  return balance;
+}
+
+/// The other leg(s) of [transaction]'s transfer: rows in [all] sharing its
+/// [FinanceTransaction.transferGroupId]. Empty for unlinked rows.
+List<FinanceTransaction> transferPartnersOf(
+  FinanceTransaction transaction,
+  Iterable<FinanceTransaction> all,
+) {
+  final groupId = transaction.transferGroupId;
+  if (groupId == null) return const [];
+  return [
+    for (final other in all)
+      if (other.transferGroupId == groupId && other.id != transaction.id) other,
+  ];
 }
 
 class TransactionSplit {

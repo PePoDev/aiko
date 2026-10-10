@@ -116,10 +116,8 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
         final StringBuffer rowsBuffer = StringBuffer();
         for (final tx in filtered) {
           final dateStr = DateFormat('yyyy-MM-dd HH:mm').format(tx.date);
-          final amountClass = tx.type == TransactionType.income
-              ? 'amount-income'
-              : 'amount-expense';
-          final amountSign = tx.type == TransactionType.income ? '+' : '-';
+          final amountClass = tx.isInflow ? 'amount-income' : 'amount-expense';
+          final amountSign = tx.isInflow ? '+' : '-';
 
           rowsBuffer.write('''
             <tr>
@@ -127,7 +125,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
               <td>${escape(tx.merchant ?? '—')}</td>
               <td>${escape(categoryName(tx))}</td>
               <td class="type-caps">${escape(tx.type.label(l10n))}</td>
-              <td class="$amountClass">$amountSign ${currencyFormat.format(tx.amount.amount.toDouble())}</td>
+              <td class="$amountClass">$amountSign ${currencyFormat.format(tx.absoluteAmount.amount.toDouble())}</td>
             </tr>
           ''');
         }

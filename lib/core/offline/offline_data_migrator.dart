@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import '../../brick/models/investment_holding.model.dart';
 import 'package:brick_sqlite/brick_sqlite.dart' show SqliteModel;
 import 'package:flutter/foundation.dart';
@@ -21,7 +23,9 @@ import 'offline_user_context.dart';
 /// UI even though they are still in the local database.
 ///
 /// Each reclaimed row is re-upserted, which updates its local `user_id` in place
-/// (matched by its unique `id`) and queues it to sync up to Firebase.
+/// (matched by its unique `id`) and queues it to sync up to Firebase. Signed in,
+/// rows go up in batches of [OfflineStore.maxBatchWrites] with one server
+/// acknowledgement each, so a large local ledger doesn't stall sign-in.
 class OfflineDataMigrator {
   OfflineDataMigrator({OfflineStore? store}) : _store = store ?? OfflineStore();
 
@@ -110,11 +114,22 @@ class OfflineDataMigrator {
                 userIdOf(row).startsWith(OfflineUserContext.localUserIdPrefix),
           )
           .toList(growable: false);
-      for (final row in orphans) {
-        final claimed = reassign(row);
-        await _store.upsert<TModel>(claimed);
-        if (_store.canSyncRemote || idOf(claimed) != idOf(row)) {
-          await _store.delete<TModel>(row, localOnly: true);
+      // One batch (one server acknowledgement) per chunk, not one per row.
+      for (
+        var start = 0;
+        start < orphans.length;
+        start += OfflineStore.maxBatchWrites
+      ) {
+        final chunk = orphans.sublist(
+          start,
+          min(start + OfflineStore.maxBatchWrites, orphans.length),
+        );
+        final claimed = chunk.map(reassign).toList(growable: false);
+        await _store.upsertBatch<TModel>(claimed);
+        for (var i = 0; i < chunk.length; i++) {
+          if (_store.canSyncRemote || idOf(claimed[i]) != idOf(chunk[i])) {
+            await _store.delete<TModel>(chunk[i], localOnly: true);
+          }
         }
       }
       return orphans.length;

@@ -67,7 +67,8 @@ const dayAfter = (date: string) => new Date(Date.parse(`${date}T00:00:00Z`) + 86
 export class FinanceReader {
   documentsRead = 0;
   private readonly memo = new Map<string, Promise<Row[]>>();
-  private readonly categories = new Map<string, Row | undefined>();
+  // Promises, so tool calls running at the same time share one read per id.
+  private readonly categories = new Map<string, Promise<Row | undefined>>();
   constructor(private readonly uid: string) {}
   private collection(name: string) { return getFirestore().collection('users').doc(this.uid).collection(name); }
   private once(key: string, query: () => FirebaseFirestore.Query): Promise<Row[]> {
@@ -83,11 +84,12 @@ export class FinanceReader {
   async categoriesById(ids: unknown[]): Promise<Row[]> {
     const missing = [...new Set(ids.filter((id): id is string => typeof id === 'string' && id.length > 0 && !id.includes('/')))].filter(id => !this.categories.has(id));
     if (missing.length) {
-      const docs = await getFirestore().getAll(...missing.map(id => this.collection('categories').doc(id)));
-      this.documentsRead += docs.length;
-      docs.forEach((doc, i) => this.categories.set(missing[i], doc.data()));
+      const docs = getFirestore().getAll(...missing.map(id => this.collection('categories').doc(id)))
+        .then(docs => { this.documentsRead += docs.length; return docs; });
+      missing.forEach((id, i) => this.categories.set(id, docs.then(d => d[i].data())));
     }
-    return ids.map(id => this.categories.get(String(id))).filter((c): c is Row => !!c);
+    const rows = await Promise.all(ids.map(id => this.categories.get(String(id))));
+    return rows.filter((c): c is Row => !!c);
   }
 }
 

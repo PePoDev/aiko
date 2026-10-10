@@ -128,6 +128,15 @@ class _TransactionStore implements OfflineStore {
   }
 
   @override
+  Future<void> upsertBatch<TModel extends SqliteModel>(
+    List<TModel> models,
+  ) async {
+    for (final model in models) {
+      await upsert<TModel>(model);
+    }
+  }
+
+  @override
   Future<bool> delete<TModel extends SqliteModel>(
     TModel model, {
     Query? query,

@@ -57,6 +57,18 @@ jobs:
           cp firebase/functions/.secret.local.example firebase/functions/.secret.local
           npx firebase emulators:exec --project demo-aiko --only auth,firestore,storage,functions "npm run test:rules"
 
+  docs:
+    name: Docs links
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Check links, anchors and file paths in docs
+        run: npm run docs:check
+
   preview:
     name: Preview
     if: github.ref != 'refs/heads/main'

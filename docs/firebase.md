@@ -4,7 +4,7 @@ The web, Android and iOS apps use the same Firebase repositories, document codec
 
 ## Start locally
 
-Use Flutter stable (Dart >=3.11.5), Node 22+, Java 21+, then follow [Getting Started](../README.md#getting-started). Build the app before starting Hosting. `npm run firebase:start` imports `.firebase-data/` when present and exports it on graceful shutdown (Ctrl-C). Back up that directory if the local data matters. Do not commit it.
+Use Flutter stable (≥ 3.44, Dart ≥ 3.12), Node 22+, Java 21+, then follow [Getting started](getting-started.md). Build the app before starting Hosting. `npm run firebase:start` imports `.firebase-data/` when present and exports it on graceful shutdown (Ctrl-C). Back up that directory if the local data matters. Do not commit it.
 
 | Service | Local address |
 | --- | --- |

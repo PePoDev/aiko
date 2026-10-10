@@ -9,6 +9,7 @@
 - Agent workflow: work directly on `main` and execute inline. Do not create worktrees or feature branches, delegate to subagents, or ask about execution/branch disposition unless the user explicitly requests an exception.
 - The user owns Git integration. Agents must not commit, push, merge, create pull requests, or offer branch-handoff options unless explicitly requested.
 - Learning Hub definitions belong inline through `InlineGlossaryText`; agents must not restore a standalone Glossary section.
+- Always keep docs current: any change to code, config, CI, schema, rules or behavior updates the affected `docs/` pages in the same change (map: [Keeping docs current](docs/README.md#keeping-docs-current)); fix stale docs you find, and run `npm run docs:check`.
 
 ---
 
@@ -99,7 +100,8 @@ lib/
 
 firebase/         # Firestore/Storage rules, Functions, emulator tests, legacy import tool
 web/              # Flutter web entrypoint and SQLite worker assets
-tool/             # Local emulator startup helpers
+tool/             # Local emulator startup helpers, docs link check
+docs/             # How-it-works documentation; index: docs/README.md
 .github/          # CI quality gates; Firebase Hosting and backend deploy workflows
 landing/          # standalone Aiko landing page
 screenshots/      # product/idea screenshots and visual references

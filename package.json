@@ -4,7 +4,8 @@
   "scripts": {
     "functions:build": "npm --prefix firebase/functions run build",
     "firebase:start": "sh tool/run_emulators.sh",
-    "test:rules": "node --test firebase/test/*.test.cjs"
+    "test:rules": "node --test firebase/test/*.test.cjs",
+    "docs:check": "node tool/check_docs.mjs"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.0",

@@ -24,22 +24,49 @@ class BankMessageParser {
   const BankMessageParser();
 
   // 1,234.50 | 9,000 | 350.00 | 500 — `,` = thousands, `.` = decimal.
-  static final _amount = RegExp(r'\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?');
+  static final _amount = RegExp(
+    r'\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?',
+  );
   static final _merchant = RegExp(
     r'\b(?:at|to)\s+([A-Za-z0-9][\w&.\- ]{1,30}?)(?=\s+(?:on|for|ref|balance|bal)\b|[.,\n]|$)',
     caseSensitive: false,
   );
 
   static const _expenseWords = [
-    'debit', 'debited', 'spent', 'paid', 'payment', 'purchase', 'charged',
-    'withdrawn', 'withdrawal', 'ถูกหัก', 'ชำระ', 'จ่าย', 'ออก',
+    'debit',
+    'debited',
+    'spent',
+    'paid',
+    'payment',
+    'purchase',
+    'charged',
+    'withdrawn',
+    'withdrawal',
+    'ถูกหัก',
+    'ชำระ',
+    'จ่าย',
+    'ออก',
   ];
   static const _incomeWords = [
-    'credit', 'credited', 'received', 'deposit', 'deposited', 'refund',
-    'salary', 'transfer in', 'เข้า', 'รับเงิน', 'โอนเข้า',
+    'credit',
+    'credited',
+    'received',
+    'deposit',
+    'deposited',
+    'refund',
+    'salary',
+    'transfer in',
+    'เข้า',
+    'รับเงิน',
+    'โอนเข้า',
   ];
   static const _balanceWords = [
-    'balance', 'bal', 'available', 'avail', 'คงเหลือ', 'ยอดเงิน',
+    'balance',
+    'bal',
+    'available',
+    'avail',
+    'คงเหลือ',
+    'ยอดเงิน',
   ];
 
   ParsedCapture? parse(String text) {

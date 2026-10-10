@@ -79,96 +79,100 @@ class CategoryManagementScreen extends ConsumerWidget {
           ]);
         },
         child: categoriesAsync.when(
-        loading: () => ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: const [AikoScreenState.loading()],
-        ),
-        error: (error, stack) => ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            AikoScreenState.error(
-              title: 'Categories are unavailable',
-              message:
-                  'Aiko could not load your categories right now.\n$error',
-            ),
-          ],
-        ),
-        data: (categories) {
-          if (categories.isEmpty) {
+          loading: () => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: const [AikoScreenState.loading()],
+          ),
+          error: (error, stack) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              AikoScreenState.error(
+                title: 'Categories are unavailable',
+                message:
+                    'Aiko could not load your categories right now.\n$error',
+              ),
+            ],
+          ),
+          data: (categories) {
+            if (categories.isEmpty) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  AikoScreenState.empty(
+                    title: 'No categories yet',
+                    message:
+                        'Create categories to organize transactions and budgets.',
+                    action: PrimaryActionButton(
+                      label: 'Add Category',
+                      icon: Icons.add_circle_outline,
+                      onPressed: () => _showAddCategorySheet(context),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            final groups =
+                groupsAsync.value ??
+                (categories.any((category) => category.templateId != null)
+                    ? CategoryGroupDefaults.forUser(categories.first.userId)
+                    : CategoryGroupDefaults.all);
+
+            final incomeCategories = categories
+                .where((category) => category.type == CategoryType.income)
+                .toList(growable: false);
+            final expenseCategories = categories
+                .where((category) => category.type == CategoryType.expense)
+                .toList(growable: false);
+
+            final totals = _CategoryTotals.compute(
+              transactions:
+                  transactionsAsync.value ?? const <FinanceTransaction>[],
+              baseCurrency: baseCurrency,
+            );
+
             return ListView(
               physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
-                AikoScreenState.empty(
-                  title: 'No categories yet',
-                  message:
-                      'Create categories to organize transactions and budgets.',
-                  action: PrimaryActionButton(
-                    label: 'Add Category',
-                    icon: Icons.add_circle_outline,
-                    onPressed: () => _showAddCategorySheet(context),
+                _CategorySection(
+                  key: const ValueKey('section-expense'),
+                  title: 'Expense',
+                  accent: AikoColors.dangerRed,
+                  icon: Icons.arrow_upward_outlined,
+                  categories: expenseCategories,
+                  groups: groups,
+                  totals: totals,
+                  onCategoryTap: (category) => showCategoryEditorSheet(
+                    context,
+                    initialCategory: category,
                   ),
+                  onGroupEdit: (group) =>
+                      showCategoryGroupEditorSheet(context, initial: group),
+                  onGroupBudgetTap: (group) =>
+                      showCategoryGroupBudgetSheet(context, group: group),
+                ),
+                const SizedBox(height: 16),
+                _CategorySection(
+                  key: const ValueKey('section-income'),
+                  title: 'Income',
+                  accent: AikoColors.successGreen,
+                  icon: Icons.arrow_downward_outlined,
+                  categories: incomeCategories,
+                  groups: groups,
+                  totals: totals,
+                  onCategoryTap: (category) => showCategoryEditorSheet(
+                    context,
+                    initialCategory: category,
+                  ),
+                  onGroupEdit: (group) =>
+                      showCategoryGroupEditorSheet(context, initial: group),
+                  onGroupBudgetTap: (group) =>
+                      showCategoryGroupBudgetSheet(context, group: group),
                 ),
               ],
             );
-          }
-
-          final groups =
-              groupsAsync.value ??
-              (categories.any((category) => category.templateId != null)
-                  ? CategoryGroupDefaults.forUser(categories.first.userId)
-                  : CategoryGroupDefaults.all);
-
-          final incomeCategories = categories
-              .where((category) => category.type == CategoryType.income)
-              .toList(growable: false);
-          final expenseCategories = categories
-              .where((category) => category.type == CategoryType.expense)
-              .toList(growable: false);
-
-          final totals = _CategoryTotals.compute(
-            transactions:
-                transactionsAsync.value ?? const <FinanceTransaction>[],
-            baseCurrency: baseCurrency,
-          );
-
-          return ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            children: [
-              _CategorySection(
-                key: const ValueKey('section-expense'),
-                title: 'Expense',
-                accent: AikoColors.dangerRed,
-                icon: Icons.arrow_upward_outlined,
-                categories: expenseCategories,
-                groups: groups,
-                totals: totals,
-                onCategoryTap: (category) =>
-                    showCategoryEditorSheet(context, initialCategory: category),
-                onGroupEdit: (group) =>
-                    showCategoryGroupEditorSheet(context, initial: group),
-                onGroupBudgetTap: (group) =>
-                    showCategoryGroupBudgetSheet(context, group: group),
-              ),
-              const SizedBox(height: 16),
-              _CategorySection(
-                key: const ValueKey('section-income'),
-                title: 'Income',
-                accent: AikoColors.successGreen,
-                icon: Icons.arrow_downward_outlined,
-                categories: incomeCategories,
-                groups: groups,
-                totals: totals,
-                onCategoryTap: (category) =>
-                    showCategoryEditorSheet(context, initialCategory: category),
-                onGroupEdit: (group) =>
-                    showCategoryGroupEditorSheet(context, initial: group),
-                onGroupBudgetTap: (group) =>
-                    showCategoryGroupBudgetSheet(context, group: group),
-              ),
-            ],
-          );
-        },
+          },
         ),
       ),
     );
@@ -789,7 +793,10 @@ class _GroupStackedLegend extends StatelessWidget {
 }
 
 class _GroupStackedLegendItem extends StatelessWidget {
-  const _GroupStackedLegendItem({required this.segment, required this.currency});
+  const _GroupStackedLegendItem({
+    required this.segment,
+    required this.currency,
+  });
 
   final _BudgetSegment segment;
   final String currency;

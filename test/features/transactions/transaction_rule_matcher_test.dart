@@ -52,7 +52,10 @@ void main() {
 
   test('no match leaves the transaction untouched (same instance)', () {
     final tx = _tx(merchant: 'Gas Station');
-    expect(identical(matcher.apply(tx, [_rule(category: 'coffee')]), tx), isTrue);
+    expect(
+      identical(matcher.apply(tx, [_rule(category: 'coffee')]), tx),
+      isTrue,
+    );
   });
 
   test('inactive rules are ignored', () {

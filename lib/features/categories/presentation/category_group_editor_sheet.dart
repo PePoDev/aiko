@@ -95,12 +95,9 @@ class _CategoryGroupEditorSheetState
       if (duplicate) {
         if (mounted) {
           setState(() => _isSubmitting = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.groupNameExists),
-              backgroundColor: AikoColors.dangerRed,
-            ),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(context.l10n.groupNameExists)));
         }
         return;
       }
@@ -135,19 +132,15 @@ class _CategoryGroupEditorSheetState
                   ? context.l10n.groupUpdated(group.displayName(context.l10n))
                   : context.l10n.groupCreated(group.displayName(context.l10n)),
             ),
-            backgroundColor: AikoColors.successGreen,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isSubmitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.groupSaveFailed),
-            backgroundColor: AikoColors.dangerRed,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.l10n.groupSaveFailed)));
       }
     }
   }
@@ -203,19 +196,15 @@ class _CategoryGroupEditorSheetState
             content: Text(
               context.l10n.groupDeleted(group.displayName(context.l10n)),
             ),
-            backgroundColor: AikoColors.successGreen,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isDeleting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.groupDeleteFailed),
-            backgroundColor: AikoColors.dangerRed,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.l10n.groupDeleteFailed)));
       }
     }
   }

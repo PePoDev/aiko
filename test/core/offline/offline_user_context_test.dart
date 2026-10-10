@@ -59,6 +59,34 @@ void main() {
       expect(storage.writes, 4);
     });
   });
+
+  group('OfflineUserContext.leaveSignedInOwner', () {
+    test(
+      'replaces a signed-in owner left behind by a session ending',
+      () async {
+        OfflineUserContext.resetPersistedUserIdCache();
+        final storage = MemorySecureStorageService();
+        await storage.write('aiko_offline_user_id', 'cloud-user');
+
+        await OfflineUserContext.leaveSignedInOwner(storage);
+
+        expect(
+          await storage.read('aiko_offline_user_id'),
+          startsWith(OfflineUserContext.localUserIdPrefix),
+        );
+      },
+    );
+
+    test('keeps an anonymous owner that signOut already started', () async {
+      OfflineUserContext.resetPersistedUserIdCache();
+      final storage = MemorySecureStorageService();
+      final local = await OfflineUserContext.startAnonymousSession(storage);
+
+      await OfflineUserContext.leaveSignedInOwner(storage);
+
+      expect(await storage.read('aiko_offline_user_id'), local);
+    });
+  });
 }
 
 class _CountingStorage extends MemorySecureStorageService {

@@ -1,4 +1,5 @@
 import '../../../../l10n/l10n.dart';
+import '../../../../theme/aiko_status_colors.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -76,7 +77,7 @@ class AikoSpendingReactionStrip extends StatelessWidget {
                 Text(
                   reaction.title(context.l10n),
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: color,
+                    color: AikoStatusColors.of(context).textFor(color),
                     fontWeight: FontWeight.w700,
                   ),
                 ),

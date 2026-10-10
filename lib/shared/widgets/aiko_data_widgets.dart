@@ -417,7 +417,7 @@ class AikoGauge extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: color,
+                  color: AikoStatusColors.of(context).textFor(color),
                   fontWeight: FontWeight.w700,
                 ),
               ),

@@ -6,6 +6,7 @@ import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../../theme/aiko_status_colors.dart';
 import '../application/trip_spending.dart';
 import '../domain/trip.dart';
 import '../application/travel_mode_provider.dart';
@@ -520,7 +521,9 @@ class _TravelModeScreenState extends ConsumerState<TravelModeScreen> {
             label: Text(
               context.l10n.travelWipeTrip,
               style: TextStyle(
-                color: AikoColors.dangerRed,
+                color: AikoStatusColors.of(
+                  context,
+                ).textFor(AikoColors.dangerRed),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -656,7 +659,6 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
             Expanded(child: Text(context.l10n.travelTripStarted(trip.name))),
           ],
         ),
-        backgroundColor: AikoColors.successGreen,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -979,7 +981,6 @@ class _LogFeeBottomSheetState extends State<_LogFeeBottomSheet> {
                                 ),
                               ],
                             ),
-                            backgroundColor: AikoColors.successGreen,
                             behavior: SnackBarBehavior.floating,
                           ),
                         );

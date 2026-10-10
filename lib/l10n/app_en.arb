@@ -2628,5 +2628,6 @@
         "type": "Object"
       }
     }
-  }
+  },
+  "profileDeleteNeedsRecentSignIn": "For your security, sign out and sign in again, then delete your account within 5 minutes."
 }

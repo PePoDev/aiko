@@ -40,6 +40,16 @@ class OfflineUserContext {
     return localUserId;
   }
 
+  /// After a cloud session ends without `AuthRepository.signOut` (token
+  /// revoked, password changed or account deleted elsewhere), starts a fresh
+  /// anonymous owner unless the stored owner already is one, so the signed-out
+  /// app doesn't keep reading and writing the previous user's local data.
+  static Future<void> leaveSignedInOwner(SecureStorageService storage) async {
+    final stored = await storage.read(_knownUserIdKey);
+    if (stored != null && stored.startsWith(localUserIdPrefix)) return;
+    await startAnonymousSession(storage);
+  }
+
   Future<String> resolveUserId() async {
     final remoteUserId = _signedInUserId();
     if (remoteUserId != null && remoteUserId.isNotEmpty) {

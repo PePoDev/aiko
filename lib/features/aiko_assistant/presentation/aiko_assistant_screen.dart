@@ -1,4 +1,5 @@
 import '../../../l10n/l10n.dart';
+import '../../../theme/aiko_status_colors.dart';
 import 'dart:math';
 
 import '../../../shared/widgets/cached_avatar.dart';
@@ -405,9 +406,11 @@ class _ErrorBlock extends StatelessWidget {
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: AikoColors.dangerRed,
+                  color: AikoStatusColors.of(
+                    context,
+                  ).textFor(AikoColors.dangerRed),
                 ),
               ),
             ),

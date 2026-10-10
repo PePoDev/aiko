@@ -8,6 +8,7 @@ import '../../../l10n/l10n.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../../theme/aiko_status_colors.dart';
 import '../../transactions/domain/transaction.dart';
 import '../application/category_budget_progress_service.dart';
 import '../domain/category.dart';
@@ -401,7 +402,7 @@ class _SectionHeader extends StatelessWidget {
             title,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700,
-              color: accent,
+              color: AikoStatusColors.of(context).textFor(accent),
             ),
           ),
           const SizedBox(width: 8),
@@ -419,7 +420,7 @@ class _SectionHeader extends StatelessWidget {
             key: const ValueKey('section-total-amount'),
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700,
-              color: accent,
+              color: AikoStatusColors.of(context).textFor(accent),
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
@@ -692,7 +693,7 @@ class _GroupBudgetTrailing extends StatelessWidget {
                 key: const ValueKey('group-total-amount'),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: color,
+                  color: AikoStatusColors.of(context).textFor(color),
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               )
@@ -1107,7 +1108,7 @@ class _RemainingFirst extends StatelessWidget {
           textAlign: TextAlign.right,
           style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w800,
-            color: color,
+            color: AikoStatusColors.of(context).textFor(color),
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),

@@ -18,6 +18,7 @@ import '../../../shared/widgets/aiko_data_widgets.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../../theme/aiko_status_colors.dart';
 import '../../categories/application/category_budget_progress_service.dart';
 import '../../categories/domain/category.dart';
 import '../../categories/presentation/category_names.dart';
@@ -301,7 +302,7 @@ class _MiniMetric extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w700,
-            color: color,
+            color: AikoStatusColors.of(context).textFor(color),
           ),
         ),
       ],

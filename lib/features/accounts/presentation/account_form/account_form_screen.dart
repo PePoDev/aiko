@@ -10,6 +10,7 @@ import '../../../../core/money/supported_currencies.dart';
 import '../../../../l10n/domain_labels.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../shared/widgets/aiko_data_widgets.dart';
+import '../../../../shared/widgets/discard_changes_guard.dart';
 import '../../../../theme/aiko_colors.dart';
 import '../../../transactions/domain/transaction.dart';
 import '../../domain/account.dart';
@@ -176,6 +177,59 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     );
     _goalDate = a?.targetDate;
     _goalPriority = a?.priority ?? GoalPriority.medium;
+
+    for (final controller in _textControllers) {
+      controller.addListener(_onTextEdited);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _initialSnapshot = _snapshot();
+    });
+  }
+
+  List<TextEditingController> get _textControllers => [
+    _nameController,
+    _balanceController,
+    _institutionController,
+    _ccLimit,
+    _ccApr,
+    _ccAnnualFee,
+    _ccMinPayment,
+    _loanPrincipal,
+    _loanApr,
+    _loanTerm,
+    _loanPayment,
+    _assetPrice,
+    _assetNotes,
+    _liabType,
+    _liabApr,
+    _liabNotes,
+    _otherNotes,
+    _goalTarget,
+    _goalCurrent,
+  ];
+
+  /// The form as first shown; leaving with anything different asks first.
+  String? _initialSnapshot;
+  bool _wasDirty = false;
+
+  String _snapshot() => [
+    _type.name,
+    _currency,
+    _includeInNetWorth,
+    _isActive,
+    _goalDate?.toIso8601String(),
+    _goalPriority.name,
+    for (final controller in _textControllers) controller.text.trim(),
+  ].join('\u0001');
+
+  bool get _hasUnsavedChanges =>
+      !_isSubmitting &&
+      _initialSnapshot != null &&
+      _snapshot() != _initialSnapshot;
+
+  void _onTextEdited() {
+    final dirty = _hasUnsavedChanges;
+    if (dirty != _wasDirty && mounted) setState(() => _wasDirty = dirty);
   }
 
   @override
@@ -1038,79 +1092,85 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         );
     final isEditing = widget.account != null;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          isEditing
-              ? context.l10n.accountsEditTooltip
-              : context.l10n.accountsAddAccount,
-        ),
-      ),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-            children: [
-              AccountCommonFields(
-                initialType: _type,
-                initialCurrency: _currency,
-                initialIncludeInNetWorth: _includeInNetWorth,
-                initialIsActive: _isActive,
-                currencies: [
-                  for (final code in _currencies)
-                    (code: code, name: currencyDisplayName(code, context.l10n)),
-                ],
-                nameController: _nameController,
-                balanceController: _balanceController,
-                institutionController: _institutionController,
-                onChanged:
-                    ({
-                      String? name,
-                      AccountType? type,
-                      String? currency,
-                      String? balance,
-                      String? institution,
-                      bool? includeInNetWorth,
-                      bool? isActive,
-                    }) {
-                      if (type != null) _changeType(type);
-                      setState(() {
-                        if (currency != null) _currency = currency;
-                        if (includeInNetWorth != null) {
-                          _includeInNetWorth = includeInNetWorth;
-                        }
-                        if (isActive != null) _isActive = isActive;
-                      });
-                    },
-              ),
-              const SizedBox(height: 16),
-              _typeFields(allCards),
-            ],
+    return AikoDiscardChangesGuard(
+      hasUnsavedChanges: _hasUnsavedChanges,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            isEditing
+                ? context.l10n.accountsEditTooltip
+                : context.l10n.accountsAddAccount,
           ),
         ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: FilledButton.icon(
-            onPressed: _isSubmitting ? null : _submit,
-            icon: _isSubmitting
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.check),
-            label: Text(
-              isEditing
-                  ? context.l10n.txSaveChanges
-                  : context.l10n.accountFormCreate,
+        body: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+              children: [
+                AccountCommonFields(
+                  initialType: _type,
+                  initialCurrency: _currency,
+                  initialIncludeInNetWorth: _includeInNetWorth,
+                  initialIsActive: _isActive,
+                  currencies: [
+                    for (final code in _currencies)
+                      (
+                        code: code,
+                        name: currencyDisplayName(code, context.l10n),
+                      ),
+                  ],
+                  nameController: _nameController,
+                  balanceController: _balanceController,
+                  institutionController: _institutionController,
+                  onChanged:
+                      ({
+                        String? name,
+                        AccountType? type,
+                        String? currency,
+                        String? balance,
+                        String? institution,
+                        bool? includeInNetWorth,
+                        bool? isActive,
+                      }) {
+                        if (type != null) _changeType(type);
+                        setState(() {
+                          if (currency != null) _currency = currency;
+                          if (includeInNetWorth != null) {
+                            _includeInNetWorth = includeInNetWorth;
+                          }
+                          if (isActive != null) _isActive = isActive;
+                        });
+                      },
+                ),
+                const SizedBox(height: 16),
+                _typeFields(allCards),
+              ],
             ),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
+          ),
+        ),
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            child: FilledButton.icon(
+              onPressed: _isSubmitting ? null : _submit,
+              icon: _isSubmitting
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.check),
+              label: Text(
+                isEditing
+                    ? context.l10n.txSaveChanges
+                    : context.l10n.accountFormCreate,
+              ),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+              ),
             ),
           ),
         ),

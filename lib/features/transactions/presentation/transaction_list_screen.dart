@@ -12,6 +12,7 @@ import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/layout/aiko_breakpoints.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../../theme/aiko_status_colors.dart';
 import '../../accounts/domain/account.dart';
 import '../../categories/presentation/category_names.dart';
 import '../../categories/presentation/category_visual.dart';
@@ -525,9 +526,10 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
     final accounts =
         ref.watch(accountsProvider).whenOrNull(data: (accounts) => accounts) ??
         const <Account>[];
+    // Includes deleted custom categories so their rows keep a name.
     final categories =
         ref
-            .watch(categoriesProvider)
+            .watch(allCategoriesProvider)
             .whenOrNull(data: (categories) => categories) ??
         const [];
     final accountsById = {for (final account in accounts) account.id: account};
@@ -1066,7 +1068,7 @@ class _TransactionRow extends ConsumerWidget {
         transaction.merchant ?? transaction.note ?? context.l10n.txUntitled;
     final amount = '$sign${transaction.absoluteAmount.format()}';
     final timeLabel = DateFormat('HH:mm').format(transaction.date);
-    final categoriesAsync = ref.watch(categoriesProvider);
+    final categoriesAsync = ref.watch(allCategoriesProvider);
     final category = categoriesAsync.whenOrNull(
       data: (categories) {
         final matches = categories.where(
@@ -1156,7 +1158,7 @@ class _TransactionRow extends ConsumerWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleSmall?.copyWith(
-                      color: accent,
+                      color: AikoStatusColors.of(context).textFor(accent),
                       fontWeight: FontWeight.w700,
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
@@ -1201,7 +1203,7 @@ class _UpcomingPill extends StatelessWidget {
         child: Text(
           context.l10n.txUpcoming,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: color,
+            color: AikoStatusColors.of(context).textFor(color),
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -1293,7 +1295,7 @@ class _StatusPill extends StatelessWidget {
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: color,
+            color: AikoStatusColors.of(context).textFor(color),
             fontWeight: FontWeight.w700,
           ),
         ),

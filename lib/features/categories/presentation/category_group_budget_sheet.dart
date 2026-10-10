@@ -78,19 +78,15 @@ class _GroupBudgetSheetState extends ConsumerState<_GroupBudgetSheet> {
                       widget.group.displayName(context.l10n),
                     ),
             ),
-            backgroundColor: AikoColors.successGreen,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.budgetSaveFailed),
-            backgroundColor: AikoColors.dangerRed,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.l10n.budgetSaveFailed)));
       }
     }
   }

@@ -25,6 +25,7 @@ class MonteCarloEngine {
     double expectedAnnualReturnPercent = 5.0,
     double annualVolatilityPercent = 10.0,
     int iterations = 1000,
+    int seed = 42,
   }) {
     if (targetMonths <= 0) {
       final success = currentBalance >= targetAmount;
@@ -36,7 +37,9 @@ class MonteCarloEngine {
       );
     }
 
-    final random = Random();
+    // Seeded: the same inputs always give the same odds, so the figure
+    // doesn't change each time the screen reloads.
+    final random = Random(seed);
     final double monthlyRate = expectedAnnualReturnPercent / 12 / 100;
     final double monthlyVol = annualVolatilityPercent / sqrt(12) / 100;
 

@@ -1483,5 +1483,6 @@
   "chatSend": "ส่ง",
   "chatNeedsCloud": "แชตกับ Aiko ต้องใช้คลาวด์ เชื่อมต่อ Aiko cloud เพื่อเริ่มแชต",
   "chatThinking": "Aiko กำลังคิด",
-  "dashExcludedCurrencies": "ยังไม่รวมยอดในสกุลเงิน {currencies} เพราะยังไม่มีอัตราแลกเปลี่ยนในขณะนี้"
+  "dashExcludedCurrencies": "ยังไม่รวมยอดในสกุลเงิน {currencies} เพราะยังไม่มีอัตราแลกเปลี่ยนในขณะนี้",
+  "profileDeleteNeedsRecentSignIn": "เพื่อความปลอดภัย โปรดออกจากระบบและเข้าสู่ระบบอีกครั้ง แล้วลบบัญชีภายใน 5 นาทีค่ะ"
 }

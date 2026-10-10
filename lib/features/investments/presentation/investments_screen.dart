@@ -15,6 +15,7 @@ import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../../theme/aiko_status_colors.dart';
 import '../../dashboard/application/dashboard_summary_builder.dart';
 import '../application/allocation_service.dart';
 import '../application/investments_provider.dart';
@@ -94,7 +95,6 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(l10n.holdingPricesSaveFailed),
-          backgroundColor: AikoColors.dangerRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -174,7 +174,6 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(l10n.holdingRemoved(holding.symbol)),
-          backgroundColor: AikoColors.successGreen,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -182,7 +181,6 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(l10n.holdingRemoveFailed(holding.symbol)),
-          backgroundColor: AikoColors.dangerRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -799,7 +797,7 @@ class _AssetClassBadge extends StatelessWidget {
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: color,
+            color: AikoStatusColors.of(context).textFor(color),
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -1176,7 +1174,6 @@ class _HoldingFormSheetState extends ConsumerState<_HoldingFormSheet> {
                 ? l10n.holdingUpdated(symbol)
                 : l10n.holdingAdded(symbol),
           ),
-          backgroundColor: AikoColors.successGreen,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -1184,7 +1181,6 @@ class _HoldingFormSheetState extends ConsumerState<_HoldingFormSheet> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(l10n.holdingSaveFailed),
-          backgroundColor: AikoColors.dangerRed,
           behavior: SnackBarBehavior.floating,
         ),
       );

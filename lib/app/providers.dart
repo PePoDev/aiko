@@ -1,4 +1,5 @@
 import '../core/money/money.dart';
+import '../features/transactions/application/legacy_opening_balances.dart';
 import 'dart:async';
 
 import 'package:decimal/decimal.dart';
@@ -77,7 +78,8 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
   Future<List<FinanceTransaction>> build() async {
     try {
       final repo = ref.watch(transactionRepositoryProvider);
-      final transactions = await repo.list();
+      var transactions = await repo.list();
+      transactions = await _convertLegacyOpeningBalances(repo, transactions);
       await _reconcileAccountBalances(transactions);
       // Top up bounded reminder series (once per launch; no-op on web).
       unawaited(
@@ -94,6 +96,27 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
       // empty/error widget instead of crashing the provider tree.
       Error.throwWithStackTrace(error, stackTrace);
     }
+  }
+
+  /// Opening balances saved before they became adjustments counted as
+  /// income or spending; rewrite them once as signed adjustments (the
+  /// balance effect is the same). Best-effort: a failed write is retried on
+  /// the next load.
+  Future<List<FinanceTransaction>> _convertLegacyOpeningBalances(
+    TransactionRepository repo,
+    List<FinanceTransaction> transactions,
+  ) async {
+    final fixes = legacyOpeningBalanceFixes(transactions);
+    if (fixes.isEmpty) return transactions;
+    final saved = <String, FinanceTransaction>{};
+    for (final fix in fixes) {
+      try {
+        saved[fix.id] = await repo.save(fix);
+      } catch (_) {
+        // Leave it as it was; the next load tries again.
+      }
+    }
+    return [for (final t in transactions) saved[t.id] ?? t];
   }
 
   /// Saves [transaction] (insert or update) and keeps account balances in

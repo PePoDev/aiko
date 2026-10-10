@@ -36,7 +36,8 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
 
     try {
       final transactions = await ref.read(transactionsProvider.future);
-      final categories = await ref.read(categoriesProvider.future);
+      // Includes deleted custom categories so exported rows keep a name.
+      final categories = await ref.read(allCategoriesProvider.future);
       final accounts = await ref.read(accountsProvider.future);
 
       final categoriesById = {for (final c in categories) c.id: c};

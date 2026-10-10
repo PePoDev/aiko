@@ -3,6 +3,7 @@ import '../../../core/storage/local_file_cache.dart';
 import '../../../l10n/domain_labels.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
+import '../../../shared/widgets/discard_changes_guard.dart';
 import '../../categories/presentation/category_names.dart';
 import 'package:decimal/decimal.dart';
 import 'package:file_selector/file_selector.dart' as fs;
@@ -165,9 +166,49 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     super.dispose();
   }
 
+  /// The form as first shown; leaving with anything different asks first.
+  String? _initialSnapshot;
+  bool _wasDirty = false;
+
+  String _snapshot() => [
+    _type.name,
+    _amountController.text.trim(),
+    _titleController.text.trim(),
+    _noteController.text.trim(),
+    _selectedCategoryId,
+    _selectedAccountId,
+    _selectedToAccountId,
+    _selectedCurrency,
+    _tags.join('|'),
+    _attachments.length,
+    _isRecurring,
+    _reminderAt?.toIso8601String(),
+    _selectedDate.toIso8601String(),
+  ].join('\u0001');
+
+  bool get _hasUnsavedChanges =>
+      !_isSaving && _initialSnapshot != null && _snapshot() != _initialSnapshot;
+
+  /// Typing doesn't rebuild the form; rebuild when the dirty state flips so
+  /// the discard guard knows.
+  void _onTextEdited() {
+    final dirty = _hasUnsavedChanges;
+    if (dirty != _wasDirty && mounted) setState(() => _wasDirty = dirty);
+  }
+
   @override
   void initState() {
     super.initState();
+    for (final controller in [
+      _amountController,
+      _titleController,
+      _noteController,
+    ]) {
+      controller.addListener(_onTextEdited);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _initialSnapshot = _snapshot();
+    });
     final transaction = widget.initialTransaction;
     if (transaction == null) {
       _selectedCurrency = _baseCurrency;
@@ -462,7 +503,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.txCameraUnavailable),
-          backgroundColor: AikoColors.dangerRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -482,7 +522,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.txCapturedImageUnreadable),
-          backgroundColor: AikoColors.dangerRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -542,7 +581,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.txReceiptScanFailed),
-          backgroundColor: AikoColors.warningOrange,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -561,7 +599,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.txReceiptLimitedFields),
-          backgroundColor: AikoColors.warningOrange,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -659,12 +696,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         currency: draft.amount.currency,
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.txVoiceParseFailed),
-          backgroundColor: AikoColors.dangerRed,
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.txVoiceParseFailed)));
     }
   }
 
@@ -928,7 +962,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.txFilePickerUnavailable),
-          backgroundColor: AikoColors.dangerRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -966,7 +999,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.txGalleryUnavailable),
-          backgroundColor: AikoColors.dangerRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -1042,7 +1074,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             Expanded(child: Text(context.l10n.txAttachedFile(fileName))),
           ],
         ),
-        backgroundColor: AikoColors.successGreen,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
@@ -1447,7 +1478,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(context.l10n.txSaveFailed),
-        backgroundColor: AikoColors.dangerRed,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
@@ -1464,7 +1494,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             Expanded(child: Text(message)),
           ],
         ),
-        backgroundColor: AikoColors.successGreen,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
@@ -1628,479 +1657,486 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         toAccountCurrency != null && toAccountCurrency != _selectedCurrency;
     final selectedTypeColor = _transactionTypeColor(_type);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.initialTransaction == null
-              ? context.l10n.txAddTitle
-              : context.l10n.txEditTitle,
-        ),
-        actions: [
-          IconButton(
-            tooltip: context.l10n.txScanReceipt,
-            onPressed: _scanReceiptWithCamera,
-            icon: const Icon(Icons.receipt_long_outlined),
+    return AikoDiscardChangesGuard(
+      hasUnsavedChanges: _hasUnsavedChanges,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            widget.initialTransaction == null
+                ? context.l10n.txAddTitle
+                : context.l10n.txEditTitle,
           ),
-          IconButton(
-            tooltip: context.l10n.txVoiceEntry,
-            onPressed: _showVoiceCommandDialog,
-            icon: const Icon(Icons.mic_none_outlined),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
-          // Standard Entry Fields
-          SegmentedButton<TransactionType>(
-            key: const Key('transaction-type-selector'),
-            showSelectedIcon: false,
-            style: ButtonStyle(
-              backgroundColor: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.selected)) {
-                  return selectedTypeColor;
-                }
-                return null;
-              }),
-              foregroundColor: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.selected)) {
-                  return Theme.of(context).colorScheme.onPrimary;
-                }
-                return null;
-              }),
-              iconColor: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.selected)) {
-                  return Theme.of(context).colorScheme.onPrimary;
-                }
-                return null;
-              }),
+          actions: [
+            IconButton(
+              tooltip: context.l10n.txScanReceipt,
+              onPressed: _scanReceiptWithCamera,
+              icon: const Icon(Icons.receipt_long_outlined),
             ),
-            segments: [
-              ButtonSegment<TransactionType>(
-                value: TransactionType.expense,
-                label: Text(context.l10n.transactionTypeExpense),
-                icon: Icon(Icons.north_east),
-                enabled: _canSwitchTo(TransactionType.expense),
-              ),
-              ButtonSegment<TransactionType>(
-                value: TransactionType.income,
-                label: Text(context.l10n.transactionTypeIncome),
-                icon: Icon(Icons.south_west),
-                enabled: _canSwitchTo(TransactionType.income),
-              ),
-              ButtonSegment<TransactionType>(
-                value: TransactionType.transfer,
-                label: Text(context.l10n.transactionTypeTransfer),
-                icon: Icon(Icons.swap_horiz),
-                enabled: _canSwitchTo(TransactionType.transfer),
-              ),
-            ],
-            selected: {_type},
-            onSelectionChanged: (selection) =>
-                _onTransactionTypeChanged(selection.first),
-          ),
-          if (_isEditing) ...[
-            const SizedBox(height: 6),
-            Text(
-              _type == TransactionType.transfer
-                  ? context.l10n.txTypeLockedTransfer
-                  : context.l10n.txTypeLockedNonTransfer,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            IconButton(
+              tooltip: context.l10n.txVoiceEntry,
+              onPressed: _showVoiceCommandDialog,
+              icon: const Icon(Icons.mic_none_outlined),
             ),
           ],
-          const SizedBox(height: 16),
-          _ItemNameInput(
-            controller: _titleController,
-            suggestions: _itemNameSuggestionsFrom(
-              transactionsAsync,
-              selectedType: _transactionTypeFromFormType(_type),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            // Standard Entry Fields
+            SegmentedButton<TransactionType>(
+              key: const Key('transaction-type-selector'),
+              showSelectedIcon: false,
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return selectedTypeColor;
+                  }
+                  return null;
+                }),
+                foregroundColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return Theme.of(context).colorScheme.onPrimary;
+                  }
+                  return null;
+                }),
+                iconColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return Theme.of(context).colorScheme.onPrimary;
+                  }
+                  return null;
+                }),
+              ),
+              segments: [
+                ButtonSegment<TransactionType>(
+                  value: TransactionType.expense,
+                  label: Text(context.l10n.transactionTypeExpense),
+                  icon: Icon(Icons.north_east),
+                  enabled: _canSwitchTo(TransactionType.expense),
+                ),
+                ButtonSegment<TransactionType>(
+                  value: TransactionType.income,
+                  label: Text(context.l10n.transactionTypeIncome),
+                  icon: Icon(Icons.south_west),
+                  enabled: _canSwitchTo(TransactionType.income),
+                ),
+                ButtonSegment<TransactionType>(
+                  value: TransactionType.transfer,
+                  label: Text(context.l10n.transactionTypeTransfer),
+                  icon: Icon(Icons.swap_horiz),
+                  enabled: _canSwitchTo(TransactionType.transfer),
+                ),
+              ],
+              selected: {_type},
+              onSelectionChanged: (selection) =>
+                  _onTransactionTypeChanged(selection.first),
             ),
-            onSelected: _applyItemSuggestion,
-          ),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: TextField(
-                  key: const Key('transaction-amount-field'),
-                  controller: _amountController,
-                  decoration: InputDecoration(
-                    labelText: context.l10n.txAmount,
-                    suffixIcon: IconButton(
-                      key: const Key('amount-calculator-button'),
-                      tooltip: context.l10n.txOpenCalculator,
-                      onPressed: _showAmountCalculator,
-                      icon: const Icon(Icons.calculate_outlined),
-                    ),
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  // Digits, one decimal point and thousands commas.
-                  inputFormatters: [AmountInputFormatter()],
+            if (_isEditing) ...[
+              const SizedBox(height: 6),
+              Text(
+                _type == TransactionType.transfer
+                    ? context.l10n.txTypeLockedTransfer
+                    : context.l10n.txTypeLockedNonTransfer,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 124,
-                child: DropdownMenu<String>(
-                  key: ValueKey(_selectedCurrency),
-                  initialSelection: _selectedCurrency,
-                  expandedInsets: EdgeInsets.zero,
-                  label: Text(context.l10n.txCurrency),
-                  dropdownMenuEntries: [
-                    for (final currency in currencyOptions)
-                      DropdownMenuEntry(value: currency, label: currency),
-                  ],
-                  onSelected: (value) {
-                    if (value != null) {
-                      setState(() => _selectedCurrency = value);
-                      _maybeAutofillRate(
-                        _accountCurrencyFor(
-                          accountSnapshot,
-                          _selectedAccountId,
-                        ),
-                      );
-                      if (_type == TransactionType.transfer) {
-                        _maybeAutofillToRate(
+            ],
+            const SizedBox(height: 16),
+            _ItemNameInput(
+              controller: _titleController,
+              suggestions: _itemNameSuggestionsFrom(
+                transactionsAsync,
+                selectedType: _transactionTypeFromFormType(_type),
+              ),
+              onSelected: _applyItemSuggestion,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const Key('transaction-amount-field'),
+                    controller: _amountController,
+                    decoration: InputDecoration(
+                      labelText: context.l10n.txAmount,
+                      suffixIcon: IconButton(
+                        key: const Key('amount-calculator-button'),
+                        tooltip: context.l10n.txOpenCalculator,
+                        onPressed: _showAmountCalculator,
+                        icon: const Icon(Icons.calculate_outlined),
+                      ),
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    // Digits, one decimal point and thousands commas.
+                    inputFormatters: [AmountInputFormatter()],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 124,
+                  child: DropdownMenu<String>(
+                    key: ValueKey(_selectedCurrency),
+                    initialSelection: _selectedCurrency,
+                    expandedInsets: EdgeInsets.zero,
+                    label: Text(context.l10n.txCurrency),
+                    dropdownMenuEntries: [
+                      for (final currency in currencyOptions)
+                        DropdownMenuEntry(value: currency, label: currency),
+                    ],
+                    onSelected: (value) {
+                      if (value != null) {
+                        setState(() => _selectedCurrency = value);
+                        _maybeAutofillRate(
                           _accountCurrencyFor(
                             accountSnapshot,
-                            _selectedToAccountId,
+                            _selectedAccountId,
                           ),
                         );
+                        if (_type == TransactionType.transfer) {
+                          _maybeAutofillToRate(
+                            _accountCurrencyFor(
+                              accountSnapshot,
+                              _selectedToAccountId,
+                            ),
+                          );
+                        }
                       }
-                    }
-                  },
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Category dropdown
+            if (_type != TransactionType.transfer) ...[
+              categoriesAsync.when(
+                loading: () => const CircularProgressIndicator(),
+                error: (_, _) => Text(context.l10n.txCategoriesLoadError),
+                data: (categories) {
+                  final selectedCategoryType = _categoryTypeFor(_type);
+                  final activeCategories = categories
+                      .where(
+                        (category) =>
+                            category.isActive &&
+                            category.type == selectedCategoryType,
+                      )
+                      .toList();
+                  if (activeCategories.isEmpty) {
+                    return Text(context.l10n.txNoCategories);
+                  }
+                  final loadedGroups = categoryGroupsAsync.value;
+                  final fallbackGroups =
+                      activeCategories.any(
+                        (category) => category.templateId != null,
+                      )
+                      ? CategoryGroupDefaults.forUser(
+                          activeCategories.first.userId,
+                        )
+                      : CategoryGroupDefaults.all;
+                  final groups = loadedGroups ?? fallbackGroups;
+                  final orderedGroups = <CategoryGroup>[
+                    for (final group in groups)
+                      if (group.effectiveTemplateId !=
+                          CategoryGroupDefaults.unfiledGroupId)
+                        group,
+                    for (final group in groups)
+                      if (group.effectiveTemplateId ==
+                          CategoryGroupDefaults.unfiledGroupId)
+                        group,
+                  ];
+                  return _CategoryPicker(
+                    categories: activeCategories,
+                    groups: orderedGroups,
+                    selectedCategoryId: _selectedCategoryId,
+                    transactionType: _type,
+                    onSelected: (value) {
+                      setState(() => _selectedCategoryId = value);
+                    },
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // Account dropdown(s)
+            accountsAsync.when(
+              loading: () => const CircularProgressIndicator(),
+              error: (_, _) => Text(context.l10n.txAccountsLoadError),
+              data: (accounts) {
+                final activeAccounts = accounts
+                    .where((a) => a.isActive)
+                    .toList();
+                if (activeAccounts.isEmpty) {
+                  return Text(context.l10n.txNoAccounts);
+                }
+
+                if (_isUnlinkedTransferLeg) {
+                  // A legacy leg only knows its own account: label it by side.
+                  final isInflow =
+                      widget.initialTransaction!.type ==
+                      TransactionType.transferIn;
+                  return _AccountPicker(
+                    label: isInflow
+                        ? context.l10n.txToAccount
+                        : context.l10n.txFromAccount,
+                    fieldKey: isInflow ? 'to-account' : 'from-account',
+                    accounts: activeAccounts,
+                    selectedAccountId: _selectedAccountId,
+                    onSelected: (value) {
+                      setState(() => _selectedAccountId = value);
+                      _maybeAutofillRate(
+                        _accountCurrencyFor(accountSnapshot, value),
+                      );
+                    },
+                  );
+                }
+                if (_type == TransactionType.transfer) {
+                  // Show the source and destination side by side with an arrow
+                  // between them, so the money visibly moves left → right.
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: _AccountPicker(
+                          label: context.l10n.txFromAccount,
+                          fieldKey: 'from-account',
+                          accounts: activeAccounts,
+                          selectedAccountId: _selectedAccountId,
+                          onSelected: _onTransferFromAccountSelected,
+                          compact: true,
+                        ),
+                      ),
+                      const _TransferFlowArrow(),
+                      Expanded(
+                        child: _AccountPicker(
+                          label: context.l10n.txToAccount,
+                          fieldKey: 'to-account',
+                          accounts: activeAccounts,
+                          selectedAccountId: _selectedToAccountId,
+                          onSelected: _onTransferToAccountSelected,
+                          compact: true,
+                        ),
+                      ),
+                    ],
+                  );
+                } else {
+                  return _AccountPicker(
+                    label: context.l10n.txAccount,
+                    fieldKey: 'account',
+                    accounts: activeAccounts,
+                    selectedAccountId: _selectedAccountId,
+                    onSelected: (value) {
+                      setState(() => _selectedAccountId = value);
+                      _maybeAutofillRate(
+                        _accountCurrencyFor(accountSnapshot, value),
+                      );
+                    },
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            if (showCurrencyConversion) ...[
+              _CurrencyConversionPrompt(
+                selectedCurrency: _selectedCurrency,
+                accountCurrency: selectedAccountCurrency,
+                exchangeRateController: _exchangeRateController,
+                amountController: _amountController,
+                isFetchingRate: _isFetchingRate,
+                onRefreshRate: () {
+                  _fetchedRatePair = null;
+                  _maybeAutofillRate(selectedAccountCurrency);
+                },
+                onEditRate: () => _editRateManually(
+                  _selectedCurrency,
+                  selectedAccountCurrency,
                 ),
               ),
+              const SizedBox(height: 12),
             ],
-          ),
-          const SizedBox(height: 12),
-
-          // Category dropdown
-          if (_type != TransactionType.transfer) ...[
-            categoriesAsync.when(
-              loading: () => const CircularProgressIndicator(),
-              error: (_, _) => Text(context.l10n.txCategoriesLoadError),
-              data: (categories) {
-                final selectedCategoryType = _categoryTypeFor(_type);
-                final activeCategories = categories
-                    .where(
-                      (category) =>
-                          category.isActive &&
-                          category.type == selectedCategoryType,
-                    )
-                    .toList();
-                if (activeCategories.isEmpty) {
-                  return Text(context.l10n.txNoCategories);
-                }
-                final loadedGroups = categoryGroupsAsync.value;
-                final fallbackGroups =
-                    activeCategories.any(
-                      (category) => category.templateId != null,
-                    )
-                    ? CategoryGroupDefaults.forUser(
-                        activeCategories.first.userId,
-                      )
-                    : CategoryGroupDefaults.all;
-                final groups = loadedGroups ?? fallbackGroups;
-                final orderedGroups = <CategoryGroup>[
-                  for (final group in groups)
-                    if (group.effectiveTemplateId !=
-                        CategoryGroupDefaults.unfiledGroupId)
-                      group,
-                  for (final group in groups)
-                    if (group.effectiveTemplateId ==
-                        CategoryGroupDefaults.unfiledGroupId)
-                      group,
-                ];
-                return _CategoryPicker(
-                  categories: activeCategories,
-                  groups: orderedGroups,
-                  selectedCategoryId: _selectedCategoryId,
-                  transactionType: _type,
-                  onSelected: (value) {
-                    setState(() => _selectedCategoryId = value);
-                  },
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-          ],
-
-          // Account dropdown(s)
-          accountsAsync.when(
-            loading: () => const CircularProgressIndicator(),
-            error: (_, _) => Text(context.l10n.txAccountsLoadError),
-            data: (accounts) {
-              final activeAccounts = accounts.where((a) => a.isActive).toList();
-              if (activeAccounts.isEmpty) {
-                return Text(context.l10n.txNoAccounts);
-              }
-
-              if (_isUnlinkedTransferLeg) {
-                // A legacy leg only knows its own account: label it by side.
-                final isInflow =
-                    widget.initialTransaction!.type ==
-                    TransactionType.transferIn;
-                return _AccountPicker(
-                  label: isInflow
-                      ? context.l10n.txToAccount
-                      : context.l10n.txFromAccount,
-                  fieldKey: isInflow ? 'to-account' : 'from-account',
-                  accounts: activeAccounts,
-                  selectedAccountId: _selectedAccountId,
-                  onSelected: (value) {
-                    setState(() => _selectedAccountId = value);
-                    _maybeAutofillRate(
-                      _accountCurrencyFor(accountSnapshot, value),
-                    );
-                  },
-                );
-              }
-              if (_type == TransactionType.transfer) {
-                // Show the source and destination side by side with an arrow
-                // between them, so the money visibly moves left → right.
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: _AccountPicker(
-                        label: context.l10n.txFromAccount,
-                        fieldKey: 'from-account',
-                        accounts: activeAccounts,
-                        selectedAccountId: _selectedAccountId,
-                        onSelected: _onTransferFromAccountSelected,
-                        compact: true,
-                      ),
-                    ),
-                    const _TransferFlowArrow(),
-                    Expanded(
-                      child: _AccountPicker(
-                        label: context.l10n.txToAccount,
-                        fieldKey: 'to-account',
-                        accounts: activeAccounts,
-                        selectedAccountId: _selectedToAccountId,
-                        onSelected: _onTransferToAccountSelected,
-                        compact: true,
-                      ),
-                    ),
-                  ],
-                );
-              } else {
-                return _AccountPicker(
-                  label: context.l10n.txAccount,
-                  fieldKey: 'account',
-                  accounts: activeAccounts,
-                  selectedAccountId: _selectedAccountId,
-                  onSelected: (value) {
-                    setState(() => _selectedAccountId = value);
-                    _maybeAutofillRate(
-                      _accountCurrencyFor(accountSnapshot, value),
-                    );
-                  },
-                );
-              }
-            },
-          ),
-          const SizedBox(height: 12),
-          if (showCurrencyConversion) ...[
-            _CurrencyConversionPrompt(
-              selectedCurrency: _selectedCurrency,
-              accountCurrency: selectedAccountCurrency,
-              exchangeRateController: _exchangeRateController,
-              amountController: _amountController,
-              isFetchingRate: _isFetchingRate,
-              onRefreshRate: () {
-                _fetchedRatePair = null;
-                _maybeAutofillRate(selectedAccountCurrency);
-              },
-              onEditRate: () =>
-                  _editRateManually(_selectedCurrency, selectedAccountCurrency),
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (showToCurrencyConversion) ...[
-            _CurrencyConversionPrompt(
-              selectedCurrency: _selectedCurrency,
-              accountCurrency: toAccountCurrency,
-              exchangeRateController: _toExchangeRateController,
-              amountController: _amountController,
-              isFetchingRate: _isFetchingToRate,
-              onRefreshRate: () {
-                _fetchedToRatePair = null;
-                _maybeAutofillToRate(toAccountCurrency);
-              },
-              onEditRate: () => _editRateManually(
-                _selectedCurrency,
-                toAccountCurrency,
-                destination: true,
+            if (showToCurrencyConversion) ...[
+              _CurrencyConversionPrompt(
+                selectedCurrency: _selectedCurrency,
+                accountCurrency: toAccountCurrency,
+                exchangeRateController: _toExchangeRateController,
+                amountController: _amountController,
+                isFetchingRate: _isFetchingToRate,
+                onRefreshRate: () {
+                  _fetchedToRatePair = null;
+                  _maybeAutofillToRate(toAccountCurrency);
+                },
+                onEditRate: () => _editRateManually(
+                  _selectedCurrency,
+                  toAccountCurrency,
+                  destination: true,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-          ],
+              const SizedBox(height: 12),
+            ],
 
-          // Date and time selection tile
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.calendar_month_outlined),
-            title: Text(context.l10n.txDateTime),
-            subtitle: Text(
-              DateFormat('yyyy-MM-dd HH:mm').format(_selectedDate),
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              final now = DateTime.now();
-              final pickedDate = await showDatePicker(
-                context: context,
-                initialDate: _selectedDate,
-                firstDate: DateTime(now.year - 5),
-                lastDate: DateTime(now.year + 5),
-              );
-              if (pickedDate == null) return;
-              if (!context.mounted) return;
-
-              final pickedTime = await showTimePicker(
-                context: context,
-                initialTime: TimeOfDay.fromDateTime(_selectedDate),
-              );
-              if (pickedTime == null) return;
-              if (!context.mounted) return;
-
-              setState(() {
-                _selectedDate = DateTime(
-                  pickedDate.year,
-                  pickedDate.month,
-                  pickedDate.day,
-                  pickedTime.hour,
-                  pickedTime.minute,
+            // Date and time selection tile
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.calendar_month_outlined),
+              title: Text(context.l10n.txDateTime),
+              subtitle: Text(
+                DateFormat('yyyy-MM-dd HH:mm').format(_selectedDate),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                final now = DateTime.now();
+                final pickedDate = await showDatePicker(
+                  context: context,
+                  initialDate: _selectedDate,
+                  firstDate: DateTime(now.year - 5),
+                  lastDate: DateTime(now.year + 5),
                 );
-                _recomputeReminderForLead();
-              });
-            },
-          ),
-          const SizedBox(height: 12),
+                if (pickedDate == null) return;
+                if (!context.mounted) return;
 
-          _TagInput(
-            tags: _tags,
-            suggestions: _tagSuggestionsFrom(
-              transactionsAsync,
-              selectedType: _transactionTypeFromFormType(_type),
-            ),
-            inputController: _tagInputController,
-            focusNode: _tagFocusNode,
-            onAddTag: _addTag,
-            onAddTagsFromInput: _addTagsFromInput,
-            onRemoveTag: _removeTag,
-          ),
-          const SizedBox(height: 12),
+                final pickedTime = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay.fromDateTime(_selectedDate),
+                );
+                if (pickedTime == null) return;
+                if (!context.mounted) return;
 
-          TextField(
-            key: const Key('transaction-note-field'),
-            controller: _noteController,
-            minLines: 3,
-            maxLines: 4,
-            decoration: InputDecoration(labelText: context.l10n.txNote),
-          ),
-          const SizedBox(height: 12),
-
-          TransactionAttachmentSection(
-            attachments: _attachments,
-            onAddAttachment: _showAddAttachmentDialog,
-            onRemoveAttachment: _removeAttachment,
-          ),
-          const SizedBox(height: 12),
-
-          // Transfers don't repeat: the pair is saved once.
-          if (_type != TransactionType.transfer) ...[
-            _RecurringSection(
-              isRecurring: _isRecurring,
-              frequency: _recurringFrequency,
-              endDate: _recurringEndDate,
-              maxOccurrences: _recurringMaxOccurrences,
-              dayOfWeek: _recurringDayOfWeek,
-              dayOfMonth: _recurringDayOfMonth,
-              monthOfYear: _recurringMonthOfYear,
-              occurrenceTime: TimeOfDay.fromDateTime(_selectedDate),
-              onToggle: (value) {
-                setState(() {
-                  _isRecurring = value;
-                  if (value) {
-                    // Re-derive the cadence-specific knobs for the active
-                    // frequency so the per-cadence panel is always populated.
-                    _applyFrequencyDefaults(_recurringFrequency);
-                  }
-                });
-              },
-              onFrequencyChanged: (frequency) {
-                setState(() {
-                  _recurringFrequency = frequency;
-                  _applyFrequencyDefaults(frequency);
-                });
-              },
-              onEndDateChanged: (value) =>
-                  setState(() => _recurringEndDate = value),
-              onMaxOccurrencesChanged: (value) =>
-                  setState(() => _recurringMaxOccurrences = value),
-              onDayOfWeekChanged: (value) =>
-                  setState(() => _recurringDayOfWeek = value),
-              onDayOfMonthChanged: (value) =>
-                  setState(() => _recurringDayOfMonth = value),
-              onMonthOfYearChanged: (value) =>
-                  setState(() => _recurringMonthOfYear = value),
-              onOccurrenceTimeChanged: (value) {
                 setState(() {
                   _selectedDate = DateTime(
-                    _selectedDate.year,
-                    _selectedDate.month,
-                    _selectedDate.day,
-                    value.hour,
-                    value.minute,
+                    pickedDate.year,
+                    pickedDate.month,
+                    pickedDate.day,
+                    pickedTime.hour,
+                    pickedTime.minute,
                   );
                   _recomputeReminderForLead();
                 });
               },
             ),
             const SizedBox(height: 12),
-          ],
 
-          _ReminderSection(
-            reminderAt: _reminderAt,
-            lead: _reminderLead,
-            transactionDate: _selectedDate,
-            onToggle: (value) {
-              setState(() {
-                if (!value) {
-                  _reminderAt = null;
-                } else if (_reminderLead == ReminderLead.custom) {
-                  _reminderAt ??= _defaultReminderTime();
-                } else {
-                  _reminderAt = _leadReminderTime();
-                }
-              });
-            },
-            onLeadChanged: _setReminderLead,
-            onPick: _pickReminderTime,
-          ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: _isSaving ? null : _submitForm,
-            icon: _isSaving
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.check),
-            label: Text(
-              widget.initialTransaction == null
-                  ? context.l10n.txSaveTransaction
-                  : context.l10n.txSaveChanges,
+            _TagInput(
+              tags: _tags,
+              suggestions: _tagSuggestionsFrom(
+                transactionsAsync,
+                selectedType: _transactionTypeFromFormType(_type),
+              ),
+              inputController: _tagInputController,
+              focusNode: _tagFocusNode,
+              onAddTag: _addTag,
+              onAddTagsFromInput: _addTagsFromInput,
+              onRemoveTag: _removeTag,
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+
+            TextField(
+              key: const Key('transaction-note-field'),
+              controller: _noteController,
+              minLines: 3,
+              maxLines: 4,
+              decoration: InputDecoration(labelText: context.l10n.txNote),
+            ),
+            const SizedBox(height: 12),
+
+            TransactionAttachmentSection(
+              attachments: _attachments,
+              onAddAttachment: _showAddAttachmentDialog,
+              onRemoveAttachment: _removeAttachment,
+            ),
+            const SizedBox(height: 12),
+
+            // Transfers don't repeat: the pair is saved once.
+            if (_type != TransactionType.transfer) ...[
+              _RecurringSection(
+                isRecurring: _isRecurring,
+                frequency: _recurringFrequency,
+                endDate: _recurringEndDate,
+                maxOccurrences: _recurringMaxOccurrences,
+                dayOfWeek: _recurringDayOfWeek,
+                dayOfMonth: _recurringDayOfMonth,
+                monthOfYear: _recurringMonthOfYear,
+                occurrenceTime: TimeOfDay.fromDateTime(_selectedDate),
+                onToggle: (value) {
+                  setState(() {
+                    _isRecurring = value;
+                    if (value) {
+                      // Re-derive the cadence-specific knobs for the active
+                      // frequency so the per-cadence panel is always populated.
+                      _applyFrequencyDefaults(_recurringFrequency);
+                    }
+                  });
+                },
+                onFrequencyChanged: (frequency) {
+                  setState(() {
+                    _recurringFrequency = frequency;
+                    _applyFrequencyDefaults(frequency);
+                  });
+                },
+                onEndDateChanged: (value) =>
+                    setState(() => _recurringEndDate = value),
+                onMaxOccurrencesChanged: (value) =>
+                    setState(() => _recurringMaxOccurrences = value),
+                onDayOfWeekChanged: (value) =>
+                    setState(() => _recurringDayOfWeek = value),
+                onDayOfMonthChanged: (value) =>
+                    setState(() => _recurringDayOfMonth = value),
+                onMonthOfYearChanged: (value) =>
+                    setState(() => _recurringMonthOfYear = value),
+                onOccurrenceTimeChanged: (value) {
+                  setState(() {
+                    _selectedDate = DateTime(
+                      _selectedDate.year,
+                      _selectedDate.month,
+                      _selectedDate.day,
+                      value.hour,
+                      value.minute,
+                    );
+                    _recomputeReminderForLead();
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            _ReminderSection(
+              reminderAt: _reminderAt,
+              lead: _reminderLead,
+              transactionDate: _selectedDate,
+              onToggle: (value) {
+                setState(() {
+                  if (!value) {
+                    _reminderAt = null;
+                  } else if (_reminderLead == ReminderLead.custom) {
+                    _reminderAt ??= _defaultReminderTime();
+                  } else {
+                    _reminderAt = _leadReminderTime();
+                  }
+                });
+              },
+              onLeadChanged: _setReminderLead,
+              onPick: _pickReminderTime,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _isSaving ? null : _submitForm,
+              icon: _isSaving
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.check),
+              label: Text(
+                widget.initialTransaction == null
+                    ? context.l10n.txSaveTransaction
+                    : context.l10n.txSaveChanges,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

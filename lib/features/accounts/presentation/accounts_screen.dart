@@ -1,3 +1,4 @@
+import '../../../theme/aiko_status_colors.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -347,7 +348,7 @@ class _AccountTypeHeader extends StatelessWidget {
               key: ValueKey('type-total-${type.name}'),
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w700,
-                color: accent,
+                color: AikoStatusColors.of(context).textFor(accent),
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
@@ -680,7 +681,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                     currentBalance.format(),
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w800,
-                      color: accent,
+                      color: AikoStatusColors.of(context).textFor(accent),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -800,7 +801,7 @@ class _RelatedTransactionTile extends StatelessWidget {
       trailing: Text(
         amount,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-          color: color,
+          color: AikoStatusColors.of(context).textFor(color),
           fontWeight: FontWeight.w800,
         ),
       ),

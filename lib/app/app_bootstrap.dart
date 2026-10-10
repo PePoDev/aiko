@@ -28,8 +28,12 @@ class AppBootstrap {
 
   Future<void> initialize() async {
     _enableBrickSyncLogging();
-    await FirebaseBackend.initialize(config);
-    await AikoBrickRepository.configure(config);
+    // Independent: Firebase setup and the local SQLite store (open and
+    // migrate) run side by side to shorten startup.
+    await Future.wait([
+      FirebaseBackend.initialize(config),
+      AikoBrickRepository.configure(config),
+    ]);
     // Resolve once before concurrent providers start, so a fresh installation
     // cannot create multiple anonymous owners for its initial records.
     await OfflineUserContext().resolveUserId();

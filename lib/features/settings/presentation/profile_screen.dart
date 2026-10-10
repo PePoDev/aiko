@@ -7,6 +7,7 @@ import '../../../shared/widgets/aiko_snack_bar.dart';
 import '../../../shared/widgets/cached_avatar.dart';
 import '../../../shared/widgets/discard_changes_guard.dart';
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -404,11 +405,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       invalidateUserData(container.invalidate);
       if (!mounted) return;
       context.go('/');
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _isDeleting = false);
+      // The server only deletes after a sign-in in the last 5 minutes.
+      final needsRecentSignIn =
+          error is FirebaseFunctionsException &&
+          error.code == 'failed-precondition';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.profileDeleteAccountFailed)),
+        SnackBar(
+          content: Text(
+            needsRecentSignIn
+                ? context.l10n.profileDeleteNeedsRecentSignIn
+                : context.l10n.profileDeleteAccountFailed,
+          ),
+        ),
       );
     }
   }

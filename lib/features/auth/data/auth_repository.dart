@@ -171,6 +171,13 @@ class AuthRepository {
     await OfflineUserContext.startAnonymousSession(_storage);
   }
 
+  /// Cleans up when the session ended elsewhere: like [signOut], without
+  /// signing out again or replacing an anonymous owner [signOut] just made.
+  Future<void> handleSessionEnded() async {
+    await TransactionReminderService.instance.cancelAll();
+    await OfflineUserContext.leaveSignedInOwner(_storage);
+  }
+
   Future<void> resetPassword(String email) =>
       _requiredAuth.sendPasswordResetEmail(email: email);
   Future<void> deleteAccount() async {

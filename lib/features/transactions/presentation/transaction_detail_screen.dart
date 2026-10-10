@@ -70,6 +70,10 @@ class _TransactionDetailScreenState
             child: Text(context.l10n.cancel),
           ),
           FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: AikoColors.dangerRed,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.of(context).pop(true),
             icon: const Icon(Icons.delete_outline),
             label: Text(context.l10n.delete),

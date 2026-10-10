@@ -55,6 +55,7 @@ class _AikoAppState extends State<AikoApp> {
   }
 
   Future<void> _leaveShellAfterSignOut() async {
+    await _authRepository.handleSessionEnded();
     final hasKnownAccount = await _authRepository.hasKnownAccount();
     if (!mounted) return;
     final target = signedOutRedirect(

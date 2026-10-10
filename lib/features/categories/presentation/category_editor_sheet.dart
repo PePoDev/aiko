@@ -184,7 +184,6 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                       category.displayName(context.l10n),
                     ),
             ),
-            backgroundColor: AikoColors.successGreen,
           ),
         );
       }
@@ -198,7 +197,6 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
                   ? context.l10n.categorySaveFailed
                   : context.l10n.categorySaveFailed,
             ),
-            backgroundColor: AikoColors.dangerRed,
           ),
         );
       }
@@ -254,7 +252,6 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
             content: Text(
               context.l10n.categoryDeleted(category.displayName(context.l10n)),
             ),
-            backgroundColor: AikoColors.successGreen,
           ),
         );
       }
@@ -262,10 +259,7 @@ class _CategoryEditorSheetState extends ConsumerState<_CategoryEditorSheet> {
       if (mounted) {
         setState(() => _isDeleting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.categoryDeleteFailed),
-            backgroundColor: AikoColors.dangerRed,
-          ),
+          SnackBar(content: Text(context.l10n.categoryDeleteFailed)),
         );
       }
     }

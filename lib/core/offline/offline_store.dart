@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart' as cloud;
 import '../../brick/model_dictionary.dart';
 import '../../brick/repository.dart';
 import '../firebase/firebase_backend.dart';
+import 'firestore_sync_state.dart';
 
 /// Firebase owns authenticated persistence, cache, retry, and cross-device data.
 /// SQLite remains available for local-only use and migration of existing data.
@@ -51,7 +52,17 @@ class OfflineStore {
       );
     }
     if (query?.limit != null) remote = remote.limit(query!.limit!);
-    final snapshot = await remote.get();
+    final sync = FirestoreSyncState.instance;
+    final collection = adapter.collectionName;
+    var snapshot = await remote.get(await sync.readOptions(collection));
+    // An empty cache result before the listener has confirmed with the server
+    // may just mean "not cached yet" (new device, slow network); ask the server
+    // so callers never mistake it for "doesn't exist".
+    if (snapshot.metadata.isFromCache &&
+        snapshot.docs.isEmpty &&
+        !sync.isServerSynced(collection)) {
+      snapshot = await remote.get();
+    }
     return Future.wait(
       snapshot.docs.map(
         (doc) async => await adapter.fromFirestore(doc.data()) as T,

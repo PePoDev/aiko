@@ -24,6 +24,8 @@ import '../features/transactions/domain/transaction.dart';
 import '../features/investments/data/investment_holding_repository.dart';
 import '../core/money/money.dart';
 import '../core/money/exchange_rate_service.dart';
+import '../core/firebase/firebase_backend.dart';
+import '../core/offline/firestore_sync_state.dart';
 import '../core/offline/offline_user_context.dart';
 
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
@@ -206,6 +208,16 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
     List<FinanceTransaction> transactions,
   ) async {
     if (transactions.isEmpty) {
+      return;
+    }
+    // Reconciled balances are written back, so only reconcile once both
+    // collections reflect the server; a stale cache must not overwrite a newer
+    // balance from another device.
+    if (FirebaseBackend.userId != null &&
+        !FirestoreSyncState.instance.allServerSynced(const [
+          'accounts',
+          'transactions',
+        ])) {
       return;
     }
 

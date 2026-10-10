@@ -15,7 +15,7 @@ Build with `npm run functions:build`. Tests are in [Testing](testing.md).
 
 ## Functions
 
-All functions run in `FIREBASE_REGION` (default `us-central1`). Every privileged call derives the user from verified authentication, never from request data.
+All functions run in `FIREBASE_REGION` (default `us-central1`), scale to zero when idle, and are capped at 10 instances (`setGlobalOptions({maxInstances: 10})` in `index.ts`; each instance serves up to 80 concurrent requests). Every privileged call derives the user from verified authentication, never from request data.
 
 | Function | Type | Auth | Rate limit | Secrets |
 | --- | --- | --- | --- | --- |
@@ -83,7 +83,7 @@ sequenceDiagram
 ```
 
 - **Layer 1, snapshot:** `buildAikoFinancialContext` (`lib/features/aiko_assistant/application/financial_context.dart`) sends aggregates and a short recent slice, never the full ledger.
-- **Layer 2, tools:** `aiko_account_summary`, `aiko_budget_status`, `aiko_spending_by_category`, `aiko_cashflow_summary`, `aiko_recent_transactions` (1–50 rows), `aiko_goal_progress`. Each receives the verified uid and reads only `users/{uid}`. Results are capped at 4,000 characters; tool errors go back to the model as JSON instead of failing the chat.
+- **Layer 2, tools:** `aiko_account_summary`, `aiko_budget_status`, `aiko_spending_by_category`, `aiko_cashflow_summary`, `aiko_recent_transactions` (1–50 rows), `aiko_goal_progress`. Each receives the verified uid and reads only `users/{uid}`, and only what it needs (`FinanceReader`). Date-ranged tools query just that `date` range; recent transactions read the newest rows; category names are fetched by ID; account tools never read transactions. Reads are memoized for the whole message ([Cost](cost.md#cloud-functions)). Results are capped at 4,000 characters; tool errors go back to the model as JSON instead of failing the chat.
 - **Prompt rules:** warm, non-judgmental, base-currency amounts, no invented numbers, finance topics only. Answers with figures end with "Aiko provides estimates, not certified financial advice." The app shows that line as a separate disclaimer.
 - **Provider:** any OpenAI-compatible Chat Completions API at `${AI_BASE_URL}/chat/completions`, temperature 0.4, 60 s timeout per request.
 

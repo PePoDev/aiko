@@ -170,4 +170,3 @@ Current behavior that differs from what the UI or the README suggests. Fix the c
 | Rebalance targets | Fixed at Stocks 70% / Bonds 30%; the stored `target_allocation_percent` has no input. |
 | Reminders | Repeating native reminders ignore the series end date and occurrence cap. |
 | "PDF" export | Produces an HTML statement, not a PDF file. |
-| Chat tools cost | Each tool call reads the user's full accounts, transactions and categories collections; fine for personal ledgers, revisit for very large ones. |

@@ -132,6 +132,8 @@ Repositories call `OfflineStore` (`lib/core/offline/offline_store.dart`) with Br
 - **Signed in** (`FirebaseBackend.userId != null`): `get` turns the Brick query into a Firestore query on `users/{uid}/{collection}`. It supports exact `where` and `orderBy`; camelCase fields map to snake_case. `upsert` writes the document after checking that `user_id` (or `id` for profiles) matches the signed-in user. `delete` deletes the document.
 - **Signed out / local-only**: the same calls go to `AikoBrickRepository` (SQLite).
 
+Signed-in reads are **cache-first**: once a collection's listener has synced with the server, `FirestoreSyncState` (`lib/core/offline/firestore_sync_state.dart`) serves reads from the SDK cache the listener keeps current, so they aren't billed. A read that starts before its listener syncs waits up to 3 seconds and then uses the cache. An empty cache before the first sync falls back to the server, so a new device never mistakes "not cached yet" for "doesn't exist". See [Cost](cost.md).
+
 Each model has one codec, a `FirestoreAdapter` in `lib/brick/adapters/`, which handles both the SQLite row and the Firestore document. The Firestore collection name is the adapter's `collectionName`.
 
 ### Offline writes
@@ -140,7 +142,7 @@ The Firestore SDK persists writes locally before acknowledging them and replays 
 
 ### Listeners
 
-`firebaseSyncProvider` (`lib/app/firebase_sync.dart`) is watched by the shell. On each auth change it cancels old listeners, invalidates every dependent provider, and (when signed in) opens one `snapshots()` listener per collection. Changes are debounced by 150 ms and invalidate the matching providers:
+`firebaseSyncProvider` (`lib/app/firebase_sync.dart`) is watched by the shell. On each auth change it cancels old listeners, registers the collections with `FirestoreSyncState`, invalidates every dependent provider, and (when signed in) opens one `snapshots(includeMetadataChanges: true)` listener per collection. The first server-confirmed snapshot marks a collection synced. The initial snapshot and metadata-only events don't reload providers, because readers already read that data from the cache. Data changes are debounced by 150 ms and invalidate the matching providers:
 
 | Collection | Invalidates |
 | --- | --- |
@@ -151,13 +153,13 @@ The Firestore SDK persists writes locally before acknowledging them and replays 
 | `investment_holdings` | `investmentsProvider` |
 | `preferences` | `transactionRulesProvider`, `storedTravelProvider`, `appLocaleControllerProvider` |
 
-Conflicts are last-write-wins per document. There is no custom outbox and no transactional double-entry ledger. Account balances are recalculated from transactions on load.
+Conflicts are last-write-wins per document. There is no custom outbox and no transactional double-entry ledger. Account balances are recalculated from transactions on load. While signed in, recalculated balances are only written once both accounts and transactions are server-synced, so a stale cache never overwrites a newer balance.
 
 ### Sign-in and anonymous data
 
 Before sign-in, records are owned by a `local:<uuid>` user ID (`OfflineUserContext`). After sign-in, `AuthRepository`:
 
-1. **`ensureProfileAndDefaultsExist`**: in one Firestore transaction, creates the profile, 13 category groups and 81 category clones only where missing. It never resets existing data.
+1. **`ensureProfileAndDefaultsExist`**: in one Firestore transaction, creates the profile, 13 category groups and 81 category clones only where missing. It never resets existing data. `DefaultsSeedMarker` makes it run once per user on each device, plus again when new defaults ship, rather than on every launch.
 2. **`OfflineDataMigrator.claimAnonymousData`**: re-saves every `local:` row (accounts, groups, categories, transactions, holdings) under the real uid, re-points default category IDs to the user's clones, and deletes the local copies.
 
 Sign-out starts a fresh anonymous session.

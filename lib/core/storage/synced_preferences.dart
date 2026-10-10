@@ -1,4 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../firebase/firebase_backend.dart';
+import '../offline/firestore_sync_state.dart';
 import '../offline/offline_store.dart';
 import 'secure_storage_service.dart';
 
@@ -13,8 +16,18 @@ class SyncedPreferences implements SecureStorageService {
   @override
   Future<String?> read(String key) async {
     if (FirebaseBackend.userId == null) return _local.read(key);
-    final doc = await FirebaseBackend.collection('preferences').doc(key).get();
-    return doc.data()?['value'] as String?;
+    final ref = FirebaseBackend.collection('preferences').doc(key);
+    final sync = FirestoreSyncState.instance;
+    try {
+      final doc = await ref.get(await sync.readOptions('preferences'));
+      return doc.data()?['value'] as String?;
+    } on FirebaseException {
+      // Not in the cache. Once the listener has synced, that means the
+      // preference doesn't exist; before that, ask the server.
+      if (sync.isServerSynced('preferences')) return null;
+      final doc = await ref.get();
+      return doc.data()?['value'] as String?;
+    }
   }
 
   @override

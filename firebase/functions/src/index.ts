@@ -3,8 +3,13 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
+import { setGlobalOptions } from 'firebase-functions/v2';
 import { createHash, createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import { buildModel, isRequestBody, systemPromptFor, resolveTools, streamAnswer } from './chat';
+
+// Cost guard: cap scale-out so a traffic spike or abuse can't run up the bill.
+// Each instance serves up to 80 concurrent requests.
+setGlobalOptions({maxInstances: 10});
 
 initializeApp();
 const db = getFirestore();

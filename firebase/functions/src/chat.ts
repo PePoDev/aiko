@@ -1,4 +1,4 @@
-import { financeTool } from "./finance_tools";
+import { FinanceReader, financeTool } from "./finance_tools";
 const SYSTEM_PROMPT = [
   "You are Aiko, a friendly, warm, and supportive personal finance companion in the Aiko app.",
   "You are not a certified financial advisor — every response that gives numbers, recommendations, or projections MUST end with this exact line on its own:",
@@ -198,6 +198,7 @@ async function runTool(
   uid: string,
   name: string,
   argumentsJson: string | undefined,
+  reader: FinanceReader,
 ): Promise<string> {
   if (!TOOL_NAMES.has(name)) return JSON.stringify({ error: "unknown tool" });
 
@@ -219,7 +220,7 @@ async function runTool(
   }
 
   try {
-    const data = await financeTool(uid, name, args);
+    const data = await financeTool(uid, name, args, reader);
     return cap(JSON.stringify(data ?? []), 4000);
   } catch (e) {
     return JSON.stringify({ error: (e as Error).message });
@@ -281,6 +282,8 @@ async function resolveTools(
   messages: ChatMessage[],
   entry: AiModel,
 ): Promise<void> {
+  // One reader per request: tool calls share (and never repeat) Firestore reads.
+  const reader = new FinanceReader(uid);
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const { signal, cancel } = withTimeout(REQUEST_TIMEOUT_MS);
     let resp: Response;
@@ -313,6 +316,7 @@ async function resolveTools(
         uid,
         call?.function?.name,
         call?.function?.arguments,
+        reader,
       );
       messages.push({ role: "tool", tool_call_id: call.id, content: result });
     }

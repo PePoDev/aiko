@@ -61,7 +61,7 @@ All of [Adding a field](#adding-a-field), plus:
 1. A `FirestoreAdapter` with a `collectionName`, registered in `firestoreAdapters` (`lib/brick/model_dictionary.dart`).
 2. Owner-scoped rules: add the name to `financeCollection` (or write a dedicated match) and add allow and deny tests.
 3. A repository in the feature's `data/` that resolves the user through `OfflineUserContext` and calls `OfflineStore`.
-4. A provider; add the collection to `firebaseSyncProvider` so other devices refresh.
+4. A provider; add the collection to `firebaseSyncProvider` so other devices refresh and its reads become cache-first ([Cost](cost.md#cost-checklist-for-changes)).
 5. Anonymous-data claiming in `OfflineDataMigrator` if records can be created signed-out.
 6. Deletion: `deleteAccount` removes the `users/{uid}` subtree automatically; also delete any global server-side data.
 7. [Data model](data-model.md), [Backend](backend.md) and [Security](security.md).

@@ -35,7 +35,7 @@ Previews deploy in parallel. `main` deploys only after the Flutter and Firebase 
 | Area | Files | Checks |
 | --- | --- | --- |
 | Money and formatting | `test/core/money/`, `test/core/formatting/` | Decimal arithmetic, currency mismatch errors, FX service parsing and failures, locale formatting |
-| Offline core | `test/core/offline/`, `test/core/storage/` | Anonymous IDs, claiming local data on sign-in, file cache |
+| Offline core | `test/core/offline/`, `test/core/storage/` | Anonymous IDs, claiming local data on sign-in, cache-first read routing (`firestore_sync_state_test.dart`), file cache |
 | Prediction | `test/core/prediction/monte_carlo_test.dart` | Probability and percentile behavior |
 | Local schema | `test/brick/` | Codec round-trips, migration chain integrity, fresh database, budget→category and goal→account migrations, template-ID repair, default clone serialization |
 | App wiring | `test/app/` | Providers, navigation items, locale controller, theme mode |
@@ -43,7 +43,7 @@ Previews deploy in parallel. `main` deploys only after the Flutter and Firebase 
 | Transactions | `test/features/transactions/` | Validation, transfer balance math, recurring projection, month ranges, rule matching, attachments, OCR and voice parsing, repository |
 | Categories | `test/features/categories/` | Defaults and clone IDs, repository, budget progress |
 | Overview and dashboard | `test/features/overview/`, `test/features/dashboard/` | Safe-to-spend, cash flow, goal forecast, monthly report, allocation, notifications, daily spending reaction |
-| Other features | `test/features/` (`aiko_assistant`, `investments`, `calculators`, `transaction_capture`, `travel_mode`, `settings`, `auth`) | Financial context, SSE chat engine, allocation and tax rebalance, calculator math, bank SMS parsing, travel state, profile repository, auth repository |
+| Other features | `test/features/` (`aiko_assistant`, `investments`, `calculators`, `transaction_capture`, `travel_mode`, `settings`, `auth`) | Financial context, SSE chat engine, allocation and tax rebalance, calculator math, bank SMS parsing, travel state, profile repository, auth repository and the once-per-device defaults marker |
 | Platform and theme | `test/android/android_manifest_test.dart`, `test/theme/dark_theme_guard_test.dart` | The release manifest declares the internet permission; a static scan fails if UI code hard-codes neutral `AikoColors` (`darkNavy`, `neutralInk`, `mutedText`, surfaces, borders, `appBackground`) instead of theme tokens |
 
 Five older files still use `testWidgets`: `aiko_character_test.dart`, `inline_glossary_text_test.dart`, `learning_hub_screen_test.dart`, `aiko_assistant_screen_test.dart` and `aiko_spending_reaction_strip_test.dart`. Keep them passing, but don't add new widget tests.
@@ -56,6 +56,7 @@ Five older files still use `testWidgets`: `aiko_character_test.dart`, `inline_gl
 | `firebase/functions/test/import_legacy.test.cjs` | Import preserves IDs, references and decimal strings; rejects lossy numbers; never imports global templates |
 | `firebase/test/rules.test.cjs` | Owner-only access and decimal-string validation; default category identity immutable while its budget stays editable; two clients see edits and hard deletes; offline writes replay after reconnect; Storage owner and content-type rules |
 | `firebase/test/functions.test.cjs` | Privileged functions reject unauthenticated callers; account deletion removes only the caller's data and files |
+| `firebase/test/finance_reads.test.cjs` | Ask Aiko tools read only the requested date range, referenced categories and newest rows, never re-read within a message, and reject bad ranges before reading (asserts billed document counts) |
 
 ## Writing tests
 

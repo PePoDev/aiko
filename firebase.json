@@ -2,7 +2,7 @@
   "firestore": { "rules": "firebase/firestore.rules", "indexes": "firebase/firestore.indexes.json" },
   "storage": { "rules": "firebase/storage.rules" },
   "functions": [{ "source": "firebase/functions", "codebase": "aiko", "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"] }],
-  "hosting": { "public": "build/web", "ignore": ["firebase.json", "**/.*", "**/node_modules/**"], "rewrites": [{ "source": "**", "destination": "/index.html" }],
+  "hosting": { "public": "build/web", "ignore": ["firebase.json", "**/.*", "**/node_modules/**", "canvaskit/**"], "rewrites": [{ "source": "**", "destination": "/index.html" }],
     "headers": [{ "source": "**", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }] },
   "emulators": {
     "auth": { "host": "127.0.0.1", "port": 9099 },

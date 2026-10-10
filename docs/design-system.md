@@ -67,7 +67,7 @@ Charts elsewhere use `fl_chart`. Every chart needs a text summary (README rule).
 | `assets/images/aiko/aiko_{welcome,thinking,happy,warning,celebrating,encouraging}.png` | PNG fallback for `AikoCharacter`; the Welcome carousel |
 | `assets/icons/aiko_aiko.svg` | `AikoAvatar` |
 | `assets/icons/aiko_title.svg` | Not referenced by code (the wordmark is text in `AikoWordmark`) |
-| `assets/icons/app_icon.png` | Launcher icons (`flutter_launcher_icons` in `pubspec.yaml`) |
+| `assets/icons/app_icon.png`, `app_icon_padded.png` | Launcher-icon sources for `flutter_launcher_icons`; deliberately not bundled into the app (`pubspec.yaml` lists only the SVGs) |
 
 Use the character where it helps (onboarding, chat, encouragement, gentle warnings), never over numbers, charts, forms or critical actions.
 

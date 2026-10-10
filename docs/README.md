@@ -13,6 +13,7 @@ Start with the project [README](../README.md) for the product, brand, rules and 
 | [Security and privacy](security.md) | Know the trust boundaries, secrets, on-device data and what leaves the device |
 | [Testing](testing.md) | Run the suites, see what they cover, write new tests |
 | [Deployment](deployment.md) | Set up Firebase Hosting and CI, configure secrets, enable Storage and Functions |
+| [Cost](cost.md) | See what each action costs in Firebase, the optimizations in place, and the guardrails to set |
 | [Design system implementation](design-system.md) | Find the theme token or shared widget for a design rule |
 | [Localization](localization.md) | Add strings or languages |
 | [Contributing](contributing.md) | Follow the workflow, conventions and step-by-step recipes |
@@ -36,6 +37,7 @@ Docs change in the **same commit** as the behavior they describe. Before you fin
 | A `--dart-define`, `.env` key, tool version or setup step | [Getting started](getting-started.md) |
 | CI, deploy targets, Hosting config or required GitHub secrets/variables | [Deployment](deployment.md), [Testing → Continuous integration](testing.md#continuous-integration) |
 | A test suite, command or testing convention | [Testing](testing.md) |
+| How data is read, listened to or written; Functions queries or scaling; bundled or deployed web files | [Cost](cost.md) |
 | Theme tokens, shared widgets or brand assets | [Design system implementation](design-system.md) |
 | Strings or supported languages | [Localization](localization.md) |
 | Startup, providers, sync or offline behavior | [Architecture](architecture.md) |

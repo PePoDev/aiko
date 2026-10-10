@@ -186,6 +186,7 @@ These values never sync.
 | --- | --- | --- |
 | Secure storage | `aiko_offline_user_id` | Current owner ID (`local:<uuid>` or uid) |
 | Secure storage | `aiko_known_account` | `true` after a successful sign-in; routes returning users to `/auth` |
+| Secure storage | `aiko_defaults_seeded:<uid>` | Stamp recording that this device ensured the user's profile and default categories ([Cost](cost.md)) |
 | Secure storage | `transaction_capture_settings` | Android capture on/off and target account |
 | `aiko_files.sqlite` | `files(path, bytes)` | Attachment and avatar bytes; attachment metadata cache |
 | App support dir | `capture_inbox/*.json` | Captured SMS and notifications waiting to be processed (Android) |

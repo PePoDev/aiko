@@ -90,13 +90,14 @@ Both require the Blaze plan. Then:
 
 ## Hosting configuration
 
-`firebase.json` serves `build/web`, rewrites unknown paths to `index.html`, and sends `Cache-Control: no-cache` for every file. Flutter's `main.dart.js` and `flutter_bootstrap.js` are not content-hashed, so browsers must revalidate them after each release; unchanged files still return `304 Not Modified`. The same config powers the local Hosting emulator ([Getting started](getting-started.md)).
+`firebase.json` serves `build/web` except `canvaskit/` (the app loads CanvasKit from Google's CDN), rewrites unknown paths to `index.html`, and sends `Cache-Control: no-cache` for every file. Flutter's `main.dart.js` and `flutter_bootstrap.js` are not content-hashed, so browsers must revalidate them after each release; unchanged files still return `304 Not Modified`. The same config powers the local Hosting emulator ([Getting started](getting-started.md)).
 
 Rollback: **Hosting → Release history → Roll back** in the Firebase console, or redeploy an earlier commit with **Actions → CI → Run workflow** on `main`.
 
 ## Notes
 
 - Free (Spark) Hosting includes 10 GB storage and 360 MB/day transfer. A first visit downloads roughly 2–5 MB from Hosting; Flutter's CanvasKit renderer comes from Google's CDN. Blaze bills extra transfer at $0.15/GB.
+- Set the cost guardrails once: a billing budget alert and a Hosting release-retention limit ([Cost → One-time guardrails](cost.md#one-time-guardrails)).
 - To use a custom domain for Google sign-in pop-ups, connect it under **Hosting → Add custom domain** and set `FIREBASE_AUTH_DOMAIN` to it; Hosting serves the `/__/auth/*` handler on every domain it hosts.
 - Only pushes trigger CI, so pull requests from forks get no preview and never receive secrets.
 - Mobile builds use the same `FIREBASE_*` defines ([Getting started](getting-started.md)); this pipeline only ships the web app.

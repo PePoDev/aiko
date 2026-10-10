@@ -98,7 +98,10 @@ flutter:
 
   assets:
     - assets/images/aiko/
-    - assets/icons/
+    # Only the SVG marks ship; app_icon*.png are launcher-icon sources read by
+    # flutter_launcher_icons and would add 3.3 MB to every build.
+    - assets/icons/aiko_aiko.svg
+    - assets/icons/aiko_title.svg
     - assets/rive/
 
   # To add assets to your application, add an assets section, like this:

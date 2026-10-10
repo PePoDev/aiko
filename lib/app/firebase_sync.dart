@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/firebase/firebase_backend.dart';
+import '../core/offline/firestore_sync_state.dart';
 import '../core/offline/offline_store.dart';
 import '../features/investments/application/investments_provider.dart';
 import '../features/transactions/data/transaction_rule_store.dart';
@@ -12,7 +13,10 @@ import 'providers.dart';
 
 /// A single collection listener per signed-in app, shared by every screen.
 /// Firestore emits local writes, remote edits and deletes, and reconnects itself.
+/// While a listener is live, repository reads of its collection come from the
+/// SDK cache it keeps current ([FirestoreSyncState]), so they are not billed.
 final firebaseSyncProvider = Provider<void>((ref) {
+  final sync = FirestoreSyncState.instance;
   final subscriptions = <StreamSubscription>[];
   final timers = <String, Timer>{};
   var disposed = false;
@@ -30,6 +34,10 @@ final firebaseSyncProvider = Provider<void>((ref) {
       ref.invalidate(appLocaleControllerProvider);
     },
   };
+  // Register before screens start reading, so their first reads wait for the
+  // listeners instead of fetching every collection from the server too.
+  final signedInUid = FirebaseBackend.userId;
+  if (signedInUid != null) sync.beginListening(signedInUid, refresh.keys);
   final authSubscription = FirebaseBackend.auth?.authStateChanges().listen((
     user,
   ) async {
@@ -44,23 +52,49 @@ final firebaseSyncProvider = Provider<void>((ref) {
     }
     timers.clear();
     if (disposed || currentGeneration != generation) return;
+    if (user == null) {
+      sync.stopListening();
+    } else {
+      sync.beginListening(user.uid, refresh.keys);
+    }
     for (final callback in refresh.values) {
       callback();
     }
     if (user == null) return;
     for (final entry in refresh.entries) {
+      var initial = true;
       subscriptions.add(
-        FirebaseBackend.collection(entry.key).snapshots().listen((_) {
-          timers[entry.key]?.cancel();
-          timers[entry.key] = Timer(const Duration(milliseconds: 150), () {
-            if (!disposed) entry.value();
-          });
-        }, onError: (Object error) => OfflineStore.errors.add(error)),
+        FirebaseBackend.collection(entry.key)
+            .snapshots(includeMetadataChanges: true)
+            .listen(
+              (snapshot) {
+                final first = initial;
+                initial = false;
+                if (!snapshot.metadata.isFromCache) {
+                  sync.markServerSynced(entry.key);
+                }
+                // Readers waiting on this listener load the initial snapshot
+                // themselves, and metadata-only events change no data.
+                if (first || snapshot.docChanges.isEmpty) return;
+                timers[entry.key]?.cancel();
+                timers[entry.key] = Timer(
+                  const Duration(milliseconds: 150),
+                  () {
+                    if (!disposed) entry.value();
+                  },
+                );
+              },
+              onError: (Object error) {
+                sync.markListenerFailed(entry.key);
+                OfflineStore.errors.add(error);
+              },
+            ),
       );
     }
   });
   ref.onDispose(() {
     disposed = true;
+    sync.stopListening();
     authSubscription?.cancel();
     for (final subscription in subscriptions) {
       subscription.cancel();

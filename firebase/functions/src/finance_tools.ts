@@ -57,10 +57,56 @@ export function summarize(name: string, args: Row, accounts: Row[], transactions
   }
 }
 
-export async function financeTool(uid: string, name: string, args: Row): Promise<unknown> {
+const validRange = (args: Row) => /^\d{4}-\d{2}-\d{2}$/.test(args.start_date) && /^\d{4}-\d{2}-\d{2}$/.test(args.end_date) && args.start_date <= args.end_date;
+const dayAfter = (date: string) => new Date(Date.parse(`${date}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
+
+// Reads only what each tool needs (billed per document) and memoizes it for one
+// chat request, so repeated or overlapping tool calls don't re-read the ledger.
+// `date` is an ISO string, so a date range is a string range on one field and
+// needs no composite index.
+export class FinanceReader {
+  documentsRead = 0;
+  private readonly memo = new Map<string, Promise<Row[]>>();
+  private readonly categories = new Map<string, Row | undefined>();
+  constructor(private readonly uid: string) {}
+  private collection(name: string) { return getFirestore().collection('users').doc(this.uid).collection(name); }
+  private once(key: string, query: () => FirebaseFirestore.Query): Promise<Row[]> {
+    if (!this.memo.has(key)) this.memo.set(key, query().get().then(s => { this.documentsRead += s.size; return s.docs.map(d => d.data()); }));
+    return this.memo.get(key)!;
+  }
+  accounts() { return this.once('accounts', () => this.collection('accounts')); }
+  budgetedCategories() { return this.once('budgeted', () => this.collection('categories').where('budget_enabled', '==', true)); }
+  transactionsBetween(start: string, end: string) {
+    return this.once(`range:${start}:${end}`, () => this.collection('transactions').where('date', '>=', start).where('date', '<', dayAfter(end)));
+  }
+  recentTransactions(limit: number) { return this.once(`recent:${limit}`, () => this.collection('transactions').orderBy('date', 'desc').limit(limit)); }
+  async categoriesById(ids: unknown[]): Promise<Row[]> {
+    const missing = [...new Set(ids.filter((id): id is string => typeof id === 'string' && id.length > 0 && !id.includes('/')))].filter(id => !this.categories.has(id));
+    if (missing.length) {
+      const docs = await getFirestore().getAll(...missing.map(id => this.collection('categories').doc(id)));
+      this.documentsRead += docs.length;
+      docs.forEach((doc, i) => this.categories.set(missing[i], doc.data()));
+    }
+    return ids.map(id => this.categories.get(String(id))).filter((c): c is Row => !!c);
+  }
+}
+
+export async function financeTool(uid: string, name: string, args: Row, reader = new FinanceReader(uid)): Promise<unknown> {
   if (!allowed.has(name)) throw new Error('Unknown financial tool.');
-  const root = getFirestore().collection('users').doc(uid);
-  const read = async (collection: string) => (await root.collection(collection).get()).docs.map(d => d.data());
-  const [accounts, transactions, categories] = await Promise.all([read('accounts'), read('transactions'), read('categories')]);
-  return summarize(name, args, accounts, transactions, categories);
+  switch (name) {
+    case 'aiko_account_summary':
+    case 'aiko_goal_progress':
+      return summarize(name, args, await reader.accounts(), [], []);
+    case 'aiko_recent_transactions': {
+      const txs = await reader.recentTransactions(Math.min(50, Math.max(1, Number(args.max_rows) || 20)));
+      return summarize(name, args, [], txs, await reader.categoriesById(txs.map(t => t.category_id)));
+    }
+  }
+  if (!validRange(args)) throw new Error('A valid inclusive date range is required.');
+  const txs = await reader.transactionsBetween(args.start_date, args.end_date);
+  switch (name) {
+    case 'aiko_cashflow_summary': return summarize(name, args, [], txs, []);
+    case 'aiko_budget_status': return summarize(name, args, [], txs, await reader.budgetedCategories());
+    default: return summarize(name, args, [], txs, await reader.categoriesById(txs.filter(t => t.type === 'expense').map(t => t.category_id)));
+  }
 }

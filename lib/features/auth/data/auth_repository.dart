@@ -16,6 +16,7 @@ import '../../../core/offline/offline_data_migrator.dart';
 import '../../../core/offline/offline_user_context.dart';
 import '../../../core/storage/secure_storage_service.dart';
 import '../../categories/domain/category_defaults.dart';
+import 'defaults_seed_marker.dart';
 
 class AuthSession {
   const AuthSession({required this.userId, required this.email});
@@ -59,7 +60,7 @@ class AuthRepository {
   Future<AuthSession> _finish(UserCredential credential) async {
     final user = credential.user;
     if (user == null) throw StateError('Sign-in did not return a user.');
-    await ensureProfileAndDefaultsExist(user.uid, user.email ?? '');
+    await _ensureDefaultsOnce(user.uid, user.email ?? '');
     await OfflineDataMigrator().claimAnonymousData(user.uid);
     await _storage.write(_knownAccountKey, 'true');
     return AuthSession(userId: user.uid, email: user.email ?? '');
@@ -148,7 +149,7 @@ class AuthRepository {
     final session = cachedSession();
     if (session != null) {
       try {
-        await ensureProfileAndDefaultsExist(session.userId, session.email);
+        await _ensureDefaultsOnce(session.userId, session.email);
       } catch (_) {
         // Existing Firebase cache remains available while disconnected.
       }
@@ -159,6 +160,15 @@ class AuthRepository {
 
   void restoreSessionInBackground() {
     unawaited(restoreSession());
+  }
+
+  /// Runs [ensureProfileAndDefaultsExist] once per user on this device instead
+  /// of on every launch ([DefaultsSeedMarker]).
+  Future<void> _ensureDefaultsOnce(String uid, String email) async {
+    final marker = DefaultsSeedMarker(_storage);
+    if (await marker.isSeeded(uid)) return;
+    await ensureProfileAndDefaultsExist(uid, email);
+    await marker.markSeeded(uid);
   }
 
   /// A single transaction only inserts missing defaults. Signing in on another

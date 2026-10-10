@@ -280,6 +280,10 @@ class _SidebarItem extends StatelessWidget {
         button: true,
         selected: selected,
         label: label,
+        // One announcement: the label here, not again from the visible text.
+        excludeSemantics: true,
+        onTap: () =>
+            context.go(aikoNavigationTarget(path, reselected: selected)),
         child: labeled ? item : Tooltip(message: label, child: item),
       ),
     );

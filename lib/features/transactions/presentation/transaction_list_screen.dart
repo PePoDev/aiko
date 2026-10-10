@@ -165,6 +165,7 @@ class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
       floatingActionButton: AikoBreakpoints.isExpanded(context)
           ? null
           : FloatingActionButton(
+              tooltip: context.l10n.newTransaction,
               onPressed: () => openAikoPage<void>(
                 context,
                 const TransactionFormScreen(),
@@ -1352,7 +1353,8 @@ String _formatDailyTotal(Money total) {
   final symbol = NumberFormat.simpleCurrency(
     name: total.currency,
   ).currencySymbol;
-  final formatter = NumberFormat.decimalPattern();
+  // Two decimals, like every other amount in the app (฿1,250.50).
+  final formatter = NumberFormat.decimalPatternDigits(decimalDigits: 2);
   final formatted = formatter.format(absAmount.toDouble());
   final sign = isNegative ? '-' : '';
   return '$sign$symbol$formatted';

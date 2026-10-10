@@ -85,13 +85,20 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
                 labeled: width >= AikoBreakpoints.labeledSidebar,
               ),
               Expanded(
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: AikoBreakpoints.contentWidthFor(location),
+                // Its own semantics container: each page route paints a
+                // modal barrier that hides earlier-painted semantics in the
+                // same container, which would hide the sidebar from screen
+                // readers and keyboard navigation.
+                child: Semantics(
+                  container: true,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: AikoBreakpoints.contentWidthFor(location),
+                      ),
+                      child: widget.child,
                     ),
-                    child: widget.child,
                   ),
                 ),
               ),
@@ -232,10 +239,14 @@ class _AikoBottomNavigationItem extends StatelessWidget {
 
     final Color indicator = activeColor;
 
+    // One announcement per tab: the label here, not again from the tooltip
+    // and the visible text.
     return Semantics(
       button: true,
       selected: selected,
       label: item.label,
+      excludeSemantics: true,
+      onTap: onTap,
       child: Tooltip(
         message: item.label,
         child: InkWell(

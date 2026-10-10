@@ -466,7 +466,9 @@ class _SummaryLine extends StatelessWidget {
             textAlign: TextAlign.end,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.titleSmall?.copyWith(
-              color: valueColor,
+              color: valueColor == null
+                  ? null
+                  : AikoStatusColors.of(context).textFor(valueColor!),
               fontWeight: FontWeight.w700,
             ),
           ),

@@ -110,37 +110,44 @@ class AccountCommonFields extends StatelessWidget {
             if (v != null) onChanged(currency: v);
           },
         ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: balanceController,
-          decoration: InputDecoration(
-            labelText: context.l10n.accountFormCurrentBalance,
-            hintText: '0.00',
-            prefixIcon: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Center(
-                widthFactor: 1,
-                child: Text(
-                  _currencySymbol(initialCurrency),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+        // Goals record their balance as "Saved so far" in the goal details.
+        if (initialType != AccountType.goal) ...[
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: balanceController,
+            decoration: InputDecoration(
+              labelText: context.l10n.accountFormCurrentBalance,
+              hintText: '0.00',
+              prefixIcon: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Center(
+                  widthFactor: 1,
+                  child: Text(
+                    _currencySymbol(initialCurrency),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ),
+              prefixIconConstraints: const BoxConstraints(minWidth: 48),
             ),
-            prefixIconConstraints: const BoxConstraints(minWidth: 48),
+            // Signed so iOS offers a minus key for overdrawn balances.
+            keyboardType: const TextInputType.numberWithOptions(
+              decimal: true,
+              signed: true,
+            ),
+            onChanged: (v) => onChanged(balance: v),
+            validator: (v) {
+              final t = v?.trim() ?? '';
+              if (t.isEmpty) return context.l10n.accountFormBalanceRequired;
+              if (Decimal.tryParse(t) == null) {
+                return context.l10n.accountFormEnterValidNumber;
+              }
+              return null;
+            },
           ),
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          onChanged: (v) => onChanged(balance: v),
-          validator: (v) {
-            final t = v?.trim() ?? '';
-            if (t.isEmpty) return context.l10n.accountFormBalanceRequired;
-            if (Decimal.tryParse(t) == null) {
-              return context.l10n.accountFormEnterValidNumber;
-            }
-            return null;
-          },
-        ),
+        ],
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(context.l10n.accountFormIncludeInNetWorth),

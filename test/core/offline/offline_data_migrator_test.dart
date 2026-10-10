@@ -57,7 +57,9 @@ void main() {
 
       final group = store.rows.whereType<OfflineCategoryGroup>().single;
       expect(group.templateId, CategoryGroupDefaults.foodAndDrinkId);
-      expect(group.createdAt, isNotNull);
+      // Default clones keep the stored createdAt (none here): security rules
+      // only let a clone's budget fields change.
+      expect(group.createdAt, isNull);
       expect(
         group.id,
         CategoryGroupDefaults.cloneIdForUser(
@@ -68,7 +70,8 @@ void main() {
 
       final category = store.rows.whereType<OfflineCategory>().single;
       expect(category.templateId, CategoryDefaults.coffeeId);
-      expect(category.createdAt, isNotNull);
+      expect(category.createdAt, isNull);
+      expect(category.budgetAmount, '3000');
       expect(
         category.groupId,
         CategoryGroupDefaults.cloneIdForUser(

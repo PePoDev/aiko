@@ -25,6 +25,23 @@ extension CategoryGroupDisplayName on CategoryGroup {
   }
 }
 
+/// The display name of the category with [id] in [categories], or
+/// "Uncategorized" when there is none: no id, or a category that no longer
+/// exists. Look up in `allCategoriesProvider` so deleted categories keep
+/// their name.
+String categoryNameForId(
+  String? id,
+  Iterable<Category> categories,
+  AppLocalizations l10n,
+) {
+  if (id != null) {
+    for (final category in categories) {
+      if (category.id == id) return category.displayName(l10n);
+    }
+  }
+  return l10n.uncategorized;
+}
+
 /// The text to store when the user saves a name in an editor that started
 /// from [displayName]: an unchanged translated name keeps the stored template
 /// name, so it stays translatable.

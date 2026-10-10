@@ -1,18 +1,24 @@
 import '../../../core/storage/synced_preferences.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../app/providers.dart';
 import '../../../core/storage/secure_storage_service.dart';
 import '../../../l10n/domain_labels.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../accounts/domain/account.dart';
+import '../../categories/domain/category.dart';
+import '../../categories/presentation/category_names.dart';
 import '../data/transaction_rule_store.dart';
+import '../domain/transaction.dart';
 import '../domain/transaction_rule.dart';
+import 'transaction_rule_labels.dart';
 
 class TransactionRulesScreen extends ConsumerStatefulWidget {
   const TransactionRulesScreen({this.storage, super.key});
@@ -65,6 +71,23 @@ class _TransactionRulesScreenState
     );
   }
 
+  Future<void> _editRule(TransactionRule rule) async {
+    final updated = await openAikoPage<TransactionRule>(
+      context,
+      _TransactionRuleFormScreen(initialRule: rule),
+    );
+    if (updated == null) return;
+
+    await _saveRules([
+      for (final item in _rules)
+        if (item.id == updated.id) updated else item,
+    ]);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.rulesUpdated(updated.name))),
+    );
+  }
+
   Future<void> _toggleRule(TransactionRule rule, bool value) async {
     await _saveRules([
       for (final item in _rules)
@@ -73,14 +96,50 @@ class _TransactionRulesScreenState
   }
 
   Future<void> _deleteRule(TransactionRule rule) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.l10n.rulesDeleteQuestion(rule.name)),
+        content: Text(context.l10n.rulesDeleteMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.l10n.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AikoColors.dangerRed,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(context.l10n.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
     await _saveRules([
       for (final item in _rules)
         if (item.id != rule.id) item,
     ]);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.rulesDeleted(rule.name))),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final accounts =
+        ref.watch(accountsProvider).whenOrNull(data: (accounts) => accounts) ??
+        const <Account>[];
+    final categories =
+        ref
+            .watch(allCategoriesProvider)
+            .whenOrNull(data: (categories) => categories) ??
+        const <Category>[];
+
     return Scaffold(
       appBar: AppBar(
         title: Text(context.l10n.rulesTitle),
@@ -105,6 +164,18 @@ class _TransactionRulesScreenState
           final rule = _rules[index - 1];
           return _RuleCard(
             rule: rule,
+            matchLabel: ruleConditionValueLabel(
+              rule,
+              accounts: accounts,
+              categories: categories,
+              l10n: context.l10n,
+            ),
+            categoryLabel: ruleTargetCategoryLabel(
+              rule,
+              categories: categories,
+              l10n: context.l10n,
+            ),
+            onTap: () => _editRule(rule),
             onToggle: (value) => _toggleRule(rule, value),
             onDelete: () => _deleteRule(rule),
           );
@@ -171,11 +242,21 @@ class _RulesHeader extends StatelessWidget {
 class _RuleCard extends StatelessWidget {
   const _RuleCard({
     required this.rule,
+    required this.matchLabel,
+    required this.categoryLabel,
+    required this.onTap,
     required this.onToggle,
     required this.onDelete,
   });
 
   final TransactionRule rule;
+
+  /// What the rule matches, with ids shown as names.
+  final String matchLabel;
+
+  /// The category the rule sets, by name.
+  final String categoryLabel;
+  final VoidCallback onTap;
   final ValueChanged<bool> onToggle;
   final VoidCallback onDelete;
 
@@ -187,90 +268,99 @@ class _RuleCard extends StatelessWidget {
         : theme.colorScheme.onSurfaceVariant;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.rule_outlined,
+                      color: accentColor,
+                      size: 20,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.rule_outlined,
-                    color: accentColor,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        rule.name,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          rule.name,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${rule.conditionType.label(context.l10n)} '
-                        '${rule.operator.label(context.l10n)}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        const SizedBox(height: 2),
+                        Text(
+                          rulePicksConditionValue(rule.conditionType)
+                              ? rule.conditionType.label(context.l10n)
+                              : '${rule.conditionType.label(context.l10n)} '
+                                    '${rule.operator.label(context.l10n)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                Switch(value: rule.isActive, onChanged: onToggle),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _RuleInfoRow(
-              icon: Icons.manage_search_outlined,
-              label: context.l10n.rulesMatch,
-              value: rule.conditionValue,
-            ),
-            const SizedBox(height: 8),
-            _RuleInfoRow(
-              icon: Icons.category_outlined,
-              label: context.l10n.txCategory,
-              value: rule.targetCategoryId?.trim().isNotEmpty == true
-                  ? rule.targetCategoryId!
-                  : context.l10n.rulesLeaveUnchanged,
-            ),
-            const SizedBox(height: 8),
-            _RuleInfoRow(
-              icon: Icons.sell_outlined,
-              label: context.l10n.txTags,
-              value: rule.tagsToApply.isEmpty
-                  ? context.l10n.rulesNoTags
-                  : rule.tagsToApply.join(', '),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _RuleChip(
-                  icon: Icons.priority_high,
-                  label: context.l10n.rulesPriorityValue(rule.priority),
-                ),
-                const Spacer(),
-                IconButton(
-                  tooltip: context.l10n.rulesDelete,
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline),
-                ),
-              ],
-            ),
-          ],
+                  Switch(value: rule.isActive, onChanged: onToggle),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _RuleInfoRow(
+                icon: Icons.manage_search_outlined,
+                label: context.l10n.rulesMatch,
+                value: matchLabel,
+              ),
+              const SizedBox(height: 8),
+              _RuleInfoRow(
+                icon: Icons.category_outlined,
+                label: context.l10n.txCategory,
+                value: categoryLabel,
+              ),
+              const SizedBox(height: 8),
+              _RuleInfoRow(
+                icon: Icons.sell_outlined,
+                label: context.l10n.txTags,
+                value: rule.tagsToApply.isEmpty
+                    ? context.l10n.rulesNoTags
+                    : rule.tagsToApply.join(', '),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _RuleChip(
+                    icon: Icons.priority_high,
+                    label: context.l10n.rulesPriorityValue(rule.priority),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: context.l10n.rulesEdit,
+                    onPressed: onTap,
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                  IconButton(
+                    tooltip: context.l10n.rulesDelete,
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -332,48 +422,91 @@ class _RuleChip extends StatelessWidget {
   }
 }
 
-class _TransactionRuleFormScreen extends StatefulWidget {
-  const _TransactionRuleFormScreen();
+class _TransactionRuleFormScreen extends ConsumerStatefulWidget {
+  const _TransactionRuleFormScreen({this.initialRule});
+
+  /// The rule being edited; null when creating one.
+  final TransactionRule? initialRule;
 
   @override
-  State<_TransactionRuleFormScreen> createState() =>
+  ConsumerState<_TransactionRuleFormScreen> createState() =>
       _TransactionRuleFormScreenState();
 }
 
 class _TransactionRuleFormScreenState
-    extends State<_TransactionRuleFormScreen> {
+    extends ConsumerState<_TransactionRuleFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _valueController = TextEditingController();
-  final _categoryController = TextEditingController();
   final _tagsController = TextEditingController();
   final _priorityController = TextEditingController(text: '100');
 
   RuleConditionType _conditionType = RuleConditionType.merchant;
   RuleConditionOperator _operator = RuleConditionOperator.contains;
+
+  /// The account id, category id or transaction type name picked as the match
+  /// value when [rulePicksConditionValue] holds for [_conditionType].
+  String? _pickedValue;
+  String? _targetCategoryId;
   bool _isActive = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final rule = widget.initialRule;
+    if (rule == null) return;
+    _nameController.text = rule.name;
+    _conditionType = rule.conditionType;
+    _operator = rule.operator;
+    if (rulePicksConditionValue(rule.conditionType)) {
+      final value = rule.conditionType == RuleConditionType.transactionType
+          ? transactionTypeForRuleValue(rule.conditionValue)?.name ??
+                rule.conditionValue
+          : rule.conditionValue;
+      _pickedValue = value.trim().isEmpty ? null : value;
+    } else {
+      _valueController.text = rule.conditionValue;
+    }
+    final target = rule.targetCategoryId?.trim();
+    _targetCategoryId = target == null || target.isEmpty ? null : target;
+    _tagsController.text = rule.tagsToApply.join(', ');
+    _priorityController.text = '${rule.priority}';
+    _isActive = rule.isActive;
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _valueController.dispose();
-    _categoryController.dispose();
     _tagsController.dispose();
     _priorityController.dispose();
     super.dispose();
   }
 
+  void _changeConditionType(RuleConditionType type) {
+    if (type == _conditionType) return;
+    setState(() {
+      _conditionType = type;
+      // Picked values belong to one list; a typed value stays in its field.
+      _pickedValue = null;
+      if (rulePicksConditionValue(type)) {
+        _operator = RuleConditionOperator.equals;
+      }
+    });
+  }
+
   void _save() {
     if (!_formKey.currentState!.validate()) return;
-    final categoryId = _categoryController.text.trim();
+    final initial = widget.initialRule;
+    final picks = rulePicksConditionValue(_conditionType);
     final rule = TransactionRule(
-      id: const Uuid().v4(),
-      userId: '',
+      id: initial?.id ?? const Uuid().v4(),
+      userId: initial?.userId ?? '',
       name: _nameController.text.trim(),
       conditionType: _conditionType,
       operator: _operator,
-      conditionValue: _valueController.text.trim(),
-      targetCategoryId: categoryId.isEmpty ? null : categoryId,
+      conditionValue: picks ? _pickedValue! : _valueController.text.trim(),
+      targetCategoryId: _targetCategoryId,
       tagsToApply: _splitTags(_tagsController.text),
       priority: int.tryParse(_priorityController.text.trim()) ?? 100,
       isActive: _isActive,
@@ -382,10 +515,86 @@ class _TransactionRuleFormScreenState
     Navigator.of(context).pop(rule);
   }
 
+  /// (value, label) choices for a picked match value. A stored value that is
+  /// no longer offered (a deleted account or category) stays selectable under
+  /// its last known name, so editing a rule never drops it silently.
+  List<(String, String)> _valueChoices({
+    required List<Account> accounts,
+    required List<Category> categories,
+    required List<Category> allCategories,
+  }) {
+    final l10n = context.l10n;
+    final choices = <(String, String)>[
+      ...switch (_conditionType) {
+        RuleConditionType.account => [
+          for (final account in accounts)
+            if (account.isActive) (account.id, account.name),
+        ],
+        RuleConditionType.category => _categoryChoices(categories),
+        RuleConditionType.transactionType => [
+          for (final type in TransactionType.values)
+            (type.name, type.label(l10n)),
+        ],
+        RuleConditionType.merchant ||
+        RuleConditionType.keyword ||
+        RuleConditionType.amount => const <(String, String)>[],
+      },
+    ];
+    final picked = _pickedValue;
+    if (picked != null && !choices.any((choice) => choice.$1 == picked)) {
+      choices.add((
+        picked,
+        switch (_conditionType) {
+          RuleConditionType.account => ruleAccountName(picked, accounts, l10n),
+          RuleConditionType.category => categoryNameForId(
+            picked,
+            allCategories,
+            l10n,
+          ),
+          _ => picked,
+        },
+      ));
+    }
+    return choices;
+  }
+
+  List<(String, String)> _categoryChoices(List<Category> categories) => [
+    for (final category in categories)
+      if (category.isActive) (category.id, category.displayName(context.l10n)),
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final accounts =
+        ref.watch(accountsProvider).whenOrNull(data: (accounts) => accounts) ??
+        const <Account>[];
+    final categories =
+        ref
+            .watch(categoriesProvider)
+            .whenOrNull(data: (categories) => categories) ??
+        const <Category>[];
+    final allCategories =
+        ref
+            .watch(allCategoriesProvider)
+            .whenOrNull(data: (categories) => categories) ??
+        categories;
+    final picksValue = rulePicksConditionValue(_conditionType);
+    final targetChoices = _categoryChoices(categories);
+    final target = _targetCategoryId;
+    if (target != null && !targetChoices.any((choice) => choice.$1 == target)) {
+      targetChoices.add((
+        target,
+        categoryNameForId(target, allCategories, context.l10n),
+      ));
+    }
+    final isEditing = widget.initialRule != null;
+
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.rulesNewTitle)),
+      appBar: AppBar(
+        title: Text(
+          isEditing ? context.l10n.rulesEditTitle : context.l10n.rulesNewTitle,
+        ),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -419,50 +628,95 @@ class _TransactionRuleFormScreenState
                   ),
               ],
               onChanged: (value) {
-                if (value != null) setState(() => _conditionType = value);
+                if (value != null) _changeConditionType(value);
               },
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<RuleConditionOperator>(
-              initialValue: _operator,
-              decoration: InputDecoration(
-                labelText: context.l10n.rulesCondition,
-                prefixIcon: Icon(Icons.compare_arrows_outlined),
-                border: OutlineInputBorder(),
+            if (picksValue)
+              DropdownButtonFormField<String>(
+                // Rebuilt per field so the choices always match the list.
+                key: ValueKey('rule-value-${_conditionType.name}'),
+                initialValue: _pickedValue,
+                isExpanded: true,
+                menuMaxHeight: 420,
+                decoration: InputDecoration(
+                  labelText: context.l10n.rulesMatchValue,
+                  prefixIcon: Icon(Icons.manage_search_outlined),
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final (value, label) in _valueChoices(
+                    accounts: accounts,
+                    categories: categories,
+                    allCategories: allCategories,
+                  ))
+                    DropdownMenuItem(
+                      value: value,
+                      child: Text(label, overflow: TextOverflow.ellipsis),
+                    ),
+                ],
+                onChanged: (value) => setState(() {
+                  _pickedValue = value;
+                  _operator = RuleConditionOperator.equals;
+                }),
+                validator: (value) =>
+                    value == null ? context.l10n.rulesMatchValueRequired : null,
+              )
+            else ...[
+              DropdownButtonFormField<RuleConditionOperator>(
+                initialValue: _operator,
+                decoration: InputDecoration(
+                  labelText: context.l10n.rulesCondition,
+                  prefixIcon: Icon(Icons.compare_arrows_outlined),
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final operator in RuleConditionOperator.values)
+                    DropdownMenuItem(
+                      value: operator,
+                      child: Text(operator.label(context.l10n)),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _operator = value);
+                },
               ),
-              items: [
-                for (final operator in RuleConditionOperator.values)
-                  DropdownMenuItem(
-                    value: operator,
-                    child: Text(operator.label(context.l10n)),
-                  ),
-              ],
-              onChanged: (value) {
-                if (value != null) setState(() => _operator = value);
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _valueController,
-              decoration: InputDecoration(
-                labelText: context.l10n.rulesMatchValue,
-                hintText: context.l10n.rulesMatchValueHint,
-                prefixIcon: Icon(Icons.manage_search_outlined),
-                border: OutlineInputBorder(),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _valueController,
+                decoration: InputDecoration(
+                  labelText: context.l10n.rulesMatchValue,
+                  hintText: context.l10n.rulesMatchValueHint,
+                  prefixIcon: Icon(Icons.manage_search_outlined),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? context.l10n.rulesMatchValueRequired
+                    : null,
               ),
-              validator: (value) => value == null || value.trim().isEmpty
-                  ? context.l10n.rulesMatchValueRequired
-                  : null,
-            ),
+            ],
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _categoryController,
+            DropdownButtonFormField<String?>(
+              initialValue: _targetCategoryId,
+              isExpanded: true,
+              menuMaxHeight: 420,
               decoration: InputDecoration(
-                labelText: context.l10n.rulesTargetCategoryId,
-                hintText: context.l10n.optional,
+                labelText: context.l10n.rulesTargetCategory,
                 prefixIcon: Icon(Icons.category_outlined),
                 border: OutlineInputBorder(),
               ),
+              items: [
+                DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text(context.l10n.rulesLeaveUnchanged),
+                ),
+                for (final (value, label) in targetChoices)
+                  DropdownMenuItem<String?>(
+                    value: value,
+                    child: Text(label, overflow: TextOverflow.ellipsis),
+                  ),
+              ],
+              onChanged: (value) => setState(() => _targetCategoryId = value),
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -498,7 +752,9 @@ class _TransactionRuleFormScreenState
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _save,
         icon: const Icon(Icons.check),
-        label: Text(context.l10n.rulesCreate),
+        label: Text(
+          isEditing ? context.l10n.txSaveChanges : context.l10n.rulesCreate,
+        ),
       ),
     );
   }

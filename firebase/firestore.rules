@@ -15,13 +15,19 @@ service cloud.firestore {
         (collection != 'investment_holdings' ||
           (decimal(request.resource.data.quantity) && decimal(request.resource.data.average_cost) && decimal(request.resource.data.current_price)));
     }
+    // Default category/group clones: only budget fields may change. A clone
+    // seeded without created_at may get it set once (older clients stamp it on
+    // their first budget save); after that it is fixed like the identity.
     function editableTemplate(collection) {
       return !(collection in ['categories', 'category_groups']) ||
         resource.data.get('template_id', null) == null ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'budget_amount', 'budget_currency', 'budget_period', 'budget_rollover',
-          'budget_enabled', 'alert_thresholds', 'updated_at', 'version'
-        ]);
+          'budget_enabled', 'alert_thresholds', 'updated_at', 'version', 'created_at'
+        ]) &&
+          (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['created_at']) ||
+            (resource.data.get('created_at', null) == null &&
+              request.resource.data.get('created_at', null) is string)));
     }
     match /users/{uid}/{collection}/{id} {
       allow read: if owner(uid) && (financeCollection(collection) || collection in ['profiles', 'preferences', 'integrations']);

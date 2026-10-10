@@ -25,6 +25,24 @@ test('default category identity is immutable while its budget stays editable',as
  await assertFails(setDoc(target,{...category,name:'Renamed'}));
  await assertFails(deleteDoc(target));
 });
+test('a default clone seeded without created_at keeps its budget editable',async()=>{
+ const db=env.authenticatedContext('alice').firestore(), target=doc(db,'users/alice/categories/seeded');
+ // Shape written by sign-in seeding: created_at is null.
+ const seeded={id:'seeded',user_id:'alice',template_id:'coffee',name:'Coffee',created_at:null,budget_amount:null,budget_currency:null,updated_at:'2026-10-01T00:00:00.000Z',version:1};
+ await assertSucceeds(setDoc(target,seeded));
+ const budgeted={...seeded,budget_amount:'30',budget_currency:'THB',updated_at:'2026-10-02T00:00:00.000Z',version:2};
+ await assertSucceeds(setDoc(target,budgeted));
+ // Older clients stamp created_at on their first save; allowed once.
+ const stamped={...budgeted,budget_amount:'40',created_at:'2026-10-03T00:00:00.000Z'};
+ await assertSucceeds(setDoc(target,stamped));
+ await assertFails(setDoc(target,{...stamped,created_at:'2026-10-04T00:00:00.000Z'}));
+ await assertFails(setDoc(target,{...stamped,created_at:null}));
+ await assertFails(setDoc(target,{...stamped,name:'Renamed'}));
+ const group=doc(db,'users/alice/category_groups/seeded');
+ const seededGroup={id:'seeded',user_id:'alice',template_id:'food',name:'Food & Drink',created_at:null,budget_amount:null,budget_currency:null};
+ await assertSucceeds(setDoc(group,seededGroup));
+ await assertSucceeds(setDoc(group,{...seededGroup,budget_amount:'500',budget_currency:'THB'}));
+});
 test('independent clients observe edits and hard deletes',async()=>{
  const first=env.authenticatedContext('sync').firestore(),second=env.authenticatedContext('sync').firestore();
  const a=doc(first,'users/sync/preferences/test'),b=doc(second,'users/sync/preferences/test');

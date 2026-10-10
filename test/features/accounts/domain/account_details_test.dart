@@ -49,6 +49,31 @@ void main() {
     expect(a, equals(a.copyWith()));
   });
 
+  test('a new loan is next due a month from today, not in 1970', () {
+    final loan =
+        AccountDetails.defaultFor(
+              AccountType.loan,
+              now: DateTime(2026, 10, 10, 15, 30),
+            )
+            as LoanDetails;
+    expect(loan.nextDueDate, DateTime(2026, 11, 10));
+  });
+
+  test('oneMonthAfter clamps to the end of a shorter month', () {
+    expect(
+      AccountDetails.oneMonthAfter(DateTime(2026, 1, 31)),
+      DateTime(2026, 2, 28),
+    );
+    expect(
+      AccountDetails.oneMonthAfter(DateTime(2028, 1, 30)),
+      DateTime(2028, 2, 29),
+    );
+    expect(
+      AccountDetails.oneMonthAfter(DateTime(2026, 12, 15)),
+      DateTime(2027, 1, 15),
+    );
+  });
+
   test('AssetDetails uses existing AssetClass enum', () {
     const a = AssetDetails(assetClass: AssetClass.realEstate);
     expect(a.assetClass, AssetClass.realEstate);

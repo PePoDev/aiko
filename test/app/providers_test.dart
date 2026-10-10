@@ -116,6 +116,122 @@ void main() {
     );
   });
 
+  test('deleting an account deletes its transactions too', () async {
+    final accountRepository = _FakeAccountRepository([
+      Account(
+        id: 'old',
+        userId: 'user',
+        name: 'Old wallet',
+        type: AccountType.cash,
+        currentBalance: Money.parse('70', 'THB'),
+      ),
+      Account(
+        id: 'bank',
+        userId: 'user',
+        name: 'Bank',
+        type: AccountType.bank,
+        currentBalance: Money.parse('500', 'THB'),
+      ),
+    ]);
+    FinanceTransaction tx(String id, String accountId, String amount) =>
+        FinanceTransaction(
+          id: id,
+          userId: 'user',
+          accountId: accountId,
+          type: TransactionType.income,
+          amount: Money.parse(amount, 'THB'),
+          date: DateTime(2026, 10, 1),
+        );
+    final transactionRepository = _FakeTransactionRepository([
+      tx('old-1', 'old', '50'),
+      tx('old-2', 'old', '20'),
+      tx('bank-1', 'bank', '500'),
+    ]);
+    final container = ProviderContainer(
+      overrides: [
+        accountRepositoryProvider.overrideWithValue(accountRepository),
+        transactionRepositoryProvider.overrideWithValue(transactionRepository),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(accountsProvider.future);
+
+    final deleted = await container
+        .read(accountsProvider.notifier)
+        .deleteAccount('old');
+
+    expect(deleted.map((transaction) => transaction.id), ['old-1', 'old-2']);
+    expect(
+      (await transactionRepository.list()).map((transaction) => transaction.id),
+      ['bank-1'],
+    );
+    expect(accountRepository.accounts.map((account) => account.id), ['bank']);
+    expect(
+      (await container.read(
+        accountsProvider.future,
+      )).map((account) => account.id),
+      ['bank'],
+    );
+  });
+
+  group('category lookups', () {
+    const userId = '11111111-1111-4111-8111-111111111111';
+    const archived = Category(
+      id: 'dddddddd-0000-4000-8000-000000000001',
+      userId: userId,
+      name: 'Old hobby',
+      type: CategoryType.expense,
+      group: CategoryBudgetGroup.custom,
+      isActive: false,
+    );
+    const custom = Category(
+      id: 'dddddddd-0000-4000-8000-000000000002',
+      userId: userId,
+      name: 'Plants',
+      type: CategoryType.expense,
+      group: CategoryBudgetGroup.custom,
+    );
+
+    test('deleted custom categories stay available for lookups', () async {
+      final container = ProviderContainer(
+        overrides: [
+          categoryRepositoryProvider.overrideWithValue(
+            _FakeCategoryRepository(userId, [archived, custom]),
+          ),
+          categoryGroupRepositoryProvider.overrideWithValue(
+            _FakeCategoryGroupRepository(userId),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final active = await container.read(categoriesProvider.future);
+      final all = await container.read(allCategoriesProvider.future);
+
+      expect(
+        active.map((category) => category.id),
+        isNot(contains(archived.id)),
+      );
+      expect(active.map((category) => category.id), contains(custom.id));
+      expect(all, hasLength(active.length + 1));
+      expect(all.last.id, archived.id);
+    });
+
+    test('withArchivedCategories adds only archived custom rows', () {
+      final archivedDefault = CategoryDefaults.cloneForUser(
+        userId: userId,
+        template: CategoryDefaults.all.first,
+      ).copyWith(isActive: false);
+
+      final all = withArchivedCategories(
+        [custom],
+        [custom, archived, archivedDefault],
+      );
+
+      expect(all.map((category) => category.id), [custom.id, archived.id]);
+    });
+  });
+
   group('default category clones', () {
     const userId = '11111111-1111-4111-8111-111111111111';
 
@@ -223,6 +339,14 @@ class _FakeAccountRepository extends AccountRepository {
 
   @override
   Future<List<Account>> list() async => accounts;
+
+  @override
+  Future<void> delete(String id) async {
+    accounts = [
+      for (final account in accounts)
+        if (account.id != id) account,
+    ];
+  }
 
   @override
   Future<Account> save(Account account) async {

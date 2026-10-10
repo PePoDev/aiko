@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../app/providers.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/money/money.dart';
+import '../../../../core/money/supported_currencies.dart';
 import '../../../../l10n/domain_labels.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../shared/widgets/aiko_data_widgets.dart';
@@ -15,6 +16,7 @@ import '../../domain/account.dart';
 import '../../domain/account_details.dart';
 import '../../domain/account_validator.dart';
 import '../account_validation_l10n.dart';
+import 'account_amount_input.dart';
 import 'account_common_fields.dart';
 
 export '../../domain/account_details.dart' show RewardsType;
@@ -80,10 +82,17 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
 
   late AccountType _type;
   late String _currency;
+  late final String _initialCurrency;
   late bool _includeInNetWorth;
   late bool _isActive;
   var _isSubmitting = false;
-  static const _currencies = ['THB', 'USD', 'EUR', 'GBP', 'JPY'];
+
+  /// Every supported currency, plus the account's own if it is not one of
+  /// them, so the picker always has an entry for the current value.
+  List<String> get _currencies => [
+    ...kAikoSupportedCurrencies,
+    if (!kAikoSupportedCurrencies.contains(_initialCurrency)) _initialCurrency,
+  ];
 
   @override
   void initState() {
@@ -94,6 +103,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         a?.currency ??
         ref.read(profileProvider).value?.baseCurrency ??
         kDefaultBaseCurrency;
+    _initialCurrency = _currency;
     _nameController.text = a?.name ?? '';
     _balanceController.text = a?.currentBalance.amount.toString() ?? '';
     _institutionController.text = a?.institution ?? '';
@@ -200,13 +210,75 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
   // --- type-specific details assembly ---
 
   Money? _moneyOrNone(TextEditingController c, String currency) {
-    final t = c.text.trim();
-    if (t.isEmpty) return null;
-    try {
-      return Money.parse(t, currency);
-    } catch (_) {
-      return null;
+    final amount = parseAccountAmountInput(c.text);
+    return amount == null ? null : Money(amount: amount, currency: currency);
+  }
+
+  // --- inline validators for the type-specific fields ---
+
+  /// Optional amount: empty is fine, anything else must be a number >= 0.
+  String? _optionalAmount(String? value) {
+    if ((value ?? '').trim().isEmpty) return null;
+    final amount = parseAccountAmountInput(value!);
+    if (amount == null) return context.l10n.accountFormEnterValidNumber;
+    if (amount < Decimal.zero) return context.l10n.accountFormAmountNonNegative;
+    return null;
+  }
+
+  /// Optional percentage: empty is fine, anything else must be >= 0.
+  String? _optionalRate(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty) return null;
+    final rate = double.tryParse(text);
+    if (rate == null) return context.l10n.accountFormAprInvalid;
+    if (rate < 0) {
+      return localizedAccountValidationMessage(
+        AccountValidationMessages.aprNegative,
+        context.l10n,
+      );
     }
+    return null;
+  }
+
+  String? _creditLimit(String? value) {
+    if ((value ?? '').trim().isEmpty) {
+      return localizedAccountValidationMessage(
+        AccountValidationMessages.creditLimitRequired,
+        context.l10n,
+      );
+    }
+    return _optionalAmount(value);
+  }
+
+  String? _loanTermMonths(String? value) {
+    final term = int.tryParse((value ?? '').trim()) ?? 0;
+    if (term <= 0) {
+      return localizedAccountValidationMessage(
+        AccountValidationMessages.termMonthsPositive,
+        context.l10n,
+      );
+    }
+    return null;
+  }
+
+  String? _goalTargetAmount(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty) return null;
+    final parsed = num.tryParse(text);
+    if (parsed == null || parsed <= 0) {
+      return context.l10n.accountFormTargetPositive;
+    }
+    return null;
+  }
+
+  String? _goalSavedAmount(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty) return null;
+    final parsed = num.tryParse(text);
+    if (parsed == null || parsed < 0) {
+      return context.l10n.accountFormSavedNonNegative;
+    }
+    return null;
   }
 
   Money _moneyOrZero(TextEditingController c, String currency) {
@@ -258,87 +330,18 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     };
   }
 
+  /// Checks that have no form field to show an inline error on. Everything
+  /// else is validated inline by the fields' own validators.
   String? _validateTypeFields() {
-    switch (_type) {
-      case AccountType.creditCard:
-        if (_ccStatementDay < 1 || _ccStatementDay > 31) {
-          return localizedAccountValidationMessage(
-            AccountValidationMessages.statementDayRange,
-            context.l10n,
-          );
-        }
-        if (_ccDueDay < 1 || _ccDueDay > 31) {
-          return localizedAccountValidationMessage(
-            AccountValidationMessages.dueDayRange,
-            context.l10n,
-          );
-        }
-        final apr = double.tryParse(_ccApr.text.trim());
-        if (_ccApr.text.trim().isNotEmpty && (apr == null || apr < 0)) {
-          return localizedAccountValidationMessage(
-            AccountValidationMessages.aprNegative,
-            context.l10n,
-          );
-        }
-        if (_ccSharesLimit) {
-          if (_ccSharedLimitAccountId == null) {
-            return localizedAccountValidationMessage(
-              AccountValidationMessages.sharedLimitReferenceRequired,
-              context.l10n,
-            );
-          }
-        } else if (_ccLimit.text.trim().isEmpty) {
-          return localizedAccountValidationMessage(
-            AccountValidationMessages.creditLimitRequired,
-            context.l10n,
-          );
-        }
-        return null;
-      case AccountType.loan:
-        final term = int.tryParse(_loanTerm.text.trim()) ?? 0;
-        if (term <= 0) {
-          return localizedAccountValidationMessage(
-            AccountValidationMessages.termMonthsPositive,
-            context.l10n,
-          );
-        }
-        return null;
-      case AccountType.asset:
-        if (_assetPrice.text.trim().isNotEmpty && _assetDate == null) {
-          return localizedAccountValidationMessage(
-            AccountValidationMessages.purchaseDateRequired,
-            context.l10n,
-          );
-        }
-        return null;
-      case AccountType.liability:
-        final apr = double.tryParse(_liabApr.text.trim());
-        if (_liabApr.text.trim().isNotEmpty && apr == null) {
-          return context.l10n.accountFormAprInvalid;
-        }
-        return null;
-      case AccountType.goal:
-        final target = _goalTarget.text.trim();
-        final current = _goalCurrent.text.trim();
-        if (target.isNotEmpty) {
-          final parsed = num.tryParse(target);
-          if (parsed == null || parsed <= 0) {
-            return context.l10n.accountFormTargetPositive;
-          }
-        }
-        if (current.isNotEmpty) {
-          final parsed = num.tryParse(current);
-          if (parsed == null || parsed < 0) {
-            return context.l10n.accountFormSavedNonNegative;
-          }
-        }
-        if (target.isNotEmpty && _goalDate == null) {
-          return context.l10n.accountFormTargetDateRequired;
-        }
-        return null;
-      default:
-        return null;
+    if (_type == AccountType.asset &&
+        _assetPrice.text.trim().isNotEmpty &&
+        _assetDate == null) {
+      return localizedAccountValidationMessage(
+        AccountValidationMessages.purchaseDateRequired,
+        context.l10n,
+      );
     }
+    return null;
   }
 
   Future<void> _createInitialBalanceTransaction(Account account) async {
@@ -470,11 +473,16 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     required DateTime lastDate,
     required ValueChanged<DateTime> onPicked,
   }) async {
+    // Widen the range to include a stored value outside it (an overdue loan
+    // date, a goal date already passed) so the picker can open on it.
+    final initial = DateUtils.dateOnly(current ?? firstDate);
+    final first = DateUtils.dateOnly(firstDate);
+    final last = DateUtils.dateOnly(lastDate);
     final picked = await showDatePicker(
       context: context,
-      initialDate: current ?? firstDate,
-      firstDate: firstDate,
-      lastDate: lastDate,
+      initialDate: initial,
+      firstDate: initial.isBefore(first) ? initial : first,
+      lastDate: initial.isAfter(last) ? initial : last,
     );
     if (picked != null) {
       setState(() => onPicked(picked));
@@ -536,12 +544,20 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           label: context.l10n.accountFormStatementDay,
           value: _ccStatementDay,
           onChanged: (v) => setState(() => _ccStatementDay = v),
+          rangeError: localizedAccountValidationMessage(
+            AccountValidationMessages.statementDayRange,
+            context.l10n,
+          ),
         ),
         const SizedBox(height: 12),
         _DayPickerField(
           label: context.l10n.accountFormDueDay,
           value: _ccDueDay,
           onChanged: (v) => setState(() => _ccDueDay = v),
+          rangeError: localizedAccountValidationMessage(
+            AccountValidationMessages.dueDayRange,
+            context.l10n,
+          ),
         ),
         const SizedBox(height: 12),
         SwitchListTile(
@@ -564,26 +580,34 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                 .map((a) => DropdownMenuItem(value: a.id, child: Text(a.name)))
                 .toList(),
             onChanged: (v) => setState(() => _ccSharedLimitAccountId = v),
+            validator: (v) => v == null
+                ? localizedAccountValidationMessage(
+                    AccountValidationMessages.sharedLimitReferenceRequired,
+                    context.l10n,
+                  )
+                : null,
           ),
           const SizedBox(height: 12),
         ] else ...[
-          TextField(
+          TextFormField(
             controller: _ccLimit,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               labelText: context.l10n.accountsDetailCreditLimit,
               prefixIcon: Icon(Icons.payments_outlined),
             ),
+            validator: _creditLimit,
           ),
           const SizedBox(height: 12),
         ],
-        TextField(
+        TextFormField(
           controller: _ccApr,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             labelText: context.l10n.accountFormApr,
             prefixIcon: Icon(Icons.percent_outlined),
           ),
+          validator: _optionalRate,
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<RewardsType?>(
@@ -607,22 +631,24 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           onChanged: (v) => setState(() => _ccRewardsType = v),
         ),
         const SizedBox(height: 12),
-        TextField(
+        TextFormField(
           controller: _ccAnnualFee,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             labelText: context.l10n.accountFormAnnualFee,
             prefixIcon: Icon(Icons.payments_outlined),
           ),
+          validator: _optionalAmount,
         ),
         const SizedBox(height: 12),
-        TextField(
+        TextFormField(
           controller: _ccMinPayment,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             labelText: context.l10n.accountFormMinPayment,
             prefixIcon: Icon(Icons.payments_outlined),
           ),
+          validator: _optionalAmount,
         ),
       ],
     );
@@ -651,40 +677,44 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           },
         ),
         const SizedBox(height: 12),
-        TextField(
+        TextFormField(
           controller: _loanPrincipal,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             labelText: context.l10n.accountsDetailPrincipal,
             prefixIcon: Icon(Icons.payments_outlined),
           ),
+          validator: _optionalAmount,
         ),
         const SizedBox(height: 12),
-        TextField(
+        TextFormField(
           controller: _loanApr,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             labelText: context.l10n.accountFormInterestRate,
             prefixIcon: Icon(Icons.percent_outlined),
           ),
+          validator: _optionalRate,
         ),
         const SizedBox(height: 12),
-        TextField(
+        TextFormField(
           controller: _loanTerm,
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
             labelText: context.l10n.accountFormTermMonths,
             prefixIcon: Icon(Icons.calendar_view_month_outlined),
           ),
+          validator: _loanTermMonths,
         ),
         const SizedBox(height: 12),
-        TextField(
+        TextFormField(
           controller: _loanPayment,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             labelText: context.l10n.accountFormMonthlyPayment,
             prefixIcon: Icon(Icons.payments_outlined),
           ),
+          validator: _optionalAmount,
         ),
         const SizedBox(height: 12),
         InkWell(
@@ -729,13 +759,14 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           },
         ),
         const SizedBox(height: 12),
-        TextField(
+        TextFormField(
           controller: _assetPrice,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             labelText: context.l10n.accountFormPurchasePrice,
             prefixIcon: Icon(Icons.payments_outlined),
           ),
+          validator: _optionalAmount,
         ),
         const SizedBox(height: 12),
         InkWell(
@@ -779,13 +810,14 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        TextField(
+        TextFormField(
           controller: _liabApr,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             labelText: context.l10n.accountFormInterestRate,
             prefixIcon: Icon(Icons.percent_outlined),
           ),
+          validator: _optionalRate,
         ),
         const SizedBox(height: 12),
         TextField(
@@ -876,6 +908,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
+                    validator: _goalTargetAmount,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -892,6 +925,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
+                    validator: _goalSavedAmount,
                   ),
                 ),
               ],
@@ -914,6 +948,10 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
+              validator: (_) =>
+                  _goalTarget.text.trim().isNotEmpty && _goalDate == null
+                  ? context.l10n.accountFormTargetDateRequired
+                  : null,
             ),
             const SizedBox(height: 12),
             SegmentedButton<GoalPriority>(
@@ -1035,11 +1073,15 @@ class _DayPickerField extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    required this.rangeError,
   });
 
   final String label;
   final int value;
   final ValueChanged<int> onChanged;
+
+  /// Shown inline when the value is outside 1-31.
+  final String rangeError;
 
   @override
   Widget build(BuildContext context) {
@@ -1056,6 +1098,7 @@ class _DayPickerField extends StatelessWidget {
       onChanged: (v) {
         if (v != null) onChanged(v);
       },
+      validator: (v) => v == null || v < 1 || v > 31 ? rangeError : null,
     );
   }
 }

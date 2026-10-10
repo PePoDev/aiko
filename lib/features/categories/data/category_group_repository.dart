@@ -36,7 +36,8 @@ class CategoryGroupRepository {
     }
 
     final userId = await currentUserId();
-    final groupToSave = group.createdAt == null
+    // Default clones keep their stored createdAt (see CategoryRepository).
+    final groupToSave = group.createdAt == null && !group.isDefault
         ? group.copyWith(createdAt: DateTime.now().toUtc())
         : group;
     final saved = await OfflineStore().upsert(

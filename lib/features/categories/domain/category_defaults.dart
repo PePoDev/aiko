@@ -252,9 +252,12 @@ abstract final class CategoryDefaults {
 
     final template = byId[templateId];
     if (template == null) return category;
+    // Keep the stored createdAt as is (null for clones seeded at sign-in):
+    // security rules only let a default clone's budget fields change, so
+    // stamping a new createdAt here would reject every budget save.
     return cloneForUser(userId: userId, template: template).copyWith(
       isActive: category.isActive,
-      createdAt: category.createdAt ?? DateTime.now().toUtc(),
+      createdAt: category.createdAt,
       monthlyLimit: category.monthlyLimit,
       budgetPeriod: category.budgetPeriod,
       rolloverUnused: category.rolloverUnused,
@@ -1170,10 +1173,11 @@ abstract final class CategoryGroupDefaults {
 
     final template = byId[templateId];
     if (template == null) return group;
-    return cloneForUser(userId: userId, template: template).copyWith(
-      createdAt: group.createdAt ?? DateTime.now().toUtc(),
-      budgetLimit: group.budgetLimit,
-    );
+    // Keep the stored createdAt (see CategoryDefaults.normalizeForUser).
+    return cloneForUser(
+      userId: userId,
+      template: template,
+    ).copyWith(createdAt: group.createdAt, budgetLimit: group.budgetLimit);
   }
 
   /// The 13 default groups as domain objects, in display order. userId is

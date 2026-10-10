@@ -134,5 +134,34 @@ void main() {
         isFalse,
       );
     });
+
+    // Security rules only let a default clone's budget fields change, so a
+    // clone seeded without createdAt must not gain one when normalized.
+    test('normalizing a clone keeps its stored createdAt, even null', () {
+      final coffee = CategoryDefaults.forUser(userA).singleWhere(
+        (category) => category.templateId == CategoryDefaults.coffeeId,
+      );
+      expect(coffee.createdAt, isNull);
+      expect(
+        CategoryDefaults.normalizeForUser(coffee, userId: userA).createdAt,
+        isNull,
+      );
+
+      final stamped = DateTime.utc(2026, 1, 2);
+      expect(
+        CategoryDefaults.normalizeForUser(
+          coffee.copyWith(createdAt: stamped),
+          userId: userA,
+        ).createdAt,
+        stamped,
+      );
+
+      final group = CategoryGroupDefaults.forUser(userA).first;
+      expect(group.createdAt, isNull);
+      expect(
+        CategoryGroupDefaults.normalizeForUser(group, userId: userA).createdAt,
+        isNull,
+      );
+    });
   });
 }

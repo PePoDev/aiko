@@ -58,6 +58,11 @@ final aikoChatEngineProvider = Provider<HttpChatEngine>((ref) {
   return HttpChatEngine(functionUrl: FirebaseBackend.chatUrl);
 });
 
+/// True when Firebase isn't configured (local-only mode), so chat can't run.
+final aikoChatOfflineProvider = Provider<bool>(
+  (ref) => !FirebaseBackend.isConfigured,
+);
+
 final aikoChatControllerProvider =
     NotifierProvider<AikoChatController, ChatState>(AikoChatController.new);
 
@@ -67,7 +72,7 @@ class AikoChatController extends Notifier<ChatState> {
 
   @override
   ChatState build() {
-    final offline = !FirebaseBackend.isConfigured;
+    final offline = ref.watch(aikoChatOfflineProvider);
     ref.onDispose(() {
       _subscription?.cancel();
     });
@@ -94,6 +99,13 @@ class AikoChatController extends Notifier<ChatState> {
       // sends their first message — it belongs to the empty state, not the
       // conversation log, and shouldn't be re-sent to the model.
       if (state.isEmpty) messages.removeAt(0);
+      // A failed reply leaves an empty assistant bubble; drop it so the new
+      // question doesn't sit under a blank answer.
+      while (messages.isNotEmpty &&
+          !messages.last.isUser &&
+          messages.last.content.isEmpty) {
+        messages.removeLast();
+      }
       messages.add(ChatMessage(role: 'user', content: text));
     }
     while (messages.isNotEmpty && !messages.last.isUser) {
@@ -134,7 +146,20 @@ class AikoChatController extends Notifier<ChatState> {
         .listen(
           _handleEvent,
           onError: (Object e) => _handleEvent(ChatReplyError(e)),
+          onDone: _handleStreamClosed,
         );
+  }
+
+  /// The stream ended without a done or error event (a dropped connection):
+  /// keep whatever arrived, or report a retryable failure, and stop typing.
+  void _handleStreamClosed() {
+    if (!ref.mounted || !state.isStreaming) return;
+    final last = state.messages.isEmpty ? null : state.messages.last;
+    if (last != null && !last.isUser && last.content.isNotEmpty) {
+      _finalizeLastMessage();
+    } else {
+      _handleEvent(const ChatReplyError(ChatFailure.unavailable));
+    }
   }
 
   void _handleEvent(ChatReplyEvent event) {
@@ -144,9 +169,13 @@ class AikoChatController extends Notifier<ChatState> {
       case ChatReplyDone(fullText: _):
         _finalizeLastMessage();
       case ChatReplyError(error: final e, retryable: final retryable):
+        final failure = _failureOf(e);
         state = state.copyWith(
           isStreaming: false,
-          lastError: ChatError(_humanize(e), retryable: retryable),
+          lastError: ChatError(
+            _humanize(e),
+            retryable: failure?.isRetryable ?? retryable,
+          ),
         );
     }
   }
@@ -177,6 +206,12 @@ class AikoChatController extends Notifier<ChatState> {
       clearError: true,
     );
   }
+
+  ChatFailure? _failureOf(Object error) => switch (error) {
+    ChatFailure() => error,
+    ChatReplyError(error: final inner) => _failureOf(inner),
+    _ => null,
+  };
 
   String _humanize(Object error) {
     final l10n = currentL10n();

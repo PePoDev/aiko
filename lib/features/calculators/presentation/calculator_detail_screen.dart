@@ -34,6 +34,9 @@ class _CalculatorDetailScreenState
   late Map<String, String> _choices;
   CalculatorResult? _result;
 
+  /// The result card, scrolled into view after Calculate.
+  final _resultKey = GlobalKey();
+
   /// Unknown ids fall back to compound interest.
   CalculatorForm _formFor(AppLocalizations l10n) =>
       calculatorForm(widget.calculatorId, l10n) ??
@@ -91,6 +94,15 @@ class _CalculatorDetailScreenState
         ),
       );
       setState(() => _result = result);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final resultContext = _resultKey.currentContext;
+        if (resultContext == null || !resultContext.mounted) return;
+        Scrollable.ensureVisible(
+          resultContext,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      });
     } on CalculatorInputException catch (error) {
       _showError(error.message);
     } on ArgumentError catch (error) {
@@ -102,6 +114,11 @@ class _CalculatorDetailScreenState
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// The old result answered a different question.
+  void _clearResult() {
+    if (_result != null) setState(() => _result = null);
   }
 
   void _choose(String fieldId, String? value) {
@@ -144,6 +161,7 @@ class _CalculatorDetailScreenState
         prefixText: field.money ? '$currencySymbol ' : null,
         suffixText: field.suffixText,
       ),
+      onChanged: (_) => _clearResult(),
       keyboardType: field.text
           ? TextInputType.text
           : TextInputType.numberWithOptions(decimal: field.allowsDecimal),
@@ -162,78 +180,84 @@ class _CalculatorDetailScreenState
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
-      body: ListView(
+      // Not a lazy ListView: the result card must be built for
+      // ensureVisible to find it, however far below the form it lands.
+      body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        children: [
-          FinanceCard(
-            title: _form.title,
-            icon: _form.icon,
-            accentColor: _form.color,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final field in _form.fields)
-                  if (_form.isVisible(field, values)) ...[
-                    _buildField(field, currencySymbol),
-                    const SizedBox(height: 16),
-                  ],
-                FilledButton.icon(
-                  onPressed: _calculate,
-                  icon: const Icon(Icons.calculate_outlined),
-                  label: Text(context.l10n.calcCalculate),
-                ),
-              ],
-            ),
-          ),
-          if (result != null) ...[
-            const SizedBox(height: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             FinanceCard(
-              title: result.title,
-              icon: result.icon,
-              accentColor: result.color,
-              prominent: true,
+              title: _form.title,
+              icon: _form.icon,
+              accentColor: _form.color,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  AmountText(result.value),
-                  if (result.rows.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    const Divider(),
-                    for (final row in result.rows)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                row.label,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              row.value,
-                              textAlign: TextAlign.end,
-                              style: theme.textTheme.titleSmall,
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                  if (result.detail case final detail?) ...[
-                    const SizedBox(height: 8),
-                    Text(detail),
-                  ],
+                  for (final field in _form.fields)
+                    if (_form.isVisible(field, values)) ...[
+                      _buildField(field, currencySymbol),
+                      const SizedBox(height: 16),
+                    ],
+                  FilledButton.icon(
+                    onPressed: _calculate,
+                    icon: const Icon(Icons.calculate_outlined),
+                    label: Text(context.l10n.calcCalculate),
+                  ),
                 ],
               ),
             ),
+            if (result != null) ...[
+              const SizedBox(height: 16),
+              FinanceCard(
+                key: _resultKey,
+                title: result.title,
+                icon: result.icon,
+                accentColor: result.color,
+                prominent: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AmountText(result.value),
+                    if (result.rows.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      const Divider(),
+                      for (final row in result.rows)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  row.label,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                row.value,
+                                textAlign: TextAlign.end,
+                                style: theme.textTheme.titleSmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                    if (result.detail case final detail?) ...[
+                      const SizedBox(height: 8),
+                      Text(detail),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Text(context.l10n.calcDisclaimer, style: theme.textTheme.bodySmall),
           ],
-          const SizedBox(height: 16),
-          Text(context.l10n.calcDisclaimer, style: theme.textTheme.bodySmall),
-        ],
+        ),
       ),
     );
   }

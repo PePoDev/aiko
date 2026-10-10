@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
@@ -121,6 +123,10 @@ class _CalculatorGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final crossAxisCount = _crossAxisCountForWidth(constraints.maxWidth);
+        // 92px of padding, icon and gaps plus ~96px of text that grows with
+        // the user's text size.
+        final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+        final double tileExtent = 92 + 96 * math.max(1.0, textScale);
 
         return GridView.builder(
           padding: const EdgeInsets.only(bottom: 112),
@@ -128,7 +134,7 @@ class _CalculatorGrid extends StatelessWidget {
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 188,
+            mainAxisExtent: tileExtent,
           ),
           itemCount: calculators.length,
           itemBuilder: (context, index) {

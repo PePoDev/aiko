@@ -61,6 +61,19 @@ enum ChatFailure {
   offline,
 }
 
+extension ChatFailureRetry on ChatFailure {
+  /// Whether sending the same message again can help. Sign-in, access and
+  /// local-only mode need the user to act elsewhere first.
+  bool get isRetryable => switch (this) {
+    ChatFailure.signInExpired ||
+    ChatFailure.forbidden ||
+    ChatFailure.offline => false,
+    ChatFailure.rateLimited ||
+    ChatFailure.unavailable ||
+    ChatFailure.badResponse => true,
+  };
+}
+
 class ChatReplyError extends ChatReplyEvent {
   const ChatReplyError(this.error, {this.retryable = true});
 

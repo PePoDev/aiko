@@ -11,7 +11,10 @@ abstract final class AikoPromptSuggestions {
   /// How many suggestions to display at once.
   static const count = 4;
 
-  /// Every prompt, in the current language.
+  /// Every prompt, in the current language. Only questions Aiko can answer
+  /// from the chat snapshot and server tools (accounts, budgets, spending,
+  /// cash flow, recent transactions, goals): no bills, subscriptions, credit
+  /// limits or holdings until that data reaches the backend.
   static List<String> all(AppLocalizations l10n) => [
     // Safe-to-spend & budgeting
     l10n.aikoPrompt01,
@@ -30,17 +33,11 @@ abstract final class AikoPromptSuggestions {
     l10n.aikoPrompt12,
     l10n.aikoPrompt13,
     l10n.aikoPrompt14,
-    // Bills & subscriptions
-    l10n.aikoPrompt15,
-    l10n.aikoPrompt16,
-    l10n.aikoPrompt17,
-    // Debt & credit
+    // Debt
     l10n.aikoPrompt18,
-    l10n.aikoPrompt19,
     l10n.aikoPrompt20,
-    // Net worth & investing
+    // Net worth & safety net
     l10n.aikoPrompt21,
-    l10n.aikoPrompt22,
     l10n.aikoPrompt23,
     // Insights & check-ups
     l10n.aikoPrompt24,

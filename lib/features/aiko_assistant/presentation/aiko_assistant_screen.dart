@@ -279,7 +279,12 @@ class _MessageBubble extends StatelessWidget {
                 ],
               ),
               child: error != null
-                  ? _ErrorBlock(message: error!.message, onRetry: onRetry)
+                  ? _ErrorBlock(
+                      message: error!.message,
+                      // Sign-in, access and local-only errors need the user
+                      // to act elsewhere; retrying would fail the same way.
+                      onRetry: error!.retryable ? onRetry : null,
+                    )
                   : _ContentBlock(message: message, streaming: streaming),
             ),
           ),
@@ -380,7 +385,9 @@ class _ErrorBlock extends StatelessWidget {
   const _ErrorBlock({required this.message, required this.onRetry});
 
   final String message;
-  final VoidCallback onRetry;
+
+  /// Null hides the retry button.
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -406,17 +413,19 @@ class _ErrorBlock extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        TextButton.icon(
-          onPressed: onRetry,
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        if (onRetry != null) ...[
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            icon: const Icon(Icons.refresh, size: 16),
+            label: Text(context.l10n.retry),
           ),
-          icon: const Icon(Icons.refresh, size: 16),
-          label: Text(context.l10n.retry),
-        ),
+        ],
       ],
     );
   }
@@ -476,8 +485,9 @@ class _SuggestionChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           child: Text(
             title,
-            style: const TextStyle(
-              color: AikoColors.deepBlue,
+            style: TextStyle(
+              // Readable on the blue tint in light and dark themes.
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -501,9 +511,17 @@ class _InputBar extends StatelessWidget {
   final void Function(String) onSubmit;
   final void Function(String) onChanged;
 
+  /// Prompt length cap: keeps the chat a question box, not a paste target for
+  /// huge input.
+  static const _maxLength = 300;
+
+  /// The counter appears this close to the cap.
+  static const _counterFrom = 250;
+
   @override
   Widget build(BuildContext context) {
     final hasText = controller.text.trim().isNotEmpty;
+    final length = controller.text.characters.length;
     final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
@@ -523,13 +541,12 @@ class _InputBar extends StatelessWidget {
           onChanged: onChanged,
           minLines: 1,
           maxLines: 4,
-          // Cap prompt length so the chat stays a question box, not a
-          // paste target for huge/abusive input.
-          maxLength: 300,
+          maxLength: _maxLength,
           textInputAction: TextInputAction.send,
           onSubmitted: onSubmit,
           decoration: InputDecoration(
-            counterText: '', // hide the counter; the cap is silent
+            // Hidden until the prompt nears the cap.
+            counterText: length >= _counterFrom ? '$length/$_maxLength' : '',
             hintText: disabled
                 ? context.l10n.chatBusyHint
                 : context.l10n.chatInputHint,
@@ -564,11 +581,11 @@ class _InputBar extends StatelessWidget {
                 onTap: () => onSubmit(controller.text),
               ),
             ),
-            // Reserve exactly the button footprint (40 + 6 inset) so it sits
+            // Reserve the button's 48px touch target (+ 6 inset) so it sits
             // snug against the right edge and stays vertically centered.
             suffixIconConstraints: const BoxConstraints.tightFor(
-              width: 46,
-              height: 40,
+              width: 54,
+              height: 48,
             ),
           ),
         ),
@@ -586,27 +603,21 @@ class _SendButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SizedBox(
-      width: 40,
-      height: 40,
-      child: Material(
-        color: enabled
-            ? AikoColors.primaryBlue
-            : theme.colorScheme.outline.withValues(alpha: 0.3),
-        shape: const CircleBorder(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: enabled ? onTap : null,
-          child: Center(
-            child: Icon(
-              Icons.arrow_upward_rounded,
-              color: enabled
-                  ? AikoColors.white
-                  : theme.colorScheme.onSurfaceVariant,
-              size: 20,
-            ),
-          ),
+    return IconButton.filled(
+      tooltip: context.l10n.chatSend,
+      onPressed: enabled ? onTap : null,
+      icon: const Icon(Icons.arrow_upward_rounded, size: 20),
+      style: IconButton.styleFrom(
+        // 40px circle inside a 48px touch target.
+        fixedSize: const Size.square(40),
+        minimumSize: const Size.square(40),
+        tapTargetSize: MaterialTapTargetSize.padded,
+        backgroundColor: AikoColors.primaryBlue,
+        foregroundColor: AikoColors.white,
+        disabledBackgroundColor: theme.colorScheme.outline.withValues(
+          alpha: 0.3,
         ),
+        disabledForegroundColor: theme.colorScheme.onSurfaceVariant,
       ),
     );
   }

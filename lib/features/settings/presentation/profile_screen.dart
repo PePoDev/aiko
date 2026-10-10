@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import '../../../l10n/domain_labels.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
+import '../../../shared/widgets/aiko_snack_bar.dart';
 import '../../../shared/widgets/cached_avatar.dart';
+import '../../../shared/widgets/discard_changes_guard.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
@@ -10,15 +14,20 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
+import '../../../app/firebase_sync.dart';
 import '../../../app/providers.dart';
+import '../../../app/user_session.dart';
+import '../../../core/firebase/firebase_backend.dart';
 import '../../../core/money/supported_currencies.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../../theme/aiko_status_colors.dart';
 import '../application/profile_avatar_service.dart';
 import '../data/line_link_repository.dart';
 import '../domain/profile.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../auth/presentation/auth_error_message.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -37,6 +46,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _emailController = TextEditingController();
 
   late Profile _draft;
+
+  /// A photo picked but not saved yet; it replaces the saved avatar on Save.
+  PendingAvatar? _pendingAvatar;
   bool _initialised = false;
   bool _saving = false;
   bool _isSigningOut = false;
@@ -85,36 +97,51 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _save(Profile current) async {
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _saving = true);
     try {
       final repo = ref.read(profileRepositoryProvider);
+      final pending = _pendingAvatar;
+      if (pending != null) {
+        final saved = await _avatarService.commit(
+          pending,
+          replacedPath: current.avatarPath,
+        );
+        _pendingAvatar = null;
+        _draft = _draft.copyWith(
+          avatarPath: () => saved.localPath,
+          avatarUrl: () => saved.cloudUrl,
+        );
+      }
       final next = current.copyWith(
         displayName: _displayNameController.text.trim(),
-        fullName: _nullIfBlank(_fullNameController.text),
-        phoneNumber: _nullIfBlank(_phoneController.text),
+        fullName: () => _nullIfBlank(_fullNameController.text),
+        phoneNumber: () => _nullIfBlank(_phoneController.text),
         gender: _draft.gender,
-        dateOfBirth: _draft.dateOfBirth,
-        avatarPath: _draft.avatarPath,
-        avatarUrl: _draft.avatarUrl,
+        dateOfBirth: () => _draft.dateOfBirth,
+        avatarPath: () => _draft.avatarPath,
+        avatarUrl: () => _draft.avatarUrl,
         baseCurrency: _draft.baseCurrency,
       );
       await repo.save(next);
+      if (pending == null && current.hasAvatar && !next.hasAvatar) {
+        // "Remove photo" takes effect now that it's saved.
+        await _avatarService.remove(
+          localPath: current.avatarPath,
+          cloudUrl: current.avatarUrl,
+        );
+      }
       ref.invalidate(profileProvider);
       if (!mounted) return;
       setState(() => _draft = next);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.profileUpdated),
-          backgroundColor: AikoColors.successGreen,
-        ),
+      messenger.showSnackBar(
+        aikoSnackBar(l10n.profileUpdated, tone: AikoSnackTone.success),
       );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.profileSaveFailed(e)),
-          backgroundColor: AikoColors.dangerRed,
-        ),
+    } catch (error) {
+      debugPrint('[profile] save failed: $error');
+      messenger.showSnackBar(
+        aikoSnackBar(l10n.profileSaveFailed, tone: AikoSnackTone.error),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -149,7 +176,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 title: Text(
                   context.l10n.profileRemovePhoto,
-                  style: TextStyle(color: AikoColors.dangerRed),
+                  style: TextStyle(
+                    color: AikoStatusColors.of(sheetContext).dangerText,
+                  ),
                 ),
                 onTap: () => Navigator.pop(sheetContext, AvatarAction.remove),
               ),
@@ -165,35 +194,44 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (source == null || !mounted) return;
 
     if (source == AvatarAction.remove) {
-      final previousPath = _draft.avatarPath;
+      // Only the draft changes; the saved photo is deleted on Save.
+      final pending = _pendingAvatar;
       setState(() {
-        _draft = _draft.copyWith(avatarPath: null, avatarUrl: null);
+        _pendingAvatar = null;
+        _draft = _draft.copyWith(avatarPath: () => null, avatarUrl: () => null);
       });
-      await _avatarService.removeFromCache(previousPath);
+      if (pending != null) await _avatarService.discard(pending);
       return;
     }
 
     setState(() => _avatarBusy = true);
     try {
-      final picked = await _avatarService.pickAndUpload(
-        source: ImageSource.gallery,
-      );
+      final picked = await _avatarService.pick(source: ImageSource.gallery);
+      if (!mounted) {
+        if (picked != null) unawaited(_avatarService.discard(picked));
+        return;
+      }
       if (picked == null) {
         return;
       }
+      final previous = _pendingAvatar;
+      if (previous != null && previous.previewPath != picked.previewPath) {
+        unawaited(_avatarService.discard(previous));
+      }
       setState(() {
+        _pendingAvatar = picked;
         _draft = _draft.copyWith(
-          avatarPath: picked.localPath,
-          avatarUrl: picked.cloudUrl,
+          avatarPath: () => picked.previewPath,
+          avatarUrl: () => null,
         );
       });
-    } catch (_) {
+    } catch (error) {
+      debugPrint('[profile] photo pick failed: $error');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.profilePhotoUpdateFailed),
-          backgroundColor: AikoColors.dangerRed,
-        ),
+      showAikoSnackBar(
+        context,
+        context.l10n.profilePhotoUpdateFailed,
+        tone: AikoSnackTone.error,
       );
     } finally {
       if (mounted) setState(() => _avatarBusy = false);
@@ -209,8 +247,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       firstDate: DateTime(1900),
       lastDate: now,
     );
-    if (picked == null) return;
-    setState(() => _draft = _draft.copyWith(dateOfBirth: picked));
+    if (picked == null || !mounted) return;
+    setState(() => _draft = _draft.copyWith(dateOfBirth: () => picked));
   }
 
   Future<void> _pickGender() async {
@@ -288,17 +326,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  /// Firebase has no in-app password change; it emails a reset link.
+  Future<void> _handleChangePassword(String email) async {
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _authRepository.resetPassword(email);
+      messenger.showSnackBar(
+        aikoSnackBar(
+          l10n.profilePasswordResetSent(email),
+          tone: AikoSnackTone.success,
+        ),
+      );
+    } catch (error) {
+      debugPrint('[profile] password reset failed: $error');
+      messenger.showSnackBar(
+        aikoSnackBar(
+          authErrorMessage(error, l10n, fallback: l10n.authResetFailed),
+          tone: AikoSnackTone.error,
+        ),
+      );
+    }
+  }
+
   Future<void> _handleLogout() async {
+    // The app may leave this screen as soon as the session ends (AikoApp
+    // watches sign-outs), so hold on to the container, not this widget's ref.
+    final container = ProviderScope.containerOf(context, listen: false);
     setState(() => _isSigningOut = true);
     try {
       await _authRepository.signOut();
+      // Nothing of this user (data, Ask Aiko chat, LINE status) stays.
+      invalidateUserData(container.invalidate);
       if (!mounted) return;
-      ref.invalidate(profileProvider);
-      ref.invalidate(accountsProvider);
-      ref.invalidate(transactionsProvider);
-      ref.invalidate(categoriesProvider);
-      ref.invalidate(categoryGroupsProvider);
-      context.go('/');
+      // Same place a session that ends elsewhere goes: this device knows the
+      // account, so the login screen.
+      context.go('/auth');
     } catch (_) {
       if (!mounted) return;
       setState(() => _isSigningOut = false);
@@ -330,11 +393,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
+    final container = ProviderScope.containerOf(context, listen: false);
     setState(() => _isDeleting = true);
     try {
-      await _authRepository.deleteAccount();
+      // While the server deletes every document, collection updates must not
+      // reload (and re-create) the profile.
+      await FirebaseSyncPause.during(_authRepository.deleteAccount);
+      invalidateUserData(container.invalidate);
       if (!mounted) return;
       context.go('/');
     } catch (_) {
@@ -348,6 +415,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   void dispose() {
+    final pending = _pendingAvatar;
+    if (pending != null) unawaited(_avatarService.discard(pending));
     _displayNameController.removeListener(_onTextChanged);
     _fullNameController.removeListener(_onTextChanged);
     _phoneController.removeListener(_onTextChanged);
@@ -361,390 +430,397 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(profileProvider);
+    final loadedProfile = profileAsync.value;
+    // Local-only builds have no cloud account: no email, linking, password,
+    // log out or account deletion.
+    final cloud = FirebaseBackend.isConfigured;
+    final passwordEmail = _authRepository.hasPasswordSignIn()
+        ? _authRepository.cachedSession()?.email ?? ''
+        : '';
+    final dangerText = AikoStatusColors.of(context).dangerText;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(context.l10n.profileTitle),
-        centerTitle: true,
-        actions: [
-          profileAsync.maybeWhen(
-            data: (profile) {
-              if (_isDirty(profile)) {
-                return TextButton.icon(
-                  onPressed: _saving ? null : () => _save(profile),
-                  icon: _saving
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.check),
-                  label: Text(context.l10n.save),
-                );
-              }
-              return const SizedBox.shrink();
-            },
-            orElse: () => const SizedBox.shrink(),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: profileAsync.when(
-        loading: () => const AikoScreenState.loading(),
-        error: (error, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  size: 48,
-                  color: AikoColors.dangerRed,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  context.l10n.profileLoadFailed,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '$error',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                FilledButton.icon(
-                  onPressed: () => ref.invalidate(profileProvider),
-                  icon: const Icon(Icons.refresh),
-                  label: Text(context.l10n.retry),
-                ),
-              ],
+    return AikoDiscardChangesGuard(
+      hasUnsavedChanges: loadedProfile != null && _isDirty(loadedProfile),
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(context.l10n.profileTitle),
+          centerTitle: true,
+          actions: [
+            profileAsync.maybeWhen(
+              data: (profile) {
+                if (_isDirty(profile)) {
+                  return TextButton.icon(
+                    onPressed: _saving ? null : () => _save(profile),
+                    icon: _saving
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.check),
+                    label: Text(context.l10n.save),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+              orElse: () => const SizedBox.shrink(),
             ),
-          ),
+            const SizedBox(width: 8),
+          ],
         ),
-        data: (profile) {
-          _populateFrom(profile);
+        body: profileAsync.when(
+          loading: () => const AikoScreenState.loading(),
+          error: (error, _) {
+            debugPrint('[profile] load failed: $error');
+            return AikoScreenState.error(
+              title: context.l10n.profileLoadFailed,
+              message: context.l10n.somethingWentWrong,
+              action: FilledButton.icon(
+                onPressed: () => ref.invalidate(profileProvider),
+                icon: const Icon(Icons.refresh),
+                label: Text(context.l10n.retry),
+              ),
+            );
+          },
+          data: (profile) {
+            _populateFrom(profile);
 
-          return ListView(
-            padding: const EdgeInsets.only(bottom: 72),
-            children: [
-              _buildHeader(profile),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: FinanceCard(
-                  title: context.l10n.profilePersonalInformation,
-                  icon: Icons.person_outline,
-                  child: Column(
-                    children: [
-                      _buildField(
-                        controller: _displayNameController,
-                        label: context.l10n.profileDisplayName,
-                        icon: Icons.badge_outlined,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildField(
-                        controller: _fullNameController,
-                        label: context.l10n.profileFullName,
-                        icon: Icons.person_outline,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildField(
-                        controller: _phoneController,
-                        label: context.l10n.profilePhoneNumber,
-                        icon: Icons.phone_outlined,
-                        keyboardType: TextInputType.phone,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildChoiceRow(
-                        label: context.l10n.profileGender,
-                        value: _genderLabel(_draft.gender),
-                        icon: Icons.wc_outlined,
-                        onTap: _pickGender,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildChoiceRow(
-                        label: context.l10n.profileDateOfBirth,
-                        value: _draft.dateOfBirth != null
-                            ? _formatDate(_draft.dateOfBirth!)
-                            : context.l10n.notSet,
-                        icon: Icons.cake_outlined,
-                        onTap: _pickDateOfBirth,
-                        trailing: _draft.dateOfBirth != null
-                            ? IconButton(
-                                tooltip: context.l10n.clear,
-                                icon: const Icon(Icons.close, size: 18),
-                                onPressed: () => setState(
-                                  () => _draft = _draft.copyWith(
-                                    dateOfBirth: null,
+            return ListView(
+              padding: const EdgeInsets.only(bottom: 72),
+              children: [
+                _buildHeader(profile),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: FinanceCard(
+                    title: context.l10n.profilePersonalInformation,
+                    icon: Icons.person_outline,
+                    child: Column(
+                      children: [
+                        _buildField(
+                          controller: _displayNameController,
+                          label: context.l10n.profileDisplayName,
+                          icon: Icons.badge_outlined,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildField(
+                          controller: _fullNameController,
+                          label: context.l10n.profileFullName,
+                          icon: Icons.person_outline,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildField(
+                          controller: _phoneController,
+                          label: context.l10n.profilePhoneNumber,
+                          icon: Icons.phone_outlined,
+                          keyboardType: TextInputType.phone,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildChoiceRow(
+                          label: context.l10n.profileGender,
+                          value: _genderLabel(_draft.gender),
+                          icon: Icons.wc_outlined,
+                          onTap: _pickGender,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildChoiceRow(
+                          label: context.l10n.profileDateOfBirth,
+                          value: _draft.dateOfBirth != null
+                              ? _formatDate(_draft.dateOfBirth!)
+                              : context.l10n.notSet,
+                          icon: Icons.cake_outlined,
+                          onTap: _pickDateOfBirth,
+                          trailing: _draft.dateOfBirth != null
+                              ? IconButton(
+                                  tooltip: context.l10n.clear,
+                                  icon: const Icon(Icons.close, size: 18),
+                                  onPressed: () => setState(
+                                    () => _draft = _draft.copyWith(
+                                      dateOfBirth: () => null,
+                                    ),
                                   ),
-                                ),
-                              )
-                            : null,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildChoiceRow(
-                        label: context.l10n.profileBaseCurrency,
-                        value: _currencyLabel(_draft.baseCurrency),
-                        icon: Icons.attach_money_outlined,
-                        onTap: _pickBaseCurrency,
-                      ),
-                      const SizedBox(height: 8),
-                      ListTile(
-                        dense: true,
-                        visualDensity: VisualDensity.compact,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 4,
+                                )
+                              : null,
                         ),
-                        leading: Icon(
-                          Icons.email_outlined,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        const SizedBox(height: 8),
+                        _buildChoiceRow(
+                          label: context.l10n.profileBaseCurrency,
+                          value: _currencyLabel(_draft.baseCurrency),
+                          icon: Icons.attach_money_outlined,
+                          onTap: _pickBaseCurrency,
                         ),
-                        title: Text(
-                          context.l10n.profileEmailAddress,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                        ),
-                        subtitle: Text(
-                          profile.email,
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                        trailing: Icon(
-                          Icons.lock_outline,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ListTile(
-                        dense: true,
-                        visualDensity: VisualDensity.compact,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                        ),
-                        leading: Icon(
-                          Icons.fingerprint,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        title: Text(
-                          context.l10n.profileUserId,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                        ),
-                        subtitle: Text(
-                          profile.id,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        trailing: IconButton(
-                          tooltip: context.l10n.profileCopyUserId,
-                          icon: Icon(
-                            Icons.copy_outlined,
-                            size: 18,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
+                        if (cloud) ...[
+                          const SizedBox(height: 8),
+                          ListTile(
+                            dense: true,
+                            visualDensity: VisualDensity.compact,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                            ),
+                            leading: Icon(
+                              Icons.email_outlined,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                            title: Text(
+                              context.l10n.profileEmailAddress,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                            subtitle: Text(
+                              profile.email,
+                              style: Theme.of(context).textTheme.bodyLarge,
+                            ),
+                            trailing: Icon(
+                              Icons.lock_outline,
+                              size: 16,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
                           ),
-                          onPressed: () async {
-                            await Clipboard.setData(
-                              ClipboardData(text: profile.id),
-                            );
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(context.l10n.profileUserIdCopied),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: FinanceCard(
-                  title: context.l10n.profileConnectedApps,
-                  icon: Icons.hub_outlined,
-                  child: Column(
-                    children: [
-                      Builder(
-                        builder: (context) {
-                          final linked =
-                              ref.watch(lineLinkedProvider).value ?? false;
-                          return ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: const Icon(
-                              Icons.chat_bubble_outline,
-                              color: AikoColors.primaryBlue,
+                          const SizedBox(height: 8),
+                          ListTile(
+                            dense: true,
+                            visualDensity: VisualDensity.compact,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                            ),
+                            leading: Icon(
+                              Icons.fingerprint,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
                             title: Text(
-                              linked
-                                  ? context.l10n.profileLineConnected
-                                  : context.l10n.profileConnectLine,
+                              context.l10n.profileUserId,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
                             ),
                             subtitle: Text(
-                              linked
-                                  ? context.l10n.profileLineConnectedSubtitle
-                                  : context.l10n.profileConnectLineSubtitle,
+                              profile.id,
+                              style: Theme.of(context).textTheme.bodyMedium,
                             ),
-                            trailing: linked
-                                ? const Icon(
-                                    Icons.check_circle,
-                                    color: AikoColors.successGreen,
+                            trailing: IconButton(
+                              tooltip: context.l10n.profileCopyUserId,
+                              icon: Icon(
+                                Icons.copy_outlined,
+                                size: 18,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                              onPressed: () async {
+                                await Clipboard.setData(
+                                  ClipboardData(text: profile.id),
+                                );
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      context.l10n.profileUserIdCopied,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                if (cloud) ...[
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: FinanceCard(
+                      title: context.l10n.profileConnectedApps,
+                      icon: Icons.hub_outlined,
+                      child: Column(
+                        children: [
+                          Builder(
+                            builder: (context) {
+                              final linked =
+                                  ref.watch(lineLinkedProvider).value ?? false;
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: const Icon(
+                                  Icons.chat_bubble_outline,
+                                  color: AikoColors.primaryBlue,
+                                ),
+                                title: Text(
+                                  linked
+                                      ? context.l10n.profileLineConnected
+                                      : context.l10n.profileConnectLine,
+                                ),
+                                subtitle: Text(
+                                  linked
+                                      ? context
+                                            .l10n
+                                            .profileLineConnectedSubtitle
+                                      : context.l10n.profileConnectLineSubtitle,
+                                ),
+                                trailing: linked
+                                    ? const Icon(
+                                        Icons.check_circle,
+                                        color: AikoColors.successGreen,
+                                      )
+                                    : const Icon(Icons.chevron_right),
+                                onTap: linked
+                                    ? null
+                                    : () async {
+                                        await context.push('/connect-line');
+                                        ref.invalidate(lineLinkedProvider);
+                                      },
+                              );
+                            },
+                          ),
+                          const Divider(height: 1),
+                          Builder(
+                            builder: (context) {
+                              final linked =
+                                  ref.watch(googleLinkedProvider).value ??
+                                  false;
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: const Icon(
+                                  Icons.g_mobiledata,
+                                  color: AikoColors.primaryBlue,
+                                ),
+                                title: Text(
+                                  linked
+                                      ? context.l10n.profileGoogleConnected
+                                      : context.l10n.profileConnectGoogle,
+                                ),
+                                subtitle: Text(
+                                  linked
+                                      ? context
+                                            .l10n
+                                            .profileGoogleConnectedSubtitle
+                                      : context
+                                            .l10n
+                                            .profileConnectGoogleSubtitle,
+                                ),
+                                trailing: linked
+                                    ? const Icon(
+                                        Icons.check_circle,
+                                        color: AikoColors.successGreen,
+                                      )
+                                    : const Icon(Icons.chevron_right),
+                                onTap: linked ? null : _handleLinkGoogle,
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: FinanceCard(
+                      title: context.l10n.profileAccountActions,
+                      icon: Icons.manage_accounts_outlined,
+                      child: Column(
+                        children: [
+                          // Only accounts that sign in with a password have one
+                          // to change; Firebase emails a reset link for it.
+                          if (passwordEmail.isNotEmpty) ...[
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(
+                                Icons.lock_outline,
+                                color: AikoColors.primaryBlue,
+                              ),
+                              title: Text(context.l10n.profileChangePassword),
+                              subtitle: Text(
+                                context.l10n.profileChangePasswordSubtitle,
+                              ),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () => _handleChangePassword(passwordEmail),
+                            ),
+                            const Divider(height: 1),
+                          ],
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(
+                              Icons.logout,
+                              color: AikoColors.primaryBlue,
+                            ),
+                            title: Text(context.l10n.profileLogOut),
+                            trailing: _isSigningOut
+                                ? const SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   )
                                 : const Icon(Icons.chevron_right),
-                            onTap: linked
+                            onTap: _isSigningOut || _isDeleting
                                 ? null
-                                : () async {
-                                    await context.push('/connect-line');
-                                    ref.invalidate(lineLinkedProvider);
-                                  },
-                          );
-                        },
+                                : _handleLogout,
+                          ),
+                        ],
                       ),
-                      const Divider(height: 1),
-                      Builder(
-                        builder: (context) {
-                          final linked =
-                              ref.watch(googleLinkedProvider).value ?? false;
-                          return ListTile(
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: FinanceCard(
+                      title: context.l10n.profileDangerZone,
+                      icon: Icons.warning_amber_rounded,
+                      accentColor: AikoColors.dangerRed,
+                      child: Column(
+                        children: [
+                          ListTile(
                             contentPadding: EdgeInsets.zero,
                             leading: const Icon(
-                              Icons.g_mobiledata,
-                              color: AikoColors.primaryBlue,
+                              Icons.delete_forever_outlined,
+                              color: AikoColors.dangerRed,
                             ),
                             title: Text(
-                              linked
-                                  ? context.l10n.profileGoogleConnected
-                                  : context.l10n.profileConnectGoogle,
+                              context.l10n.profileDeleteAccount,
+                              style: TextStyle(color: dangerText),
                             ),
                             subtitle: Text(
-                              linked
-                                  ? context.l10n.profileGoogleConnectedSubtitle
-                                  : context.l10n.profileConnectGoogleSubtitle,
+                              context.l10n.profileDeleteAccountSubtitle,
+                              style: TextStyle(color: dangerText),
                             ),
-                            trailing: linked
-                                ? const Icon(
-                                    Icons.check_circle,
-                                    color: AikoColors.successGreen,
+                            trailing: _isDeleting
+                                ? const SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AikoColors.dangerRed,
+                                    ),
                                   )
-                                : const Icon(Icons.chevron_right),
-                            onTap: linked ? null : _handleLinkGoogle,
-                          );
-                        },
+                                : const Icon(
+                                    Icons.chevron_right,
+                                    color: AikoColors.dangerRed,
+                                  ),
+                            onTap: _isSigningOut || _isDeleting
+                                ? null
+                                : _handleDeleteAccount,
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: FinanceCard(
-                  title: context.l10n.profileAccountActions,
-                  icon: Icons.manage_accounts_outlined,
-                  child: Column(
-                    children: [
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(
-                          Icons.lock_outline,
-                          color: AikoColors.primaryBlue,
-                        ),
-                        title: Text(context.l10n.profileChangePassword),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                context.l10n.profilePasswordFlowOpened,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(
-                          Icons.logout,
-                          color: AikoColors.primaryBlue,
-                        ),
-                        title: Text(context.l10n.profileLogOut),
-                        trailing: _isSigningOut
-                            ? const SizedBox.square(
-                                dimension: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.chevron_right),
-                        onTap: _isSigningOut || _isDeleting
-                            ? null
-                            : _handleLogout,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: FinanceCard(
-                  title: context.l10n.profileDangerZone,
-                  icon: Icons.warning_amber_rounded,
-                  accentColor: AikoColors.dangerRed,
-                  child: Column(
-                    children: [
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(
-                          Icons.delete_forever_outlined,
-                          color: AikoColors.dangerRed,
-                        ),
-                        title: Text(
-                          context.l10n.profileDeleteAccount,
-                          style: TextStyle(color: AikoColors.dangerRed),
-                        ),
-                        subtitle: Text(
-                          context.l10n.profileDeleteAccountSubtitle,
-                          style: TextStyle(color: AikoColors.dangerRed),
-                        ),
-                        trailing: _isDeleting
-                            ? const SizedBox.square(
-                                dimension: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AikoColors.dangerRed,
-                                ),
-                              )
-                            : const Icon(
-                                Icons.chevron_right,
-                                color: AikoColors.dangerRed,
-                              ),
-                        onTap: _isSigningOut || _isDeleting
-                            ? null
-                            : _handleDeleteAccount,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
+                ],
+              ],
+            );
+          },
+        ),
       ),
     );
   }

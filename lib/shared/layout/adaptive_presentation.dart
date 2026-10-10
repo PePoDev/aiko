@@ -48,15 +48,22 @@ Future<T?> showAikoSheet<T>({
 /// the current screen in the expanded layout (keeping the sidebar and context
 /// in view). Use it instead of `Navigator.push(MaterialPageRoute(...))`.
 /// The page pops itself as usual; results are returned in both layouts.
+///
+/// A click outside the dialog doesn't close the page unless
+/// [barrierDismissible] is set, so a stray click can't lose form input; pass
+/// true for read-only pages. Forms can also ask before closing with
+/// `AikoDiscardChangesGuard` (lib/shared/widgets/discard_changes_guard.dart).
 Future<T?> openAikoPage<T>(
   BuildContext context,
   Widget page, {
   bool rootNavigator = false,
   double maxDialogWidth = 760,
+  bool barrierDismissible = false,
 }) {
   if (AikoBreakpoints.isExpanded(context)) {
     return showDialog<T>(
       context: context,
+      barrierDismissible: barrierDismissible,
       builder: (_) => _AikoDialogFrame(
         maxWidth: maxDialogWidth,
         maxHeightFactor: 0.92,

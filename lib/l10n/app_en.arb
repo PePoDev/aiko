@@ -37,6 +37,13 @@
       }
     }
   },
+  "routeNotFoundGoHome": "Go to home",
+  "startupFailedTitle": "Aiko couldn't start",
+  "startupFailedMessage": "Something went wrong while opening your data on this device. Try again; if it keeps happening, close and reopen the app.",
+  "discardChangesTitle": "Discard changes?",
+  "discardChangesMessage": "Your edits haven't been saved yet. If you leave now, they'll be lost.",
+  "discardChangesKeepEditing": "Keep editing",
+  "discardChangesDiscard": "Discard",
   "languageTitle": "Language",
   "languageSystemDefault": "System default",
   "languageFollowDevice": "Follow device language ({language})",
@@ -65,6 +72,9 @@
   "settingsAppPreferences": "App preferences",
   "loadingEllipsis": "Loading...",
   "settingsToolsAndSettings": "Tools and settings",
+  "settingsProfileSubtitle": "Name, photo and base currency",
+  "settingsAppearanceLoadFailed": "Couldn't load. Tap to try again.",
+  "settingsAppearanceSaveFailed": "Couldn't change the theme. Please try again.",
   "introHiTitle": "Hi, I'm Aiko 👋",
   "introHiBody": "Your calm finance companion — here to help you understand your money without the stress or the judgment.",
   "introTrackTitle": "Track it all in one place",
@@ -116,14 +126,7 @@
   "screenStateLoadingTitle": "Loading",
   "screenStateLoadingMessage": "Aiko is preparing your money view.",
   "profileUpdated": "Profile updated!",
-  "profileSaveFailed": "Failed to save profile: {error}",
-  "@profileSaveFailed": {
-    "placeholders": {
-      "error": {
-        "type": "Object"
-      }
-    }
-  },
+  "profileSaveFailed": "Couldn't save your profile. Please try again.",
   "profileChooseFromGallery": "Choose from gallery",
   "profileRemovePhoto": "Remove photo",
   "profilePhotoUpdateFailed": "Unable to update photo right now.",
@@ -166,11 +169,23 @@
   "profileConnectGoogleSubtitle": "Add Google sign-in to this account",
   "profileAccountActions": "Account Actions",
   "profileChangePassword": "Change Password",
-  "profilePasswordFlowOpened": "Password flow opened.",
+  "profileChangePasswordSubtitle": "We'll email you a link to set a new password",
+  "profilePasswordResetSent": "We sent a password reset link to {email}. Check your inbox.",
+  "@profilePasswordResetSent": {
+    "placeholders": {
+      "email": {
+        "type": "Object"
+      }
+    }
+  },
   "profileLogOut": "Log out",
   "profileDangerZone": "Danger Zone",
   "profileDeleteAccountSubtitle": "Permanently remove your data",
   "lineErrorEmptyCode": "Enter the code from the LINE bot.",
+  "lineErrorInvalidCode": "Codes are 6 letters and numbers. Check the code and try again.",
+  "lineErrorExpiredCode": "This code is wrong or has expired. Message the Aiko bot on LINE for a new one.",
+  "lineErrorAlreadyLinked": "This LINE account is already connected to another Aiko account.",
+  "lineErrorTooManyAttempts": "Too many tries. Wait a minute, then try again.",
   "lineErrorSignedOut": "Sign in first, then connect LINE.",
   "lineErrorFailed": "Could not connect LINE. Check the code and connection, then try again.",
   "somethingWentWrong": "Something went wrong. Please try again.",

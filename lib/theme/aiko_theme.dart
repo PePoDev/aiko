@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'aiko_colors.dart';
+import 'aiko_status_colors.dart';
 import 'aiko_typography.dart';
 
 class AikoTheme {
@@ -34,6 +35,7 @@ class AikoTheme {
       cardBorderColor: AikoColors.borderSubtle,
       inputFillColor: const Color(0xFFE8EDFF),
       mutedColor: AikoColors.mutedText,
+      statusColors: AikoStatusColors.light,
     );
   }
 
@@ -65,6 +67,7 @@ class AikoTheme {
       cardBorderColor: const Color(0xFF293348),
       inputFillColor: AikoColors.surfacePanelDarkStrong,
       mutedColor: const Color(0xFFBAC3D6),
+      statusColors: AikoStatusColors.dark,
     );
   }
 
@@ -75,6 +78,7 @@ class AikoTheme {
     required Color cardBorderColor,
     required Color inputFillColor,
     required Color mutedColor,
+    required AikoStatusColors statusColors,
   }) {
     final textTheme = AikoTypography.textTheme(scheme.onSurface);
     final radius = BorderRadius.circular(8);
@@ -86,6 +90,7 @@ class AikoTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
+      extensions: [statusColors],
       scaffoldBackgroundColor: scaffoldBackgroundColor,
       textTheme: textTheme,
       disabledColor: mutedColor.withValues(alpha: 0.6),
@@ -113,9 +118,13 @@ class AikoTheme {
           side: BorderSide(color: cardBorderColor),
         ),
       ),
+      // 48px tall touch targets, but only as wide as the label: an infinite
+      // minimum width would fill list-tile trailing slots and stack dialog
+      // actions. Full-width CTAs get it from their parent (a stretched
+      // Column, a ListView, or a SizedBox).
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(48),
+          minimumSize: const Size(64, 48),
           backgroundColor: scheme.primary,
           foregroundColor: scheme.onPrimary,
           disabledBackgroundColor: scheme.outlineVariant,
@@ -126,7 +135,7 @@ class AikoTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size.fromHeight(48),
+          minimumSize: const Size(64, 48),
           foregroundColor: scheme.onSurface,
           side: BorderSide(color: scheme.outline),
           textStyle: textTheme.labelLarge,

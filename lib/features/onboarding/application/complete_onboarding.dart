@@ -2,24 +2,38 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/money/money.dart';
+import '../../../core/storage/secure_storage_service.dart';
 import '../../../l10n/l10n.dart';
 import '../../accounts/data/account_repository.dart';
 import '../../accounts/domain/account.dart';
 import '../../settings/data/profile_repository.dart';
+import 'default_accounts_seed_marker.dart';
 
 /// Replaces the old multi-step onboarding flow: there is no onboarding UI
 /// anymore. The first time a user reaches the app we just seed the default
 /// accounts (1 cash + 1 bank, zero balance in their base currency) and mark
-/// the profile completed. Idempotent — re-running won't duplicate accounts or
-/// clobber other profile fields. Account names use the current language
-/// ([l10n], default [currentL10n]).
+/// the profile completed. Runs once per user on this device
+/// ([DefaultAccountsSeedMarker], kept in [storage]), so deleted or renamed
+/// defaults stay that way; re-running won't duplicate accounts or clobber
+/// other profile fields. Account names use the current language ([l10n],
+/// default [currentL10n]).
 Future<void> completeOnboarding({
   required AccountRepository accountRepository,
   required ProfileRepository profileRepository,
   AppLocalizations? l10n,
+  SecureStorageService? storage,
 }) async {
   final strings = l10n ?? currentL10n();
+  final marker = DefaultAccountsSeedMarker(
+    storage ?? FlutterSecureStorageService(),
+  );
   final profile = await profileRepository.load();
+  try {
+    if (await marker.isSeeded(profile.id)) return;
+  } catch (error) {
+    // Unreadable marker: seed again; the name check below prevents duplicates.
+    debugPrint('Default accounts marker unreadable: $error');
+  }
   final balance = Money.zero(profile.baseCurrency);
   final defaults = [
     Account(
@@ -66,6 +80,7 @@ Future<void> completeOnboarding({
         await accountRepository.save(account);
       }
     }
+    await marker.markSeeded(profile.id);
   } catch (error) {
     debugPrint('Seeded default accounts locally: $error');
   }

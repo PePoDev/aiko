@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../core/firebase/firebase_backend.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -26,6 +28,7 @@ class AikoApp extends StatefulWidget {
 class _AikoAppState extends State<AikoApp> {
   late final GoRouter _router;
   late final AuthRepository _authRepository;
+  StreamSubscription<Object?>? _authSubscription;
 
   @override
   void initState() {
@@ -38,6 +41,27 @@ class _AikoAppState extends State<AikoApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _routeReturningUser();
     });
+    // The session can end while the app is open (token revoked, password
+    // changed or account deleted elsewhere); leave the signed-in screens then.
+    _authSubscription = FirebaseBackend.auth?.authStateChanges().listen((user) {
+      if (user == null) _leaveShellAfterSignOut();
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _leaveShellAfterSignOut() async {
+    final hasKnownAccount = await _authRepository.hasKnownAccount();
+    if (!mounted) return;
+    final target = signedOutRedirect(
+      _router.routeInformationProvider.value.uri.path,
+      hasKnownAccount: hasKnownAccount,
+    );
+    if (target != null) _router.go(target);
   }
 
   Future<void> _routeReturningUser() async {
@@ -108,6 +132,14 @@ class _AikoAppState extends State<AikoApp> {
       ),
     );
   }
+}
+
+/// Where to send someone whose session ended while a signed-in screen was
+/// open: the login screen when this device knows their account, otherwise
+/// Welcome. Null when they are already on Welcome or the login screen.
+String? signedOutRedirect(String location, {required bool hasKnownAccount}) {
+  if (location == '/' || location == '/auth') return null;
+  return hasKnownAccount ? '/auth' : '/';
 }
 
 ThemeMode themeModeForPreferredTheme(PreferredTheme preferredTheme) {

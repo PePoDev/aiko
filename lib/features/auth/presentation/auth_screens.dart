@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
+import '../../../app/user_session.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/widgets/aiko_idea_widgets.dart';
 import '../../../theme/aiko_colors.dart';
@@ -315,10 +316,10 @@ class _LoginScreenState extends State<LoginScreen> {
     _showMessage(authErrorMessage(error, l10n, fallback: fallback(l10n)));
   }
 
-  // [seedDefaults] only on brand-new sign-up. On sign-in the local store is
-  // still empty (remote accounts haven't synced down yet), so seeding would
-  // duplicate an existing user's real accounts. ponytail: signup-only gate;
-  // if Google ever needs first-run defaults, detect new users at that callsite.
+  // [seedDefaults] only for a brand-new account (sign-up, or a first Google
+  // sign-in: AuthSession.isNewUser). On sign-in the local store is still
+  // empty (remote accounts haven't synced down yet), so seeding would
+  // duplicate an existing user's real accounts.
   Future<void> _routeAfterAuth({bool seedDefaults = false}) async {
     final container = ProviderScope.containerOf(context);
     if (seedDefaults) {
@@ -327,11 +328,8 @@ class _LoginScreenState extends State<LoginScreen> {
         profileRepository: container.read(profileRepositoryProvider),
       );
     }
-    container.invalidate(profileProvider);
-    container.invalidate(accountsProvider);
-    container.invalidate(transactionsProvider);
-    container.invalidate(categoriesProvider);
-    container.invalidate(categoryGroupsProvider);
+    // Nothing from a previous user (data, Ask Aiko chat, LINE status) stays.
+    invalidateUserData(container.invalidate);
     if (!mounted) return;
     context.go('/home');
   }
@@ -379,7 +377,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final session = await _authRepository.signInWithGoogle();
       if (!mounted) return;
       if (session != null) {
-        await _routeAfterAuth();
+        await _routeAfterAuth(seedDefaults: session.isNewUser);
       }
       // A null session means the user dismissed the native picker, or (on web)
       // the page redirected away — either way there is nothing more to do here.
@@ -470,42 +468,57 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 34),
-                TextField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    labelText: context.l10n.authEmail,
-                    hintText: 'name@email.com', // l10n-ignore
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  enabled: !_isSubmitting,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _passwordController,
-                  decoration: InputDecoration(
-                    labelText: context.l10n.authPassword,
-                    suffixIcon: IconButton(
-                      tooltip: _obscurePassword
-                          ? context.l10n.authShowPassword
-                          : context.l10n.authHidePassword,
-                      onPressed: _isSubmitting
-                          ? null
-                          : () {
-                              setState(
-                                () => _obscurePassword = !_obscurePassword,
-                              );
-                            },
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
+                // Lets password managers fill and offer to save the pair.
+                AutofillGroup(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextField(
+                        controller: _emailController,
+                        decoration: InputDecoration(
+                          labelText: context.l10n.authEmail,
+                          hintText: 'name@email.com', // l10n-ignore
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [
+                          AutofillHints.email,
+                          AutofillHints.username,
+                        ],
+                        autocorrect: false,
+                        enabled: !_isSubmitting,
                       ),
-                    ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _passwordController,
+                        autofillHints: const [AutofillHints.password],
+                        decoration: InputDecoration(
+                          labelText: context.l10n.authPassword,
+                          suffixIcon: IconButton(
+                            tooltip: _obscurePassword
+                                ? context.l10n.authShowPassword
+                                : context.l10n.authHidePassword,
+                            onPressed: _isSubmitting
+                                ? null
+                                : () {
+                                    setState(
+                                      () =>
+                                          _obscurePassword = !_obscurePassword,
+                                    );
+                                  },
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                          ),
+                        ),
+                        obscureText: _obscurePassword,
+                        enabled: !_isSubmitting,
+                        onSubmitted: (_) => _handleSignIn(),
+                      ),
+                    ],
                   ),
-                  obscureText: _obscurePassword,
-                  enabled: !_isSubmitting,
-                  onSubmitted: (_) => _handleSignIn(),
                 ),
                 Align(
                   alignment: Alignment.centerRight,

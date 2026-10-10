@@ -48,7 +48,8 @@ class AppBootstrap {
   /// remote upsert/hydrate failures) in the debug console so sync problems are
   /// observable. No-op in release builds.
   void _enableBrickSyncLogging() {
-    if (!kDebugMode) {
+    // Startup can be retried; keep a single listener.
+    if (!kDebugMode || _brickLogSubscription != null) {
       return;
     }
     Logger.root.level = Level.INFO;

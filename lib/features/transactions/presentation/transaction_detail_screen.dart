@@ -102,7 +102,9 @@ class _TransactionDetailScreenState
     final dateTime = DateFormat('yyyy-MM-dd HH:mm').format(transaction.date);
 
     final accountsAsync = ref.watch(accountsProvider);
-    final categoriesAsync = ref.watch(categoriesProvider);
+    // Includes deleted (archived) categories so older transactions keep
+    // their category name.
+    final categoriesAsync = ref.watch(allCategoriesProvider);
 
     final account = accountsAsync.whenOrNull(
       data: (accounts) => _accountFor(accounts, transaction.accountId),
@@ -117,7 +119,7 @@ class _TransactionDetailScreenState
           );
     final categoryName = transaction.categoryId == null
         ? null
-        : category?.displayName(context.l10n) ?? transaction.categoryId;
+        : category?.displayName(context.l10n) ?? context.l10n.uncategorized;
     final categoryIcon = transaction.categoryId != null
         ? (category == null
               ? Icons.category_outlined
@@ -398,11 +400,11 @@ class _SplitRow extends StatelessWidget {
                       );
                       return category.displayName(context.l10n);
                     } catch (_) {
-                      return split.categoryId;
+                      return context.l10n.uncategorized;
                     }
                   },
                 ) ??
-                split.categoryId)
+                context.l10n.uncategorized)
             as String;
 
     return _DetailRow(label: categoryName, value: split.amount.format());

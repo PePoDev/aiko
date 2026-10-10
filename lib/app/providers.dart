@@ -298,7 +298,10 @@ class AccountsNotifier extends AsyncNotifier<List<Account>> {
     }
   }
 
-  Future<void> deleteAccount(String id) async {
+  /// Deletes the account together with every transaction recorded on it, so
+  /// none keep counting toward totals under an unknown account. Returns the
+  /// deleted transactions (callers cancel their reminders).
+  Future<List<FinanceTransaction>> deleteAccount(String id) async {
     final previousAccounts = state.value ?? const <Account>[];
     final children = SharedLimitResolver.resolve(
       accounts: previousAccounts,
@@ -307,15 +310,32 @@ class AccountsNotifier extends AsyncNotifier<List<Account>> {
     for (final c in children) {
       await saveAccount(c);
     }
+    var deleted = const <FinanceTransaction>[];
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
+      final transactionRepo = ref.read(transactionRepositoryProvider);
+      deleted = [
+        for (final transaction in await transactionRepo.list())
+          if (transaction.accountId == id) transaction,
+      ];
+      // Straight to the repository, concurrently: the account is going away,
+      // so there is no balance to keep in step per transaction. Transactions
+      // go first so a failure leaves the account in place to retry.
+      await Future.wait([
+        for (final transaction in deleted)
+          transactionRepo.delete(transaction.id),
+      ]);
       final repo = ref.read(accountRepositoryProvider);
       await repo.delete(id);
       return repo.list();
     });
+    if (deleted.isNotEmpty) {
+      ref.invalidate(transactionsProvider);
+    }
     if (state.hasError) {
       Error.throwWithStackTrace(state.error!, state.stackTrace!);
     }
+    return deleted;
   }
 }
 
@@ -480,6 +500,36 @@ final categoriesProvider =
     AsyncNotifierProvider.autoDispose<CategoriesNotifier, List<Category>>(() {
       return CategoriesNotifier();
     });
+
+/// Every category a transaction can point at, for looking names up: the
+/// active list from [categoriesProvider] plus archived (deleted) custom
+/// categories, so older transactions keep showing their category. Pickers,
+/// lists and budgets use [categoriesProvider], which leaves archived ones out.
+final allCategoriesProvider = FutureProvider.autoDispose<List<Category>>((
+  ref,
+) async {
+  final active = await ref.watch(categoriesProvider.future);
+  final repo = ref.watch(categoryRepositoryProvider);
+  final userId = await repo.currentUserId();
+  return withArchivedCategories(active, await repo.list(userId: userId));
+});
+
+/// [active] followed by the archived custom categories in [stored] that it
+/// does not already contain.
+List<Category> withArchivedCategories(
+  List<Category> active,
+  List<Category> stored,
+) {
+  final activeIds = {for (final category in active) category.id};
+  return [
+    ...active,
+    for (final category in stored)
+      if (!category.isActive &&
+          !category.isDefault &&
+          !activeIds.contains(category.id))
+        category,
+  ];
+}
 
 class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
   @override

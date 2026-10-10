@@ -10,8 +10,9 @@ enum AssetClass { cash, stocks, realEstate, vehicle, other }
 sealed class AccountDetails {
   const AccountDetails();
 
-  /// Returns the empty default for [type]. Always non-null.
-  static AccountDetails defaultFor(AccountType type) {
+  /// Returns the empty default for [type]. Always non-null. A loan's next due
+  /// date defaults to a month from [now] (today when omitted).
+  static AccountDetails defaultFor(AccountType type, {DateTime? now}) {
     return switch (type) {
       AccountType.cash => const CashDetails(),
       AccountType.bank => const BankDetails(),
@@ -23,7 +24,7 @@ sealed class AccountDetails {
         interestRatePercent: 0,
         termMonths: 1,
         monthlyPayment: Money.zero('USD'),
-        nextDueDate: DateTime.utc(1970, 1, 1),
+        nextDueDate: oneMonthAfter(now ?? DateTime.now()),
       ),
       AccountType.investment => const InvestmentDetails(),
       AccountType.asset => const AssetDetails(assetClass: AssetClass.other),
@@ -35,6 +36,17 @@ sealed class AccountDetails {
 
   /// String discriminator used in JSON / Brick storage.
   String get variantName;
+
+  /// The same day next month (date only), clamped to that month's last day:
+  /// Jan 31 → Feb 28/29.
+  static DateTime oneMonthAfter(DateTime date) {
+    final lastDay = DateTime(date.year, date.month + 2, 0).day;
+    return DateTime(
+      date.year,
+      date.month + 1,
+      date.day > lastDay ? lastDay : date.day,
+    );
+  }
 }
 
 class CashDetails extends AccountDetails {

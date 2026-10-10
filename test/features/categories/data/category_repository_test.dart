@@ -1,6 +1,7 @@
 import 'package:aiko/brick/models/category.model.dart';
 import 'package:aiko/brick/offline_model_mappers.dart';
 import 'package:aiko/brick/repository.dart';
+import 'package:aiko/core/money/money.dart';
 import 'package:aiko/core/offline/offline_store.dart';
 import 'package:aiko/core/offline/offline_user_context.dart';
 import 'package:aiko/features/categories/data/category_repository.dart';
@@ -39,6 +40,40 @@ void main() {
     expect(saved.id, 'dddddddd-0000-4000-8000-000000000001');
     expect(store.categories, hasLength(2));
   });
+
+  test(
+    'a budget save keeps a seeded clone\'s null createdAt; custom rows get one',
+    () async {
+      final store = _CategoryStore();
+      final repository = CategoryRepository(
+        store: store,
+        userContext: const _FixedUserContext(userId),
+      );
+      final coffee = CategoryDefaults.cloneForUser(
+        userId: userId,
+        template: CategoryDefaults.all.singleWhere(
+          (category) => category.id == CategoryDefaults.coffeeId,
+        ),
+      );
+
+      final budgeted = await repository.save(
+        coffee.copyWith(monthlyLimit: Money.parse('300', 'THB')),
+      );
+      final custom = await repository.save(
+        const Category(
+          id: 'dddddddd-0000-4000-8000-000000000002',
+          userId: userId,
+          name: 'Plants',
+          type: CategoryType.expense,
+          group: CategoryBudgetGroup.custom,
+        ),
+      );
+
+      expect(budgeted.createdAt, isNull);
+      expect(budgeted.monthlyLimit, Money.parse('300', 'THB'));
+      expect(custom.createdAt, isNotNull);
+    },
+  );
 }
 
 class _FixedUserContext implements OfflineUserContext {

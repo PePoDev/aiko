@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
+import '../../../core/notifications/transaction_reminder_service.dart';
 import '../../../l10n/domain_labels.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
@@ -12,6 +15,7 @@ import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../transactions/domain/transaction.dart';
 import '../../transactions/presentation/transaction_detail_screen.dart';
+import '../application/account_balances.dart';
 import '../domain/account.dart';
 import '../domain/account_details.dart';
 import 'account_form/account_form_screen.dart';
@@ -85,9 +89,11 @@ class AccountsScreen extends ConsumerWidget {
             }
 
             final accountSections = _groupAccountsByType(accounts);
-            final assetsLiabilities = _computeAssetsLiabilities(
+            // One pass over the ledger per build; every figure below reads it.
+            final balances = currentAccountBalances(accounts, transactions);
+            final summary = summarizeAccounts(
               accounts: accounts,
-              transactions: transactions,
+              balances: balances,
               baseCurrency: baseCurrency,
             );
 
@@ -97,31 +103,20 @@ class AccountsScreen extends ConsumerWidget {
               children: [
                 _AccountsSummaryCard(
                   accountCount: accounts.length,
-                  total: _computeTotalBalance(
-                    accounts: accounts,
-                    transactions: transactions,
-                    baseCurrency: baseCurrency,
-                  ),
-                  netWorth: _computeTotalBalance(
-                    accounts: [
-                      for (final a in accounts)
-                        if (a.includeInNetWorth) a,
-                    ],
-                    transactions: transactions,
-                    baseCurrency: baseCurrency,
-                  ),
+                  total: summary.total,
+                  netWorth: summary.netWorth,
                   baseCurrency: baseCurrency,
-                  assets: assetsLiabilities.assets,
-                  liabilities: assetsLiabilities.liabilities,
+                  assets: summary.assets,
+                  liabilities: summary.liabilities,
                 ),
                 const SizedBox(height: 16),
                 for (final section in accountSections) ...[
                   _AccountTypeHeader(
                     type: section.type,
                     accountCount: section.accounts.length,
-                    total: _computeTypeTotal(
+                    total: sumBalancesInCurrency(
                       accounts: section.accounts,
-                      transactions: transactions,
+                      balances: balances,
                       baseCurrency: baseCurrency,
                     ),
                   ),
@@ -140,10 +135,9 @@ class AccountsScreen extends ConsumerWidget {
                             for (final account in section.accounts)
                               _AccountListItem(
                                 account: account,
-                                currentBalance: _currentBalanceForAccount(
-                                  account,
-                                  transactions,
-                                ),
+                                currentBalance:
+                                    balances[account.id] ??
+                                    account.currentBalance,
                                 onTap: () => openAikoPage<void>(
                                   context,
                                   AccountDetailScreen(account: account),
@@ -551,18 +545,24 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
     setState(() => _account = updated);
   }
 
-  Future<void> _deleteAccount() async {
+  Future<void> _deleteAccount(int transactionCount) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.accountsDeleteQuestion),
-        content: Text(context.l10n.accountsDeleteConfirm(_account.name)),
+        content: Text(
+          context.l10n.accountsDeleteConfirm(_account.name, transactionCount),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
             child: Text(context.l10n.cancel),
           ),
           FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: AikoColors.dangerRed,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.of(context).pop(true),
             icon: const Icon(Icons.delete_outline),
             label: Text(context.l10n.delete),
@@ -576,7 +576,14 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
     }
 
     try {
-      await ref.read(accountsProvider.notifier).deleteAccount(_account.id);
+      final deleted = await ref
+          .read(accountsProvider.notifier)
+          .deleteAccount(_account.id);
+      for (final transaction in deleted) {
+        if (transaction.reminderAt != null) {
+          unawaited(TransactionReminderService.instance.cancel(transaction.id));
+        }
+      }
       if (!mounted) {
         return;
       }
@@ -601,12 +608,17 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
             .watch(transactionsProvider)
             .whenOrNull(data: (transactions) => transactions) ??
         const <FinanceTransaction>[];
+    final accounts =
+        ref.watch(accountsProvider).whenOrNull(data: (accounts) => accounts) ??
+        const <Account>[];
     final relatedTransactions =
         transactions
             .where((transaction) => transaction.accountId == _account.id)
             .toList()
           ..sort((a, b) => b.date.compareTo(a.date));
-    final currentBalance = _currentBalanceForAccount(_account, transactions);
+    final currentBalance =
+        currentAccountBalances([_account], relatedTransactions)[_account.id] ??
+        _account.currentBalance;
 
     return Scaffold(
       appBar: AppBar(
@@ -614,7 +626,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
         actions: [
           IconButton(
             tooltip: context.l10n.accountsDeleteTooltip,
-            onPressed: _deleteAccount,
+            onPressed: () => _deleteAccount(relatedTransactions.length),
             icon: const Icon(Icons.delete_outline),
           ),
           IconButton(
@@ -695,7 +707,10 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          _AccountTypeDetailsCard(details: _account.resolvedDetails),
+          _AccountTypeDetailsCard(
+            details: _account.resolvedDetails,
+            accounts: accounts,
+          ),
           const SizedBox(height: 12),
           _RelatedTransactionsCard(transactions: relatedTransactions),
         ],
@@ -707,10 +722,15 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
 class _RelatedTransactionsCard extends StatelessWidget {
   const _RelatedTransactionsCard({required this.transactions});
 
+  /// Newest first.
   final List<FinanceTransaction> transactions;
+
+  /// Rows shown; the full history lives on the Transactions tab.
+  static const _maxShown = 20;
 
   @override
   Widget build(BuildContext context) {
+    final shown = transactions.take(_maxShown).toList(growable: false);
     return FinanceCard(
       title: context.l10n.accountsRelatedTransactions,
       icon: Icons.receipt_long_outlined,
@@ -721,10 +741,26 @@ class _RelatedTransactionsCard extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyMedium,
             )
           : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (var index = 0; index < transactions.length; index++) ...[
-                  _RelatedTransactionTile(transaction: transactions[index]),
-                  if (index != transactions.length - 1) const Divider(),
+                for (var index = 0; index < shown.length; index++) ...[
+                  _RelatedTransactionTile(transaction: shown[index]),
+                  if (index != shown.length - 1) const Divider(),
+                ],
+                if (transactions.length > shown.length) ...[
+                  const Divider(),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      context.l10n.accountsRelatedShowingRecent(
+                        shown.length,
+                        transactions.length,
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -776,8 +812,21 @@ class _RelatedTransactionTile extends StatelessWidget {
 }
 
 class _AccountTypeDetailsCard extends StatelessWidget {
-  const _AccountTypeDetailsCard({required this.details});
+  const _AccountTypeDetailsCard({
+    required this.details,
+    required this.accounts,
+  });
   final AccountDetails details;
+
+  /// Every account, to name the card a credit card shares its limit with.
+  final List<Account> accounts;
+
+  String _accountName(String id, AppLocalizations l10n) {
+    for (final account in accounts) {
+      if (account.id == id) return account.name;
+    }
+    return l10n.txUnknownAccount;
+  }
 
   List<(String, String)> _rowsFor(AccountDetails d, AppLocalizations l10n) {
     String day(DateTime date) => DateFormat.yMMMd().format(date);
@@ -800,7 +849,10 @@ class _AccountTypeDetailsCard extends StatelessWidget {
           (l10n.accountsDetailMinPayment, d.minimumPayment!.format()),
         (l10n.accountsDetailSharesLimit, d.sharesLimit ? l10n.yes : l10n.no),
         if (d.sharedLimitAccountId != null)
-          (l10n.accountsDetailSharedWith, d.sharedLimitAccountId!),
+          (
+            l10n.accountsDetailSharedWith,
+            _accountName(d.sharedLimitAccountId!, l10n),
+          ),
       ],
       LoanDetails() => [
         (l10n.accountsDetailType, d.loanType.label(l10n)),
@@ -885,83 +937,6 @@ class _DetailRow extends StatelessWidget {
       ),
     );
   }
-}
-
-Money _currentBalanceForAccount(
-  Account account,
-  Iterable<FinanceTransaction> transactions,
-) {
-  final accountTransactions = transactions.where(
-    (transaction) => transaction.accountId == account.id,
-  );
-  if (accountTransactions.isEmpty) {
-    return account.currentBalance;
-  }
-
-  var balance = Money.zero(account.currency);
-  for (final transaction in accountTransactions) {
-    balance = transaction.applyToAccountBalance(balance);
-  }
-  return balance;
-}
-
-/// Sum the current balance of every account in the section, restricted to the
-/// user's base currency. Mixed-currency accounts are skipped rather than
-/// converted (no FX path here) so the displayed total never mixes units.
-Money? _computeTypeTotal({
-  required List<Account> accounts,
-  required List<FinanceTransaction> transactions,
-  required String baseCurrency,
-}) {
-  Money? total;
-  final upper = baseCurrency.toUpperCase();
-  for (final account in accounts) {
-    if (account.currency.toUpperCase() != upper) continue;
-    final balance = _currentBalanceForAccount(account, transactions);
-    total = total == null ? balance : total + balance;
-  }
-  return total;
-}
-
-/// Splits net-worth accounts into assets (positive current balances) and
-/// liabilities (what's owed, from negative balances), restricted to the base
-/// currency so units never mix. Sign-based rather than type-based so a card or
-/// loan in credit counts correctly; assets − liabilities reconciles with net
-/// worth. Either side is null when no account contributes.
-({Money? assets, Money? liabilities}) _computeAssetsLiabilities({
-  required List<Account> accounts,
-  required List<FinanceTransaction> transactions,
-  required String baseCurrency,
-}) {
-  Money? assets;
-  Money? liabilities;
-  final upper = baseCurrency.toUpperCase();
-  for (final account in accounts) {
-    if (!account.includeInNetWorth) continue;
-    if (account.currency.toUpperCase() != upper) continue;
-    final balance = _currentBalanceForAccount(account, transactions);
-    if (balance.isNegative) {
-      final owed = Money.zero(account.currency) - balance;
-      liabilities = liabilities == null ? owed : liabilities + owed;
-    } else {
-      assets = assets == null ? balance : assets + balance;
-    }
-  }
-  return (assets: assets, liabilities: liabilities);
-}
-
-/// Total balance across all accounts, restricted to the base currency (same
-/// no-FX rule as [_computeTypeTotal] so units never mix).
-Money? _computeTotalBalance({
-  required List<Account> accounts,
-  required List<FinanceTransaction> transactions,
-  required String baseCurrency,
-}) {
-  return _computeTypeTotal(
-    accounts: accounts,
-    transactions: transactions,
-    baseCurrency: baseCurrency,
-  );
 }
 
 class _AccountDetailRow extends StatelessWidget {

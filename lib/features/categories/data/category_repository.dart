@@ -52,7 +52,9 @@ class CategoryRepository {
     }
 
     final userId = await currentUserId();
-    final categoryToSave = category.createdAt == null
+    // Default clones keep their stored createdAt (null when seeded at
+    // sign-in): security rules only allow their budget fields to change.
+    final categoryToSave = category.createdAt == null && !category.isDefault
         ? category.copyWith(createdAt: DateTime.now().toUtc())
         : category;
     final saved = await _store.upsert(categoryToSave.toOffline(userId: userId));

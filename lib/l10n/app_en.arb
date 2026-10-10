@@ -536,6 +536,22 @@
       }
     }
   },
+  "rulesUpdated": "{name} rule updated",
+  "@rulesUpdated": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "rulesDeleted": "{name} rule deleted",
+  "@rulesDeleted": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
   "rulesTitle": "Transaction rules",
   "rulesAutoCaptureTooltip": "Auto-capture (SMS & notifications)",
   "rulesNew": "New rule",
@@ -553,6 +569,17 @@
     }
   },
   "rulesDelete": "Delete rule",
+  "rulesDeleteQuestion": "Delete \"{name}\"?",
+  "@rulesDeleteQuestion": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
+  "rulesDeleteMessage": "Transactions already saved keep their category and tags. New ones will no longer use this rule.",
+  "rulesEdit": "Edit rule",
+  "rulesEditTitle": "Edit transaction rule",
   "rulesNewTitle": "New transaction rule",
   "rulesName": "Rule name",
   "rulesNameRequired": "Rule name is required",
@@ -561,7 +588,7 @@
   "rulesMatchValue": "Match value",
   "rulesMatchValueHint": "Example: grocery, debit, 7-eleven",
   "rulesMatchValueRequired": "Match value is required",
-  "rulesTargetCategoryId": "Target category id",
+  "rulesTargetCategory": "Category to set",
   "optional": "Optional",
   "rulesTagsHint": "sms, bank, recurring",
   "rulesPriority": "Priority",
@@ -772,11 +799,14 @@
   "accountsAssets": "Assets",
   "accountsLiabilities": "Liabilities",
   "accountsDeleteQuestion": "Delete account?",
-  "accountsDeleteConfirm": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
+  "accountsDeleteConfirm": "{count, plural, =0{Are you sure you want to delete \"{name}\"?} =1{Are you sure you want to delete \"{name}\" and its 1 transaction?} other{Are you sure you want to delete \"{name}\" and its {count} transactions?}} This action cannot be undone.",
   "@accountsDeleteConfirm": {
     "placeholders": {
       "name": {
         "type": "Object"
+      },
+      "count": {
+        "type": "int"
       }
     }
   },
@@ -800,6 +830,17 @@
   "accountsInactive": "Inactive",
   "accountsRelatedTransactions": "Related transactions",
   "accountsNoTransactions": "No transactions recorded for this account yet.",
+  "accountsRelatedShowingRecent": "Showing the {shown} most recent of {total} transactions.",
+  "@accountsRelatedShowingRecent": {
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "accountsTypeDetails": "Type details",
   "currencyNameThb": "Thai Baht",
   "currencyNameUsd": "US Dollar",
@@ -827,6 +868,7 @@
   "accountFormAprInvalid": "Enter a valid APR.",
   "accountFormTargetPositive": "Target amount must be greater than zero",
   "accountFormSavedNonNegative": "Current saved amount must be zero or more",
+  "accountFormAmountNonNegative": "Enter an amount of zero or more.",
   "accountFormTargetDateRequired": "Pick a target date when a target amount is set",
   "accountFormInitialBalance": "Initial balance",
   "accountFormInitialBalanceNote": "Created from account starting balance",

@@ -1,4 +1,7 @@
+import 'package:aiko/core/offline/firestore_sync_state.dart';
 import 'package:aiko/core/storage/secure_storage_service.dart';
+import 'package:aiko/core/storage/synced_preferences.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:aiko/features/learning_hub/application/lesson_progress.dart';
 import 'package:aiko/features/learning_hub/domain/lesson.dart';
 import 'package:aiko/l10n/app_localizations.dart';
@@ -59,18 +62,73 @@ void main() {
       expect(await store.load(), {'budget-basics': LessonProgress.completed});
     });
 
-    test('skips unknown values and survives corrupt storage', () async {
+    test('reads the earlier format, skips unknown values and survives '
+        'corrupt storage', () async {
       final storage = MemorySecureStorageService();
       await storage.write(
-        LessonProgressStore.storageKey,
+        LessonProgressStore.legacyKey,
         '{"a": "completed", "b": "mastered"}',
       );
       expect(await LessonProgressStore(storage).load(), {
         'a': LessonProgress.completed,
       });
 
+      await storage.write(
+        LessonProgressStore.storageKey,
+        '{"a:read": "", "a:mastered": "", "c": ""}',
+      );
+      expect(await LessonProgressStore(storage).load(), {
+        'a': LessonProgress.read,
+      });
+
       await storage.write(LessonProgressStore.storageKey, '[oops');
       expect(await LessonProgressStore(storage).load(), isEmpty);
+    });
+
+    test(
+      'the first new record keeps progress from the earlier format',
+      () async {
+        final storage = MemorySecureStorageService();
+        await storage.write(
+          LessonProgressStore.legacyKey,
+          '{"budget-basics": "completed"}',
+        );
+
+        await LessonProgressStore(
+          storage,
+        ).record('emergency-fund', LessonProgress.read);
+
+        expect(await LessonProgressStore(storage).load(), {
+          'budget-basics': LessonProgress.completed,
+          'emergency-fund': LessonProgress.read,
+        });
+      },
+    );
+
+    test('progress made on two devices while offline merges and never goes '
+        'back', () async {
+      final firestore = FakeFirebaseFirestore();
+      SyncedPreferences device() => SyncedPreferences(
+        local: MemorySecureStorageService(),
+        firestore: firestore,
+        userId: () => 'user-1',
+        sync: FirestoreSyncState(firstSnapshotWait: Duration.zero),
+      );
+      final phone = device();
+      final tablet = LessonProgressStore(device());
+
+      // The tablet completes a lesson. The phone, offline and unaware, had
+      // marked it read; its queued write arrives afterwards.
+      await tablet.record('budget-basics', LessonProgress.completed);
+      await phone.writeItems(LessonProgressStore.storageKey, {
+        'budget-basics:read': '',
+        'emergency-fund:read': '',
+      });
+
+      expect(await tablet.load(), {
+        'budget-basics': LessonProgress.completed,
+        'emergency-fund': LessonProgress.read,
+      });
     });
   });
 

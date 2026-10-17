@@ -28,6 +28,17 @@
   "sidebarTools": "Tools",
   "newTransaction": "New transaction",
   "syncFailedMessage": "A change could not sync. Check your connection and sign-in, then try again.",
+  "syncOfflineMessage": "You're offline. Changes are saved on this device and sync when you're back online.",
+  "syncOfflineLocalMessage": "You're offline. Everything still works on this device; features that need the internet will be back when you reconnect.",
+  "syncSyncingMessage": "Syncing…",
+  "syncLastSynced": "Last synced {time}.",
+  "@syncLastSynced": {
+    "placeholders": {
+      "time": {
+        "type": "Object"
+      }
+    }
+  },
   "routeNotFoundTitle": "Route not found",
   "routeNotFoundMessage": "Aiko could not open {path}.",
   "@routeNotFoundMessage": {

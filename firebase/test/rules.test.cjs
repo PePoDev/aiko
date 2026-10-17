@@ -2,7 +2,7 @@ const {test,before,after}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {initializeTestEnvironment,assertSucceeds,assertFails}=require('@firebase/rules-unit-testing');
-const {doc,setDoc,getDoc,deleteDoc,onSnapshot,disableNetwork,enableNetwork}=require('firebase/firestore');
+const {doc,setDoc,getDoc,deleteDoc,deleteField,onSnapshot,disableNetwork,enableNetwork}=require('firebase/firestore');
 const {ref,uploadBytes,getBytes}=require('firebase/storage');
 let env;
 before(async()=>{env=await initializeTestEnvironment({projectId:'demo-aiko-tests',firestore:{host:'127.0.0.1',port:8081,rules:fs.readFileSync('firebase/firestore.rules','utf8')},storage:{host:'127.0.0.1',port:9199,rules:fs.readFileSync('firebase/storage.rules','utf8')}});});
@@ -56,6 +56,33 @@ test('independent clients observe edits and hard deletes',async()=>{
  await setDoc(a,{value:'second'}); await changed;
  const deleted=waitFor(s=>!s.exists());
  await deleteDoc(a); await deleted;
+});
+test('preferences hold a string value or a map of items changed by merges',async()=>{
+ const db=env.authenticatedContext('prefs').firestore();
+ const items=doc(db,'users/prefs/preferences/dismissed_notifications_v2');
+ await assertSucceeds(setDoc(items,{items:{'goal:g1:100':'2026-10-17T00:00:00.000Z'}},{merge:true}));
+ await assertSucceeds(setDoc(items,{items:{'bill:cc1:2026-06-23':''}},{merge:true}));
+ await assertSucceeds(setDoc(items,{items:{'goal:g1:100':deleteField()}},{merge:true}));
+ assert.deepEqual((await getDoc(items)).data(),{items:{'bill:cc1:2026-06-23':''}});
+ // Removing an item of a document that doesn't exist yet is allowed too.
+ await assertSucceeds(setDoc(doc(db,'users/prefs/preferences/learning_progress_v2'),{items:{'a:read':deleteField()}},{merge:true}));
+ await assertSucceeds(setDoc(doc(db,'users/prefs/preferences/aiko_language_code'),{value:'th'}));
+ await assertFails(setDoc(items,{items:'not a map'}));
+ await assertFails(setDoc(items,{value:1}));
+ await assertFails(setDoc(items,{items:{},other:true}));
+ await assertFails(setDoc(doc(env.authenticatedContext('mallory').firestore(),'users/prefs/preferences/dismissed_notifications_v2'),{items:{x:''}},{merge:true}));
+});
+test('items changed on two offline devices both survive reconnecting',async()=>{
+ const path='users/merge/preferences/transaction_rules_v2';
+ const phone=env.authenticatedContext('merge').firestore(),tablet=env.authenticatedContext('merge').firestore();
+ await setDoc(doc(phone,path),{items:{shared:'{}'}},{merge:true});
+ await disableNetwork(phone);await disableNetwork(tablet);
+ const fromPhone=setDoc(doc(phone,path),{items:{phone:'{}'}},{merge:true});
+ const fromTablet=setDoc(doc(tablet,path),{items:{tablet:'{}',shared:deleteField()}},{merge:true});
+ await enableNetwork(phone);await enableNetwork(tablet);
+ await Promise.all([fromPhone,fromTablet]);
+ const stored=(await getDoc(doc(env.authenticatedContext('merge').firestore(),path))).data();
+ assert.deepEqual(Object.keys(stored.items).sort(),['phone','tablet']);
 });
 test('Firebase queues offline writes and delivers them after reconnect',async()=>{
  const first=env.authenticatedContext('offline').firestore(),second=env.authenticatedContext('offline').firestore();

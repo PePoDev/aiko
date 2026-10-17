@@ -1065,11 +1065,13 @@ class NotificationDismissalsNotifier extends AsyncNotifier<Set<String>> {
   }
 }
 
+/// Never retried: dismissals that can't be read show every notification
+/// straight away instead of keeping the screen loading.
 final notificationDismissalsProvider =
     AsyncNotifierProvider.autoDispose<
       NotificationDismissalsNotifier,
       Set<String>
-    >(NotificationDismissalsNotifier.new);
+    >(NotificationDismissalsNotifier.new, retry: (_, _) => null);
 
 /// The notifications to show: [allNotificationsProvider] without the ones the
 /// user dismissed. Returns an empty list when nothing is noteworthy.

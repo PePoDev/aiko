@@ -37,7 +37,8 @@ class AppLocaleController extends AsyncNotifier<AppLocaleState> {
   AppLocaleController({SecureStorageService? storage})
     : _storage = storage ?? SyncedPreferences();
 
-  static const _languageKey = 'aiko_language_code';
+  /// The synced preference holding an explicit language choice.
+  static const languageKey = 'aiko_language_code';
 
   /// First entry of [AppLocalizations.supportedLocales] is the safe default
   /// when neither the user's saved preference nor the device locale match a
@@ -50,7 +51,7 @@ class AppLocaleController extends AsyncNotifier<AppLocaleState> {
   @override
   Future<AppLocaleState> build() async {
     try {
-      final languageCode = await _storage.read(_languageKey);
+      final languageCode = await _storage.read(languageKey);
       if (languageCode != null) {
         return AppLocaleState(
           locale: localeFor(languageCode),
@@ -64,7 +65,12 @@ class AppLocaleController extends AsyncNotifier<AppLocaleState> {
         followsSystem: true,
       );
     } catch (_) {
-      return AppLocaleState(locale: fallbackLocale, followsSystem: false);
+      // Storage unavailable: the device language is the best guess (most
+      // people never pick one), not English.
+      return AppLocaleState(
+        locale: localeFor(resolveDeviceLanguageCode()),
+        followsSystem: true,
+      );
     }
   }
 
@@ -74,7 +80,7 @@ class AppLocaleController extends AsyncNotifier<AppLocaleState> {
       AppLocaleState(locale: supportedLocale, followsSystem: false),
     );
     try {
-      await _storage.write(_languageKey, supportedLocale.languageCode);
+      await _storage.write(languageKey, supportedLocale.languageCode);
     } catch (_) {
       // Locale changes should still work for the current session if storage
       // is temporarily unavailable, such as during widget tests.
@@ -91,7 +97,7 @@ class AppLocaleController extends AsyncNotifier<AppLocaleState> {
       AppLocaleState(locale: deviceLocale, followsSystem: true),
     );
     try {
-      await _storage.delete(_languageKey);
+      await _storage.delete(languageKey);
     } catch (_) {
       // Best-effort: the in-memory state still reflects the device locale
       // even if storage is unavailable.

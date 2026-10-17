@@ -4,7 +4,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
+import '../core/connectivity/sync_status.dart';
 import '../core/offline/offline_store.dart';
 import '../features/transaction_capture/transaction_capture.dart';
 import '../l10n/l10n.dart';
@@ -105,6 +107,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
             ],
           ),
         ),
+        bottomNavigationBar: const _SyncStatusBanner(padBottom: true),
       );
     }
 
@@ -116,23 +119,120 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     final selectedPath = aikoSelectedPath(location, aikoBottomBarPaths);
     return Scaffold(
       body: SafeArea(bottom: false, child: widget.child),
-      bottomNavigationBar: _AikoBottomNavigation(
-        items: [
-          for (final destination in destinations)
-            _AikoNavItem(
-              label: destination.label(l10n),
-              path: destination.path,
-              icon: destination.icon,
-              selectedIcon: destination.selectedIcon,
-              accentColor: destination.accentColor,
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _SyncStatusBanner(),
+          _AikoBottomNavigation(
+            items: [
+              for (final destination in destinations)
+                _AikoNavItem(
+                  label: destination.label(l10n),
+                  path: destination.path,
+                  icon: destination.icon,
+                  selectedIcon: destination.selectedIcon,
+                  accentColor: destination.accentColor,
+                ),
+            ],
+            selectedPath: selectedPath,
+            onSelected: (path) => context.go(
+              aikoNavigationTarget(path, reselected: path == selectedPath),
             ),
+          ),
         ],
-        selectedPath: selectedPath,
-        onSelected: (path) => context.go(
-          aikoNavigationTarget(path, reselected: path == selectedPath),
-        ),
       ),
     );
+  }
+}
+
+/// A slim line above the navigation saying the device is offline (changes
+/// stay on the device and sync later) or that changes are still uploading.
+/// Nothing while everything is in sync. Screen readers announce it as it
+/// changes.
+class _SyncStatusBanner extends ConsumerWidget {
+  const _SyncStatusBanner({this.padBottom = false});
+
+  /// Whether the banner is the bottom edge of the window (no navigation bar
+  /// under it), so it keeps clear of the system's bottom inset.
+  final bool padBottom;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(syncStatusProvider);
+    final banner = syncBannerFor(status);
+    final Widget content;
+    if (banner == null) {
+      content = const SizedBox(width: double.infinity);
+    } else {
+      final l10n = context.l10n;
+      final theme = Theme.of(context);
+      final colors = theme.colorScheme;
+      final lastSynced = status.lastSyncedAt;
+      final message = switch (banner) {
+        SyncBanner.offline =>
+          lastSynced == null
+              ? l10n.syncOfflineMessage
+              : '${l10n.syncOfflineMessage} '
+                    '${l10n.syncLastSynced(_syncTime(lastSynced))}',
+        SyncBanner.offlineLocal => l10n.syncOfflineLocalMessage,
+        SyncBanner.syncing => l10n.syncSyncingMessage,
+      };
+      content = Semantics(
+        container: true,
+        liveRegion: true,
+        label: message,
+        excludeSemantics: true,
+        child: Material(
+          color: colors.surfaceContainerHighest,
+          child: SafeArea(
+            top: false,
+            bottom: padBottom,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    banner == SyncBanner.syncing
+                        ? Icons.cloud_sync_outlined
+                        : Icons.cloud_off_outlined,
+                    size: 18,
+                    color: colors.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      alignment: Alignment.bottomCenter,
+      child: content,
+    );
+  }
+
+  /// The time alone for today, otherwise the date and time.
+  static String _syncTime(DateTime at) {
+    final local = at.toLocal();
+    final now = DateTime.now();
+    final today =
+        local.year == now.year &&
+        local.month == now.month &&
+        local.day == now.day;
+    return today
+        ? DateFormat.jm().format(local)
+        : DateFormat.MMMd().add_jm().format(local);
   }
 }
 

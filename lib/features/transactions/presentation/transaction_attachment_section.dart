@@ -1,3 +1,4 @@
+import '../../../core/storage/local_file_cache.dart';
 import '../../../l10n/l10n.dart';
 import 'dart:typed_data';
 import '../data/transaction_attachment_repository.dart';
@@ -12,12 +13,22 @@ class TransactionAttachmentSection extends StatelessWidget {
     required this.attachments,
     this.onAddAttachment,
     this.onRemoveAttachment,
+    this.showTitle = true,
+    this.showUploadState = false,
     super.key,
   });
 
   final List<TransactionAttachment> attachments;
+
+  /// Shows the add button when set.
   final VoidCallback? onAddAttachment;
   final ValueChanged<TransactionAttachment>? onRemoveAttachment;
+
+  /// Whether to show the "Attachments" heading (off inside a titled card).
+  final bool showTitle;
+
+  /// Marks attachments that are still waiting to upload (signed in).
+  final bool showUploadState;
 
   @override
   Widget build(BuildContext context) {
@@ -27,21 +38,25 @@ class TransactionAttachmentSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  context.l10n.txAttachments,
-                  style: Theme.of(context).textTheme.titleSmall,
+          if (showTitle || onAddAttachment != null)
+            Row(
+              children: [
+                Expanded(
+                  child: showTitle
+                      ? Text(
+                          context.l10n.txAttachments,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        )
+                      : const SizedBox.shrink(),
                 ),
-              ),
-              IconButton(
-                tooltip: context.l10n.txAddAttachment,
-                onPressed: onAddAttachment,
-                icon: const Icon(Icons.attach_file),
-              ),
-            ],
-          ),
+                if (onAddAttachment != null)
+                  IconButton(
+                    tooltip: context.l10n.txAddAttachment,
+                    onPressed: onAddAttachment,
+                    icon: const Icon(Icons.attach_file),
+                  ),
+              ],
+            ),
           if (attachments.isEmpty)
             Text(context.l10n.txNoAttachments)
           else
@@ -54,6 +69,9 @@ class TransactionAttachmentSection extends StatelessWidget {
                       padding: const EdgeInsets.only(right: 8),
                       child: _AttachmentThumb(
                         attachment: attachment,
+                        waitingToUpload:
+                            showUploadState &&
+                            LocalFileCache.isDevicePath(attachment.storagePath),
                         onRemove: onRemoveAttachment == null
                             ? null
                             : () => onRemoveAttachment!(attachment),
@@ -71,9 +89,14 @@ class TransactionAttachmentSection extends StatelessWidget {
 /// Square thumbnail with an overlaid close (X) button. Tapping the thumb
 /// opens the full viewer; tapping the X removes the attachment.
 class _AttachmentThumb extends StatelessWidget {
-  const _AttachmentThumb({required this.attachment, this.onRemove});
+  const _AttachmentThumb({
+    required this.attachment,
+    required this.waitingToUpload,
+    this.onRemove,
+  });
 
   final TransactionAttachment attachment;
+  final bool waitingToUpload;
   final VoidCallback? onRemove;
 
   static const double _size = 96;
@@ -99,6 +122,12 @@ class _AttachmentThumb extends StatelessWidget {
               child: _ThumbnailContent(attachment: attachment),
             ),
           ),
+          if (waitingToUpload)
+            const Positioned(
+              left: 6,
+              bottom: 6,
+              child: _WaitingToUploadBadge(),
+            ),
           if (onRemove != null)
             Positioned(
               top: 0,
@@ -106,6 +135,36 @@ class _AttachmentThumb extends StatelessWidget {
               child: _RemoveButton(onPressed: onRemove!),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Marks a file that is saved on this device and uploads when online.
+class _WaitingToUploadBadge extends StatelessWidget {
+  const _WaitingToUploadBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final label = context.l10n.filesWaitingToUpload;
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        label: label,
+        child: const DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.black54,
+            shape: BoxShape.circle,
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(4),
+            child: Icon(
+              Icons.cloud_upload_outlined,
+              size: 16,
+              color: Colors.white,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -171,7 +230,7 @@ class _ThumbnailContentState extends State<_ThumbnailContent> {
   }
 
   Future<Uint8List>? _load() => attachment.isImagePreviewable
-      ? const TransactionAttachmentRepository().readBytes(attachment)
+      ? TransactionAttachmentRepository().readBytes(attachment)
       : null;
 
   @override
@@ -193,9 +252,13 @@ class _ThumbnailContentState extends State<_ThumbnailContent> {
                     const Icon(Icons.broken_image_outlined),
               )
             : Icon(
-                snapshot.hasError
-                    ? Icons.broken_image_outlined
-                    : Icons.image_outlined,
+                switch (snapshot.error) {
+                  // Not on this device yet and no connection to download it.
+                  AttachmentUnavailableException(offline: true) =>
+                    Icons.cloud_off_outlined,
+                  null => Icons.image_outlined,
+                  _ => Icons.broken_image_outlined,
+                },
                 color: theme.colorScheme.onSurfaceVariant,
                 size: 32,
               ),

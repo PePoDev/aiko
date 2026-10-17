@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -16,7 +18,10 @@ import '../../categories/domain/category.dart';
 import '../../categories/presentation/category_editor_sheet.dart';
 import '../../categories/presentation/category_names.dart';
 import '../../categories/presentation/category_visual.dart';
+import '../data/transaction_attachment_repository.dart';
 import '../domain/transaction.dart';
+import '../domain/transaction_attachment.dart';
+import 'transaction_attachment_section.dart';
 import 'transaction_form_screen.dart';
 
 class TransactionDetailScreen extends ConsumerStatefulWidget {
@@ -32,6 +37,18 @@ class TransactionDetailScreen extends ConsumerStatefulWidget {
 class _TransactionDetailScreenState
     extends ConsumerState<TransactionDetailScreen> {
   late FinanceTransaction _transaction;
+  final _attachmentRepository = TransactionAttachmentRepository();
+  Stream<List<TransactionAttachment>>? _attachments;
+  String? _attachmentsOf;
+
+  /// The attachments of [transactionId], read by one listener while shown.
+  Stream<List<TransactionAttachment>> _attachmentsFor(String transactionId) {
+    if (_attachmentsOf != transactionId) {
+      _attachmentsOf = transactionId;
+      _attachments = _attachmentRepository.watchForTransaction(transactionId);
+    }
+    return _attachments!;
+  }
 
   @override
   void initState() {
@@ -93,6 +110,8 @@ class _TransactionDetailScreenState
       for (final id in deletedIds) {
         await TransactionReminderService.instance.cancel(id);
       }
+      // Their files go too; cloud copies are deleted once online.
+      unawaited(_attachmentRepository.deleteForTransactions(deletedIds));
       if (!mounted) {
         return;
       }
@@ -155,6 +174,14 @@ class _TransactionDetailScreenState
         (transaction.isInflow ? AikoColors.successGreen : AikoColors.deepBlue);
     // Adjustments mirror the account's balance; they're changed from there.
     final isAdjustment = transaction.type == TransactionType.adjustment;
+    // A transfer's receipts are saved with its outflow leg.
+    final attachmentsOf = transaction.type == TransactionType.transferIn
+        ? transferPartnersOf(
+                transaction,
+                ref.watch(transactionsProvider).value ?? const [],
+              ).firstOrNull?.id ??
+              transaction.id
+        : transaction.id;
 
     return Scaffold(
       appBar: AppBar(
@@ -251,6 +278,26 @@ class _TransactionDetailScreenState
                 ],
               ],
             ),
+          ),
+          StreamBuilder<List<TransactionAttachment>>(
+            stream: _attachmentsFor(attachmentsOf),
+            builder: (context, snapshot) {
+              final attachments = snapshot.data ?? const [];
+              if (attachments.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: FinanceCard(
+                  title: context.l10n.txAttachments,
+                  icon: Icons.attach_file,
+                  accentColor: AikoColors.deepBlue,
+                  child: TransactionAttachmentSection(
+                    attachments: attachments,
+                    showTitle: false,
+                    showUploadState: _attachmentRepository.uploadsToCloud,
+                  ),
+                ),
+              );
+            },
           ),
           if (transaction.splits.isNotEmpty) ...[
             const SizedBox(height: 16),

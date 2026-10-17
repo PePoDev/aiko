@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../../features/categories/domain/category_defaults.dart';
+import '../../features/transactions/data/transaction_attachment_repository.dart';
 import 'offline_store.dart';
 import 'offline_user_context.dart';
 import 'records/records.dart';
@@ -21,10 +22,20 @@ import 'records/records.dart';
 /// which uploads them when online) and the local copies are deleted; a batch
 /// the server rejects is put back locally so the next claim retries it.
 /// Signed out, rows are updated in the local store in place.
+///
+/// Guest attachments are handed over too ([claimFiles]) and their uploads
+/// queued.
 class OfflineDataMigrator {
-  OfflineDataMigrator({OfflineStore? store}) : _store = store ?? OfflineStore();
+  OfflineDataMigrator({
+    OfflineStore? store,
+    Future<int> Function(String realUserId)? claimFiles,
+  }) : _store = store ?? OfflineStore(),
+       _claimFiles =
+           claimFiles ??
+           TransactionAttachmentRepository().claimGuestAttachments;
 
   final OfflineStore _store;
+  final Future<int> Function(String realUserId) _claimFiles;
 
   /// Claims every locally-created row for [realUserId]. Returns the number of
   /// rows reassigned. Safe to call repeatedly: it is a no-op once nothing is
@@ -66,6 +77,9 @@ class OfflineDataMigrator {
     migrated += await _claim<OfflineInvestmentHolding>(
       (row) => row.toDomain().toOffline(userId: realUserId),
     );
+    // Attachment metadata and bytes live in the file cache, not the record
+    // store; this never throws.
+    migrated += await _claimFiles(realUserId);
 
     if (kDebugMode) {
       debugPrint(

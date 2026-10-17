@@ -566,6 +566,11 @@
     }
   },
   "txRemoveAttachment": "Remove attachment",
+  "filesWaitingToUpload": "Saved on this device. Uploads when you're online.",
+  "filesOpenNeedsConnection": "This file isn't on this device yet. Connect to the internet to open it.",
+  "filesTooLarge": "This file is larger than 10 MB. Please choose a smaller one.",
+  "filesUnsupportedType": "Aiko can attach photos, PDFs, text files and Word documents.",
+  "filesUnreadable": "Unable to read this file. Please try another one.",
   "txAdjustmentEditHint": "Balance adjustments come from the account's balance. To change one, edit the account's balance.",
   "delete": "Delete",
   "txDeleted": "Transaction deleted!",

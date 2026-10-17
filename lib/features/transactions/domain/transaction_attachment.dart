@@ -39,6 +39,25 @@ class TransactionAttachment {
   final bool isSensitive;
   final AttachmentExportPolicy exportPolicy;
 
+  TransactionAttachment copyWith({
+    String? userId,
+    String? transactionId,
+    String? storagePath,
+  }) {
+    return TransactionAttachment(
+      id: id,
+      userId: userId ?? this.userId,
+      transactionId: transactionId ?? this.transactionId,
+      fileName: fileName,
+      storagePath: storagePath ?? this.storagePath,
+      mimeType: mimeType,
+      sizeBytes: sizeBytes,
+      createdAt: createdAt,
+      isSensitive: isSensitive,
+      exportPolicy: exportPolicy,
+    );
+  }
+
   bool get isValidForUpload {
     return fileName.trim().isNotEmpty &&
         storagePath.trim().isNotEmpty &&

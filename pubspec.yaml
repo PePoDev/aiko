@@ -101,6 +101,14 @@ flutter:
     - assets/icons/aiko_aiko.svg
     - assets/icons/aiko_title.svg
     - assets/rive/
+    # Latin text fonts (SIL OFL 1.1, see OFL.txt in each folder): the exact
+    # files google_fonts would download, bundled under the names it looks for
+    # so text renders offline and the app never fetches fonts at runtime.
+    # Only the weights AikoTypography requests ship.
+    - assets/fonts/hanken_grotesk/HankenGrotesk-Bold.ttf
+    - assets/fonts/manrope/Manrope-Regular.ttf
+    - assets/fonts/manrope/Manrope-Medium.ttf
+    - assets/fonts/manrope/Manrope-Bold.ttf
 
   # Thai glyphs ship with the app (Noto Sans Thai, SIL OFL 1.1, see
   # assets/fonts/noto_sans_thai/OFL.txt) so Thai renders offline and on the

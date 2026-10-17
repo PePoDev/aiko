@@ -9,8 +9,87 @@
   <link rel="icon" type="image/png" href="icons/Icon-192.png">
   <link rel="manifest" href="manifest.json">
   <title>Aiko</title>
+  <style>
+    /* Shown until Flutter draws its first frame, in the app's background
+       colors. It fades in late so fast starts don't flash it. */
+    body { margin: 0; background: #D8E0F5; }
+    #aiko-loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: aiko-fade-in 0.3s ease 0.4s both;
+    }
+    #aiko-loading::after {
+      content: "";
+      width: 40px;
+      height: 40px;
+      box-sizing: border-box;
+      border-radius: 50%;
+      border: 4px solid rgba(59, 130, 246, 0.25);
+      border-top-color: #3B82F6;
+      animation: aiko-spin 0.9s linear infinite;
+    }
+    @keyframes aiko-spin { to { transform: rotate(360deg); } }
+    @keyframes aiko-fade-in { from { opacity: 0; } }
+    @media (prefers-color-scheme: dark) {
+      body { background: #0F172A; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #aiko-loading::after { animation-duration: 2.4s; }
+    }
+  </style>
 </head>
 <body>
+  <div id="aiko-loading" role="progressbar" aria-label="Aiko"></div>
+  <script>
+    // Offline support. aiko_sw.js keeps the app's files so it opens without a
+    // connection after one online visit; storage persistence keeps the
+    // on-device data (local records, Firestore's cache and its queue of
+    // unsent changes, all in IndexedDB) from being evicted.
+    (function () {
+      var firstFrame = false;
+      var sw = navigator.serviceWorker;
+
+      // Files loaded before the worker controlled this page (the first
+      // visit) didn't pass through it; list them so it caches them too.
+      function cacheLoadedFiles() {
+        if (!sw || !sw.controller || !firstFrame || !window.performance) return;
+        var urls = performance.getEntriesByType('resource').map(function (entry) {
+          return entry.name;
+        });
+        sw.controller.postMessage({ type: 'aiko-cache-urls', urls: urls });
+      }
+
+      window.addEventListener('flutter-first-frame', function () {
+        firstFrame = true;
+        var loading = document.getElementById('aiko-loading');
+        if (loading) loading.remove();
+        if (navigator.storage && navigator.storage.persist) {
+          navigator.storage.persisted().then(function (persisted) {
+            if (!persisted) return navigator.storage.persist();
+          }).catch(function () {});
+        }
+        cacheLoadedFiles();
+      });
+
+      if (!sw) return;
+      sw.addEventListener('controllerchange', cacheLoadedFiles);
+      window.addEventListener('load', function () {
+        sw.register('aiko_sw.js', { updateViaCache: 'none' }).then(function (registration) {
+          // Long-open tabs pick up new builds for the next offline start.
+          function update() {
+            if (navigator.onLine) registration.update().catch(function () {});
+          }
+          window.addEventListener('online', update);
+          setInterval(update, 60 * 60 * 1000);
+        }).catch(function (error) {
+          console.warn('Aiko offline support is unavailable:', error);
+        });
+      });
+    })();
+  </script>
   <script src="firebase_emulators.js"></script>
   <script src="flutter_bootstrap.js" async></script>
 </body>

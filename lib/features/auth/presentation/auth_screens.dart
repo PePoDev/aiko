@@ -7,6 +7,7 @@ import '../../../app/user_session.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/widgets/aiko_idea_widgets.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../aiko_character/presentation/aiko_art_fallback.dart';
 import '../../onboarding/application/complete_onboarding.dart';
 import '../data/auth_repository.dart';
 import 'auth_error_message.dart';
@@ -212,6 +213,7 @@ class _IntroSlide extends StatelessWidget {
                   width: imageSize,
                   height: imageSize,
                   fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => AikoArtFallback(size: imageSize),
                 ),
               ),
             ),

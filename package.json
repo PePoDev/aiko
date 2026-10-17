@@ -5,6 +5,8 @@
     "functions:build": "npm --prefix firebase/functions run build",
     "firebase:start": "sh tool/run_emulators.sh",
     "test:rules": "node --test firebase/test/*.test.cjs",
+    "test:web": "node --test tool/test/*.test.mjs",
+    "web:precache": "node tool/web_precache.mjs build/web",
     "docs:check": "node tool/check_docs.mjs"
   },
   "devDependencies": {

@@ -1,6 +1,9 @@
 import 'package:aiko/app/providers.dart';
 import 'package:aiko/core/money/money.dart';
+import 'package:aiko/core/offline/firestore_sync_state.dart';
 import 'package:aiko/core/storage/secure_storage_service.dart';
+import 'package:aiko/core/storage/synced_preferences.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/dashboard/application/notification_dismissals.dart';
@@ -131,15 +134,64 @@ void main() {
       expect(withoutDismissed(all, dismissed), isEmpty);
     });
 
-    test('ids from past periods are dropped on the next dismissal', () async {
-      final store = NotificationDismissalStore(MemorySecureStorageService());
+    test('ids from past periods are dropped on a later dismissal once they '
+        'are old', () async {
+      final storage = MemorySecureStorageService();
+      var now = DateTime.utc(2026, 6, 20);
+      final store = NotificationDismissalStore(storage, clock: () => now);
       await store.dismiss('budget:food:75:2026-06-01', [
         'budget:food:75:2026-06-01',
       ]);
-      final next = await store.dismiss('budget:food:75:2026-07-01', [
-        'budget:food:75:2026-07-01',
-      ]);
-      expect(next, {'budget:food:75:2026-07-01'});
+
+      // A few days later the June alert is no longer listed, but another
+      // device may still show it: keep the dismissal for now.
+      now = DateTime.utc(2026, 7, 2);
+      expect(
+        await store.dismiss('budget:food:75:2026-07-01', [
+          'budget:food:75:2026-07-01',
+        ]),
+        {'budget:food:75:2026-06-01', 'budget:food:75:2026-07-01'},
+      );
+
+      now = DateTime.utc(2026, 9, 1);
+      expect(await store.dismiss('goal:g1:100', ['goal:g1:100']), {
+        'goal:g1:100',
+      });
+    });
+
+    test('reads the earlier list format and carries it over', () async {
+      final storage = MemorySecureStorageService();
+      await storage.write(
+        NotificationDismissalStore.legacyKey,
+        '["goal:g1:100", "bill:cc1:2026-06-23"]',
+      );
+      final store = NotificationDismissalStore(storage);
+      expect(await store.load(), {'goal:g1:100', 'bill:cc1:2026-06-23'});
+
+      // Earlier dismissals have no time; the ones not shown any more go.
+      expect(await store.dismiss('goal:g1:50', ['goal:g1:100', 'goal:g1:50']), {
+        'goal:g1:100',
+        'goal:g1:50',
+      });
+      expect(await store.load(), {'goal:g1:100', 'goal:g1:50'});
+    });
+
+    test('dismissals made on two devices while offline both survive', () async {
+      final firestore = FakeFirebaseFirestore();
+      NotificationDismissalStore device() => NotificationDismissalStore(
+        SyncedPreferences(
+          local: MemorySecureStorageService(),
+          firestore: firestore,
+          userId: () => 'user-1',
+          sync: FirestoreSyncState(firstSnapshotWait: Duration.zero),
+        ),
+      );
+
+      await device().dismiss('goal:g1:100', ['goal:g1:100']);
+      // The other device doesn't list the goal alert (not synced yet).
+      await device().dismiss('bill:cc1:2026-06-23', ['bill:cc1:2026-06-23']);
+
+      expect(await device().load(), {'goal:g1:100', 'bill:cc1:2026-06-23'});
     });
 
     test('unreadable storage reads as nothing dismissed', () async {

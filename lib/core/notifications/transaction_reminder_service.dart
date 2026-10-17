@@ -80,6 +80,44 @@ List<DateTime> upcomingReminderTimes({
   return times;
 }
 
+/// Notifications booked ahead for a bounded series; topped up on each launch
+/// by [TransactionReminderService.resyncBounded]. iOS keeps at most 64
+/// pending per app.
+const int _boundedSlots = 12;
+
+/// Stable non-negative 31-bit id derived from [key], so re-saving a
+/// transaction reschedules the same notification slot.
+int _reminderId(String key) => key.hashCode & 0x7fffffff;
+
+/// Every notification id a transaction's reminder can use: its own slot, then
+/// the per-occurrence slots of a bounded series.
+List<int> reminderNotificationIds(String transactionId) => [
+  _reminderId(transactionId),
+  for (var i = 0; i < _boundedSlots; i++) _reminderId('$transactionId#$i'),
+];
+
+/// Which booked reminders ([booked] notification ids) to cancel and which
+/// transactions to re-book after [removedIds] were deleted and [changed] were
+/// edited elsewhere. Only transactions with a reminder in [booked] count.
+({List<String> cancel, List<FinanceTransaction> reschedule})
+planReminderFollowUp({
+  required Set<int> booked,
+  Iterable<String> removedIds = const [],
+  Iterable<FinanceTransaction> changed = const [],
+}) {
+  bool isBooked(String id) => reminderNotificationIds(id).any(booked.contains);
+  return (
+    cancel: [
+      for (final id in removedIds)
+        if (isBooked(id)) id,
+    ],
+    reschedule: [
+      for (final transaction in changed)
+        if (isBooked(transaction.id)) transaction,
+    ],
+  );
+}
+
 /// Schedules local notifications reminding the user about a transaction at a
 /// configured time. Best-effort: any platform/permission failure is swallowed
 /// so saving a transaction never fails because of a reminder.
@@ -93,10 +131,6 @@ class TransactionReminderService {
       FlutterLocalNotificationsPlugin();
 
   static const String _channelId = 'transaction_reminders';
-
-  /// Notifications booked ahead for a bounded series; topped up on each
-  /// launch by [resyncBounded]. iOS keeps at most 64 pending per app.
-  static const int _boundedSlots = 12;
 
   bool _resynced = false;
 
@@ -147,16 +181,48 @@ class TransactionReminderService {
         ?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
-  /// Stable non-negative 31-bit id derived from the transaction id, so
-  /// re-saving a transaction reschedules the same notification slot.
-  int _notificationId(String transactionId) =>
-      transactionId.hashCode & 0x7fffffff;
+  int _notificationId(String transactionId) => _reminderId(transactionId);
 
   /// Ids of the per-occurrence slots of a bounded series.
-  Iterable<int> _slotIds(String transactionId) => [
-    for (var i = 0; i < _boundedSlots; i++)
-      _notificationId('$transactionId#$i'),
-  ];
+  Iterable<int> _slotIds(String transactionId) =>
+      reminderNotificationIds(transactionId).skip(1);
+
+  /// The notification ids booked on this device; empty when unknown.
+  Future<Set<int>> _bookedIds() async {
+    try {
+      final pending = await _plugin.pendingNotificationRequests();
+      return {for (final request in pending) request.id};
+    } catch (error) {
+      debugPrint('[reminders] pending lookup failed: $error');
+      return {};
+    }
+  }
+
+  /// Follows transactions deleted ([removedIds]) or edited ([changed]) on
+  /// another device: a reminder booked here is cancelled or re-booked to
+  /// match. Transactions without a reminder booked here are left alone, so
+  /// someone else's edit never prompts for notification permission.
+  Future<void> followRemoteChanges({
+    Iterable<String> removedIds = const [],
+    Iterable<FinanceTransaction> changed = const [],
+  }) async {
+    if (kIsWeb) return;
+    await init();
+    if (!_ready) return;
+    final plan = planReminderFollowUp(
+      booked: await _bookedIds(),
+      removedIds: removedIds,
+      changed: changed,
+    );
+    for (final id in plan.cancel) {
+      await cancel(id);
+    }
+    if (plan.reschedule.isEmpty) return;
+    final l10n = currentL10n();
+    for (final transaction in plan.reschedule) {
+      await scheduleFor(transaction, l10n);
+    }
+  }
 
   /// (Re)schedules [transaction]'s reminder, or cancels it when it has none.
   /// A recurring transaction's reminder recurs with it, within the series'

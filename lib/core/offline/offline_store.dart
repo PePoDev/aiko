@@ -91,16 +91,12 @@ class OfflineStore {
     }
     final limit = query?.limit;
     if (limit != null) remote = remote.limit(limit);
-    final sync = FirestoreSyncState.instance;
-    var snapshot = await remote.get(await sync.readOptions(collection));
-    // An empty cache result before the listener has confirmed with the server
-    // may just mean "not cached yet" (new device, slow network); ask the server
-    // so callers never mistake it for "doesn't exist".
-    if (snapshot.metadata.isFromCache &&
-        snapshot.docs.isEmpty &&
-        !sync.isServerSynced(collection)) {
-      snapshot = await remote.get();
-    }
+    // The cache when the listener keeps it; the server only briefly, when the
+    // cache can't answer yet ([FirestoreSyncState.readQuery]).
+    final snapshot = await FirestoreSyncState.instance.readQuery(
+      collection,
+      remote,
+    );
     return [for (final doc in snapshot.docs) codec.fromRow(doc.data())];
   }
 
@@ -191,6 +187,8 @@ class OfflineStore {
     Future<void> write, {
     void Function(Object error)? onError,
   }) {
+    // Counts as waiting to sync until the server acknowledges it.
+    FirestoreSyncState.instance.trackWrite(write);
     unawaited(
       write.then<void>(
         (_) {},

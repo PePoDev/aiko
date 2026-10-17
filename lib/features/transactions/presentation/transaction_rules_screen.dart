@@ -35,6 +35,10 @@ class _TransactionRulesScreenState
   late final TransactionRuleStore _store;
   var _rules = <TransactionRule>[];
 
+  /// Rules saved (or deleted, null) on this screen, by id, so a load that
+  /// finishes after an edit doesn't undo it.
+  final _edits = <String, TransactionRule?>{};
+
   @override
   void initState() {
     super.initState();
@@ -47,13 +51,19 @@ class _TransactionRulesScreenState
   Future<void> _restoreRules() async {
     final rules = await _store.load();
     if (!mounted) return;
-    setState(() => _rules = _sortRules(rules));
+    setState(() => _rules = TransactionRuleStore.withEdits(rules, _edits));
   }
 
-  Future<void> _saveRules(List<TransactionRule> rules) async {
-    final sorted = _sortRules(rules);
-    setState(() => _rules = sorted);
-    await _store.save(sorted);
+  /// Stores one rule (or deletes it, with null); only that rule is written,
+  /// so rules changed on another device are left alone.
+  Future<void> _saveRule(String id, TransactionRule? rule) async {
+    _edits[id] = rule;
+    setState(() => _rules = TransactionRuleStore.withEdits(_rules, {id: rule}));
+    if (rule == null) {
+      await _store.deleteRule(id);
+    } else {
+      await _store.saveRule(rule);
+    }
     ref.invalidate(transactionRulesProvider);
   }
 
@@ -64,7 +74,7 @@ class _TransactionRulesScreenState
     );
     if (rule == null) return;
 
-    await _saveRules([..._rules, rule]);
+    await _saveRule(rule.id, rule);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(context.l10n.rulesCreated(rule.name))),
@@ -78,10 +88,7 @@ class _TransactionRulesScreenState
     );
     if (updated == null) return;
 
-    await _saveRules([
-      for (final item in _rules)
-        if (item.id == updated.id) updated else item,
-    ]);
+    await _saveRule(updated.id, updated);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(context.l10n.rulesUpdated(updated.name))),
@@ -89,10 +96,7 @@ class _TransactionRulesScreenState
   }
 
   Future<void> _toggleRule(TransactionRule rule, bool value) async {
-    await _saveRules([
-      for (final item in _rules)
-        if (item.id == rule.id) item.copyWith(isActive: value) else item,
-    ]);
+    await _saveRule(rule.id, rule.copyWith(isActive: value));
   }
 
   Future<void> _deleteRule(TransactionRule rule) async {
@@ -119,10 +123,7 @@ class _TransactionRulesScreenState
     );
     if (confirmed != true || !mounted) return;
 
-    await _saveRules([
-      for (final item in _rules)
-        if (item.id != rule.id) item,
-    ]);
+    await _saveRule(rule.id, null);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(context.l10n.rulesDeleted(rule.name))),
@@ -758,10 +759,6 @@ class _TransactionRuleFormScreenState
       ),
     );
   }
-}
-
-List<TransactionRule> _sortRules(List<TransactionRule> rules) {
-  return [...rules]..sort((a, b) => a.priority.compareTo(b.priority));
 }
 
 List<String> _splitTags(String input) {

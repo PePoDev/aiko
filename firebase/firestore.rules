@@ -29,16 +29,24 @@ service cloud.firestore {
             (resource.data.get('created_at', null) == null &&
               request.resource.data.get('created_at', null) is string)));
     }
+    // A preference is one string `value`, or `items` (a map of strings) that
+    // clients change item by item with merges, so lists edited on several
+    // devices while offline don't overwrite each other.
+    function validPreference() {
+      return request.resource.data.keys().hasOnly(['value', 'items']) &&
+        request.resource.data.get('value', '') is string &&
+        request.resource.data.get('items', {}) is map;
+    }
     match /users/{uid}/{collection}/{id} {
       allow read: if owner(uid) && (financeCollection(collection) || collection in ['profiles', 'preferences', 'integrations']);
       allow create: if owner(uid) &&
         ((financeCollection(collection) && ownedRecord(uid, id) && validFinance(collection)) ||
          (collection == 'profiles' && ownedProfile(uid, id)) ||
-         (collection == 'preferences' && request.resource.data.keys().hasOnly(['value']) && request.resource.data.value is string));
+         (collection == 'preferences' && validPreference()));
       allow update: if owner(uid) &&
         ((financeCollection(collection) && ownedRecord(uid, id) && validFinance(collection) && editableTemplate(collection)) ||
          (collection == 'profiles' && ownedProfile(uid, id)) ||
-         (collection == 'preferences' && request.resource.data.keys().hasOnly(['value']) && request.resource.data.value is string));
+         (collection == 'preferences' && validPreference()));
       allow delete: if owner(uid) &&
         ((financeCollection(collection) && (!(collection in ['categories', 'category_groups']) || resource.data.get('template_id', null) == null)) || collection == 'preferences');
     }

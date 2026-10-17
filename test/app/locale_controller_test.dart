@@ -1,8 +1,12 @@
 import 'package:aiko/app/locale_controller.dart';
+import 'package:aiko/core/offline/firestore_sync_state.dart';
 import 'package:aiko/core/storage/secure_storage_service.dart';
+import 'package:aiko/core/storage/synced_preferences.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../core/storage/offline_firestore.dart';
 
 void main() {
   const languageKey = 'aiko_language_code';
@@ -74,7 +78,8 @@ void main() {
     },
   );
 
-  test('returns the fallback locale when storage read throws', () async {
+  test('follows the device language when storage read throws', () async {
+    binding.platformDispatcher.localeTestValue = const Locale('th', 'TH');
     final storage = _ThrowingStorage();
 
     final container = ProviderContainer(
@@ -87,7 +92,35 @@ void main() {
 
     final state = await container.read(appLocaleControllerProvider.future);
 
-    expect(state.locale, AppLocaleController.fallbackLocale);
+    expect(state.locale, const Locale('th'));
+    expect(state.followsSystem, isTrue);
+  });
+
+  test('signed in and offline, the language comes from the device copy of '
+      'the preference', () async {
+    binding.platformDispatcher.localeTestValue = const Locale('en', 'US');
+    final device = MemorySecureStorageService();
+    // Written by an earlier session (SyncedPreferences.write).
+    await device.write('user-1:$languageKey', 'th');
+    final container = ProviderContainer(
+      overrides: [
+        appLocaleControllerProvider.overrideWith(
+          () => AppLocaleController(
+            storage: SyncedPreferences(
+              local: device,
+              firestore: OfflineFirestore(),
+              userId: () => 'user-1',
+              sync: FirestoreSyncState(firstSnapshotWait: Duration.zero),
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final state = await container.read(appLocaleControllerProvider.future);
+
+    expect(state.locale, const Locale('th'));
     expect(state.followsSystem, isFalse);
   });
 

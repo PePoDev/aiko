@@ -63,6 +63,34 @@ const _introPages = <_IntroPage>[
   ),
 ];
 
+/// Starts using a cloud build without an account ([AuthRepository.
+/// continueAsGuest]): records stay on this device, offline included, until
+/// the user signs in. Guests get the same first-run Cash and Bank accounts
+/// as local-only builds.
+Future<void> _continueWithoutAccount(
+  BuildContext context,
+  AuthRepository authRepository,
+) async {
+  final container = ProviderScope.containerOf(context, listen: false);
+  try {
+    await authRepository.continueAsGuest();
+  } catch (error) {
+    // Still a guest for this run; the next launch shows Welcome again.
+    debugPrint('[auth] guest mode not stored: $error');
+  }
+  try {
+    await completeOnboarding(
+      accountRepository: container.read(accountRepositoryProvider),
+      profileRepository: container.read(profileRepositoryProvider),
+    );
+  } catch (error) {
+    debugPrint('[auth] guest defaults not seeded: $error');
+  }
+  invalidateUserData(container.invalidate);
+  if (!context.mounted) return;
+  context.go('/home');
+}
+
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 
@@ -73,6 +101,13 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen> {
   final _controller = PageController();
   var _page = 0;
+  var _startingAsGuest = false;
+
+  Future<void> _startAsGuest() async {
+    setState(() => _startingAsGuest = true);
+    await _continueWithoutAccount(context, AuthRepository());
+    if (mounted) setState(() => _startingAsGuest = false);
+  }
 
   @override
   void dispose() {
@@ -135,12 +170,21 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   ),
                   _Dots(count: _introPages.length, active: _page),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(28, 20, 28, 24),
+                    padding: const EdgeInsets.fromLTRB(28, 20, 28, 4),
                     child: AikoPrimaryButton(
                       label: _isLast
                           ? context.l10n.introGetStarted
                           : context.l10n.introNext,
-                      onPressed: _next,
+                      onPressed: _startingAsGuest ? null : _next,
+                    ),
+                  ),
+                  // No account needed (and no connection): the app runs on
+                  // this device until the user signs in.
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(28, 0, 28, 12),
+                    child: TextButton(
+                      onPressed: _startingAsGuest ? null : _startAsGuest,
+                      child: Text(context.l10n.guestContinueWithoutAccount),
                     ),
                   ),
                 ],
@@ -307,19 +351,37 @@ class _LoginScreenState extends State<LoginScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  /// Shows why signing in, signing up or a password reset failed. Without a
+  /// connection, sign-in and sign-up say the app can be used without an
+  /// account meanwhile.
   void _showError(
     Object error, {
     required String Function(AppLocalizations l10n) fallback,
+    String Function(AppLocalizations l10n) offline = _signInNeedsConnection,
   }) {
     if (!mounted) return;
     final l10n = context.l10n;
-    _showMessage(authErrorMessage(error, l10n, fallback: fallback(l10n)));
+    _showMessage(
+      authErrorMessage(
+        error,
+        l10n,
+        fallback: fallback(l10n),
+        offline: offline(l10n),
+      ),
+    );
   }
 
-  // [seedDefaults] only for a brand-new account (sign-up, or a first Google
-  // sign-in: AuthSession.isNewUser). On sign-in the local store is still
-  // empty (remote accounts haven't synced down yet), so seeding would
-  // duplicate an existing user's real accounts.
+  static String _signInNeedsConnection(AppLocalizations l10n) =>
+      l10n.guestSignInNeedsConnection;
+
+  /// Whether a sign-in should get the first-run Cash and Bank accounts: only
+  /// a brand-new account (sign-up, or a first Google sign-in). On sign-in the
+  /// local store is still empty (remote accounts haven't synced down yet), so
+  /// seeding would duplicate an existing user's real accounts; and a guest
+  /// who signs up keeps the accounts they already made.
+  static bool _seedsDefaultAccounts(AuthSession session) =>
+      session.isNewUser && session.claimedRecords == 0;
+
   Future<void> _routeAfterAuth({bool seedDefaults = false}) async {
     final container = ProviderScope.containerOf(context);
     if (seedDefaults) {
@@ -367,8 +429,18 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       _showMessage(context.l10n.authResetEmailSent);
     } catch (error) {
-      _showError(error, fallback: (l10n) => l10n.authResetFailed);
+      _showError(
+        error,
+        fallback: (l10n) => l10n.authResetFailed,
+        offline: (l10n) => l10n.guestResetNeedsConnection,
+      );
     }
+  }
+
+  Future<void> _handleContinueWithoutAccount() async {
+    setState(() => _isSubmitting = true);
+    await _continueWithoutAccount(context, _authRepository);
+    if (mounted) setState(() => _isSubmitting = false);
   }
 
   Future<void> _handleGoogleSignIn() async {
@@ -377,7 +449,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final session = await _authRepository.signInWithGoogle();
       if (!mounted) return;
       if (session != null) {
-        await _routeAfterAuth(seedDefaults: session.isNewUser);
+        await _routeAfterAuth(seedDefaults: _seedsDefaultAccounts(session));
       }
       // A null session means the user dismissed the native picker, or (on web)
       // the page redirected away — either way there is nothing more to do here.
@@ -399,11 +471,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      await _authRepository.signUp(email: email, password: password);
+      final session = await _authRepository.signUp(
+        email: email,
+        password: password,
+      );
       if (!mounted) return;
 
       if (_authRepository.hasActiveSession()) {
-        await _routeAfterAuth(seedDefaults: true);
+        await _routeAfterAuth(seedDefaults: _seedsDefaultAccounts(session));
       } else {
         _showMessage(context.l10n.authAccountCreatedCheckEmail);
       }
@@ -580,6 +655,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Text(context.l10n.authSignUp),
                     ),
                   ],
+                ),
+                // Also the way back for a guest who came here to sign in.
+                Center(
+                  child: TextButton(
+                    onPressed: _isSubmitting
+                        ? null
+                        : _handleContinueWithoutAccount,
+                    child: Text(context.l10n.guestContinueWithoutAccount),
+                  ),
                 ),
               ],
             ),

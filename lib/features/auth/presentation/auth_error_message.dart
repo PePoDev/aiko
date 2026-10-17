@@ -1,16 +1,21 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../data/connection_errors.dart';
 
 /// A message the user can act on, in their language, for an error thrown by
 /// sign-in, sign-up, password reset or account linking. Firebase's own
 /// `message` is English-only, so errors are mapped by code; anything
-/// unrecognized shows [fallback].
+/// unrecognized shows [fallback]. A missing connection shows [offline] (what
+/// the action needs and what the user can do meanwhile), or a generic
+/// "no connection" message.
 String authErrorMessage(
   Object error,
   AppLocalizations l10n, {
   required String fallback,
+  String? offline,
 }) {
+  if (isNetworkError(error)) return offline ?? l10n.authErrorNetwork;
   if (error is FirebaseAuthException) {
     return switch (error.code) {
       'invalid-email' => l10n.authErrorInvalidEmail,
@@ -23,7 +28,6 @@ String authErrorMessage(
       'credential-already-in-use' => l10n.authErrorEmailInUse,
       'weak-password' => l10n.authErrorWeakPassword,
       'too-many-requests' => l10n.authErrorTooManyRequests,
-      'network-request-failed' => l10n.authErrorNetwork,
       'operation-not-allowed' => l10n.authErrorMethodDisabled,
       'popup-closed-by-user' ||
       'cancelled-popup-request' ||

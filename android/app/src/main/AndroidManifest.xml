@@ -7,8 +7,8 @@
     <uses-permission android:name="android.permission.RECEIVE_SMS"/>
     <uses-permission android:name="android.permission.READ_SMS"/>
     <!-- Reading other apps' notifications is granted via the system
-         "Notification access" screen (BIND_NOTIFICATION_LISTENER_SERVICE),
-         declared on the service the plugin merges in — not a runtime permission. -->
+         "Notification access" screen (BIND_NOTIFICATION_LISTENER_SERVICE,
+         declared on the listener service below), not a runtime permission. -->
     <!-- Local transaction reminders (flutter_local_notifications). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
@@ -49,6 +49,32 @@
                     android:host="login-callback"/>
             </intent-filter>
         </activity>
+        <!-- Auto-capture. Neither plugin merges these in, so without them no
+             SMS or notification ever reaches the app. Both run on the device
+             and need no network.
+             another_telephony: hands each incoming SMS to the Dart listener
+             (app in front) or to captureSmsBackgroundHandler in a background
+             isolate (app in the background or not running). -->
+        <receiver
+            android:name="com.shounakmulay.telephony.sms.IncomingSmsReceiver"
+            android:permission="android.permission.BROADCAST_SMS"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED"/>
+            </intent-filter>
+        </receiver>
+        <!-- notification_listener_service: the system binds it once the user
+             turns Aiko on under "Notification access"; the label is the name
+             shown there. -->
+        <service
+            android:name="notification.listener.service.NotificationListener"
+            android:label="Aiko"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService"/>
+            </intent-filter>
+        </service>
         <!-- Reschedules pending notifications after reboot / app update. -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">

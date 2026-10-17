@@ -6,6 +6,7 @@ import 'package:aiko/features/aiko_assistant/application/chat_engine.dart';
 import 'package:aiko/features/aiko_assistant/application/financial_context.dart';
 import 'package:aiko/features/settings/data/profile_repository.dart';
 import 'package:aiko/features/settings/domain/profile.dart';
+import 'package:aiko/l10n/l10n.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -80,7 +81,7 @@ void main() {
     expect(engine.requests.last.map((m) => m.content), ['First', 'Second']);
   });
 
-  test('a stream that closes early stops typing and keeps the text', () async {
+  test('a stream that closes early keeps the text, marked cut off', () async {
     final engine = _ScriptedEngine([
       () => Stream.value(const ChatReplyDelta('Partial answer')),
     ]);
@@ -90,8 +91,68 @@ void main() {
     await _settle();
     final state = container.read(aikoChatControllerProvider);
     expect(state.isStreaming, isFalse);
-    expect(state.lastError, isNull);
     expect(state.messages.last.content, 'Partial answer');
+    // Not shown as a complete answer: marked, with a retry.
+    expect(state.messages.last.incomplete, isTrue);
+    expect(state.lastError?.retryable, isTrue);
+    expect(state.lastError?.message, currentL10n().netChatCutOff);
+  });
+
+  test('a cut-off answer is asked again on retry', () async {
+    final engine = _ScriptedEngine([
+      () => Stream.fromIterable(const [
+        ChatReplyDelta('Partial'),
+        ChatReplyError(ChatFailure.cutOff),
+      ]),
+      () => Stream.fromIterable(const [
+        ChatReplyDelta('Whole answer'),
+        ChatReplyDone('Whole answer'),
+      ]),
+    ]);
+    final container = _container(engine);
+    final chat = container.read(aikoChatControllerProvider.notifier);
+
+    chat.send('Hi');
+    await _settle();
+    chat.retry();
+    await _settle();
+
+    final state = container.read(aikoChatControllerProvider);
+    expect(state.messages.map((m) => '${m.role}:${m.content}'), [
+      'user:Hi',
+      'assistant:Whole answer',
+    ]);
+    expect(state.messages.last.incomplete, isFalse);
+    expect(engine.requests.last.map((m) => m.content), ['Hi']);
+  });
+
+  test('no connection shows the offline message with a retry', () async {
+    final engine = _ScriptedEngine([
+      () => Stream.value(const ChatReplyError(ChatFailure.network)),
+    ]);
+    final container = _container(engine);
+
+    container.read(aikoChatControllerProvider.notifier).send('Hi');
+    await _settle();
+    final error = container.read(aikoChatControllerProvider).lastError;
+    expect(error?.retryable, isTrue);
+    expect(error?.message, currentL10n().chatErrorNetwork);
+  });
+
+  test('a raw offline error is shown as the offline message', () async {
+    final engine = _ScriptedEngine([
+      () => Stream.value(
+        ChatReplyError(Exception('SocketException: Network is unreachable')),
+      ),
+    ]);
+    final container = _container(engine);
+
+    container.read(aikoChatControllerProvider.notifier).send('Hi');
+    await _settle();
+    expect(
+      container.read(aikoChatControllerProvider).lastError?.message,
+      currentL10n().chatErrorNetwork,
+    );
   });
 
   test('a stream that closes with nothing reports a retryable error', () async {
@@ -123,6 +184,9 @@ void main() {
   });
 
   test('retryable failures follow the ChatFailure kind', () {
+    expect(ChatFailure.network.isRetryable, isTrue);
+    expect(ChatFailure.timedOut.isRetryable, isTrue);
+    expect(ChatFailure.cutOff.isRetryable, isTrue);
     expect(ChatFailure.rateLimited.isRetryable, isTrue);
     expect(ChatFailure.unavailable.isRetryable, isTrue);
     expect(ChatFailure.badResponse.isRetryable, isTrue);

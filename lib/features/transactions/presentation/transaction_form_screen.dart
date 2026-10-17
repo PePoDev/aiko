@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../../core/storage/local_file_cache.dart';
 import '../../../l10n/domain_labels.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/discard_changes_guard.dart';
+import '../../../shared/widgets/fx_rates_note.dart' show ratesAsOfLabel;
 import '../../categories/presentation/category_names.dart';
 import 'package:decimal/decimal.dart';
 import 'package:file_selector/file_selector.dart' as fs;
@@ -16,10 +19,12 @@ import 'package:uuid/uuid.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/money/exchange_rates.dart';
 import '../../../core/money/money.dart';
 import '../../../core/notifications/transaction_reminder_service.dart';
 import '../../../core/money/supported_currencies.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../../theme/aiko_status_colors.dart';
 import '../../accounts/domain/account.dart';
 import '../../categories/domain/category.dart';
 import '../../categories/domain/category_defaults.dart';
@@ -28,6 +33,7 @@ import '../domain/transaction.dart';
 import '../domain/transaction_attachment.dart';
 import '../data/transaction_attachment_repository.dart';
 import '../application/amount_input.dart';
+import '../application/conversion_rate_fill.dart';
 import '../application/receipt_ocr_service.dart';
 import '../application/voice_transaction_parser.dart';
 import 'transaction_attachment_section.dart';
@@ -77,11 +83,14 @@ class TransactionFormScreen extends ConsumerStatefulWidget {
 class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _titleController = TextEditingController();
   final _amountController = TextEditingController();
-  final _exchangeRateController = TextEditingController(text: '1.00');
+
+  /// Rate from the entered currency to the account's, when they differ.
+  /// Empty until a rate is known: the form never assumes 1.
+  final _exchangeRateController = TextEditingController();
 
   /// Rate from the entered currency to a transfer's destination account,
   /// when that account tracks another currency.
-  final _toExchangeRateController = TextEditingController(text: '1.00');
+  final _toExchangeRateController = TextEditingController();
   final _noteController = TextEditingController();
   final _tagInputController = TextEditingController();
   final _tagFocusNode = FocusNode();
@@ -102,6 +111,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   bool _isFetchingRate = false;
   String? _fetchedToRatePair;
   bool _isFetchingToRate = false;
+
+  // Why a leg's rate is missing or comes from the saved copy (shown under
+  // it); null when it is live, typed or the stored pair's own.
+  FxQuote? _rateNote;
+  FxQuote? _toRateNote;
   DateTime _selectedDate = DateTime.now();
   String? _selectedCategoryId;
   String? _selectedAccountId;
@@ -404,9 +418,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _titleController.clear();
       _amountController.clear();
       _selectedCurrency = _baseCurrency;
-      _exchangeRateController.text = '1.00';
-      _toExchangeRateController.text = '1.00';
+      _exchangeRateController.clear();
+      _toExchangeRateController.clear();
+      _fetchedRatePair = null;
       _fetchedToRatePair = null;
+      _rateNote = null;
+      _toRateNote = null;
       _noteController.clear();
       _selectedCategoryId = null;
       _selectedAccountId = null;
@@ -426,7 +443,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     setState(() {
       _amountController.text = amountText;
       _selectedCurrency = currency;
-      _exchangeRateController.text = '1.00';
       if (validCategoryId != null) {
         _selectedCategoryId = validCategoryId;
       }
@@ -650,9 +666,16 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     });
 
     if (!autofill.hasTransactionFields) {
+      // The photo is attached either way; say why nothing was filled in.
+      final message = switch (autofill.failure) {
+        ReceiptOcrFailure.offline => context.l10n.netReceiptOffline,
+        ReceiptOcrFailure.needsCloud => context.l10n.netReceiptNeedsCloud,
+        ReceiptOcrFailure.failed => context.l10n.txReceiptScanFailed,
+        null => context.l10n.txReceiptLimitedFields,
+      };
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(context.l10n.txReceiptLimitedFields),
+          content: Text(message),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -780,65 +803,147 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     return currency.trim().toUpperCase();
   }
 
-  /// Auto-fills the exchange rate with a live quote when the selected account
-  /// tracks a currency different from the amount's. Skips a pair already fetched
-  /// (or being fetched) so it's safe to call from every relevant change/build.
-  /// On failure the rate stays at its current value for the user to enter.
-  Future<void> _maybeAutofillRate(String? accountCurrency) async {
-    if (accountCurrency == null || accountCurrency == _selectedCurrency) {
-      return;
-    }
-    final pair = '$_selectedCurrency>$accountCurrency';
-    if (_isFetchingRate || _fetchedRatePair == pair) {
-      return;
-    }
-
-    setState(() {
-      _isFetchingRate = true;
-      _fetchedRatePair = pair;
-    });
-    final rate = await ref
-        .read(exchangeRateServiceProvider)
-        .fetchRate(_selectedCurrency, accountCurrency);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _isFetchingRate = false;
-      if (rate != null) {
-        _exchangeRateController.text = rate.toStringAsFixed(4);
-      }
-      // On failure we keep the pair marked as attempted so `build` doesn't
-      // auto-retry in a loop. The refresh button / manual edit let the user
-      // retry or enter a rate by hand.
-    });
-  }
+  /// Auto-fills the exchange rate when the selected account tracks a
+  /// currency different from the amount's: a live quote (rates fetched this
+  /// session are reused), else the rates saved on the device, noted with
+  /// their date. With neither, the rate stays empty and required, and the
+  /// card says why (see [fillConversionRate]). Skips a pair already filled
+  /// (fetched, typed or stored) unless [refresh], so it's safe to call from
+  /// every relevant change/build; on failure the pair stays marked so it
+  /// isn't retried in a loop. Returns the quote, or null when nothing was
+  /// asked.
+  Future<FxQuote?> _maybeAutofillRate(
+    String? accountCurrency, {
+    bool refresh = false,
+  }) => _autofillRate(accountCurrency, destination: false, refresh: refresh);
 
   /// Like [_maybeAutofillRate], for a transfer's destination account.
-  Future<void> _maybeAutofillToRate(String? accountCurrency) async {
+  Future<FxQuote?> _maybeAutofillToRate(
+    String? accountCurrency, {
+    bool refresh = false,
+  }) => _autofillRate(accountCurrency, destination: true, refresh: refresh);
+
+  Future<FxQuote?> _autofillRate(
+    String? accountCurrency, {
+    required bool destination,
+    required bool refresh,
+  }) async {
     if (accountCurrency == null || accountCurrency == _selectedCurrency) {
-      return;
+      return null;
     }
     final pair = '$_selectedCurrency>$accountCurrency';
-    if (_isFetchingToRate || _fetchedToRatePair == pair) {
-      return;
+    final controller = destination
+        ? _toExchangeRateController
+        : _exchangeRateController;
+    final fetching = destination ? _isFetchingToRate : _isFetchingRate;
+    final filledPair = destination ? _fetchedToRatePair : _fetchedRatePair;
+    if (fetching || (!refresh && filledPair == pair)) {
+      return null;
     }
+
     setState(() {
-      _isFetchingToRate = true;
-      _fetchedToRatePair = pair;
-    });
-    final rate = await ref
-        .read(exchangeRateServiceProvider)
-        .fetchRate(_selectedCurrency, accountCurrency);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _isFetchingToRate = false;
-      if (rate != null) {
-        _toExchangeRateController.text = rate.toStringAsFixed(4);
+      if (filledPair != pair) {
+        // Another pair's rate must not carry over: no rate beats a wrong one.
+        controller.clear();
+      }
+      if (destination) {
+        _isFetchingToRate = true;
+        _fetchedToRatePair = pair;
+        if (filledPair != pair) _toRateNote = null;
+      } else {
+        _isFetchingRate = true;
+        _fetchedRatePair = pair;
+        if (filledPair != pair) _rateNote = null;
       }
     });
+    final quote = await ref
+        .read(exchangeRateRepositoryProvider)
+        .quote(_selectedCurrency, accountCurrency, forceLive: refresh);
+    if (!mounted) {
+      return quote;
+    }
+    // The amount's currency or the account may have changed meanwhile (a
+    // call for the new pair was skipped while this one ran).
+    final accounts = ref.read(accountsProvider).value ?? const <Account>[];
+    final latestCurrency = _accountCurrencyFor(
+      accounts,
+      destination ? _selectedToAccountId : _selectedAccountId,
+    );
+    final stillCurrent = '$_selectedCurrency>$latestCurrency' == pair;
+    setState(() {
+      if (destination) {
+        _isFetchingToRate = false;
+      } else {
+        _isFetchingRate = false;
+      }
+      if (!stillCurrent) return;
+      final fill = fillConversionRate(
+        quote: quote,
+        current: (
+          text: controller.text,
+          note: destination ? _toRateNote : _rateNote,
+        ),
+      );
+      controller.text = fill.text;
+      if (destination) {
+        _toRateNote = fill.note;
+      } else {
+        _rateNote = fill.note;
+      }
+    });
+    if (!stillCurrent) {
+      unawaited(
+        _autofillRate(latestCurrency, destination: destination, refresh: false),
+      );
+    }
+    return quote;
+  }
+
+  /// 'Refresh live rate': fetches the live rate again and always says what
+  /// happened; a failed refresh keeps the rate already shown.
+  Future<void> _refreshRate(
+    String accountCurrency, {
+    bool destination = false,
+  }) async {
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    final controller = destination
+        ? _toExchangeRateController
+        : _exchangeRateController;
+    final wasEmpty = controller.text.trim().isEmpty;
+    final from = _selectedCurrency;
+    final quote = destination
+        ? await _maybeAutofillToRate(accountCurrency, refresh: true)
+        : await _maybeAutofillRate(accountCurrency, refresh: true);
+    if (quote == null || !mounted) return;
+    final rate = quote.rate;
+    final savedAt = quote.savedAt;
+    final message = switch (quote.failure) {
+      _ when quote.isLive => l10n.netRateRefreshed(
+        from,
+        rate!.toStringAsFixed(4),
+        accountCurrency,
+      ),
+      FxRateFailure.offline when wasEmpty && savedAt != null =>
+        l10n.netRateUsingSaved(ratesAsOfLabel(savedAt)),
+      FxRateFailure.offline => l10n.netRateRefreshOffline,
+      _ => l10n.netRateRefreshFailed,
+    };
+    messenger.showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  /// The note under a conversion card for [note] (see [_rateNote]).
+  String? _rateNoteText(FxQuote? note, String accountCurrency) {
+    if (note == null) return null;
+    final savedAt = note.savedAt;
+    if (note.rate != null && savedAt != null) {
+      return context.l10n.netRateSavedNote(ratesAsOfLabel(savedAt));
+    }
+    return note.failure == FxRateFailure.offline
+        ? context.l10n.netRateNoConnection
+        : context.l10n.netRateMissing(_selectedCurrency, accountCurrency);
   }
 
   /// Lets the user override the auto-filled rate. The amount itself is left in
@@ -887,8 +992,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       // A manual rate sticks — don't let an auto-fetch overwrite it.
       if (destination) {
         _fetchedToRatePair = '$_selectedCurrency>$accountCurrency';
+        _toRateNote = null;
       } else {
         _fetchedRatePair = '$_selectedCurrency>$accountCurrency';
+        _rateNote = null;
       }
     });
   }
@@ -1743,6 +1850,22 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         : null;
     final showToCurrencyConversion =
         toAccountCurrency != null && toAccountCurrency != _selectedCurrency;
+    // A pair with no rate yet (set by a suggestion, a scan, voice, accounts
+    // that loaded late or an edited entry) is filled after this frame.
+    if (showCurrencyConversion &&
+        !_isFetchingRate &&
+        _fetchedRatePair != '$_selectedCurrency>$selectedAccountCurrency') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _maybeAutofillRate(selectedAccountCurrency);
+      });
+    }
+    if (showToCurrencyConversion &&
+        !_isFetchingToRate &&
+        _fetchedToRatePair != '$_selectedCurrency>$toAccountCurrency') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _maybeAutofillToRate(toAccountCurrency);
+      });
+    }
     final selectedTypeColor = _transactionTypeColor(_type);
 
     return AikoDiscardChangesGuard(
@@ -2035,10 +2158,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 exchangeRateController: _exchangeRateController,
                 amountController: _amountController,
                 isFetchingRate: _isFetchingRate,
-                onRefreshRate: () {
-                  _fetchedRatePair = null;
-                  _maybeAutofillRate(selectedAccountCurrency);
-                },
+                note: _rateNoteText(_rateNote, selectedAccountCurrency),
+                onRefreshRate: () => _refreshRate(selectedAccountCurrency),
                 onEditRate: () => _editRateManually(
                   _selectedCurrency,
                   selectedAccountCurrency,
@@ -2053,10 +2174,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 exchangeRateController: _toExchangeRateController,
                 amountController: _amountController,
                 isFetchingRate: _isFetchingToRate,
-                onRefreshRate: () {
-                  _fetchedToRatePair = null;
-                  _maybeAutofillToRate(toAccountCurrency);
-                },
+                note: _rateNoteText(_toRateNote, toAccountCurrency),
+                onRefreshRate: () =>
+                    _refreshRate(toAccountCurrency, destination: true),
                 onEditRate: () => _editRateManually(
                   _selectedCurrency,
                   toAccountCurrency,
@@ -2436,6 +2556,7 @@ class _CurrencyConversionPrompt extends StatelessWidget {
     required this.isFetchingRate,
     required this.onRefreshRate,
     required this.onEditRate,
+    this.note,
   });
 
   final String selectedCurrency;
@@ -2445,6 +2566,9 @@ class _CurrencyConversionPrompt extends StatelessWidget {
   final bool isFetchingRate;
   final VoidCallback onRefreshRate;
   final VoidCallback onEditRate;
+
+  /// Why the rate is missing or comes from the saved copy.
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -2511,6 +2635,18 @@ class _CurrencyConversionPrompt extends StatelessWidget {
                           context.l10n.txSavesAs(preview),
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      if (note case final note?)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            note,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: AikoStatusColors.of(
+                                context,
+                              ).textFor(AikoColors.warningOrange),
+                            ),
                           ),
                         ),
                     ],

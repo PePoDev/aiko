@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers.dart';
 import '../../../core/money/money.dart';
 import '../../../core/firebase/firebase_backend.dart';
+import '../../../core/storage/device_values.dart';
 import '../domain/investment_holding.dart';
 import 'price_refresh.dart';
 
@@ -46,25 +47,26 @@ class InvestmentsNotifier extends AsyncNotifier<List<InvestmentHolding>> {
     }
 
     final repo = ref.read(investmentHoldingRepositoryProvider);
-    final limiter = ref.read(marketQuoteLimiterProvider);
-    final quotes = <QuoteKey, Money?>{};
-    for (final key in uniqueQuoteKeys(current)) {
-      final now = DateTime.now();
-      if (limiter.remaining(now) == 0) break;
-      limiter.record(now);
-      try {
-        quotes[key] = await _fetchLivePrice(key);
-      } on FirebaseFunctionsException catch (error) {
-        // Over the server's limit anyway (e.g. another device): this and the
-        // remaining quotes wait for a later refresh.
-        if (error.code == 'resource-exhausted') break;
-        quotes[key] = null;
-      } catch (_) {
-        quotes[key] = null;
-      }
-    }
+    final fetched = await fetchQuotes(
+      uniqueQuoteKeys(current),
+      fetch: _fetchLivePrice,
+      limiter: ref.read(marketQuoteLimiterProvider),
+    );
 
-    final outcome = applyQuotes(current, quotes);
+    final outcome = applyQuotes(
+      current,
+      fetched.quotes,
+      offline: fetched.offline,
+    );
+    if (outcome.result.updated > 0) {
+      await ref
+          .read(deviceValuesProvider)
+          .write(
+            pricesUpdatedAtKey(FirebaseBackend.userId),
+            DateTime.now().toUtc().toIso8601String(),
+          );
+      if (ref.mounted) ref.invalidate(pricesUpdatedAtProvider);
+    }
     if (outcome.changed.isNotEmpty) {
       for (final holding in outcome.changed) {
         await repo.save(holding);
@@ -77,7 +79,7 @@ class InvestmentsNotifier extends AsyncNotifier<List<InvestmentHolding>> {
 
   Future<Money> _fetchLivePrice(QuoteKey key) async {
     final response = await FirebaseBackend.functions
-        .httpsCallable('marketFeed')
+        .httpsCallable('marketFeed', options: _quoteOptions)
         .call({'symbol': key.symbol, 'currency': key.currency});
     final data = Map<String, dynamic>.from(response.data as Map);
     final price = Decimal.tryParse(data['price'].toString());
@@ -87,6 +89,27 @@ class InvestmentsNotifier extends AsyncNotifier<List<InvestmentHolding>> {
     return Money(amount: price, currency: key.currency);
   }
 }
+
+/// A quote that takes longer than this counts as no connection, so a weak
+/// signal can't stall the refresh for the 60 s default per symbol.
+final _quoteOptions = HttpsCallableOptions(
+  timeout: const Duration(seconds: 15),
+);
+
+/// The device value that holds when live prices last refreshed for [userId].
+String pricesUpdatedAtKey(String? userId) =>
+    'prices_updated_at:${userId ?? 'local'}';
+
+/// When live prices last refreshed on this device (at least one holding got
+/// a quote), or null when that is not known here.
+final pricesUpdatedAtProvider = FutureProvider.autoDispose<DateTime?>((
+  ref,
+) async {
+  final raw = await ref
+      .watch(deviceValuesProvider)
+      .read(pricesUpdatedAtKey(FirebaseBackend.userId));
+  return raw == null ? null : DateTime.tryParse(raw)?.toLocal();
+});
 
 final investmentsProvider =
     AsyncNotifierProvider.autoDispose<

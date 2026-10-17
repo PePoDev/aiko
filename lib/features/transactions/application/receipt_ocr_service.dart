@@ -1,7 +1,23 @@
+import 'dart:async';
 import 'dart:convert';
+
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../../../core/money/money.dart';
 import '../../../core/firebase/firebase_backend.dart';
+import '../../../core/network/network_errors.dart';
+
+/// Why a receipt could not be read (the photo is still attached).
+enum ReceiptOcrFailure {
+  /// No connection, or no answer in time.
+  offline,
+
+  /// Local-only build: reading receipts needs the cloud.
+  needsCloud,
+
+  /// The server refused or failed.
+  failed,
+}
 
 class ReceiptAutofill {
   const ReceiptAutofill({
@@ -10,7 +26,16 @@ class ReceiptAutofill {
     this.date,
     this.confidence = 0,
     this.sourceLines = const [],
+    this.failure,
   });
+
+  /// Nothing read, because of [failure].
+  const ReceiptAutofill.failed(ReceiptOcrFailure this.failure)
+    : merchant = null,
+      total = null,
+      date = null,
+      confidence = 0,
+      sourceLines = const [];
 
   final String? merchant;
   final Money? total;
@@ -18,31 +43,63 @@ class ReceiptAutofill {
   final double confidence;
   final List<String> sourceLines;
 
+  /// Set when the receipt could not be read at all.
+  final ReceiptOcrFailure? failure;
+
   bool get hasTransactionFields => merchant != null || total != null;
 }
 
 class ReceiptOcrService {
-  const ReceiptOcrService();
+  const ReceiptOcrService({this.call});
 
+  /// Calls `ocrScanner` with a request; injectable for tests.
+  final Future<Object?> Function(Map<String, Object> request)? call;
+
+  /// A scan that takes longer than this counts as no connection (the server
+  /// gives its OCR provider 30 s), so the "Scanning receipt" dialog never
+  /// hangs.
+  static const timeout = Duration(seconds: 45);
+
+  /// Reads the receipt with the cloud OCR. Never throws: a failure comes back
+  /// as [ReceiptAutofill.failure].
   Future<ReceiptAutofill> scanWithCloudOcr({
     required List<int> imageBytes,
     required String fileName,
     String currency = 'THB',
   }) async {
-    if (!FirebaseBackend.isConfigured) {
-      return parseRecognizedText('', currency: currency);
+    final call = this.call;
+    if (call == null && !FirebaseBackend.isConfigured) {
+      return const ReceiptAutofill.failed(ReceiptOcrFailure.needsCloud);
     }
 
     try {
-      final response = await FirebaseBackend.functions
-          .httpsCallable('ocrScanner')
-          .call(cloudOcrRequest(imageBytes: imageBytes, fileName: fileName));
-      final data = response.data as Map<String, dynamic>;
-      final recognizedText = data['recognizedText'] as String? ?? '';
+      final request = cloudOcrRequest(
+        imageBytes: imageBytes,
+        fileName: fileName,
+      );
+      final data = await (call ?? _callCloud)(
+        request,
+      ).timeout(timeout + const Duration(seconds: 5));
+      final recognizedText =
+          (data is Map ? data['recognizedText'] : null) as String? ?? '';
       return parseRecognizedText(recognizedText, currency: currency);
-    } catch (_) {
-      return parseRecognizedText('', currency: currency);
+    } catch (error) {
+      return ReceiptAutofill.failed(
+        isNetworkError(error)
+            ? ReceiptOcrFailure.offline
+            : ReceiptOcrFailure.failed,
+      );
     }
+  }
+
+  static Future<Object?> _callCloud(Map<String, Object> request) async {
+    final response = await FirebaseBackend.functions
+        .httpsCallable(
+          'ocrScanner',
+          options: HttpsCallableOptions(timeout: timeout),
+        )
+        .call(request);
+    return response.data;
   }
 
   /// The `ocrScanner` request. The image travels as base64, about a third

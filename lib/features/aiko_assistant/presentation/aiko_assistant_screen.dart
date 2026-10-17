@@ -279,14 +279,33 @@ class _MessageBubble extends StatelessWidget {
                   ),
                 ],
               ),
-              child: error != null
-                  ? _ErrorBlock(
-                      message: error!.message,
-                      // Sign-in, access and local-only errors need the user
-                      // to act elsewhere; retrying would fail the same way.
-                      onRetry: error!.retryable ? onRetry : null,
-                    )
-                  : _ContentBlock(message: message, streaming: streaming),
+              child: switch (error) {
+                null => _ContentBlock(message: message, streaming: streaming),
+                // A reply that broke off keeps the part that arrived above
+                // the error, so it never reads as a complete answer.
+                final error when message.content.isNotEmpty => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _ContentBlock(
+                      message: message,
+                      streaming: false,
+                      showIncomplete: false,
+                    ),
+                    const SizedBox(height: 8),
+                    _ErrorBlock(
+                      message: error.message,
+                      onRetry: error.retryable ? onRetry : null,
+                    ),
+                  ],
+                ),
+                final error => _ErrorBlock(
+                  message: error.message,
+                  // Sign-in, access and local-only errors need the user
+                  // to act elsewhere; retrying would fail the same way.
+                  onRetry: error.retryable ? onRetry : null,
+                ),
+              },
             ),
           ),
         ],
@@ -296,10 +315,17 @@ class _MessageBubble extends StatelessWidget {
 }
 
 class _ContentBlock extends StatelessWidget {
-  const _ContentBlock({required this.message, required this.streaming});
+  const _ContentBlock({
+    required this.message,
+    required this.streaming,
+    this.showIncomplete = true,
+  });
 
   final ChatMessage message;
   final bool streaming;
+
+  /// Label a cut-off answer (unless the error under it already says so).
+  final bool showIncomplete;
 
   @override
   Widget build(BuildContext context) {
@@ -312,6 +338,17 @@ class _ContentBlock extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         AikoMarkdownText(content: content, streaming: streaming),
+        if (showIncomplete && !streaming && message.incomplete) ...[
+          const SizedBox(height: 6),
+          Text(
+            context.l10n.netChatAnswerIncomplete,
+            style: TextStyle(
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
         if (!streaming && message.disclaimer != null) ...[
           const SizedBox(height: 10),
           Divider(

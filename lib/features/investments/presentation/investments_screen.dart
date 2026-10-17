@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,12 +9,14 @@ import 'package:uuid/uuid.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/money/exchange_rates.dart';
 import '../../../core/money/money.dart';
 import '../../../core/money/supported_currencies.dart';
 import '../../../l10n/domain_labels.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
+import '../../../shared/widgets/fx_rates_note.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../../theme/aiko_status_colors.dart';
@@ -48,6 +52,13 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+    // Exchange rates that failed or come from the saved copy are fetched
+    // again when the screen opens.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final rates = fxRatesProvider(_baseCurrency);
+      if (ref.exists(rates)) ref.read(rates.notifier).retryIfStale();
+    });
   }
 
   @override
@@ -81,6 +92,8 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
     final l10n = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _isRefreshing = true);
+    final rates = fxRatesProvider(_baseCurrency);
+    if (ref.exists(rates)) unawaited(ref.read(rates.notifier).refresh());
     try {
       final result = await ref
           .read(investmentsProvider.notifier)
@@ -108,6 +121,12 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
   String? _refreshMessage(PriceRefreshResult result, AppLocalizations l10n) {
     if (result.needsCloud) {
       return l10n.holdingPricesNeedCloud;
+    }
+    if (result.offline) {
+      return [
+        if (result.updated > 0) l10n.holdingPricesUpdated(result.updated),
+        l10n.netPricesOffline,
+      ].join(' ');
     }
     if (result.updated + result.failed + result.deferred == 0) {
       return null;
@@ -275,6 +294,7 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
       valuation: valuation,
       holdingCount: holdings.length,
       alerts: alerts,
+      pricesUpdatedAt: ref.watch(pricesUpdatedAtProvider).value,
     );
     final filteredHoldings = holdings.where(_matchesVisibleFilters).toList();
     final allocationRows = _allocationRowsFor(valuation.holdings);
@@ -344,7 +364,7 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
         : null;
     return valueHoldingsIn(
       holdings,
-      CurrencyConverter(baseCurrency, rates ?? const {}),
+      CurrencyConverter.from(rates ?? ExchangeRates.none(baseCurrency)),
     );
   }
 
@@ -417,12 +437,20 @@ class _PortfolioSummaryCard extends StatelessWidget {
             value: summary.allocationStatus,
             valueColor: summary.allocationColor,
           ),
-          if (summary.excludedCurrencies.isNotEmpty) ...[
+          if (FxRatesNote.applies(
+            excludedCurrencies: summary.excludedCurrencies,
+            ratesAsOf: summary.ratesAsOf,
+          )) ...[
             const SizedBox(height: 8),
+            FxRatesNote(
+              excludedCurrencies: summary.excludedCurrencies,
+              ratesAsOf: summary.ratesAsOf,
+            ),
+          ],
+          if (summary.pricesUpdatedAt case final updatedAt?) ...[
+            const SizedBox(height: 4),
             Text(
-              context.l10n.dashExcludedCurrencies(
-                summary.excludedCurrencies.join(', '),
-              ),
+              context.l10n.netPricesUpdatedAt(ratesAsOfLabel(updatedAt)),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -944,6 +972,8 @@ class _PortfolioSummary {
     required this.allocationStatus,
     required this.allocationColor,
     required this.excludedCurrencies,
+    this.ratesAsOf,
+    this.pricesUpdatedAt,
   });
 
   final String totalValue;
@@ -952,13 +982,16 @@ class _PortfolioSummary {
   final String holdingsLabel;
   final String allocationStatus;
   final Color allocationColor;
-  final List<String> excludedCurrencies;
+  final Set<String> excludedCurrencies;
+  final DateTime? ratesAsOf;
+  final DateTime? pricesUpdatedAt;
 
   factory _PortfolioSummary.fromHoldings({
     required PortfolioValuation valuation,
     required int holdingCount,
     required List<RebalanceAlert> alerts,
     required AppLocalizations l10n,
+    DateTime? pricesUpdatedAt,
   }) {
     final currency = valuation.currency;
     final totalValue = _sumMoney(
@@ -984,7 +1017,9 @@ class _PortfolioSummary {
       allocationColor: isBalanced
           ? AikoColors.successGreen
           : AikoColors.warningOrange,
-      excludedCurrencies: valuation.excludedCurrencies.toList()..sort(),
+      excludedCurrencies: valuation.excludedCurrencies,
+      ratesAsOf: valuation.ratesAsOf,
+      pricesUpdatedAt: pricesUpdatedAt,
     );
   }
 }

@@ -65,13 +65,10 @@ jobs:
           jq -n 'env | with_entries(select((.key | test("^FIREBASE_(PROJECT_ID|API_KEY|APP_ID|MESSAGING_SENDER_ID|STORAGE_BUCKET|AUTH_DOMAIN|REGION)$")) and .value != ""))' \
             > "$RUNNER_TEMP/dart_defines.json"
           echo "Defines: $(jq -c 'keys' "$RUNNER_TEMP/dart_defines.json")"
-          # --pwa-strategy=none: the bootstrap loads main.dart.js right away
-          # instead of first registering Flutter's deprecated service worker
-          # (which only unregisters itself) and waiting for it to activate.
-          # The flag is itself deprecated (flutter/flutter#156910); if a later
-          # Flutter drops it, add web/flutter_bootstrap.js containing
-          # "{{flutter_js}} {{flutter_build_config}} _flutter.loader.load();".
-          flutter build web --release --pwa-strategy=none --dart-define-from-file="$RUNNER_TEMP/dart_defines.json"
+          # web/flutter_bootstrap.js starts the app without Flutter's
+          # deprecated service worker; index.html registers Aiko's own
+          # (web/aiko_sw.js), which needs the precache step below.
+          flutter build web --release --dart-define-from-file="$RUNNER_TEMP/dart_defines.json"
 
       - uses: actions/setup-node@v7
         with:
@@ -79,6 +76,14 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
+
+      # Lists the build's files and hashes in build/web/aiko_sw.js, so the app
+      # opens offline after one visit and browsers notice each new build.
+      # Without it the worker removes itself (the app then needs a connection).
+      - name: Service worker precache
+        run: |
+          npm run test:web
+          npm run web:precache
 
       - uses: google-github-actions/auth@v3
         with:

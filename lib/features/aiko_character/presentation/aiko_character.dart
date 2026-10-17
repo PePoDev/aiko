@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:rive/rive.dart' as rive;
 
 import '../application/aiko_rive_runtime.dart';
+import 'aiko_art_fallback.dart';
 
 enum AikoMood { neutral, thinking, happy, worried, celebrating }
 
@@ -113,6 +114,14 @@ class _AikoCharacterState extends State<AikoCharacter> {
     super.dispose();
   }
 
+  /// The still PNG for the current mood, shown until (or instead of) the
+  /// animation; a stand-in when even that can't load.
+  Widget _stillArt() => Image.asset(
+    widget.mood.fallbackAsset,
+    fit: BoxFit.contain,
+    errorBuilder: (_, _, _) => const AikoArtFallback(),
+  );
+
   @override
   Widget build(BuildContext context) {
     final fileLoader = _fileLoader;
@@ -123,7 +132,7 @@ class _AikoCharacterState extends State<AikoCharacter> {
         child: SizedBox.square(
           dimension: widget.size,
           child: fileLoader == null
-              ? Image.asset(widget.mood.fallbackAsset, fit: BoxFit.contain)
+              ? _stillArt()
               : rive.RiveWidgetBuilder(
                   fileLoader: fileLoader,
                   artboardSelector: rive.ArtboardSelector.byName('Aiko'),
@@ -133,18 +142,12 @@ class _AikoCharacterState extends State<AikoCharacter> {
                   dataBind: rive.DataBind.auto(),
                   onLoaded: _handleLoaded,
                   builder: (context, state) => switch (state) {
-                    rive.RiveLoaded() when !_hasValidViewModel => Image.asset(
-                      widget.mood.fallbackAsset,
-                      fit: BoxFit.contain,
-                    ),
+                    rive.RiveLoaded() when !_hasValidViewModel => _stillArt(),
                     rive.RiveLoaded(:final controller) => rive.RiveWidget(
                       controller: controller,
                       fit: rive.Fit.contain,
                     ),
-                    rive.RiveLoading() || rive.RiveFailed() => Image.asset(
-                      widget.mood.fallbackAsset,
-                      fit: BoxFit.contain,
-                    ),
+                    rive.RiveLoading() || rive.RiveFailed() => _stillArt(),
                   },
                 ),
         ),

@@ -386,17 +386,39 @@ class CaptureLedgerStore {
   }
 }
 
-/// Entry point for SMS received while the app is in the background or not
-/// running. Android starts a separate isolate for it, so it must stay
-/// top-level and `vm:entry-point`. It only queues the message, on the device
-/// with no network needed; the app books it on its next start or resume.
+/// Entry point for SMS received while the app is in the background, the
+/// screen is locked, or the app is not running. Android starts a separate
+/// isolate for it, so it must stay top-level and `vm:entry-point`. It only
+/// queues the message, on the device with no network needed; the app books
+/// it on its next start or resume.
 @pragma('vm:entry-point')
 Future<void> captureSmsBackgroundHandler(SmsMessage message) async {
   WidgetsFlutterBinding.ensureInitialized();
   // Plugins with a Dart-side implementation (path_provider) register here.
   DartPluginRegistrant.ensureInitialized();
-  final captured = capturedSms(address: message.address, body: message.body);
-  if (captured != null) await const CapturedMessageInbox().add(captured);
+  await queueBackgroundSms(address: message.address, body: message.body);
+}
+
+/// Queues an SMS the background isolate received; true when it was queued.
+///
+/// Only money movements are kept, and nothing while auto-capture is off: the
+/// plugin keeps starting this isolate after capture is switched off (see
+/// [TransactionCaptureService.stop]), so the switch is checked here. Settings
+/// that can't be read queue the message anyway; the processor decides once
+/// they can.
+@visibleForTesting
+Future<bool> queueBackgroundSms({
+  String? address,
+  String? body,
+  CapturedMessageInbox inbox = const CapturedMessageInbox(),
+  SecureStorageService? storage,
+}) async {
+  final captured = capturedSms(address: address, body: body);
+  if (captured == null) return false;
+  final settings = await TransactionCaptureSettings.tryLoad(storage);
+  if (settings != null && !settings.enabled) return false;
+  await inbox.add(captured);
+  return true;
 }
 
 /// Owns the OS permission grants and the live listeners that drop messages
@@ -410,6 +432,10 @@ class TransactionCaptureService {
   final _telephony = Telephony.instance;
   final _inbox = const CapturedMessageInbox();
   StreamSubscription<ServiceNotificationEvent>? _notifSub;
+
+  /// Whether SMS reaching the foreground listener are queued; the plugin
+  /// keeps the listener until the app stops.
+  var _smsOn = false;
 
   Future<bool> notificationsGranted() async =>
       (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) &&
@@ -428,9 +454,12 @@ class TransactionCaptureService {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       return; // SMS/notification capture is Android-only
     }
+    _smsOn = true;
     _telephony.listenIncomingSms(
-      onNewMessage: (message) =>
-          _queue(capturedSms(address: message.address, body: message.body)),
+      onNewMessage: (message) {
+        if (!_smsOn) return;
+        _queue(capturedSms(address: message.address, body: message.body));
+      },
       onBackgroundMessage: captureSmsBackgroundHandler,
       listenInBackground: true,
     );
@@ -452,7 +481,12 @@ class TransactionCaptureService {
     );
   }
 
+  /// Stops queuing captured messages. The plugin keeps handing SMS that
+  /// arrive in the background to [captureSmsBackgroundHandler]; switching
+  /// that off goes through its SMS permission check, which would ask for the
+  /// permission again, so the handler checks the setting itself instead.
   Future<void> stop() async {
+    _smsOn = false;
     await _notifSub?.cancel();
     _notifSub = null;
   }
@@ -582,12 +616,19 @@ class CapturedMessageProcessor {
 /// through [remove]; returns how many transactions were created.
 ///
 /// [draftFor] builds the transaction with the id it is given
-/// ([capturedTransactionId]). A message is booked at most once:
+/// ([capturedTransactionId]). The message's inbox id is its stable key: it
+/// is on disk before booking starts, and the transaction is saved under the
+/// id derived from it, so the key lands in the same write. A message is
+/// booked at most once:
 /// - one whose transaction [isBooked] already, or that [ledger] already
 ///   holds, was handled before the app stopped and is only removed;
 /// - one the [ledger] matches to a booked message (the same movement from
 ///   another channel, or a notification posted again) is recorded as a
 ///   repeat and removed.
+///
+/// Messages booked by a run that stopped before recording them in [ledger]
+/// are recorded first, so a repeat of one that sorts earlier in the inbox
+/// is still recognised.
 ///
 /// A message that doesn't parse ([draftFor] returns null), would book a zero
 /// or negative amount, or fails to build or save is dropped, never retried:
@@ -609,14 +650,34 @@ Future<int> bookCapturedMessages(
 }) async {
   final seen = ledger ?? CaptureLedger();
 
-  Future<void> remember(CaptureRecord record) async {
-    seen.add(record);
+  Future<void> saveSeen() async {
     try {
       await saveLedger?.call(seen);
     } catch (error) {
       debugPrint('Could not save the capture ledger: $error');
     }
   }
+
+  Future<void> remember(CaptureRecord record) async {
+    seen.add(record);
+    await saveSeen();
+  }
+
+  var recovered = false;
+  for (final message in messages) {
+    if (seen.contains(message.id)) continue;
+    final transactionId = capturedTransactionId(message);
+    if (!isBooked(transactionId)) continue;
+    try {
+      final draft = draftFor(message, transactionId);
+      if (draft == null) continue;
+      seen.add(CaptureRecord.of(message, draft));
+      recovered = true;
+    } catch (error) {
+      debugPrint('Could not recover captured message ${message.id}: $error');
+    }
+  }
+  if (recovered) await saveSeen();
 
   Future<bool> book(CapturedMessage message) async {
     if (seen.contains(message.id)) return false;

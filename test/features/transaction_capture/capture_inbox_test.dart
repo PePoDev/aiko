@@ -1,19 +1,48 @@
 import 'dart:io';
 
 import 'package:aiko/core/money/money.dart';
+import 'package:aiko/core/storage/secure_storage_service.dart';
 import 'package:aiko/features/transaction_capture/transaction_capture.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
 import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-CapturedMessage _message(String id, {String body = 'Paid THB 120.00'}) =>
-    CapturedMessage(
+CapturedMessage _message(
+  String id, {
+  String body = 'Paid THB 120.00',
+  String source = 'sms',
+  String sender = 'BANK',
+}) => CapturedMessage(
+  id: id,
+  source: source,
+  sender: sender,
+  body: body,
+  receivedAt: DateTime(2026, 10, 13, 10, 25),
+);
+
+FinanceTransaction _draft(CapturedMessage message, String id) =>
+    FinanceTransaction(
       id: id,
-      source: 'sms',
-      sender: 'BANK',
-      body: body,
-      receivedAt: DateTime(2026, 10, 13, 10, 25),
+      userId: '',
+      accountId: 'acc',
+      type: TransactionType.expense,
+      amount: Money(amount: Decimal.parse('120.00'), currency: 'THB'),
+      date: message.receivedAt,
     );
+
+class _ThrowingStorage implements SecureStorageService {
+  @override
+  Future<String?> read(String key) => throw StateError('keystore locked');
+
+  @override
+  Future<void> write(String key, String value) async {}
+
+  @override
+  Future<void> delete(String key) async {}
+
+  @override
+  Future<void> deleteAll() async {}
+}
 
 void main() {
   late Directory root;
@@ -93,6 +122,82 @@ void main() {
     });
   });
 
+  group('queueBackgroundSms', () {
+    Future<MemorySecureStorageService> settings({required bool enabled}) async {
+      final storage = MemorySecureStorageService();
+      await TransactionCaptureSettings(
+        enabled: enabled,
+        accountId: 'acc',
+      ).save(storage);
+      return storage;
+    }
+
+    test('queues a bank SMS while capture is on', () async {
+      final inbox = CapturedMessageInbox(
+        directory: Directory('${root.path}/inbox'),
+      );
+
+      final queued = await queueBackgroundSms(
+        address: 'KBANK',
+        body: 'Paid THB 120.00 at CAFE AMAZON',
+        inbox: inbox,
+        storage: await settings(enabled: true),
+      );
+
+      expect(queued, isTrue);
+      final drained = await inbox.drain();
+      expect(drained.single.source, 'sms');
+      expect(drained.single.sender, 'KBANK');
+      expect(drained.single.body, 'Paid THB 120.00 at CAFE AMAZON');
+    });
+
+    test('keeps nothing while capture is off', () async {
+      final inbox = CapturedMessageInbox(
+        directory: Directory('${root.path}/inbox'),
+      );
+
+      final queued = await queueBackgroundSms(
+        address: 'KBANK',
+        body: 'Paid THB 120.00',
+        inbox: inbox,
+        storage: await settings(enabled: false),
+      );
+
+      expect(queued, isFalse);
+      expect(await inbox.drain(), isEmpty);
+    });
+
+    test('queues when the settings cannot be read yet', () async {
+      final inbox = CapturedMessageInbox(
+        directory: Directory('${root.path}/inbox'),
+      );
+
+      final queued = await queueBackgroundSms(
+        address: 'KBANK',
+        body: 'Paid THB 120.00',
+        inbox: inbox,
+        storage: _ThrowingStorage(),
+      );
+
+      expect(queued, isTrue);
+      expect(await inbox.drain(), hasLength(1));
+    });
+
+    test('never writes a personal text to disk', () async {
+      final dir = Directory('${root.path}/inbox');
+
+      final queued = await queueBackgroundSms(
+        address: 'Mum',
+        body: 'See you at 7?',
+        inbox: CapturedMessageInbox(directory: dir),
+        storage: await settings(enabled: true),
+      );
+
+      expect(queued, isFalse);
+      expect(dir.existsSync(), isFalse);
+    });
+  });
+
   group('CaptureLedgerStore', () {
     CaptureRecord record(String id) => CaptureRecord.of(
       _message(id),
@@ -147,14 +252,7 @@ void main() {
         final saved = <String>{};
         await bookCapturedMessages(
           await inbox.drain(),
-          draftFor: (message, id) => FinanceTransaction(
-            id: id,
-            userId: '',
-            accountId: 'acc',
-            type: TransactionType.expense,
-            amount: Money(amount: Decimal.parse('120.00'), currency: 'THB'),
-            date: message.receivedAt,
-          ),
+          draftFor: _draft,
           isBooked: saved.contains,
           add: (draft) async => saved.add(draft.id),
           remove: (_) async => throw const FileSystemException('killed'),
@@ -167,14 +265,7 @@ void main() {
         var booked = 0;
         final created = await bookCapturedMessages(
           await inbox.drain(),
-          draftFor: (message, id) => FinanceTransaction(
-            id: id,
-            userId: '',
-            accountId: 'acc',
-            type: TransactionType.expense,
-            amount: Money(amount: Decimal.parse('120.00'), currency: 'THB'),
-            date: message.receivedAt,
-          ),
+          draftFor: _draft,
           isBooked: saved.contains,
           add: (_) async => booked++,
           remove: inbox.remove,
@@ -185,6 +276,64 @@ void main() {
         expect(created, 0);
         expect(booked, 0);
         expect(await inbox.drain(), isEmpty);
+      },
+    );
+
+    test(
+      'killed right after the transaction write: no repeat is booked either',
+      () async {
+        final inbox = CapturedMessageInbox(
+          directory: Directory('${root.path}/inbox'),
+        );
+        final store = CaptureLedgerStore(
+          file: File('${root.path}/capture_ledger.json'),
+        );
+        final notification = _message(
+          '1760000000000005-1',
+          body: 'You paid THB 120.00',
+          source: 'notification',
+          sender: 'bank.app',
+        );
+        await inbox.add(notification);
+        final saved = <String>{};
+        // First run: the bank app's notification is booked, then the app is
+        // killed before the ledger or the inbox are written.
+        await bookCapturedMessages(
+          await inbox.drain(),
+          draftFor: _draft,
+          isBooked: saved.contains,
+          add: (draft) async => saved.add(draft.id),
+          remove: (_) async => throw const FileSystemException('killed'),
+          ledger: await store.load(),
+          saveLedger: (_) async => throw const FileSystemException('killed'),
+        );
+        expect(saved, hasLength(1));
+        // The bank's SMS of the same payment, captured a moment earlier by the
+        // background isolate, only lands in the inbox now; it sorts first.
+        await inbox.add(_message('1760000000000004-9'));
+
+        final booked = <String>[];
+        final created = await bookCapturedMessages(
+          await inbox.drain(),
+          draftFor: _draft,
+          isBooked: saved.contains,
+          add: (draft) async => booked.add(draft.id),
+          remove: inbox.remove,
+          ledger: await store.load(),
+          saveLedger: store.save,
+        );
+
+        expect(created, 0);
+        expect(booked, isEmpty);
+        expect(await inbox.drain(), isEmpty);
+        final ledger = await store.load();
+        expect(ledger.contains(notification.id), isTrue);
+        expect(
+          ledger.records
+              .singleWhere((r) => r.id == '1760000000000004-9')
+              .duplicateOf,
+          notification.id,
+        );
       },
     );
   });

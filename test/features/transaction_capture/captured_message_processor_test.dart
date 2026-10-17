@@ -203,6 +203,35 @@ void main() {
       },
     );
 
+    test(
+      'a saved message is recognised before an earlier repeat of it books',
+      () async {
+        // The bank app's notification was booked, but the app stopped before
+        // recording it; the SMS of the same payment sorts before it.
+        final notification = _message(
+          '2-notification',
+          'You paid 120 baht',
+          source: 'notification',
+          sender: 'bank.app',
+        );
+        final ledger = CaptureLedger();
+        final removed = <String>[];
+        final booked = await _book(
+          [_message('1-sms', 'Paid THB 120.00'), notification],
+          saved: {capturedTransactionId(notification)},
+          ledger: ledger,
+          removed: removed,
+        );
+
+        expect(booked, isEmpty);
+        expect(removed, ['1-sms', '2-notification']);
+        expect(
+          ledger.records.singleWhere((r) => r.id == '1-sms').duplicateOf,
+          '2-notification',
+        );
+      },
+    );
+
     test('a message the ledger already holds is only removed', () async {
       // Matched as a repeat, then the app stopped before removing it.
       final message = _message('2-repeat', 'Paid THB 120.00');

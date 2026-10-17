@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/aiko_colors.dart';
 
-/// Maps a string icon key (used in domain/brick models) to a Material icon.
+/// Maps a string icon key (used in domain models and records) to a Material
+/// icon.
 IconData aikoCategoryIcon(String name) {
   switch (name) {
     case 'food':

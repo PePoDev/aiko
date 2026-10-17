@@ -2,6 +2,7 @@ import 'package:aiko/app/locale_controller.dart';
 import 'package:aiko/app/providers.dart';
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/core/storage/secure_storage_service.dart';
+import 'package:aiko/core/offline/offline_store.dart';
 import 'package:aiko/features/accounts/data/account_repository.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/categories/data/category_group_repository.dart';
@@ -609,7 +610,7 @@ class _FakeAccountRepository extends AccountRepository {
   Future<List<Account>> list() async => accounts;
 
   @override
-  Future<void> delete(String id) async {
+  Future<void> delete(String id, {RecordBatch? batch}) async {
     accounts = [
       for (final account in accounts)
         if (account.id != id) account,
@@ -617,7 +618,7 @@ class _FakeAccountRepository extends AccountRepository {
   }
 
   @override
-  Future<Account> save(Account account) async {
+  Future<Account> save(Account account, {RecordBatch? batch}) async {
     final index = accounts.indexWhere((item) => item.id == account.id);
     if (index == -1) {
       accounts = [...accounts, account];
@@ -641,7 +642,10 @@ class _FakeTransactionRepository extends TransactionRepository {
   Future<List<FinanceTransaction>> list() async => _transactions;
 
   @override
-  Future<FinanceTransaction> save(FinanceTransaction transaction) async {
+  Future<FinanceTransaction> save(
+    FinanceTransaction transaction, {
+    RecordBatch? batch,
+  }) async {
     final index = _transactions.indexWhere((item) => item.id == transaction.id);
     if (index == -1) {
       _transactions.add(transaction);
@@ -652,7 +656,7 @@ class _FakeTransactionRepository extends TransactionRepository {
   }
 
   @override
-  Future<void> delete(String id) async {
+  Future<void> delete(String id, {RecordBatch? batch}) async {
     _transactions.removeWhere((item) => item.id == id);
   }
 }
@@ -667,11 +671,14 @@ class _FailingTransactionRepository extends TransactionRepository {
   Future<List<FinanceTransaction>> list() async => List.of(_transactions);
 
   @override
-  Future<FinanceTransaction> save(FinanceTransaction transaction) async =>
-      throw StateError('write failed');
+  Future<FinanceTransaction> save(
+    FinanceTransaction transaction, {
+    RecordBatch? batch,
+  }) async => throw StateError('write failed');
 
   @override
-  Future<void> delete(String id) async => throw StateError('write failed');
+  Future<void> delete(String id, {RecordBatch? batch}) async =>
+      throw StateError('write failed');
 }
 
 class _FakeCategoryRepository extends CategoryRepository {

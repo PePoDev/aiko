@@ -35,11 +35,17 @@ import '../features/investments/data/investment_holding_repository.dart';
 import '../core/money/exchange_rate_service.dart';
 import '../core/firebase/firebase_backend.dart';
 import '../core/offline/firestore_sync_state.dart';
+import '../core/offline/offline_store.dart';
 import '../core/offline/offline_user_context.dart';
 import '../core/storage/secure_storage_service.dart';
 import '../core/storage/synced_preferences.dart';
 import '../l10n/app_localizations.dart';
 import 'locale_controller.dart';
+
+/// Commits the record batches that keep multi-record changes atomic (both
+/// legs of a transfer with their balances, an account with its opening
+/// balance, ...). Overridden in tests together with the repositories.
+final offlineStoreProvider = Provider<OfflineStore>((ref) => OfflineStore());
 
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   return TransactionRepository();
@@ -101,23 +107,26 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
 
   /// Opening balances saved before they became adjustments counted as
   /// income or spending; rewrite them once as signed adjustments (the
-  /// balance effect is the same). Best-effort: a failed write is retried on
-  /// the next load.
+  /// balance effect is the same), in one batch. Best-effort: a failed write
+  /// is retried on the next load.
   Future<List<FinanceTransaction>> _convertLegacyOpeningBalances(
     TransactionRepository repo,
     List<FinanceTransaction> transactions,
   ) async {
     final fixes = legacyOpeningBalanceFixes(transactions);
     if (fixes.isEmpty) return transactions;
-    final saved = <String, FinanceTransaction>{};
-    for (final fix in fixes) {
-      try {
-        saved[fix.id] = await repo.save(fix);
-      } catch (_) {
-        // Leave it as it was; the next load tries again.
-      }
+    try {
+      final batch = RecordBatch();
+      final saved = <String, FinanceTransaction>{
+        for (final fix in fixes) fix.id: await repo.save(fix, batch: batch),
+      };
+      // Each fix stands alone, so a very large set may take several batches.
+      await ref.read(offlineStoreProvider).commit(batch, allowChunks: true);
+      return [for (final t in transactions) saved[t.id] ?? t];
+    } catch (_) {
+      // Leave them as they were; the next load tries again.
+      return transactions;
     }
-    return [for (final t in transactions) saved[t.id] ?? t];
   }
 
   /// Saves [transaction] (insert or update) and keeps account balances in
@@ -133,35 +142,45 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
     return saved.single;
   }
 
-  /// Saves several rows (both legs of a transfer) and updates the list once.
-  /// Rows saved before a failure still appear; the error is rethrown.
+  /// Saves several rows (both legs of a transfer) together with the account
+  /// balances they change as one atomic write, and updates the list once. A
+  /// failure saves nothing, keeps the previous list and is rethrown.
   Future<List<FinanceTransaction>> saveTransactions(
     List<FinanceTransaction> transactions, {
     bool updateAccountBalance = true,
   }) async {
     final repo = ref.read(transactionRepositoryProvider);
     final current = state.value ?? await repo.list();
+    final batch = RecordBatch();
+    final replaced = <FinanceTransaction>[];
     final saved = <FinanceTransaction>[];
-    try {
-      for (final transaction in transactions) {
-        final previousTransaction = _transactionById(current, transaction.id);
-        final result = await repo.save(transaction);
-        saved.add(result);
-        if (updateAccountBalance) {
-          await _syncAccountBalances(
-            previousTransaction: previousTransaction,
-            nextTransaction: result,
-          );
-        }
-      }
-    } finally {
-      if (ref.mounted && saved.isNotEmpty) {
-        state = AsyncValue.data(
-          upsertTransactionsByDate(state.value ?? current, saved),
-        );
-      }
+    for (final transaction in transactions) {
+      final previousTransaction = _transactionById(current, transaction.id);
+      if (previousTransaction != null) replaced.add(previousTransaction);
+      saved.add(await repo.save(transaction, batch: batch));
+    }
+    final accounts = updateAccountBalance
+        ? await _stageAccountBalances(batch, removed: replaced, added: saved)
+        : const <Account>[];
+    await ref.read(offlineStoreProvider).commit(batch);
+    _showSavedAccounts(accounts);
+    if (ref.mounted) {
+      state = AsyncValue.data(
+        upsertTransactionsByDate(state.value ?? current, saved),
+      );
     }
     return saved;
+  }
+
+  /// Shows rows that were already written together with another record (an
+  /// account's opening balance), without reading the list again.
+  void showSaved(List<FinanceTransaction> saved) {
+    final current = state.value;
+    if (current == null) {
+      ref.invalidateSelf();
+      return;
+    }
+    state = AsyncValue.data(upsertTransactionsByDate(current, saved));
   }
 
   Future<void> addTransaction(
@@ -175,8 +194,9 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
   }
 
   /// Deletes [id] and, for a linked transfer leg, its partner leg too, so a
-  /// transfer never loses one side. Returns the ids removed. A failure keeps
-  /// the previous list (minus anything already deleted) and rethrows.
+  /// transfer never loses one side, together with the balance changes as one
+  /// atomic write. Returns the ids removed. A failure deletes nothing, keeps
+  /// the previous list and rethrows.
   Future<List<String>> deleteTransaction(String id) async {
     final repo = ref.read(transactionRepositoryProvider);
     final current = state.value ?? await repo.list();
@@ -184,23 +204,23 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
     final partners = target == null
         ? const <FinanceTransaction>[]
         : transferPartnersOf(target, current);
-    final deletedIds = <String>{};
-    try {
-      await repo.delete(id);
-      deletedIds.add(id);
-      await _syncAccountBalances(previousTransaction: target);
-      for (final partner in partners) {
-        await repo.delete(partner.id);
-        deletedIds.add(partner.id);
-        await _syncAccountBalances(previousTransaction: partner);
-      }
-    } finally {
-      if (ref.mounted && deletedIds.isNotEmpty) {
-        state = AsyncValue.data([
-          for (final transaction in state.value ?? current)
-            if (!deletedIds.contains(transaction.id)) transaction,
-        ]);
-      }
+    final batch = RecordBatch();
+    await repo.delete(id, batch: batch);
+    for (final partner in partners) {
+      await repo.delete(partner.id, batch: batch);
+    }
+    final accounts = await _stageAccountBalances(
+      batch,
+      removed: [?target, ...partners],
+    );
+    await ref.read(offlineStoreProvider).commit(batch);
+    _showSavedAccounts(accounts);
+    final deletedIds = {id, for (final partner in partners) partner.id};
+    if (ref.mounted) {
+      state = AsyncValue.data([
+        for (final transaction in state.value ?? current)
+          if (!deletedIds.contains(transaction.id)) transaction,
+      ]);
     }
     return deletedIds.toList(growable: false);
   }
@@ -217,54 +237,55 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
     return null;
   }
 
-  Future<void> _syncAccountBalances({
-    FinanceTransaction? previousTransaction,
-    FinanceTransaction? nextTransaction,
+  /// Stages into [batch] the account balances that change when [removed]
+  /// rows are taken out of the ledger and [added] rows go in. Returns the
+  /// changed accounts. Accounts that can't be read are left alone; the next
+  /// load reconciles their balances.
+  Future<List<Account>> _stageAccountBalances(
+    RecordBatch batch, {
+    Iterable<FinanceTransaction> removed = const [],
+    Iterable<FinanceTransaction> added = const [],
   }) async {
-    if (previousTransaction == null && nextTransaction == null) {
-      return;
-    }
-
+    final List<Account> accounts;
     try {
-      final accounts = await ref.read(accountsProvider.future);
-      final originalById = {
-        for (final account in accounts) account.id: account,
-      };
-      final updatedById = {...originalById};
-
-      if (previousTransaction != null) {
-        final account = updatedById[previousTransaction.accountId];
-        if (account != null) {
-          updatedById[account.id] = account.copyWith(
-            currentBalance: previousTransaction.reverseFromAccountBalance(
-              account.currentBalance,
-            ),
-          );
-        }
-      }
-
-      if (nextTransaction != null) {
-        final account = updatedById[nextTransaction.accountId];
-        if (account != null) {
-          updatedById[account.id] = account.copyWith(
-            currentBalance: nextTransaction.applyToAccountBalance(
-              account.currentBalance,
-            ),
-          );
-        }
-      }
-
-      final accountsNotifier = ref.read(accountsProvider.notifier);
-      for (final account in updatedById.values) {
-        final original = originalById[account.id];
-        if (original != null &&
-            original.currentBalance != account.currentBalance) {
-          await accountsNotifier.saveAccount(account);
-        }
-      }
+      accounts = await ref.read(accountsProvider.future);
     } catch (_) {
-      return;
+      return const [];
     }
+    final originalById = {for (final account in accounts) account.id: account};
+    final updatedById = {...originalById};
+    for (final transaction in removed) {
+      final account = updatedById[transaction.accountId];
+      if (account != null) {
+        updatedById[account.id] = account.copyWith(
+          currentBalance: transaction.reverseFromAccountBalance(
+            account.currentBalance,
+          ),
+        );
+      }
+    }
+    for (final transaction in added) {
+      final account = updatedById[transaction.accountId];
+      if (account != null) {
+        updatedById[account.id] = account.copyWith(
+          currentBalance: transaction.applyToAccountBalance(
+            account.currentBalance,
+          ),
+        );
+      }
+    }
+    final repo = ref.read(accountRepositoryProvider);
+    return [
+      for (final account in updatedById.values)
+        if (originalById[account.id]!.currentBalance != account.currentBalance)
+          await repo.save(account, batch: batch),
+    ];
+  }
+
+  /// Shows balances that were written with this notifier's batch.
+  void _showSavedAccounts(List<Account> accounts) {
+    if (accounts.isEmpty || !ref.mounted) return;
+    ref.read(accountsProvider.notifier).showSaved(accounts);
   }
 
   Future<void> _reconcileAccountBalances(
@@ -286,7 +307,6 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
 
     try {
       final accounts = await ref.read(accountsProvider.future);
-      final accountsNotifier = ref.read(accountsProvider.notifier);
       final accountsById = {
         for (final account in accounts) account.id: account,
       };
@@ -304,14 +324,23 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
         );
       }
 
+      final repo = ref.read(accountRepositoryProvider);
+      final batch = RecordBatch();
+      final changed = <Account>[];
       for (final account in accounts) {
         final balance = balances[account.id];
         if (balance != null && balance != account.currentBalance) {
-          await accountsNotifier.saveAccount(
-            account.copyWith(currentBalance: balance),
+          changed.add(
+            await repo.save(
+              account.copyWith(currentBalance: balance),
+              batch: batch,
+            ),
           );
         }
       }
+      // Each balance stands alone; many accounts may take several batches.
+      await ref.read(offlineStoreProvider).commit(batch, allowChunks: true);
+      _showSavedAccounts(changed);
     } catch (_) {
       return;
     }
@@ -343,30 +372,74 @@ class AccountsNotifier extends AsyncNotifier<List<Account>> {
     await saveAccount(account);
   }
 
-  Future<void> saveAccount(Account account) async {
+  /// Saves [account] and, when given, the [adjustment] transaction that backs
+  /// its balance (a new account's opening balance or an edited balance) as
+  /// one atomic write. The adjustment doesn't move the balance again.
+  Future<void> saveAccount(
+    Account account, {
+    FinanceTransaction? adjustment,
+  }) async {
+    final previous = state.value;
+    FinanceTransaction? savedAdjustment;
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(accountRepositoryProvider);
-      await repo.save(account);
-      return repo.list();
+      final batch = RecordBatch();
+      final saved = await repo.save(account, batch: batch);
+      if (adjustment != null) {
+        savedAdjustment = await ref
+            .read(transactionRepositoryProvider)
+            .save(adjustment, batch: batch);
+      }
+      await ref.read(offlineStoreProvider).commit(batch);
+      return previous == null ? repo.list() : _withSaved(previous, [saved]);
     });
     if (state.hasError) {
       Error.throwWithStackTrace(state.error!, state.stackTrace!);
     }
+    final shownAdjustment = savedAdjustment;
+    if (shownAdjustment != null && ref.exists(transactionsProvider)) {
+      ref.read(transactionsProvider.notifier).showSaved([shownAdjustment]);
+    }
+  }
+
+  /// Shows accounts that were already written (balances kept in step with
+  /// transactions) without reading the list again.
+  void showSaved(List<Account> saved) {
+    final current = state.value;
+    if (current == null) {
+      ref.invalidateSelf();
+      return;
+    }
+    state = AsyncValue.data(_withSaved(current, saved));
+  }
+
+  /// [current] with [saved] accounts replaced or added, in the repository's
+  /// order (by name).
+  static List<Account> _withSaved(List<Account> current, List<Account> saved) {
+    final savedById = {for (final account in saved) account.id: account};
+    final merged = [
+      for (final account in current) savedById.remove(account.id) ?? account,
+      ...savedById.values,
+    ];
+    final sorted = [...merged]..sort((a, b) => a.name.compareTo(b.name));
+    for (var i = 0; i < merged.length; i++) {
+      // Same order as before (balance updates): keep equal names in place.
+      if (merged[i].name != sorted[i].name) return sorted;
+    }
+    return merged;
   }
 
   /// Deletes the account together with every transaction recorded on it, so
-  /// none keep counting toward totals under an unknown account. Returns the
-  /// deleted transactions (callers cancel their reminders).
+  /// none keep counting toward totals under an unknown account, and releases
+  /// cards that shared its limit, as one write. Returns the deleted
+  /// transactions (callers cancel their reminders).
   Future<List<FinanceTransaction>> deleteAccount(String id) async {
-    final previousAccounts = state.value ?? const <Account>[];
+    final previousAccounts = state.value;
     final children = SharedLimitResolver.resolve(
-      accounts: previousAccounts,
+      accounts: previousAccounts ?? const <Account>[],
       deletedId: id,
     );
-    for (final c in children) {
-      await saveAccount(c);
-    }
     var deleted = const <FinanceTransaction>[];
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
@@ -375,16 +448,26 @@ class AccountsNotifier extends AsyncNotifier<List<Account>> {
         for (final transaction in await transactionRepo.list())
           if (transaction.accountId == id) transaction,
       ];
-      // Straight to the repository, concurrently: the account is going away,
-      // so there is no balance to keep in step per transaction. Transactions
-      // go first so a failure leaves the account in place to retry.
-      await Future.wait([
-        for (final transaction in deleted)
-          transactionRepo.delete(transaction.id),
-      ]);
       final repo = ref.read(accountRepositoryProvider);
-      await repo.delete(id);
-      return repo.list();
+      final batch = RecordBatch();
+      // The account is going away, so there is no balance to keep in step
+      // per transaction. Transactions go first: a ledger too large for one
+      // batch is deleted in several, and a failure part-way leaves the
+      // account in place to retry.
+      for (final transaction in deleted) {
+        await transactionRepo.delete(transaction.id, batch: batch);
+      }
+      final released = [
+        for (final child in children) await repo.save(child, batch: batch),
+      ];
+      await repo.delete(id, batch: batch);
+      await ref.read(offlineStoreProvider).commit(batch, allowChunks: true);
+      return previousAccounts == null
+          ? repo.list()
+          : _withSaved([
+              for (final account in previousAccounts)
+                if (account.id != id) account,
+            ], released);
     });
     if (deleted.isNotEmpty) {
       ref.invalidate(transactionsProvider);
@@ -667,7 +750,8 @@ class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
   }
 
   /// Deletes a group. Categories assigned to it are moved back to "Ungrouped"
-  /// by clearing their `groupId`, then the categories list is refreshed.
+  /// by clearing their `groupId` in the same atomic write as the delete; then
+  /// the categories list is refreshed.
   Future<void> deleteGroup(String id) async {
     final currentGroups = state.value;
     if (currentGroups != null &&
@@ -677,17 +761,24 @@ class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final categoryRepo = ref.read(categoryRepositoryProvider);
-      final categories = await categoryRepo.list();
-      // The repository has no batch write; the saves run concurrently
-      // instead of waiting on each one in turn.
-      await Future.wait([
-        for (final category in categories)
-          if (category.groupId == id)
-            categoryRepo.save(category.copyWith(groupId: null)),
-      ]);
-
       final groupRepo = ref.read(categoryGroupRepositoryProvider);
-      await groupRepo.delete(id);
+      final batch = RecordBatch();
+      for (final category in await categoryRepo.list()) {
+        if (category.groupId == id) {
+          await categoryRepo.save(
+            category.copyWith(groupId: null),
+            batch: batch,
+          );
+        }
+      }
+      await groupRepo.delete(id, batch: batch);
+      await ref.read(offlineStoreProvider).commit(batch);
+      if (currentGroups != null) {
+        return [
+          for (final group in currentGroups)
+            if (group.id != id) group,
+        ];
+      }
       final userId = await groupRepo.currentUserId();
       return _merge(await groupRepo.list(userId: userId), userId: userId);
     });

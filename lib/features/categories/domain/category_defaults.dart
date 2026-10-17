@@ -1045,7 +1045,7 @@ abstract final class CategoryDefaults {
 ///
 /// Each id is a stable constant embedded in the SQL migration that inserts the
 /// global `category_groups` rows with `user_id = NULL`. They are injected
-/// in-memory at the provider layer and never stored per-user in Brick. The
+/// in-memory at the provider layer and never stored per-user. The
 /// "Other" group (c300…0001, formerly "System") is the catch-all that absorbs
 /// any unfiled custom category — see [CategoryGroupDefaults.unfiledGroupId].
 ///

@@ -1,11 +1,9 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../core/money/money.dart';
-import '../../../brick/offline_model_mappers.dart';
-import '../../../brick/repository.dart';
-import '../../../brick/models/transaction.model.dart';
 import '../../../core/offline/offline_store.dart';
 import '../../../core/offline/offline_user_context.dart';
+import '../../../core/offline/records/records.dart';
 import '../../categories/domain/category_defaults.dart';
 import '../domain/transaction.dart';
 
@@ -26,10 +24,7 @@ class TransactionRepository {
   Future<List<FinanceTransaction>> list() async {
     final userId = await _userContext.resolveUserId();
     final transactions = await _store.get<OfflineTransaction>(
-      query: Query(
-        where: [Where.exact('userId', userId)],
-        orderBy: const [OrderBy.desc('date')],
-      ),
+      query: RecordQuery(ownerId: userId, orderBy: 'date', descending: true),
     );
 
     if (kDebugMode) {
@@ -45,29 +40,32 @@ class TransactionRepository {
         .toList(growable: false);
   }
 
-  Future<FinanceTransaction> save(FinanceTransaction transaction) async {
+  /// Validates and saves [transaction] for the current user. With a [batch],
+  /// the write is staged there for the caller to commit instead.
+  Future<FinanceTransaction> save(
+    FinanceTransaction transaction, {
+    RecordBatch? batch,
+  }) async {
     _validate(transaction);
 
     final userId = await _userContext.resolveUserId();
     final normalized = _normalizeCategory(transaction, userId);
-    final saved = await _store.upsert(normalized.toOffline(userId: userId));
-    return saved.toDomain();
+    final record = normalized.toOffline(userId: userId);
+    if (batch != null) {
+      batch.upsert(record);
+    } else {
+      await _store.upsert(record);
+    }
+    return record.toDomain();
   }
 
-  Future<void> delete(String id) async {
+  /// Deletes the current user's transaction [id]. With a [batch], the delete
+  /// is staged there for the caller to commit instead.
+  Future<void> delete(String id, {RecordBatch? batch}) async {
     final userId = await _userContext.resolveUserId();
-    final transactions = await _store.get<OfflineTransaction>(
-      query: Query(
-        where: [Where.exact('userId', userId), Where.exact('id', id)],
-        limit: 1,
-      ),
-    );
-
-    if (transactions.isEmpty) {
-      return;
-    }
-
-    await _store.delete(transactions.first);
+    final target = batch ?? RecordBatch();
+    target.deleteById<OfflineTransaction>(id, ownerId: userId);
+    if (batch == null) await _store.commit(target);
   }
 
   Future<List<FinanceTransaction>> search(String query) async {

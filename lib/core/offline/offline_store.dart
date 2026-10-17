@@ -1,59 +1,97 @@
 import 'dart:async';
 
-import 'package:brick_sqlite/brick_sqlite.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' as cloud;
 
-import '../../brick/model_dictionary.dart';
-import '../../brick/repository.dart';
 import '../firebase/firebase_backend.dart';
+import '../storage/local_record_store.dart';
 import 'firestore_sync_state.dart';
+import 'record_batch.dart';
+import 'record_query.dart';
+import 'records/record_codec.dart';
 
-/// Firebase owns authenticated persistence, cache, retry, and cross-device data.
-/// SQLite remains available for local-only use and migration of existing data.
+export 'record_batch.dart';
+export 'record_query.dart';
+
+/// Reads and writes records where they live. Signed in, that is Firestore:
+/// its persistent cache is the device copy and its write queue uploads
+/// offline changes when the device is back online. Signed out (guests and
+/// local-only builds), it is the [LocalRecordStore].
+///
+/// Signed-in writes return as soon as they are handed to the Firestore SDK,
+/// which applies them to its cache straight away; they never wait for the
+/// server. A later rejection is reported on [errors].
 class OfflineStore {
-  OfflineStore() : _repository = AikoBrickRepository();
-  final AikoBrickRepository _repository;
+  /// [local], [firestore] and [signedInUserId] default to the app's store,
+  /// Firebase and the Firebase user; tests replace them.
+  OfflineStore({
+    LocalRecordStore? local,
+    cloud.FirebaseFirestore? firestore,
+    String? Function()? signedInUserId,
+  }) : _local = local,
+       _firestore = firestore,
+       _signedInUserId = signedInUserId ?? (() => FirebaseBackend.userId);
+
+  final LocalRecordStore? _local;
+  final cloud.FirebaseFirestore? _firestore;
+  final String? Function() _signedInUserId;
+
+  /// Failures of writes that were handed to the SDK (and of sync listeners);
+  /// the signed-in shell tells the user.
   static final errors = StreamController<Object>.broadcast();
 
-  bool get canSyncRemote => FirebaseBackend.userId != null;
+  /// The most writes one Firestore batch may hold.
+  static const maxBatchWrites = 500;
 
-  Future<List<T>> get<T extends SqliteModel>({
-    Query? query,
-    OfflineReadPolicy? policy,
+  LocalRecordStore get _localStore => _local ?? LocalRecordStore.instance;
+
+  String? get _uid {
+    final uid = _signedInUserId();
+    return uid == null || uid.isEmpty ? null : uid;
+  }
+
+  /// Whether records are read from and written to Firestore.
+  bool get canSyncRemote => _uid != null;
+
+  cloud.CollectionReference<Map<String, dynamic>> _collection(String name) {
+    final firestore = _firestore;
+    if (firestore == null) return FirebaseBackend.collection(name);
+    final uid = _uid;
+    if (uid == null) throw StateError('Sign in to synchronize your data.');
+    return firestore.collection('users').doc(uid).collection(name);
+  }
+
+  /// The [T] records matching [query]. [localOnly] reads the local store even
+  /// when signed in (claiming guest records after sign-in).
+  Future<List<T>> get<T extends OfflineRecord>({
+    RecordQuery? query,
+    bool localOnly = false,
   }) async {
-    if (!canSyncRemote || policy == OfflineReadPolicy.localOnly) {
-      return _repository.get<T>(query: query);
-    }
-    final adapter = firestoreAdapters[T]!;
-    cloud.Query<Map<String, dynamic>> remote = FirebaseBackend.collection(
-      adapter.collectionName,
-    );
-    for (final condition in query?.where ?? <WhereCondition>[]) {
-      if (condition.conditions != null ||
-          condition.compare != Compare.exact ||
-          !condition.isRequired) {
-        throw UnsupportedError(
-          'This Firestore query requires an explicit repository mapping.',
-        );
-      }
-      if (condition.evaluatedField == 'userId') {
-        if (condition.value != FirebaseBackend.userId) return [];
-        continue;
-      }
-      remote = remote.where(
-        _field(condition.evaluatedField),
-        isEqualTo: condition.value,
+    final codec = RecordCodecs.of<T>();
+    final collection = codec.collection;
+    final uid = _uid;
+    if (localOnly || uid == null) {
+      final rows = await _localStore.rows(
+        collection,
+        ownerId: query?.ownerId,
+        id: query?.id,
       );
+      return [
+        for (final row in query?.sortAndLimit(rows) ?? rows) codec.fromRow(row),
+      ];
     }
-    for (final order in query?.orderBy ?? <OrderBy>[]) {
-      remote = remote.orderBy(
-        _field(order.evaluatedField),
-        descending: !order.ascending,
-      );
+    // Every signed-in collection lives under the user's own document.
+    final ownerId = query?.ownerId;
+    if (ownerId != null && ownerId != uid) return [];
+    cloud.Query<Map<String, dynamic>> remote = _collection(collection);
+    final id = query?.id;
+    if (id != null) remote = remote.where('id', isEqualTo: id);
+    final orderBy = query?.orderBy;
+    if (orderBy != null) {
+      remote = remote.orderBy(orderBy, descending: query!.descending);
     }
-    if (query?.limit != null) remote = remote.limit(query!.limit!);
+    final limit = query?.limit;
+    if (limit != null) remote = remote.limit(limit);
     final sync = FirestoreSyncState.instance;
-    final collection = adapter.collectionName;
     var snapshot = await remote.get(await sync.readOptions(collection));
     // An empty cache result before the listener has confirmed with the server
     // may just mean "not cached yet" (new device, slow network); ask the server
@@ -63,92 +101,105 @@ class OfflineStore {
         !sync.isServerSynced(collection)) {
       snapshot = await remote.get();
     }
-    return Future.wait(
-      snapshot.docs.map(
-        (doc) async => await adapter.fromFirestore(doc.data()) as T,
-      ),
-    );
+    return [for (final doc in snapshot.docs) codec.fromRow(doc.data())];
   }
 
-  static String _field(String name) =>
-      name.replaceAllMapped(RegExp('[A-Z]'), (m) => '_${m[0]!.toLowerCase()}');
-
-  /// SDK writes are persisted before acknowledgement; offline saves should not
-  /// wait indefinitely for a server. Late rejections are surfaced to the shell.
-  static Future<void> acceptWrite(Future<void> write) async {
-    final observed = write.catchError((Object error) {
-      errors.add(error);
-      throw error;
-    });
-    await observed.timeout(const Duration(seconds: 3), onTimeout: () {});
+  /// Stores [record] (insert or replace).
+  Future<T> upsert<T extends OfflineRecord>(T record) async {
+    await commit(RecordBatch()..upsert(record));
+    return record;
   }
 
-  Future<T> upsert<T extends SqliteModel>(T model, {Query? query}) async {
-    if (!canSyncRemote) return _repository.upsert<T>(model, query: query);
-    final adapter = firestoreAdapters[T]!;
-    final row = await adapter.toFirestore(model);
-    final uid = FirebaseBackend.userId!;
-    if ((row['user_id'] ?? row['id']) != uid) {
-      throw StateError('Record owner does not match the signed-in user.');
+  /// Stores up to [maxBatchWrites] records as one atomic write. [onRejected]
+  /// is told if the server later rejects it (signed in only).
+  Future<void> upsertBatch<T extends OfflineRecord>(
+    List<T> records, {
+    void Function(Object error)? onRejected,
+  }) async {
+    final batch = RecordBatch();
+    for (final record in records) {
+      batch.upsert(record);
     }
-    await acceptWrite(
-      FirebaseBackend.collection(
-        adapter.collectionName,
-      ).doc(row['id'] as String).set(row),
-    );
-    return model;
+    await commit(batch, onRejected: onRejected);
   }
 
-  /// The most writes one Firestore batch may hold.
-  static const maxBatchWrites = 500;
+  /// Deletes [record]. [localOnly] deletes the local copy even when signed in.
+  Future<void> delete<T extends OfflineRecord>(
+    T record, {
+    bool localOnly = false,
+  }) => commit(RecordBatch()..delete(record), localOnly: localOnly);
 
-  /// Upserts up to [maxBatchWrites] models. Signed in, they are one Firestore
-  /// batch with a single acknowledgement instead of one acknowledged write
-  /// each; locally they are upserted one by one.
-  Future<void> upsertBatch<T extends SqliteModel>(List<T> models) async {
-    if (models.isEmpty) return;
-    if (!canSyncRemote) {
-      for (final model in models) {
-        await _repository.upsert<T>(model);
-      }
+  /// Applies every write of [batch] or none: one Firestore WriteBatch signed
+  /// in, one SQLite transaction otherwise ([localOnly] forces the latter).
+  ///
+  /// Signed in, a batch holds at most [maxBatchWrites] writes; with
+  /// [allowChunks] a larger one is split into consecutive batches of that
+  /// size, for operations that don't need to be atomic as a whole (put the
+  /// writes that must land together last). Owners are checked before
+  /// anything is written. [onRejected] is told if the server later rejects
+  /// (a chunk of) the batch.
+  Future<void> commit(
+    RecordBatch batch, {
+    bool localOnly = false,
+    bool allowChunks = false,
+    void Function(Object error)? onRejected,
+  }) async {
+    if (batch.isEmpty) return;
+    final writes = batch.writes;
+    final uid = _uid;
+    if (localOnly || uid == null) {
+      await _localStore.apply(writes);
       return;
     }
-    if (models.length > maxBatchWrites) {
+    if (writes.length > maxBatchWrites && !allowChunks) {
       throw ArgumentError.value(
-        models.length,
-        'models',
+        writes.length,
+        'batch',
         'A batch holds at most $maxBatchWrites writes.',
       );
     }
-    final adapter = firestoreAdapters[T]!;
-    final uid = FirebaseBackend.userId!;
-    final collection = FirebaseBackend.collection(adapter.collectionName);
-    final batch = FirebaseBackend.firestore.batch();
-    for (final model in models) {
-      final row = await adapter.toFirestore(model);
-      if ((row['user_id'] ?? row['id']) != uid) {
+    for (final write in writes) {
+      final row = write.row;
+      final owner = row == null ? write.ownerId : row['user_id'] ?? row['id'];
+      if (owner != null && owner != uid) {
         throw StateError('Record owner does not match the signed-in user.');
       }
-      batch.set(collection.doc(row['id'] as String), row);
     }
-    await acceptWrite(batch.commit());
+    final firestore = _firestore ?? FirebaseBackend.firestore;
+    for (var start = 0; start < writes.length; start += maxBatchWrites) {
+      final end = start + maxBatchWrites < writes.length
+          ? start + maxBatchWrites
+          : writes.length;
+      final remote = firestore.batch();
+      for (final write in writes.sublist(start, end)) {
+        final doc = _collection(write.collection).doc(write.id);
+        final row = write.row;
+        if (row == null) {
+          remote.delete(doc);
+        } else {
+          remote.set(doc, row);
+        }
+      }
+      await acceptWrite(remote.commit(), onError: onRejected);
+    }
   }
 
-  Future<bool> delete<T extends SqliteModel>(
-    T model, {
-    Query? query,
-    bool localOnly = false,
-  }) async {
-    if (localOnly || !canSyncRemote) {
-      return _repository.delete<T>(model, query: query);
-    }
-    final adapter = firestoreAdapters[T]!;
-    final row = await adapter.toFirestore(model);
-    await acceptWrite(
-      FirebaseBackend.collection(
-        adapter.collectionName,
-      ).doc(row['id'] as String).delete(),
+  /// Hands a signed-in SDK write off without waiting for the server: the SDK
+  /// applies it to its cache straight away and uploads it when online (also
+  /// after a restart). A later failure goes to [errors] and [onError].
+  static Future<void> acceptWrite(
+    Future<void> write, {
+    void Function(Object error)? onError,
+  }) {
+    unawaited(
+      write.then<void>(
+        (_) {},
+        onError: (Object error) {
+          errors.add(error);
+          onError?.call(error);
+        },
+      ),
     );
-    return true;
+    return Future<void>.value();
   }
 }

@@ -1,16 +1,13 @@
-import 'dart:async';
-
+import '../core/offline/legacy_store_import.dart';
 import '../core/offline/offline_user_context.dart';
 import '../core/firebase/firebase_backend.dart';
+import '../core/storage/local_record_store.dart';
 import '../features/onboarding/application/complete_onboarding.dart';
 import '../features/accounts/data/account_repository.dart';
 import '../features/settings/data/profile_repository.dart';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:logging/logging.dart';
 
-import '../brick/repository.dart';
 import '../core/config/app_config.dart';
 import '../core/notifications/transaction_reminder_service.dart';
 import 'aiko_app.dart';
@@ -24,16 +21,11 @@ class AppBootstrap {
 
   final AppConfig config;
 
-  StreamSubscription<LogRecord>? _brickLogSubscription;
-
   Future<void> initialize() async {
-    _enableBrickSyncLogging();
-    // Independent: Firebase setup and the local SQLite store (open and
-    // migrate) run side by side to shorten startup.
-    await Future.wait([
-      FirebaseBackend.initialize(config),
-      AikoBrickRepository.configure(config),
-    ]);
+    // Independent: Firebase setup and the local record store (open, then
+    // import an older app version's database once) run side by side to
+    // shorten startup. Both finish before anything reads records.
+    await Future.wait([FirebaseBackend.initialize(config), _openLocalStore()]);
     // Resolve once before concurrent providers start, so a fresh installation
     // cannot create multiple anonymous owners for its initial records.
     await OfflineUserContext().resolveUserId();
@@ -48,27 +40,11 @@ class AppBootstrap {
     await TransactionReminderService.instance.init();
   }
 
-  /// Surfaces Brick's offline-first sync activity (including silently-queued
-  /// remote upsert/hydrate failures) in the debug console so sync problems are
-  /// observable. No-op in release builds.
-  void _enableBrickSyncLogging() {
-    // Startup can be retried; keep a single listener.
-    if (!kDebugMode || _brickLogSubscription != null) {
-      return;
-    }
-    Logger.root.level = Level.INFO;
-    _brickLogSubscription = Logger.root.onRecord.listen((record) {
-      debugPrint(
-        '[brick] ${record.level.name} ${record.loggerName}: ${record.message}',
-      );
-    });
-  }
-
-  /// Detach the listener. Tests that re-create the bootstrap can call this to
-  /// avoid the prior subscription keeping `Logger.root` alive.
-  void dispose() {
-    _brickLogSubscription?.cancel();
-    _brickLogSubscription = null;
+  /// Opens the local record store (startup can be retried; it opens once)
+  /// and imports the previous local database into it on first run.
+  Future<void> _openLocalStore() async {
+    final store = await LocalRecordStore.open();
+    await LegacyStoreImport(target: store).run();
   }
 
   Widget buildApp() => AikoApp(config: config);

@@ -7,14 +7,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-import '../../../brick/model_dictionary.dart';
-import '../../../brick/models/category.model.dart';
-import '../../../brick/models/category_group.model.dart';
-import '../../../brick/offline_model_mappers.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/firebase/firebase_backend.dart';
 import '../../../core/offline/offline_data_migrator.dart';
 import '../../../core/offline/offline_user_context.dart';
+import '../../../core/offline/records/records.dart';
 import '../../../core/storage/secure_storage_service.dart';
 import '../../categories/domain/category_defaults.dart';
 import 'defaults_seed_marker.dart';
@@ -242,16 +239,18 @@ class AuthRepository {
         userId: uid,
         template: template,
       ).toOffline(userId: uid);
-      rows[root.collection('category_groups').doc(group.id)] =
-          await firestoreAdapters[OfflineCategoryGroup]!.toFirestore(group);
+      rows[root.collection('category_groups').doc(group.id)] = RecordCodecs
+          .categoryGroups
+          .toRow(group);
     }
     for (final template in CategoryDefaults.all) {
       final category = CategoryDefaults.cloneForUser(
         userId: uid,
         template: template,
       ).toOffline(userId: uid);
-      rows[root.collection('categories').doc(category.id)] =
-          await firestoreAdapters[OfflineCategory]!.toFirestore(category);
+      rows[root.collection('categories').doc(category.id)] = RecordCodecs
+          .categories
+          .toRow(category);
     }
     await FirebaseBackend.firestore.runTransaction((transaction) async {
       final refs = rows.keys.toList();

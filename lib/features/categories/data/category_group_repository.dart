@@ -1,19 +1,28 @@
-import '../../../brick/models/category_group.model.dart';
-import '../../../brick/offline_model_mappers.dart';
-import '../../../brick/repository.dart';
 import '../../../core/offline/offline_store.dart';
 import '../../../core/offline/offline_user_context.dart';
+import '../../../core/offline/records/records.dart';
 import '../domain/category.dart';
 
 class CategoryGroupRepository {
-  const CategoryGroupRepository();
+  const CategoryGroupRepository({
+    OfflineStore? store,
+    OfflineUserContext? userContext,
+  }) : _storeOverride = store,
+       _userContextOverride = userContext;
 
-  Future<String> currentUserId() => OfflineUserContext().resolveUserId();
+  final OfflineStore? _storeOverride;
+  final OfflineUserContext? _userContextOverride;
+
+  OfflineStore get _store => _storeOverride ?? OfflineStore();
+  OfflineUserContext get _userContext =>
+      _userContextOverride ?? OfflineUserContext();
+
+  Future<String> currentUserId() => _userContext.resolveUserId();
 
   Future<List<CategoryGroup>> list({String? userId}) async {
     final ownerId = userId ?? await currentUserId();
-    final groups = await OfflineStore().get<OfflineCategoryGroup>(
-      query: Query(where: [Where.exact('userId', ownerId)]),
+    final groups = await _store.get<OfflineCategoryGroup>(
+      query: RecordQuery(ownerId: ownerId),
     );
 
     final domain = groups.map((group) => group.toDomain()).toList();
@@ -40,19 +49,16 @@ class CategoryGroupRepository {
     final groupToSave = group.createdAt == null && !group.isDefault
         ? group.copyWith(createdAt: DateTime.now().toUtc())
         : group;
-    final saved = await OfflineStore().upsert(
-      groupToSave.toOffline(userId: userId),
-    );
+    final saved = await _store.upsert(groupToSave.toOffline(userId: userId));
     return saved.toDomain();
   }
 
-  Future<void> delete(String id) async {
-    final userId = await OfflineUserContext().resolveUserId();
-    final groups = await OfflineStore().get<OfflineCategoryGroup>(
-      query: Query(
-        where: [Where.exact('id', id), Where.exact('userId', userId)],
-        limit: 1,
-      ),
+  /// Deletes the current user's custom group [id]. With a [batch], the
+  /// delete is staged there for the caller to commit instead.
+  Future<void> delete(String id, {RecordBatch? batch}) async {
+    final userId = await currentUserId();
+    final groups = await _store.get<OfflineCategoryGroup>(
+      query: RecordQuery(ownerId: userId, id: id, limit: 1),
     );
     if (groups.isEmpty) {
       return;
@@ -60,7 +66,11 @@ class CategoryGroupRepository {
     if (groups.first.toDomain().isDefault) {
       throw StateError('Default category groups cannot be deleted.');
     }
-    await OfflineStore().delete(groups.first);
+    if (batch != null) {
+      batch.delete(groups.first);
+    } else {
+      await _store.delete(groups.first);
+    }
   }
 
   int _compareGroups(CategoryGroup a, CategoryGroup b) {

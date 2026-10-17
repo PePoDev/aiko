@@ -7,8 +7,8 @@ import '../../../core/storage/secure_storage_service.dart';
 import '../domain/transaction_rule.dart';
 
 /// Persists the user's [TransactionRule]s as JSON in secure storage. Empty
-/// until rules are created. Kept off Brick on purpose — these are small,
-/// user preferences synchronized by Firebase.
+/// until rules are created. Kept out of the record store on purpose — these
+/// are small user preferences synchronized by Firebase.
 class TransactionRuleStore {
   const TransactionRuleStore({required this.storage});
 

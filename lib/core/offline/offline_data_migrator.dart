@@ -1,18 +1,12 @@
+import 'dart:async';
 import 'dart:math';
 
-import '../../brick/models/investment_holding.model.dart';
-import 'package:brick_sqlite/brick_sqlite.dart' show SqliteModel;
 import 'package:flutter/foundation.dart';
 
-import '../../brick/models/account.model.dart';
-import '../../brick/models/category.model.dart';
-import '../../brick/models/category_group.model.dart';
-import '../../brick/models/transaction.model.dart';
-import '../../brick/offline_model_mappers.dart';
-import '../../brick/repository.dart' show OfflineReadPolicy;
 import '../../features/categories/domain/category_defaults.dart';
 import 'offline_store.dart';
 import 'offline_user_context.dart';
+import 'records/records.dart';
 
 /// Reassigns rows that were created while signed out (under an anonymous
 /// `local:<uuid>` user id) to the real Firebase user id after sign-in.
@@ -22,10 +16,11 @@ import 'offline_user_context.dart';
 /// `local:<uuid>` to the real UUID the earlier rows silently disappear from the
 /// UI even though they are still in the local database.
 ///
-/// Each reclaimed row is re-upserted, which updates its local `user_id` in place
-/// (matched by its unique `id`) and queues it to sync up to Firebase. Signed in,
-/// rows go up in batches of [OfflineStore.maxBatchWrites] with one server
-/// acknowledgement each, so a large local ledger doesn't stall sign-in.
+/// Each reclaimed row is re-upserted under the real user id. Signed in, rows go
+/// to Firestore in batches of [OfflineStore.maxBatchWrites] (handed to the SDK,
+/// which uploads them when online) and the local copies are deleted; a batch
+/// the server rejects is put back locally so the next claim retries it.
+/// Signed out, rows are updated in the local store in place.
 class OfflineDataMigrator {
   OfflineDataMigrator({OfflineStore? store}) : _store = store ?? OfflineStore();
 
@@ -43,50 +38,33 @@ class OfflineDataMigrator {
     // Order matters: parents are queued before rows that reference them.
     var migrated = 0;
     migrated += await _claim<OfflineAccount>(
-      realUserId,
-      (row) => row.userId,
       (row) => row.toDomain().toOffline(userId: realUserId),
-      (row) => row.id,
     );
     migrated += await _claim<OfflineCategoryGroup>(
-      realUserId,
-      (row) => row.userId ?? '',
       (row) => CategoryGroupDefaults.normalizeForUser(
         row.toDomain(),
         userId: realUserId,
       ).toOffline(userId: realUserId),
-      (row) => row.id,
     );
     migrated += await _claim<OfflineCategory>(
-      realUserId,
-      (row) => row.userId,
       (row) => CategoryDefaults.normalizeForUser(
         row.toDomain(),
         userId: realUserId,
       ).toOffline(userId: realUserId),
-      (row) => row.id,
     );
-    migrated += await _claim<OfflineTransaction>(
-      realUserId,
-      (row) => row.userId,
-      (row) {
-        final transaction = row.toDomain();
-        final categoryId = CategoryDefaults.categoryIdForUser(
-          userId: realUserId,
-          categoryId: transaction.categoryId,
-        );
-        return transaction
-            .copyWith(categoryId: categoryId)
-            .toOffline(userId: realUserId);
-      },
-      (row) => row.id,
-    );
+    migrated += await _claim<OfflineTransaction>((row) {
+      final transaction = row.toDomain();
+      final categoryId = CategoryDefaults.categoryIdForUser(
+        userId: realUserId,
+        categoryId: transaction.categoryId,
+      );
+      return transaction
+          .copyWith(categoryId: categoryId)
+          .toOffline(userId: realUserId);
+    });
 
     migrated += await _claim<OfflineInvestmentHolding>(
-      realUserId,
-      (row) => row.userId,
       (row) => row.toDomain().toOffline(userId: realUserId),
-      (row) => row.id,
     );
 
     if (kDebugMode) {
@@ -98,20 +76,16 @@ class OfflineDataMigrator {
     return migrated;
   }
 
-  Future<int> _claim<TModel extends SqliteModel>(
-    String realUserId,
-    String Function(TModel row) userIdOf,
+  Future<int> _claim<TModel extends OfflineRecord>(
     TModel Function(TModel row) reassign,
-    String Function(TModel row) idOf,
   ) async {
     try {
-      final rows = await _store.get<TModel>(
-        policy: OfflineReadPolicy.localOnly,
-      );
+      final rows = await _store.get<TModel>(localOnly: true);
       final orphans = rows
           .where(
-            (row) =>
-                userIdOf(row).startsWith(OfflineUserContext.localUserIdPrefix),
+            (row) => (row.ownerId ?? '').startsWith(
+              OfflineUserContext.localUserIdPrefix,
+            ),
           )
           .toList(growable: false);
       // One batch (one server acknowledgement) per chunk, not one per row.
@@ -125,11 +99,24 @@ class OfflineDataMigrator {
           min(start + OfflineStore.maxBatchWrites, orphans.length),
         );
         final claimed = chunk.map(reassign).toList(growable: false);
-        await _store.upsertBatch<TModel>(claimed);
+        final staleRemoved = Completer<void>();
+        await _store.upsertBatch<TModel>(
+          claimed,
+          // Put the guest rows back once their local copies are gone.
+          onRejected: (_) => unawaited(
+            staleRemoved.future.whenComplete(() => _restore(chunk)),
+          ),
+        );
+        final stale = RecordBatch();
         for (var i = 0; i < chunk.length; i++) {
-          if (_store.canSyncRemote || idOf(claimed[i]) != idOf(chunk[i])) {
-            await _store.delete<TModel>(chunk[i], localOnly: true);
+          if (_store.canSyncRemote || claimed[i].id != chunk[i].id) {
+            stale.delete(chunk[i]);
           }
+        }
+        try {
+          await _store.commit(stale, localOnly: true);
+        } finally {
+          staleRemoved.complete();
         }
       }
       return orphans.length;
@@ -138,6 +125,22 @@ class OfflineDataMigrator {
         debugPrint('[aiko-sync] claim $TModel failed: $error');
       }
       return 0;
+    }
+  }
+
+  /// The server rejected a claimed chunk: put the guest rows back so the next
+  /// claim tries again instead of losing them.
+  Future<void> _restore(List<OfflineRecord> rows) async {
+    final batch = RecordBatch();
+    for (final row in rows) {
+      batch.upsert(row);
+    }
+    try {
+      await _store.commit(batch, localOnly: true);
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('[aiko-sync] restoring rejected claim failed: $error');
+      }
     }
   }
 }

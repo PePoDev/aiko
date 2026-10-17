@@ -1,5 +1,6 @@
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/core/storage/secure_storage_service.dart';
+import 'package:aiko/core/offline/offline_store.dart';
 import 'package:aiko/features/accounts/data/account_repository.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/onboarding/application/complete_onboarding.dart';
@@ -33,7 +34,7 @@ class _FakeAccountRepository extends AccountRepository {
   Future<List<Account>> list() async => List.of(accounts);
 
   @override
-  Future<Account> save(Account account) async {
+  Future<Account> save(Account account, {RecordBatch? batch}) async {
     accounts.add(account);
     return account;
   }

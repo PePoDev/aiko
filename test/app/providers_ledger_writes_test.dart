@@ -1,5 +1,6 @@
 import 'package:aiko/app/providers.dart';
 import 'package:aiko/core/money/money.dart';
+import 'package:aiko/core/offline/offline_store.dart';
 import 'package:aiko/features/accounts/data/account_repository.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
 import 'package:aiko/features/categories/data/category_group_repository.dart';
@@ -122,7 +123,7 @@ class _Accounts extends AccountRepository {
   Future<List<Account>> list() async => accounts;
 
   @override
-  Future<Account> save(Account account) async {
+  Future<Account> save(Account account, {RecordBatch? batch}) async {
     saved.add(account.id);
     accounts = [
       for (final item in accounts) item.id == account.id ? account : item,
@@ -154,7 +155,7 @@ class _Categories extends CategoryRepository {
   Future<List<Category>> list({String? userId}) async => categories;
 
   @override
-  Future<Category> save(Category category) async {
+  Future<Category> save(Category category, {RecordBatch? batch}) async {
     saved.add(category);
     return category;
   }
@@ -176,5 +177,5 @@ class _Groups extends CategoryGroupRepository {
       .toList(growable: false);
 
   @override
-  Future<void> delete(String id) async => deleted.add(id);
+  Future<void> delete(String id, {RecordBatch? batch}) async => deleted.add(id);
 }

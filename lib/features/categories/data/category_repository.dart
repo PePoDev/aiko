@@ -1,8 +1,6 @@
-import '../../../brick/offline_model_mappers.dart';
-import '../../../brick/repository.dart';
-import '../../../brick/models/category.model.dart';
 import '../../../core/offline/offline_store.dart';
 import '../../../core/offline/offline_user_context.dart';
+import '../../../core/offline/records/records.dart';
 import '../domain/category.dart';
 import '../domain/category_defaults.dart';
 
@@ -25,7 +23,7 @@ class CategoryRepository {
   Future<List<Category>> list({String? userId}) async {
     final ownerId = userId ?? await currentUserId();
     final categories = await _store.get<OfflineCategory>(
-      query: Query(where: [Where.exact('userId', ownerId)]),
+      query: RecordQuery(ownerId: ownerId),
     );
 
     return categories
@@ -33,7 +31,9 @@ class CategoryRepository {
         .toList(growable: false);
   }
 
-  Future<Category> save(Category category) async {
+  /// Saves [category] for the current user. With a [batch], the write is
+  /// staged there for the caller to commit instead.
+  Future<Category> save(Category category, {RecordBatch? batch}) async {
     final currentList = await list();
     if (!category.isDefault) {
       final duplicate = currentList.any(
@@ -57,21 +57,25 @@ class CategoryRepository {
     final categoryToSave = category.createdAt == null && !category.isDefault
         ? category.copyWith(createdAt: DateTime.now().toUtc())
         : category;
-    final saved = await _store.upsert(categoryToSave.toOffline(userId: userId));
-    return saved.toDomain();
+    final record = categoryToSave.toOffline(userId: userId);
+    if (batch != null) {
+      batch.upsert(record);
+    } else {
+      await _store.upsert(record);
+    }
+    return record.toDomain();
   }
 
-  Future<void> delete(String id) async {
+  /// Deletes the current user's custom category [id]. With a [batch], the
+  /// delete is staged there for the caller to commit instead.
+  Future<void> delete(String id, {RecordBatch? batch}) async {
     if (CategoryDefaults.allIds.contains(id)) {
       throw StateError('Default categories cannot be deleted.');
     }
 
     final userId = await _userContext.resolveUserId();
     final categories = await _store.get<OfflineCategory>(
-      query: Query(
-        where: [Where.exact('id', id), Where.exact('userId', userId)],
-        limit: 1,
-      ),
+      query: RecordQuery(ownerId: userId, id: id, limit: 1),
     );
     if (categories.isEmpty) {
       return;
@@ -79,6 +83,10 @@ class CategoryRepository {
     if (categories.first.toDomain().isDefault) {
       throw StateError('Default categories cannot be deleted.');
     }
-    await _store.delete(categories.first);
+    if (batch != null) {
+      batch.delete(categories.first);
+    } else {
+      await _store.delete(categories.first);
+    }
   }
 }

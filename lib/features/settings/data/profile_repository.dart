@@ -1,11 +1,9 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../core/config/app_config.dart';
-import '../../../brick/offline_model_mappers.dart';
-import '../../../brick/repository.dart';
-import '../../../brick/models/profile.model.dart';
 import '../../../core/offline/offline_store.dart';
 import '../../../core/offline/offline_user_context.dart';
+import '../../../core/offline/records/records.dart';
 import '../../../core/firebase/firebase_backend.dart';
 import '../../../l10n/l10n.dart';
 import '../domain/profile.dart';
@@ -17,10 +15,7 @@ class ProfileRepository {
     final userId = await OfflineUserContext().resolveUserId();
     final store = OfflineStore();
     final profiles = await store.get<OfflineProfile>(
-      query: Query.where('id', userId, limit1: true),
-      policy: store.canSyncRemote
-          ? OfflineReadPolicy.awaitRemoteWhenNoneExist
-          : OfflineReadPolicy.localOnly,
+      query: RecordQuery(id: userId, limit: 1),
     );
 
     if (profiles.isEmpty) {

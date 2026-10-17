@@ -1,61 +1,78 @@
-import 'package:aiko/brick/models/category.model.dart';
-import 'package:aiko/brick/models/category_group.model.dart';
-import 'package:aiko/brick/models/transaction.model.dart';
-import 'package:aiko/brick/repository.dart';
+import 'dart:async';
+
 import 'package:aiko/core/offline/offline_data_migrator.dart';
 import 'package:aiko/core/offline/offline_store.dart';
+import 'package:aiko/core/offline/records/records.dart';
+import 'package:aiko/core/storage/local_record_store.dart';
 import 'package:aiko/features/categories/domain/category_defaults.dart';
-import 'package:brick_sqlite/brick_sqlite.dart' show SqliteModel;
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'record_store_harness.dart';
+
+const _localUserId = 'local:test-user';
+const _realUserId = '11111111-1111-4111-8111-111111111111';
+
+OfflineTransaction _tx(String id, {String? categoryId}) => OfflineTransaction(
+  id: id,
+  userId: _localUserId,
+  accountId: 'account',
+  type: 'expense',
+  amount: '10',
+  currency: 'THB',
+  date: DateTime(2026, 7, 26),
+  categoryId: categoryId,
+);
+
 void main() {
+  late LocalRecordStore local;
+
+  setUp(() async => local = await openMemoryRecordStore());
+  tearDown(() => local.close());
+
   test(
     'claims defaults in dependency order and removes old local ids',
     () async {
-      const localUserId = 'local:test-user';
-      const realUserId = '11111111-1111-4111-8111-111111111111';
-      final store = _ClaimStore([
-        OfflineCategoryGroup(
-          id: CategoryGroupDefaults.foodAndDrinkId,
-          userId: localUserId,
-          name: 'Food & Drink',
-          budgetAmount: '5000',
-          budgetCurrency: 'THB',
-        ),
-        OfflineCategory(
-          id: CategoryDefaults.coffeeId,
-          userId: localUserId,
-          name: 'Coffee',
-          type: 'expense',
-          categoryGroup: 'wants',
-          groupId: CategoryGroupDefaults.foodAndDrinkId,
-          budgetAmount: '3000',
-          budgetCurrency: 'THB',
-        ),
-        OfflineTransaction(
-          id: 'transaction',
-          userId: localUserId,
-          accountId: 'account',
-          type: 'expense',
-          amount: '10',
-          currency: 'THB',
-          date: DateTime(2026, 7, 26),
-          categoryId: CategoryDefaults.coffeeId,
-        ),
-      ]);
+      final store = _ClaimStore(local);
+      await store.commit(
+        RecordBatch()
+          ..upsert(
+            OfflineCategoryGroup(
+              id: CategoryGroupDefaults.foodAndDrinkId,
+              userId: _localUserId,
+              name: 'Food & Drink',
+              budgetAmount: '5000',
+              budgetCurrency: 'THB',
+            ),
+          )
+          ..upsert(
+            OfflineCategory(
+              id: CategoryDefaults.coffeeId,
+              userId: _localUserId,
+              name: 'Coffee',
+              type: 'expense',
+              categoryGroup: 'wants',
+              groupId: CategoryGroupDefaults.foodAndDrinkId,
+              budgetAmount: '3000',
+              budgetCurrency: 'THB',
+            ),
+          )
+          ..upsert(_tx('transaction', categoryId: CategoryDefaults.coffeeId)),
+      );
+      store.claimCommits.clear();
       final migrator = OfflineDataMigrator(store: store);
 
-      final migrated = await migrator.claimAnonymousData(realUserId);
+      final migrated = await migrator.claimAnonymousData(_realUserId);
 
       expect(migrated, 3);
-      expect(store.upsertOrder, [
-        OfflineCategoryGroup,
-        OfflineCategory,
-        OfflineTransaction,
+      expect(store.claimCommits, [
+        'category_groups',
+        'categories',
+        'transactions',
       ]);
-      expect(store.localOnlyDeletes, hasLength(2));
 
-      final group = store.rows.whereType<OfflineCategoryGroup>().single;
+      final group = (await store.get<OfflineCategoryGroup>()).single;
+      expect(group.userId, _realUserId);
       expect(group.templateId, CategoryGroupDefaults.foodAndDrinkId);
       // Default clones keep the stored createdAt (none here): security rules
       // only let a clone's budget fields change.
@@ -63,118 +80,145 @@ void main() {
       expect(
         group.id,
         CategoryGroupDefaults.cloneIdForUser(
-          userId: realUserId,
+          userId: _realUserId,
           templateId: CategoryGroupDefaults.foodAndDrinkId,
         ),
       );
 
-      final category = store.rows.whereType<OfflineCategory>().single;
+      final category = (await store.get<OfflineCategory>()).single;
       expect(category.templateId, CategoryDefaults.coffeeId);
       expect(category.createdAt, isNull);
       expect(category.budgetAmount, '3000');
       expect(
         category.groupId,
         CategoryGroupDefaults.cloneIdForUser(
-          userId: realUserId,
+          userId: _realUserId,
           templateId: CategoryGroupDefaults.foodAndDrinkId,
         ),
       );
 
-      final transaction = store.rows.whereType<OfflineTransaction>().single;
+      final transaction = (await store.get<OfflineTransaction>()).single;
+      expect(transaction.userId, _realUserId);
       expect(
         transaction.categoryId,
         CategoryDefaults.cloneIdForUser(
-          userId: realUserId,
+          userId: _realUserId,
           templateId: CategoryDefaults.coffeeId,
         ),
       );
-      expect(await migrator.claimAnonymousData(realUserId), 0);
+      expect(await migrator.claimAnonymousData(_realUserId), 0);
     },
   );
 
-  test('signed in, rows are written in batches of at most 500', () async {
-    const localUserId = 'local:test-user';
-    const realUserId = '11111111-1111-4111-8111-111111111111';
-    final store = _ClaimStore([
-      for (var i = 0; i < 1201; i++)
-        OfflineTransaction(
-          id: 'transaction-$i',
-          userId: localUserId,
-          accountId: 'account',
-          type: 'expense',
-          amount: '10',
-          currency: 'THB',
-          date: DateTime(2026, 7, 26),
-        ),
-    ], canSyncRemote: true);
+  group('signed in', () {
+    late FakeFirebaseFirestore firestore;
 
-    final migrated = await OfflineDataMigrator(
-      store: store,
-    ).claimAnonymousData(realUserId);
+    setUp(() => firestore = FakeFirebaseFirestore());
 
-    expect(migrated, 1201);
-    expect(store.batchSizes, [500, 500, 201]);
-    // Each local row is dropped once the server copy is written.
-    expect(store.localOnlyDeletes, hasLength(1201));
-    final claimed = store.rows.whereType<OfflineTransaction>();
-    expect(claimed, hasLength(1201));
-    expect(claimed.every((row) => row.userId == realUserId), isTrue);
+    Future<List<Map<String, dynamic>>> cloudTransactions() async {
+      final snapshot = await firestore
+          .collection('users')
+          .doc(_realUserId)
+          .collection('transactions')
+          .get();
+      return [for (final doc in snapshot.docs) doc.data()];
+    }
+
+    test('rows go to Firestore in batches of at most 500 and leave the '
+        'device', () async {
+      final store = _ClaimStore(local, firestore: firestore);
+      await store.commit(
+        RecordBatch()..addAll([for (var i = 0; i < 1201; i++) _tx('t-$i')]),
+        localOnly: true,
+      );
+
+      final migrated = await OfflineDataMigrator(
+        store: store,
+      ).claimAnonymousData(_realUserId);
+      await pumpEventQueue();
+
+      expect(migrated, 1201);
+      expect(store.remoteBatchSizes, [500, 500, 201]);
+      expect(await local.rows('transactions'), isEmpty);
+      final claimed = await cloudTransactions();
+      expect(claimed, hasLength(1201));
+      expect(claimed.every((row) => row['user_id'] == _realUserId), isTrue);
+    });
+
+    test('rows the server rejects are put back for the next claim', () async {
+      final store = _ClaimStore(local, firestore: firestore)
+        ..rejectRemote = true;
+      await store.commit(
+        RecordBatch()..addAll([_tx('a'), _tx('b')]),
+        localOnly: true,
+      );
+
+      expect(
+        await OfflineDataMigrator(store: store).claimAnonymousData(_realUserId),
+        2,
+      );
+      await pumpEventQueue();
+
+      final restored = await store.get<OfflineTransaction>(localOnly: true);
+      expect(restored.map((t) => t.id).toSet(), {'a', 'b'});
+      expect(restored.every((t) => t.userId == _localUserId), isTrue);
+      expect(await cloudTransactions(), isEmpty);
+
+      store.rejectRemote = false;
+      expect(
+        await OfflineDataMigrator(store: store).claimAnonymousData(_realUserId),
+        2,
+      );
+      await pumpEventQueue();
+      expect(await cloudTransactions(), hasLength(2));
+      expect(await local.rows('transactions'), isEmpty);
+    });
   });
 }
 
-class _ClaimStore implements OfflineStore {
-  _ClaimStore(this.rows, {this.canSyncRemote = false});
+extension on RecordBatch {
+  void addAll(Iterable<OfflineRecord> records) => records.forEach(upsert);
+}
 
-  final List<SqliteModel> rows;
-  final List<Type> upsertOrder = [];
-  final List<int> batchSizes = [];
-  final List<SqliteModel> localOnlyDeletes = [];
+/// The real store over [local] (and [firestore] when signed in) that notes
+/// which collections are claimed, the sizes of Firestore batches, and can
+/// have the server reject them.
+class _ClaimStore extends OfflineStore {
+  _ClaimStore(LocalRecordStore local, {FakeFirebaseFirestore? firestore})
+    : super(
+        local: local,
+        firestore: firestore,
+        signedInUserId: () => firestore == null ? null : _realUserId,
+      );
 
-  @override
-  final bool canSyncRemote;
-
-  @override
-  Future<void> upsertBatch<TModel extends SqliteModel>(
-    List<TModel> models,
-  ) async {
-    batchSizes.add(models.length);
-    for (final model in models) {
-      await upsert<TModel>(model);
-    }
-  }
+  final List<String> claimCommits = [];
+  final List<int> remoteBatchSizes = [];
+  bool rejectRemote = false;
 
   @override
-  Future<List<TModel>> get<TModel extends SqliteModel>({
-    Query? query,
-    OfflineReadPolicy? policy,
-  }) async => rows.whereType<TModel>().toList();
-
-  @override
-  Future<TModel> upsert<TModel extends SqliteModel>(
-    TModel model, {
-    Query? query,
-  }) async {
-    upsertOrder.add(TModel);
-    final id = _idOf(model);
-    rows.removeWhere((row) => row.runtimeType == TModel && _idOf(row) == id);
-    rows.add(model);
-    return model;
-  }
-
-  @override
-  Future<bool> delete<TModel extends SqliteModel>(
-    TModel model, {
-    Query? query,
+  Future<void> commit(
+    RecordBatch batch, {
     bool localOnly = false,
+    bool allowChunks = false,
+    void Function(Object error)? onRejected,
   }) async {
-    if (localOnly) localOnlyDeletes.add(model);
-    return rows.remove(model);
-  }
-
-  String _idOf(SqliteModel model) {
-    if (model is OfflineCategoryGroup) return model.id;
-    if (model is OfflineCategory) return model.id;
-    if (model is OfflineTransaction) return model.id;
-    throw StateError('Unexpected ${model.runtimeType}');
+    if (batch.isEmpty) return;
+    if (!localOnly) {
+      claimCommits.add(batch.writes.first.collection);
+      if (canSyncRemote) remoteBatchSizes.add(batch.length);
+      if (canSyncRemote && rejectRemote) {
+        // Handed off, then refused by the server later on.
+        scheduleMicrotask(
+          () => onRejected?.call(StateError('permission-denied')),
+        );
+        return;
+      }
+    }
+    await super.commit(
+      batch,
+      localOnly: localOnly,
+      allowChunks: allowChunks,
+      onRejected: onRejected,
+    );
   }
 }

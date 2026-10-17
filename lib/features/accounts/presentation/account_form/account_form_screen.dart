@@ -398,58 +398,48 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     return null;
   }
 
-  /// Records a new account's opening balance as a signed `adjustment`, so it
-  /// moves the balance without counting as income or spending anywhere.
-  Future<void> _createInitialBalanceTransaction(Account account) async {
+  /// A new account's opening balance as a signed `adjustment`, so it moves
+  /// the balance without counting as income or spending anywhere.
+  FinanceTransaction? _initialBalanceTransaction(Account account) {
     if (account.currentBalance.isZero) {
-      return;
+      return null;
     }
 
-    await ref
-        .read(transactionsProvider.notifier)
-        .addTransaction(
-          FinanceTransaction(
-            id: const Uuid().v4(),
-            userId: account.userId,
-            accountId: account.id,
-            type: TransactionType.adjustment,
-            amount: account.currentBalance,
-            date: DateTime.now(),
-            merchant: context.l10n.accountFormInitialBalance,
-            note: context.l10n.accountFormInitialBalanceNote,
-          ),
-          updateAccountBalance: false,
-        );
+    return FinanceTransaction(
+      id: const Uuid().v4(),
+      userId: account.userId,
+      accountId: account.id,
+      type: TransactionType.adjustment,
+      amount: account.currentBalance,
+      date: DateTime.now(),
+      merchant: context.l10n.accountFormInitialBalance,
+      note: context.l10n.accountFormInitialBalanceNote,
+    );
   }
 
   /// Balances are recomputed from transactions, so an edited balance must be
   /// backed by an `adjustment` for the difference or it would be overwritten.
   /// [transactions] are the account's existing rows.
-  Future<void> _createBalanceAdjustmentTransaction(
+  FinanceTransaction? _balanceAdjustmentTransaction(
     Account account,
     List<FinanceTransaction> transactions,
-  ) async {
+  ) {
     final difference =
         account.currentBalance -
         balanceFromTransactions(transactions, account.currency);
     if (difference.isZero) {
-      return;
+      return null;
     }
 
-    await ref
-        .read(transactionsProvider.notifier)
-        .addTransaction(
-          FinanceTransaction(
-            id: const Uuid().v4(),
-            userId: account.userId,
-            accountId: account.id,
-            type: TransactionType.adjustment,
-            amount: difference,
-            date: DateTime.now(),
-            merchant: context.l10n.accountFormBalanceAdjustment,
-          ),
-          updateAccountBalance: false,
-        );
+    return FinanceTransaction(
+      id: const Uuid().v4(),
+      userId: account.userId,
+      accountId: account.id,
+      type: TransactionType.adjustment,
+      amount: difference,
+      date: DateTime.now(),
+      merchant: context.l10n.accountFormBalanceAdjustment,
+    );
   }
 
   Future<void> _submit() async {
@@ -527,13 +517,15 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         );
         return;
       }
-      await ref.read(accountsProvider.notifier).saveAccount(account);
-      if (!mounted) return;
-      if (previous == null) {
-        await _createInitialBalanceTransaction(account);
-      } else if (balanceChanged) {
-        await _createBalanceAdjustmentTransaction(account, accountTransactions);
-      }
+      // The account and the adjustment backing its balance are one write.
+      final adjustment = previous == null
+          ? _initialBalanceTransaction(account)
+          : balanceChanged
+          ? _balanceAdjustmentTransaction(account, accountTransactions)
+          : null;
+      await ref
+          .read(accountsProvider.notifier)
+          .saveAccount(account, adjustment: adjustment);
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);
       final message = widget.account == null

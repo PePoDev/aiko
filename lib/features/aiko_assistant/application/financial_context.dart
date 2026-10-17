@@ -11,7 +11,7 @@ import '../../dashboard/application/dashboard_summary_builder.dart';
 import '../../transactions/domain/transaction.dart';
 
 /// Layer 1 of Aiko's data access: a compact, read-only snapshot of the user's
-/// finances, assembled on-device from the local Brick store and sent with each
+/// finances, assembled on-device from the local data and sent with each
 /// chat request. The edge function folds it into the system prompt so the model
 /// can answer "how am I doing" questions in a single round-trip — no server-side
 /// data fetch, no extra Firebase reads, works offline-first.

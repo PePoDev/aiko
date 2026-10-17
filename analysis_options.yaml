@@ -14,8 +14,6 @@ analyzer:
     - node_modules/**
     - firebase/functions/node_modules/**
     - "**/node_modules/**"
-    - lib/brick/db/*.g.dart
-    - lib/brick/db/*.migration.dart
     - build/**
     - android/**
     - ios/**

@@ -34,7 +34,7 @@ sealed class AccountDetails {
     };
   }
 
-  /// String discriminator used in JSON / Brick storage.
+  /// String discriminator used in JSON and stored records.
   String get variantName;
 
   /// The same day next month (date only), clamped to that month's last day:

@@ -1,31 +1,40 @@
-import 'package:aiko/brick/models/category.model.dart';
-import 'package:aiko/brick/offline_model_mappers.dart';
-import 'package:aiko/brick/repository.dart';
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/core/offline/offline_store.dart';
-import 'package:aiko/core/offline/offline_user_context.dart';
+import 'package:aiko/core/offline/records/records.dart';
+import 'package:aiko/core/storage/local_record_store.dart';
+import 'package:aiko/features/categories/data/category_group_repository.dart';
 import 'package:aiko/features/categories/data/category_repository.dart';
 import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/categories/domain/category_defaults.dart';
-import 'package:brick_sqlite/brick_sqlite.dart' show SqliteModel;
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../../core/offline/record_store_harness.dart';
 
 void main() {
   const userId = '11111111-1111-4111-8111-111111111111';
+  late LocalRecordStore local;
+  late OfflineStore store;
+  late CategoryRepository repository;
+
+  setUp(() async {
+    local = await openMemoryRecordStore();
+    store = OfflineStore(local: local, signedInUserId: () => null);
+    repository = CategoryRepository(
+      store: store,
+      userContext: const FixedUserContext(userId),
+    );
+  });
+  tearDown(() => local.close());
+
+  Category coffeeClone() => CategoryDefaults.cloneForUser(
+    userId: userId,
+    template: CategoryDefaults.all.singleWhere(
+      (category) => category.id == CategoryDefaults.coffeeId,
+    ),
+  );
 
   test('custom category can share a name with a built-in clone', () async {
-    final store = _CategoryStore([
-      CategoryDefaults.cloneForUser(
-        userId: userId,
-        template: CategoryDefaults.all.singleWhere(
-          (category) => category.id == CategoryDefaults.coffeeId,
-        ),
-      ).toOffline(userId: userId),
-    ]);
-    final repository = CategoryRepository(
-      store: store,
-      userContext: const _FixedUserContext(userId),
-    );
+    await store.upsert(coffeeClone().toOffline(userId: userId));
 
     final saved = await repository.save(
       const Category(
@@ -38,26 +47,14 @@ void main() {
     );
 
     expect(saved.id, 'dddddddd-0000-4000-8000-000000000001');
-    expect(store.categories, hasLength(2));
+    expect(await repository.list(), hasLength(2));
   });
 
   test(
     'a budget save keeps a seeded clone\'s null createdAt; custom rows get one',
     () async {
-      final store = _CategoryStore();
-      final repository = CategoryRepository(
-        store: store,
-        userContext: const _FixedUserContext(userId),
-      );
-      final coffee = CategoryDefaults.cloneForUser(
-        userId: userId,
-        template: CategoryDefaults.all.singleWhere(
-          (category) => category.id == CategoryDefaults.coffeeId,
-        ),
-      );
-
       final budgeted = await repository.save(
-        coffee.copyWith(monthlyLimit: Money.parse('300', 'THB')),
+        coffeeClone().copyWith(monthlyLimit: Money.parse('300', 'THB')),
       );
       final custom = await repository.save(
         const Category(
@@ -74,56 +71,49 @@ void main() {
       expect(custom.createdAt, isNotNull);
     },
   );
-}
 
-class _FixedUserContext implements OfflineUserContext {
-  const _FixedUserContext(this.userId);
+  test('default categories cannot be deleted; custom ones can', () async {
+    final clone = coffeeClone();
+    await repository.save(clone);
+    await repository.save(
+      const Category(
+        id: 'dddddddd-0000-4000-8000-000000000003',
+        userId: userId,
+        name: 'Plants',
+        type: CategoryType.expense,
+        group: CategoryBudgetGroup.custom,
+      ),
+    );
 
-  final String userId;
+    await expectLater(repository.delete(clone.id), throwsStateError);
+    final batch = RecordBatch();
+    await repository.delete(
+      'dddddddd-0000-4000-8000-000000000003',
+      batch: batch,
+    );
+    expect(await repository.list(), hasLength(2));
+    await store.commit(batch);
+    expect((await repository.list()).single.id, clone.id);
+  });
 
-  @override
-  Future<String> resolveUserId() async => userId;
-}
+  test('a custom group is deleted; default ones are kept', () async {
+    final groups = CategoryGroupRepository(
+      store: store,
+      userContext: const FixedUserContext(userId),
+    );
+    await groups.save(
+      const CategoryGroup(id: 'treats', userId: userId, name: 'Treats'),
+    );
+    final defaultClone = CategoryGroupDefaults.cloneForUser(
+      userId: userId,
+      template: CategoryGroupDefaults.all.first,
+    );
+    await groups.save(defaultClone);
 
-class _CategoryStore implements OfflineStore {
-  _CategoryStore([List<OfflineCategory>? categories])
-    : categories = categories ?? [];
+    await expectLater(groups.delete(defaultClone.id), throwsStateError);
+    await groups.delete('treats');
 
-  final List<OfflineCategory> categories;
-
-  @override
-  bool get canSyncRemote => false;
-
-  @override
-  Future<List<TModel>> get<TModel extends SqliteModel>({
-    Query? query,
-    OfflineReadPolicy? policy,
-  }) async => categories.whereType<TModel>().toList();
-
-  @override
-  Future<TModel> upsert<TModel extends SqliteModel>(
-    TModel model, {
-    Query? query,
-  }) async {
-    final category = model as OfflineCategory;
-    categories.removeWhere((item) => item.id == category.id);
-    categories.add(category);
-    return model;
-  }
-
-  @override
-  Future<void> upsertBatch<TModel extends SqliteModel>(
-    List<TModel> models,
-  ) async {
-    for (final model in models) {
-      await upsert<TModel>(model);
-    }
-  }
-
-  @override
-  Future<bool> delete<TModel extends SqliteModel>(
-    TModel model, {
-    Query? query,
-    bool localOnly = false,
-  }) async => false;
+    expect((await groups.list()).single.id, defaultClone.id);
+    expect(await store.get<OfflineCategoryGroup>(), hasLength(1));
+  });
 }

@@ -87,6 +87,12 @@ The snapshot is designed to send aggregates and a short recent slice, not the fu
 - CI runs only on pushes, so forks never receive secrets.
 - Emulator builds refuse non-`demo-` projects, and deploy builds never include `FIREBASE_EMULATOR_HOST`.
 
+## Dependencies
+
+`npm audit` is clean in the root and in `firebase/functions`. The `overrides` in the root `package.json` force patched versions of packages that the Firebase tooling pulls in. Remove an override once its parent package ships the fix itself.
+
+- `firebase-tools` → `chokidar` ^4: firebase-tools still asks for chokidar 3, which needs `braces`, and no fixed `braces` release exists ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)). chokidar 4 doesn't use `braces`. The emulators use it to reload rules and functions when files change. chokidar 4 treats ignore entries as plain paths, not globs, so a glob pattern added to `functions.ignore` in `firebase.json` would no longer stop a reload. This repo sets none; dotfiles, logs and `node_modules` are still skipped.
+
 ## Android permissions
 
 `INTERNET`, `CAMERA` (receipts), `RECEIVE_SMS` and `READ_SMS` (opt-in auto-capture), notification-listener access (opt-in, granted in system settings), `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`/`USE_EXACT_ALARM` and `RECEIVE_BOOT_COMPLETED` (reminders). iOS asks for camera and photo-library access for receipts.

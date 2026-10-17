@@ -4,6 +4,7 @@ import '../core/firebase/firebase_backend.dart';
 import '../core/storage/local_record_store.dart';
 import '../features/onboarding/application/complete_onboarding.dart';
 import '../features/accounts/data/account_repository.dart';
+import '../features/auth/data/guest_mode.dart';
 import '../features/settings/data/profile_repository.dart';
 
 import 'package:flutter/widgets.dart';
@@ -32,6 +33,8 @@ class AppBootstrap {
     await OfflineUserContext().resolveUserId();
     // Uploads saved files in the background once signed in and online.
     startFileUploads();
+    // Before the first frame: guests open on Home, not Welcome.
+    if (FirebaseBackend.isConfigured) await GuestMode.restore();
     if (!FirebaseBackend.isConfigured) {
       await completeOnboarding(
         accountRepository: AccountRepository(),

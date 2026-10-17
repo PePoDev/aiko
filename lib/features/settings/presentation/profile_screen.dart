@@ -28,7 +28,10 @@ import '../application/profile_avatar_service.dart';
 import '../data/line_link_repository.dart';
 import '../domain/profile.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../auth/data/connection_errors.dart';
+import '../../auth/data/guest_mode.dart';
 import '../../auth/presentation/auth_error_message.dart';
+import '../../auth/presentation/guest_sign_in_tile.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -342,10 +345,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       await _authRepository.linkGoogle();
       // The OAuth flow opens a browser; googleLinkedProvider flips once the
       // deep-link callback fires authStateChanges. Nothing to await here.
-    } catch (_) {
+    } catch (error) {
+      debugPrint('[profile] Google link failed: $error');
       if (!mounted) return;
+      final l10n = context.l10n;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.profileGoogleConnectFailed)),
+        SnackBar(
+          content: Text(
+            authErrorMessage(
+              error,
+              l10n,
+              fallback: l10n.profileGoogleConnectFailed,
+              offline: l10n.guestLinkGoogleNeedsConnection,
+            ),
+          ),
+        ),
       );
     }
   }
@@ -366,11 +380,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       debugPrint('[profile] password reset failed: $error');
       messenger.showSnackBar(
         aikoSnackBar(
-          authErrorMessage(error, l10n, fallback: l10n.authResetFailed),
+          authErrorMessage(
+            error,
+            l10n,
+            fallback: l10n.authResetFailed,
+            offline: l10n.guestResetNeedsConnection,
+          ),
           tone: AikoSnackTone.error,
         ),
       );
     }
+  }
+
+  /// Asks before logging out with changes that haven't uploaded yet: they
+  /// wait on this device until this account signs in here again, which needs
+  /// a connection.
+  Future<bool> _confirmLogoutWithPendingChanges() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.l10n.guestLogoutPendingTitle),
+        content: Text(context.l10n.guestLogoutPendingMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(context.l10n.guestLogoutAnyway),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
   }
 
   Future<void> _handleLogout() async {
@@ -378,6 +421,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     // watches sign-outs), so hold on to the container, not this widget's ref.
     final container = ProviderScope.containerOf(context, listen: false);
     setState(() => _isSigningOut = true);
+    if (await _authRepository.hasPendingWrites()) {
+      if (!mounted) return;
+      if (!await _confirmLogoutWithPendingChanges()) {
+        if (mounted) setState(() => _isSigningOut = false);
+        return;
+      }
+    }
     try {
       await _authRepository.signOut();
       // Nothing of this user (data, Ask Aiko chat, LINE status) stays.
@@ -438,7 +488,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            needsRecentSignIn
+            error is NeedsConnectionException
+                ? context.l10n.guestDeleteNeedsConnection
+                : needsRecentSignIn
                 ? context.l10n.profileDeleteNeedsRecentSignIn
                 : context.l10n.profileDeleteAccountFailed,
           ),
@@ -465,9 +517,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(profileProvider);
     final loadedProfile = profileAsync.value;
-    // Local-only builds have no cloud account: no email, linking, password,
-    // log out or account deletion.
-    final cloud = FirebaseBackend.isConfigured;
+    // Local-only builds and guests (cloud builds used without an account)
+    // have no cloud account: no email, linking, password, log out or account
+    // deletion. Guests get a way to sign in instead.
+    final guest = GuestMode.isCurrent;
+    final cloud = FirebaseBackend.isConfigured && !guest;
     final passwordEmail = _authRepository.hasPasswordSignIn()
         ? _authRepository.cachedSession()?.email ?? ''
         : '';
@@ -672,6 +726,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                 ),
+                if (guest) ...[
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: FinanceCard(
+                      title: context.l10n.guestBackupTitle,
+                      icon: Icons.cloud_outlined,
+                      child: const GuestSignInTile(
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                ],
                 if (cloud) ...[
                   const SizedBox(height: 8),
                   Padding(

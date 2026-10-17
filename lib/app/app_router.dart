@@ -6,6 +6,7 @@ import '../features/accounts/presentation/accounts_screen.dart';
 import '../features/accounts/presentation/account_form/account_form_screen.dart';
 import '../features/accounts/domain/account.dart';
 import '../features/aiko_assistant/presentation/aiko_assistant_screen.dart';
+import '../features/auth/data/guest_mode.dart';
 import '../features/auth/presentation/auth_screens.dart';
 import '../features/categories/presentation/category_management_screen.dart';
 import '../features/calculators/presentation/calculator_library_screen.dart';
@@ -171,9 +172,12 @@ GoRouter createAikoRouter({String initialLocation = '/'}) {
         title: context.l10n.routeNotFoundTitle,
         message: context.l10n.routeNotFoundMessage(state.uri),
         action: FilledButton.icon(
-          // Signed out (cloud builds), home is the Welcome screen.
+          // Signed out (cloud builds), home is the Welcome screen, except for
+          // guests, who use the app without an account.
           onPressed: () => context.go(
-            FirebaseBackend.isConfigured && FirebaseBackend.userId == null
+            FirebaseBackend.isConfigured &&
+                    FirebaseBackend.userId == null &&
+                    !GuestMode.isActive
                 ? '/'
                 : '/home',
           ),

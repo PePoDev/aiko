@@ -12,6 +12,8 @@ import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/aiko_snack_bar.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../auth/data/guest_mode.dart';
+import '../../auth/presentation/guest_sign_in_tile.dart';
 import '../domain/profile.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -213,6 +215,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: Text(l10n.settingsLocalOnlyTitle),
               subtitle: Text(l10n.settingsLocalOnlyMessage),
             ),
+          // Guests: a cloud build used without an account.
+          if (GuestMode.isCurrent) const GuestSignInTile(),
           FinanceCard(
             title: l10n.settingsAppPreferences,
             icon: Icons.tune_outlined,

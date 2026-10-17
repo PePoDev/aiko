@@ -2,25 +2,30 @@ import '../../../core/notifications/transaction_reminder_service.dart';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-import '../../../core/config/app_config.dart';
 import '../../../core/firebase/firebase_backend.dart';
 import '../../../core/offline/offline_data_migrator.dart';
+import '../../../core/offline/offline_store.dart';
 import '../../../core/offline/offline_user_context.dart';
 import '../../../core/offline/records/records.dart';
 import '../../../core/storage/secure_storage_service.dart';
-import '../../categories/domain/category_defaults.dart';
+import 'connection_errors.dart';
 import 'defaults_seed_marker.dart';
+import 'defaults_seeder.dart';
+import 'guest_defaults.dart';
+import 'guest_mode.dart';
 
 class AuthSession {
   const AuthSession({
     required this.userId,
     required this.email,
     this.isNewUser = false,
+    this.claimedRecords = 0,
   });
   final String userId;
   final String email;
@@ -28,14 +33,29 @@ class AuthSession {
   /// The sign-in created the account (a sign-up, or a first Google sign-in),
   /// so the app seeds its first-run defaults.
   final bool isNewUser;
+
+  /// Records made on this device without an account that the sign-in moved
+  /// into it. A guest who signs up keeps their own accounts instead of
+  /// getting the default ones.
+  final int claimedRecords;
 }
 
 class AuthRepository {
-  AuthRepository({SecureStorageService? storage, FirebaseAuth? auth})
-    : _storage = storage ?? FlutterSecureStorageService(),
-      _auth = auth;
+  /// [cancelReminders] defaults to cancelling every scheduled transaction
+  /// reminder; tests replace it.
+  AuthRepository({
+    SecureStorageService? storage,
+    FirebaseAuth? auth,
+    Future<void> Function()? cancelReminders,
+  }) : _storage = storage ?? FlutterSecureStorageService(),
+       _auth = auth,
+       _cancelRemindersOverride = cancelReminders;
   final SecureStorageService _storage;
   final FirebaseAuth? _auth;
+  final Future<void> Function()? _cancelRemindersOverride;
+  Future<void> _cancelReminders() =>
+      (_cancelRemindersOverride ??
+      TransactionReminderService.instance.cancelAll)();
   FirebaseAuth get _requiredAuth =>
       _auth ??
       FirebaseBackend.auth ??
@@ -66,20 +86,62 @@ class AuthRepository {
   Future<AuthSession> _finish(UserCredential credential) async {
     final user = credential.user;
     if (user == null) throw StateError('Sign-in did not return a user.');
+    final isNewUser = credential.additionalUserInfo?.isNewUser ?? false;
     // The user is signed in at this point; failing to seed defaults must not
-    // report the sign-in as failed (restoreSession retries it).
+    // report the sign-in as failed (restoreSession retries it). Defaults go
+    // first so the guest records claimed next win over them.
     try {
-      await _ensureDefaultsOnce(user.uid, user.email ?? '');
+      await _ensureDefaultsOnce(
+        user.uid,
+        user.email ?? '',
+        isNewUser: isNewUser,
+      );
     } catch (error) {
       debugPrint('[auth] defaults seeding failed: $error');
     }
-    await OfflineDataMigrator().claimAnonymousData(user.uid);
+    if (!isNewUser && GuestMode.isActive) await _dropUnusedGuestDefaults();
+    final claimed = await OfflineDataMigrator().claimAnonymousData(user.uid);
     await _storage.write(_knownAccountKey, 'true');
+    await _leaveGuestMode();
     return AuthSession(
       userId: user.uid,
       email: user.email ?? '',
-      isNewUser: credential.additionalUserInfo?.isNewUser ?? false,
+      isNewUser: isNewUser,
+      claimedRecords: claimed,
     );
+  }
+
+  /// Uses the app without an account: on this device only, offline
+  /// included, until the guest signs in ([GuestMode]).
+  Future<void> continueAsGuest() => GuestMode.enter(_storage);
+
+  /// A guest signing in to an account they already have: the Cash and Bank
+  /// accounts guest mode started with, if never used, aren't brought into it
+  /// ([unusedGuestDefaultAccounts]).
+  Future<void> _dropUnusedGuestDefaults() async {
+    try {
+      final store = OfflineStore();
+      final unused = unusedGuestDefaultAccounts(
+        await store.get<OfflineAccount>(localOnly: true),
+        await store.get<OfflineTransaction>(localOnly: true),
+      );
+      final batch = RecordBatch();
+      for (final account in unused) {
+        batch.delete(account);
+      }
+      await store.commit(batch, localOnly: true);
+    } catch (error) {
+      debugPrint('[auth] unused guest accounts kept: $error');
+    }
+  }
+
+  Future<void> _leaveGuestMode() async {
+    if (!GuestMode.isActive) return;
+    try {
+      await GuestMode.leave(_storage);
+    } catch (error) {
+      debugPrint('[auth] leaving guest mode failed: $error');
+    }
   }
 
   Future<AuthSession> signUp({
@@ -163,22 +225,67 @@ class AuthRepository {
     // owner would hide everything the user recorded.
     if (auth == null) return;
     // Reminders name merchants and amounts; the next user mustn't get them.
-    await TransactionReminderService.instance.cancelAll();
+    await _cancelReminders();
     await auth.signOut();
     await OfflineUserContext.startAnonymousSession(_storage);
   }
 
   /// Cleans up when the session ended elsewhere: like [signOut], without
   /// signing out again or replacing an anonymous owner [signOut] just made.
+  /// A guest has no session to end (Firebase reports "no user" at every
+  /// launch), so their reminders and records stay.
   Future<void> handleSessionEnded() async {
-    await TransactionReminderService.instance.cancelAll();
+    if (GuestMode.isActive) return;
+    await _cancelReminders();
     await OfflineUserContext.leaveSignedInOwner(_storage);
   }
 
+  /// Whether changes made on this device are still waiting to upload after
+  /// giving them [timeout] to reach the server; offline they stay queued.
+  /// The SDK keeps them per user across sign-outs and uploads them the next
+  /// time that user signs in on this device.
+  Future<bool> hasPendingWrites({
+    Duration timeout = const Duration(seconds: 3),
+  }) => pendingWritesRemain(
+    FirebaseBackend.firestore.waitForPendingWrites,
+    timeout: timeout,
+  );
+
   Future<void> resetPassword(String email) =>
       _requiredAuth.sendPasswordResetEmail(email: email);
+
+  /// Deletes the account on the server, then signs out. Throws
+  /// [NeedsConnectionException] when the server can't be reached.
   Future<void> deleteAccount() async {
-    await FirebaseBackend.functions.httpsCallable('deleteAccount').call<void>();
+    final uid = (_auth ?? FirebaseBackend.auth)?.currentUser?.uid;
+    if (uid == null) throw StateError('Sign in first.');
+    try {
+      // One read from the server tells "offline" apart from other failures
+      // before anything is deleted.
+      await FirebaseBackend.firestore
+          .collection('users')
+          .doc(uid)
+          .collection('profiles')
+          .doc(uid)
+          .get(const GetOptions(source: Source.server))
+          .timeout(const Duration(seconds: 10));
+    } catch (error) {
+      if (isNetworkError(error)) throw const NeedsConnectionException();
+      rethrow;
+    }
+    // Changes still queued on this device would be uploaded after the server
+    // deleted everything, re-creating documents: upload them first.
+    if (await hasPendingWrites(timeout: const Duration(seconds: 15))) {
+      throw const NeedsConnectionException();
+    }
+    try {
+      await FirebaseBackend.functions
+          .httpsCallable('deleteAccount')
+          .call<void>();
+    } on FirebaseFunctionsException catch (error) {
+      if (isNetworkError(error)) throw const NeedsConnectionException();
+      rethrow;
+    }
     // A deleted account is no longer "known": the next launch shows Welcome.
     await _storage.delete(_knownAccountKey);
     await signOut();
@@ -193,6 +300,9 @@ class AuthRepository {
         // Existing Firebase cache remains available while disconnected.
       }
       await OfflineDataMigrator().claimAnonymousData(session.userId);
+      // Signed in, so not a guest any more (a sign-in can stop before it
+      // leaves guest mode, e.g. when the app is closed).
+      await _leaveGuestMode();
     }
     return session;
   }
@@ -202,64 +312,65 @@ class AuthRepository {
   }
 
   /// Runs [ensureProfileAndDefaultsExist] once per user on this device instead
-  /// of on every launch ([DefaultsSeedMarker]).
-  Future<void> _ensureDefaultsOnce(String uid, String email) async {
+  /// of on every launch ([DefaultsSeedMarker]). The marker is only set once
+  /// every default is known to exist, so a run that couldn't check (offline,
+  /// on a device that hasn't cached them yet) is retried at the next start.
+  Future<void> _ensureDefaultsOnce(
+    String uid,
+    String email, {
+    bool isNewUser = false,
+  }) async {
     final marker = DefaultsSeedMarker(_storage);
     if (await marker.isSeeded(uid)) return;
-    await ensureProfileAndDefaultsExist(uid, email);
-    await marker.markSeeded(uid);
+    final complete = await ensureProfileAndDefaultsExist(
+      uid,
+      email,
+      isNewUser: isNewUser,
+      guestProfile: isNewUser && GuestMode.isActive
+          ? await _latestGuestProfile()
+          : null,
+    );
+    if (complete) await marker.markSeeded(uid);
   }
 
-  /// A single transaction only inserts missing defaults. Signing in on another
-  /// device never resets a profile, budget, or existing category clone.
-  Future<void> ensureProfileAndDefaultsExist(String uid, String email) async {
-    final root = FirebaseBackend.firestore.collection('users').doc(uid);
-    final rows =
-        <DocumentReference<Map<String, dynamic>>, Map<String, dynamic>>{
-          root.collection('profiles').doc(uid): {
-            'id': uid,
-            'email': email,
-            'display_name': email.contains('@')
-                ? email.split('@').first
-                : email,
-            'base_currency': kDefaultBaseCurrency,
-            'country': kDefaultCountry,
-            'timezone': 'Asia/Bangkok',
-            'preferred_theme': 'system',
-            'aiko_character_visibility': 'full',
-            'aiko_personality_setting': 'supportive',
-            'security_status': 'notConfigured',
-            'gender': 'preferNotToSay',
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-            'version': 1,
-          },
-        };
-    for (final template in CategoryGroupDefaults.all) {
-      final group = CategoryGroupDefaults.cloneForUser(
-        userId: uid,
-        template: template,
-      ).toOffline(userId: uid);
-      rows[root.collection('category_groups').doc(group.id)] = RecordCodecs
-          .categoryGroups
-          .toRow(group);
-    }
-    for (final template in CategoryDefaults.all) {
-      final category = CategoryDefaults.cloneForUser(
-        userId: uid,
-        template: template,
-      ).toOffline(userId: uid);
-      rows[root.collection('categories').doc(category.id)] = RecordCodecs
-          .categories
-          .toRow(category);
-    }
-    await FirebaseBackend.firestore.runTransaction((transaction) async {
-      final refs = rows.keys.toList();
-      final snapshots = await Future.wait(refs.map(transaction.get));
-      for (var i = 0; i < refs.length; i++) {
-        if (!snapshots[i].exists) transaction.set(refs[i], rows[refs[i]]!);
+  /// The profile a guest set up on this device, if any: the most recently
+  /// saved one of the anonymous owners.
+  Future<OfflineProfile?> _latestGuestProfile() async {
+    try {
+      final profiles = await OfflineStore().get<OfflineProfile>(
+        localOnly: true,
+      );
+      OfflineProfile? latest;
+      for (final profile in profiles) {
+        if (!profile.id.startsWith(OfflineUserContext.localUserIdPrefix)) {
+          continue;
+        }
+        if (latest == null || profile.updatedAt.isAfter(latest.updatedAt)) {
+          latest = profile;
+        }
       }
-    });
+      return latest;
+    } catch (error) {
+      debugPrint('[auth] guest profile unreadable: $error');
+      return null;
+    }
   }
+
+  /// Creates the profile and default category clones that are missing, in
+  /// one batch that works offline ([DefaultsSeeder]). Existing documents are
+  /// never written: signing in on another device never resets a profile,
+  /// budget, or existing category clone. Returns whether every default is
+  /// now known to exist.
+  Future<bool> ensureProfileAndDefaultsExist(
+    String uid,
+    String email, {
+    bool isNewUser = false,
+    OfflineProfile? guestProfile,
+  }) => DefaultsSeeder().seed(
+    uid,
+    defaultSeedDocs(uid, email, guestProfile: guestProfile),
+    isNewUser: isNewUser,
+  );
 }
 
 final googleLinkedProvider = StreamProvider<bool>((ref) async* {

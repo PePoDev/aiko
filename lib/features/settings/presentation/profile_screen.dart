@@ -50,6 +50,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   /// A photo picked but not saved yet; it replaces the saved avatar on Save.
   PendingAvatar? _pendingAvatar;
+
+  /// "Remove photo" was chosen; the saved photo goes on Save.
+  bool _photoRemoved = false;
   bool _initialised = false;
   bool _saving = false;
   bool _isSigningOut = false;
@@ -91,8 +94,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
     if (_draft.gender != profile.gender) return true;
     if (_draft.dateOfBirth != profile.dateOfBirth) return true;
-    if (_draft.avatarPath != profile.avatarPath) return true;
-    if (_draft.avatarUrl != profile.avatarUrl) return true;
+    // Not the draft's photo fields: a queued upload sets the saved URL later.
+    if (_pendingAvatar != null) return true;
+    if (_photoRemoved && profile.hasAvatar) return true;
     if (_draft.baseCurrency != profile.baseCurrency) return true;
     return false;
   }
@@ -104,16 +108,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     try {
       final repo = ref.read(profileRepositoryProvider);
       final pending = _pendingAvatar;
+      // A queued upload may have stored the photo's URL since this screen
+      // loaded: the photo fields come from the stored profile unless the
+      // photo changed here.
+      Profile stored;
+      try {
+        stored = await repo.load();
+      } catch (_) {
+        stored = current;
+      }
+      var avatarPath = stored.avatarPath;
+      var avatarUrl = stored.avatarUrl;
+      ProfileAvatar? committed;
       if (pending != null) {
-        final saved = await _avatarService.commit(
+        committed = await _avatarService.commit(
           pending,
-          replacedPath: current.avatarPath,
+          replacedPath: stored.avatarPath,
         );
         _pendingAvatar = null;
-        _draft = _draft.copyWith(
-          avatarPath: () => saved.localPath,
-          avatarUrl: () => saved.cloudUrl,
-        );
+        // The previous URL stays (other devices keep the previous photo)
+        // until the new photo is uploaded.
+        avatarPath = committed.localPath;
+      } else if (_photoRemoved) {
+        avatarPath = null;
+        avatarUrl = null;
       }
       final next = current.copyWith(
         displayName: _displayNameController.text.trim(),
@@ -121,18 +139,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         phoneNumber: () => _nullIfBlank(_phoneController.text),
         gender: _draft.gender,
         dateOfBirth: () => _draft.dateOfBirth,
-        avatarPath: () => _draft.avatarPath,
-        avatarUrl: () => _draft.avatarUrl,
+        avatarPath: () => avatarPath,
+        avatarUrl: () => avatarUrl,
         baseCurrency: _draft.baseCurrency,
       );
       await repo.save(next);
-      if (pending == null && current.hasAvatar && !next.hasAvatar) {
-        // "Remove photo" takes effect now that it's saved.
+      if (committed != null) await _avatarService.queueUpload(committed);
+      if (pending == null && _photoRemoved && stored.hasAvatar) {
+        // "Remove photo" takes effect now that it's saved; the cloud copy is
+        // deleted when online.
         await _avatarService.remove(
-          localPath: current.avatarPath,
-          cloudUrl: current.avatarUrl,
+          localPath: stored.avatarPath,
+          cloudUrl: stored.avatarUrl,
         );
       }
+      _photoRemoved = false;
       ref.invalidate(profileProvider);
       if (!mounted) return;
       setState(() => _draft = next);
@@ -199,6 +220,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final pending = _pendingAvatar;
       setState(() {
         _pendingAvatar = null;
+        _photoRemoved = true;
         _draft = _draft.copyWith(avatarPath: () => null, avatarUrl: () => null);
       });
       if (pending != null) await _avatarService.discard(pending);
@@ -221,6 +243,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       }
       setState(() {
         _pendingAvatar = picked;
+        _photoRemoved = false;
         _draft = _draft.copyWith(
           avatarPath: () => picked.previewPath,
           avatarUrl: () => null,

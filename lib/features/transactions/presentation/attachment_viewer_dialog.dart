@@ -37,7 +37,8 @@ class AttachmentViewerDialog extends StatefulWidget {
 
 class _AttachmentViewerDialogState extends State<AttachmentViewerDialog> {
   // Read once when the viewer opens, not on every rebuild.
-  late final Future<Uint8List> _bytes = const TransactionAttachmentRepository()
+  // Reads the device copy first and downloads only when it is missing.
+  late final Future<Uint8List> _bytes = TransactionAttachmentRepository()
       .readBytes(widget.attachment);
 
   TransactionAttachment get attachment => widget.attachment;
@@ -99,7 +100,13 @@ class _AttachmentViewerDialogState extends State<AttachmentViewerDialog> {
       future: _bytes,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return _Fallback(message: context.l10n.attachmentLoadFailed);
+          return _Fallback(
+            message: switch (snapshot.error) {
+              AttachmentUnavailableException(offline: true) =>
+                context.l10n.filesOpenNeedsConnection,
+              _ => context.l10n.attachmentLoadFailed,
+            },
+          );
         }
         final bytes = snapshot.data;
         if (bytes == null) {
@@ -194,7 +201,14 @@ class _Fallback extends StatelessWidget {
         children: [
           const Icon(Icons.error_outline, color: Colors.white70, size: 48),
           const SizedBox(height: 12),
-          Text(message, style: const TextStyle(color: Colors.white)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
           if (error != null) ...[
             const SizedBox(height: 8),
             Padding(

@@ -11,6 +11,7 @@ import 'package:flutter/widgets.dart';
 import '../core/config/app_config.dart';
 import '../core/notifications/transaction_reminder_service.dart';
 import 'aiko_app.dart';
+import 'file_uploads.dart';
 
 class AppBootstrap {
   AppBootstrap(this.config);
@@ -29,6 +30,8 @@ class AppBootstrap {
     // Resolve once before concurrent providers start, so a fresh installation
     // cannot create multiple anonymous owners for its initial records.
     await OfflineUserContext().resolveUserId();
+    // Uploads saved files in the background once signed in and online.
+    startFileUploads();
     if (!FirebaseBackend.isConfigured) {
       await completeOnboarding(
         accountRepository: AccountRepository(),

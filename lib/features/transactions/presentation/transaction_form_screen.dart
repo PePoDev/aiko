@@ -108,6 +108,16 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   String? _selectedToAccountId; // For transfer type
   final List<TransactionAttachment> _attachments = [];
 
+  // Attachments already saved with the transaction being edited (they load
+  // after the form opens) and the ones the user removed, deleted on Save.
+  final Set<String> _savedAttachmentIds = {};
+  final List<TransactionAttachment> _removedAttachments = [];
+
+  // Cached copies this form made for new attachments; those never saved are
+  // dropped when the form closes.
+  final Set<String> _newAttachmentPaths = {};
+  final _attachmentRepository = TransactionAttachmentRepository();
+
   // Recurring transaction state. Defaults mirror a one-off transaction so the
   // form keeps its current behaviour until the user opts in.
   bool _isRecurring = false;
@@ -163,6 +173,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _noteController.dispose();
     _tagInputController.dispose();
     _tagFocusNode.dispose();
+    for (final path in _newAttachmentPaths) {
+      LocalFileCache.remove(path).ignore();
+    }
     super.dispose();
   }
 
@@ -180,7 +193,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _selectedToAccountId,
     _selectedCurrency,
     _tags.join('|'),
-    _attachments.length,
+    // Loading the saved attachments is not a change.
+    [
+      for (final attachment in _attachments)
+        if (!_savedAttachmentIds.contains(attachment.id)) attachment.id,
+    ].join(','),
+    _removedAttachments.length,
     _isRecurring,
     _reminderAt?.toIso8601String(),
     _selectedDate.toIso8601String(),
@@ -272,6 +290,39 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     }
     _reminderAt = primary.reminderAt;
     _reminderLead = _inferReminderLead(primary.date, _reminderAt);
+    _loadSavedAttachments(primary.id);
+  }
+
+  /// Shows the attachments already saved with the transaction being edited
+  /// (a transfer's are on its outflow leg).
+  Future<void> _loadSavedAttachments(String transactionId) async {
+    try {
+      final saved = await _attachmentRepository.listForTransaction(
+        transactionId,
+      );
+      if (!mounted || saved.isEmpty) return;
+      setState(() {
+        _savedAttachmentIds.addAll(saved.map((attachment) => attachment.id));
+        final shown = {for (final attachment in _attachments) attachment.id};
+        _attachments.insertAll(
+          0,
+          saved.where((attachment) => !shown.contains(attachment.id)),
+        );
+      });
+    } catch (error) {
+      debugPrint('[aiko-files] loading attachments failed: $error');
+    }
+  }
+
+  /// Keeps [bytes] in the device cache for a new attachment; the picker's
+  /// file (a blob: URL on the web) is temporary.
+  Future<String> _cacheNewAttachment(List<int> bytes) async {
+    final path = await LocalFileCache.write(
+      'attachments/${const Uuid().v4()}',
+      bytes,
+    );
+    _newAttachmentPaths.add(path);
+    return path;
   }
 
   /// The form's Expense/Income/Transfer choice for a stored type.
@@ -515,8 +566,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     }
 
     final Uint8List imageBytes;
+    final String cachedPath;
     try {
       imageBytes = await captured.readAsBytes();
+      // Survives a reload, unlike the picker's file (a blob: URL on the web).
+      cachedPath = await _cacheNewAttachment(imageBytes);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -543,7 +597,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       userId: '',
       transactionId: '',
       fileName: captured.name,
-      storagePath: captured.path,
+      storagePath: cachedPath,
       mimeType: mimeType,
       sizeBytes: imageBytes.length,
       createdAt: DateTime.now(),
@@ -973,16 +1027,18 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
-    final fileName = selectedFile.name;
-    final filePath = selectedFile.path;
-    final mimeType = _mimeTypeFromFileName(fileName);
-    final sizeBytes = (await selectedFile.readAsBytes()).length;
+    final Uint8List bytes;
+    try {
+      bytes = await selectedFile.readAsBytes();
+    } catch (_) {
+      if (mounted) _showFormError(context.l10n.filesUnreadable);
+      return;
+    }
 
     await _attachSelectedFile(
-      fileName: fileName,
-      storagePath: filePath,
-      mimeType: mimeType,
-      sizeBytes: sizeBytes,
+      fileName: selectedFile.name,
+      bytes: bytes,
+      mimeType: _mimeTypeFromFileName(selectedFile.name),
     );
   }
 
@@ -1010,21 +1066,41 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
-    final bytes = await picked.readAsBytes();
+    final Uint8List bytes;
+    try {
+      bytes = await picked.readAsBytes();
+    } catch (_) {
+      if (mounted) _showFormError(context.l10n.filesUnreadable);
+      return;
+    }
     await _attachSelectedFile(
       fileName: picked.name,
-      storagePath: picked.path,
+      bytes: bytes,
       mimeType: _mimeTypeFromFileName(picked.name),
-      sizeBytes: bytes.length,
     );
   }
 
+  /// Adds a picked file as a new attachment: checked against the upload
+  /// limits now (Save no longer waits for the upload) and copied into the
+  /// device cache.
   Future<void> _attachSelectedFile({
     required String fileName,
-    required String storagePath,
+    required Uint8List bytes,
     required String mimeType,
-    required int sizeBytes,
   }) async {
+    if (!mounted) return;
+    if (bytes.isEmpty) {
+      _showFormError(context.l10n.filesUnreadable);
+      return;
+    }
+    if (bytes.length > TransactionAttachment.maxUploadBytes) {
+      _showFormError(context.l10n.filesTooLarge);
+      return;
+    }
+    if (!TransactionAttachment.supportedMimeTypes.contains(mimeType)) {
+      _showFormError(context.l10n.filesUnsupportedType);
+      return;
+    }
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -1041,26 +1117,38 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       },
     );
 
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    String? storagePath;
+    try {
+      final (path, _) = await (
+        _cacheNewAttachment(bytes),
+        Future<void>.delayed(const Duration(milliseconds: 350)),
+      ).wait;
+      storagePath = path;
+    } catch (error) {
+      debugPrint('[aiko-files] caching attachment failed: $error');
+    }
 
-    if (!mounted) return;
+    if (!mounted) {
+      if (storagePath != null) LocalFileCache.remove(storagePath).ignore();
+      return;
+    }
     Navigator.of(context, rootNavigator: true).pop(); // Close spinner
+    if (storagePath == null) {
+      _showFormError(context.l10n.filesUnreadable);
+      return;
+    }
 
     final newAttachment = TransactionAttachment(
       id: const Uuid().v4(),
       userId: '',
       transactionId: '',
       fileName: fileName,
-      storagePath: await LocalFileCache.write(
-        'attachments/${const Uuid().v4()}',
-        await LocalFileCache.read(storagePath),
-      ),
+      storagePath: storagePath,
       mimeType: mimeType,
-      sizeBytes: sizeBytes,
+      sizeBytes: bytes.length,
       createdAt: DateTime.now(),
     );
 
-    if (!mounted) return;
     setState(() {
       _attachments.add(newAttachment);
     });
@@ -1080,16 +1168,18 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     );
   }
 
-  /// Removes an attachment from the local list before the transaction is saved.
-  ///
-  /// This only touches the in-memory [_attachments] list — it does not delete
-  /// the underlying file or any persisted row, since an unsaved attachment has
-  /// neither a cloud row nor a committed local file. Saved attachments are
-  /// managed elsewhere.
+  /// Removes an attachment from the form. A new one's cached copy goes at
+  /// once; a saved one is deleted when the transaction is saved.
   void _removeAttachment(TransactionAttachment attachment) {
     setState(() {
       _attachments.removeWhere((item) => item.id == attachment.id);
+      if (_savedAttachmentIds.contains(attachment.id)) {
+        _removedAttachments.add(attachment);
+      }
     });
+    if (_newAttachmentPaths.remove(attachment.storagePath)) {
+      LocalFileCache.remove(attachment.storagePath).ignore();
+    }
   }
 
   String _mimeTypeFromFileName(String fileName) {
@@ -1447,30 +1537,28 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     Navigator.of(context).pop(saved.firstWhere((leg) => leg.id == openedId));
   }
 
+  /// Saves the new attachments with transaction [txId] and deletes the
+  /// removed ones. Both happen on the device at once; uploads and cloud
+  /// deletes run in the background (FileSyncQueue), so Save never waits
+  /// for the network.
   Future<void> _saveAttachmentsFor(String txId) async {
-    if (_attachments.isEmpty) return;
-    try {
-      const attachmentRepo = TransactionAttachmentRepository();
-      for (final attachment in _attachments) {
-        await attachmentRepo.save(
-          TransactionAttachment(
-            id: attachment.id,
-            userId: attachment.userId,
-            transactionId: txId,
-            fileName: attachment.fileName,
-            storagePath: attachment.storagePath,
-            mimeType: attachment.mimeType,
-            sizeBytes: attachment.sizeBytes,
-            createdAt: attachment.createdAt,
-            isSensitive: attachment.isSensitive,
-            exportPolicy: attachment.exportPolicy,
-          ),
+    for (final attachment in _attachments) {
+      if (_savedAttachmentIds.contains(attachment.id)) continue;
+      try {
+        await _attachmentRepository.save(
+          attachment.copyWith(transactionId: txId),
         );
+        _newAttachmentPaths.remove(attachment.storagePath);
+      } catch (error) {
+        debugPrint('[aiko-files] saving attachment failed: $error');
       }
-    } catch (e) {
-      debugPrint(
-        'Offline/local session faked: attachment metadata bypass cloud ($e)',
-      );
+    }
+    for (final attachment in _removedAttachments) {
+      try {
+        await _attachmentRepository.delete(attachment);
+      } catch (error) {
+        debugPrint('[aiko-files] deleting attachment failed: $error');
+      }
     }
   }
 
@@ -2046,6 +2134,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               attachments: _attachments,
               onAddAttachment: _showAddAttachmentDialog,
               onRemoveAttachment: _removeAttachment,
+              showUploadState: _attachmentRepository.uploadsToCloud,
             ),
             const SizedBox(height: 12),
 

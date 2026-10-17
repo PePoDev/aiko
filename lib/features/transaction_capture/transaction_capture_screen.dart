@@ -54,7 +54,16 @@ class _TransactionCaptureScreenState
   }
 
   Future<void> _persist(TransactionCaptureSettings next) async {
+    final turningOn = next.enabled && !_settings.enabled;
     setState(() => _settings = next);
+    if (turningOn) {
+      // Anything the SMS receiver queued while capture was off is not booked.
+      try {
+        await const CapturedMessageInbox().clear();
+      } catch (_) {
+        // Best-effort; turning capture on must not fail over it.
+      }
+    }
     await next.save();
     final service = ref.read(transactionCaptureServiceProvider);
     if (next.enabled) {

@@ -54,6 +54,7 @@ class _ConnectLineScreenState extends ConsumerState<ConnectLineScreen> {
           LineLinkError.alreadyLinked => l10n.lineErrorAlreadyLinked,
           LineLinkError.tooManyAttempts => l10n.lineErrorTooManyAttempts,
           LineLinkError.signedOut => l10n.lineErrorSignedOut,
+          LineLinkError.offline => l10n.netLineOffline,
           LineLinkError.failed => l10n.lineErrorFailed,
         },
       );

@@ -1,4 +1,5 @@
 import 'package:aiko/app/providers.dart';
+import 'package:aiko/core/money/exchange_rates.dart';
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/accounts/data/account_repository.dart';
 import 'package:aiko/features/accounts/domain/account.dart';
@@ -9,7 +10,6 @@ import 'package:aiko/features/settings/data/profile_repository.dart';
 import 'package:aiko/features/settings/domain/profile.dart';
 import 'package:aiko/features/transactions/data/transaction_repository.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
-import 'package:decimal/decimal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -65,8 +65,8 @@ void main() {
               ),
             ]),
           ),
-          fxRatesProvider.overrideWith(
-            (ref, base) async => <String, Decimal>{},
+          fxRatesProvider.overrideWithBuild(
+            (ref, notifier) async => ExchangeRates.none(notifier.base),
           ),
         ],
       );

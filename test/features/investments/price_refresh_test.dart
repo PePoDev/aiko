@@ -3,6 +3,7 @@ import 'package:aiko/features/dashboard/application/dashboard_summary_builder.da
 import 'package:aiko/features/investments/application/portfolio_valuation.dart';
 import 'package:aiko/features/investments/application/price_refresh.dart';
 import 'package:aiko/features/investments/domain/investment_holding.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -85,6 +86,97 @@ void main() {
       expect(limiter.remaining(start), 0);
       expect(limiter.remaining(start.add(const Duration(seconds: 59))), 0);
       expect(limiter.remaining(start.add(const Duration(minutes: 1))), 30);
+    });
+
+    test('a forgotten call gives its place back', () {
+      final limiter = MarketQuoteLimiter(maxCalls: 2);
+      final start = DateTime(2026, 10, 10, 9);
+      limiter
+        ..record(start)
+        ..record(start.add(const Duration(seconds: 1)));
+      expect(limiter.remaining(start), 0);
+      limiter.forget(start.add(const Duration(seconds: 1)));
+      expect(limiter.remaining(start), 1);
+    });
+  });
+
+  group('fetchQuotes', () {
+    final keys = [
+      (symbol: 'VTI', currency: 'USD'),
+      (symbol: 'AAPL', currency: 'USD'),
+      (symbol: 'SPY', currency: 'USD'),
+    ];
+    final clock = DateTime(2026, 10, 10, 9);
+
+    test('offline stops at once and uses none of the budget', () async {
+      final limiter = MarketQuoteLimiter();
+      var calls = 0;
+      final fetched = await fetchQuotes(
+        keys,
+        fetch: (key) async {
+          calls++;
+          throw FirebaseFunctionsException(
+            code: 'unavailable',
+            message: 'UNAVAILABLE',
+          );
+        },
+        limiter: limiter,
+        clock: () => clock,
+      );
+      expect(fetched.offline, isTrue);
+      expect(fetched.quotes, isEmpty);
+      expect(calls, 1);
+      expect(limiter.remaining(clock), limiter.maxCalls);
+
+      final outcome = applyQuotes(
+        [_holding('1', 'VTI'), _holding('2', 'AAPL')],
+        fetched.quotes,
+        offline: fetched.offline,
+      );
+      expect(outcome.result.offline, isTrue);
+      expect(outcome.result.failed, 0);
+      expect(outcome.result.deferred, 2);
+    });
+
+    test('a quote that fails on the server counts and continues', () async {
+      final limiter = MarketQuoteLimiter();
+      final fetched = await fetchQuotes(
+        keys,
+        fetch: (key) async {
+          if (key.symbol == 'AAPL') {
+            throw FirebaseFunctionsException(
+              code: 'invalid-argument',
+              message: 'Invalid symbol or currency.',
+            );
+          }
+          return Money.parse('10', key.currency);
+        },
+        limiter: limiter,
+        clock: () => clock,
+      );
+      expect(fetched.offline, isFalse);
+      expect(fetched.quotes.length, 3);
+      expect(fetched.quotes[keys[1]], isNull);
+      expect(limiter.remaining(clock), limiter.maxCalls - 3);
+    });
+
+    test("the server's own limit stops the refresh", () async {
+      final fetched = await fetchQuotes(
+        keys,
+        fetch: (key) async {
+          if (key.symbol == 'AAPL') {
+            throw FirebaseFunctionsException(
+              code: 'resource-exhausted',
+              message: 'Please try again in a minute.',
+            );
+          }
+          return Money.parse('10', key.currency);
+        },
+        limiter: MarketQuoteLimiter(),
+        clock: () => clock,
+      );
+      expect(fetched.quotes.keys, [keys.first]);
+      expect(fetched.offline, isFalse);
     });
   });
 

@@ -1,5 +1,9 @@
 import 'package:aiko/features/settings/data/line_link_repository.dart';
+import 'package:aiko/core/storage/device_values.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   test('maps redeemLinePairing error codes to distinct reasons', () {
@@ -49,6 +53,66 @@ void main() {
 
     test('a well-formed code needs a signed-in user', () async {
       expect(await reasonFor(' k7m2qp '), LineLinkError.signedOut);
+    });
+  });
+
+  group('offline', () {
+    test('a failed pairing call without a connection says offline', () {
+      expect(
+        lineLinkErrorFor(
+          FirebaseFunctionsException(
+            code: 'unavailable',
+            message: 'UNAVAILABLE',
+          ),
+        ),
+        LineLinkError.offline,
+      );
+      expect(
+        lineLinkErrorFor(http.ClientException('Failed to fetch')),
+        LineLinkError.offline,
+      );
+      expect(
+        lineLinkErrorFor(
+          FirebaseFunctionsException(
+            code: 'not-found',
+            message: 'Code is invalid or expired.',
+          ),
+        ),
+        LineLinkError.expiredCode,
+      );
+      expect(lineLinkErrorFor(StateError('bug')), LineLinkError.failed);
+    });
+
+    test('the last known status is used when the read fails', () async {
+      final device = MemoryDeviceValues();
+      final repository = LineLinkRepository(device: device);
+
+      // Never seen on this device: unknown, never "Connect LINE".
+      expect(
+        await repository.statusFrom('u1', () async => throw StateError('x')),
+        LineLinkStatus.unknown,
+      );
+
+      expect(
+        await repository.statusFrom('u1', () async => true),
+        LineLinkStatus.linked,
+      );
+      expect(
+        await repository.statusFrom(
+          'u1',
+          () async => throw FirebaseException(
+            plugin: 'cloud_firestore',
+            code: 'unavailable',
+          ),
+        ),
+        LineLinkStatus.linked,
+      );
+
+      // Per user.
+      expect(
+        await repository.statusFrom('u2', () async => throw StateError('x')),
+        LineLinkStatus.unknown,
+      );
     });
   });
 }

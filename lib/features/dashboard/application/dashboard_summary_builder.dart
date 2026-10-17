@@ -1,5 +1,6 @@
 import 'package:decimal/decimal.dart';
 
+import '../../../core/money/exchange_rates.dart';
 import '../../../core/money/money.dart';
 import '../../accounts/domain/account.dart';
 import '../../transactions/domain/transaction.dart';
@@ -12,14 +13,28 @@ class CurrencyConverter {
   CurrencyConverter(
     String baseCurrency, [
     Map<String, Decimal> ratesFromBase = const {},
-  ]) : baseCurrency = baseCurrency.toUpperCase(),
-       _rates = {
-         for (final entry in ratesFromBase.entries)
-           entry.key.toUpperCase(): entry.value,
-       };
+  ]) : this._(baseCurrency, ratesFromBase, null);
+
+  /// Converts with [rates]; [ratesAsOf] is set when they are the copy saved
+  /// on the device, so totals can say how old they are.
+  CurrencyConverter.from(ExchangeRates rates)
+    : this._(rates.base, rates.rates, rates.savedAsOf);
+
+  CurrencyConverter._(
+    String baseCurrency,
+    Map<String, Decimal> ratesFromBase,
+    this.ratesAsOf,
+  ) : baseCurrency = baseCurrency.toUpperCase(),
+      _rates = {
+        for (final entry in ratesFromBase.entries)
+          entry.key.toUpperCase(): entry.value,
+      };
 
   final String baseCurrency;
   final Map<String, Decimal> _rates;
+
+  /// When the rates are the saved copy, the time they were fetched.
+  final DateTime? ratesAsOf;
 
   /// [money] in the base currency, or null when there is no rate for it.
   Decimal? toBase(Money money) {
@@ -45,11 +60,15 @@ DashboardSummary buildDashboardSummary({
   // Exclusive: the whole last day of the month counts.
   final nextMonthStart = DateTime(now.year, now.month + 1);
   final excluded = <String>{};
+  var converted = false;
   Decimal inBase(Money money) {
     final amount = converter.toBase(money);
     if (amount == null) {
       excluded.add(money.currency.toUpperCase());
       return Decimal.zero;
+    }
+    if (money.currency.toUpperCase() != converter.baseCurrency) {
+      converted = true;
     }
     return amount;
   }
@@ -106,6 +125,7 @@ DashboardSummary buildDashboardSummary({
     safeToSpend: money(safeToSpend),
     todaySpending: money(todaySpending),
     excludedCurrencies: excluded,
+    ratesAsOf: converted ? converter.ratesAsOf : null,
   );
 }
 

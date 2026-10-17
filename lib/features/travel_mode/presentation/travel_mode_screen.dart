@@ -5,6 +5,7 @@ import '../../../core/money/money.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
+import '../../../shared/widgets/fx_rates_note.dart' show ratesAsOfLabel;
 import '../../../theme/aiko_colors.dart';
 import '../../../theme/aiko_status_colors.dart';
 import '../application/trip_spending.dart';
@@ -617,6 +618,12 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
   final _nameController = TextEditingController();
   final _budgetController = TextEditingController();
 
+  /// Asked for only when no rate is known for the pair (offline, nothing
+  /// saved, not in the reference table).
+  final _rateController = TextEditingController();
+  bool _needsRate = false;
+  bool _saving = false;
+
   String _selectedHomeCurrency = 'THB';
   String _selectedLocalCurrency = 'JPY';
 
@@ -635,11 +642,19 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
   void dispose() {
     _nameController.dispose();
     _budgetController.dispose();
+    _rateController.dispose();
     super.dispose();
   }
 
-  void _submit() {
-    if (!_formKey.currentState!.validate()) return;
+  /// A new currency pair may have a known rate again.
+  void _pairChanged() {
+    if (!_needsRate) return;
+    _needsRate = false;
+    _rateController.clear();
+  }
+
+  Future<void> _submit() async {
+    if (_saving || !_formKey.currentState!.validate()) return;
 
     final trip = Trip(
       name: _nameController.text.trim(),
@@ -647,19 +662,74 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
       localCurrency: _selectedLocalCurrency,
       budget: Money.parse(_budgetController.text.trim(), _selectedHomeCurrency),
     );
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    setState(() => _saving = true);
+    final TripStart start;
+    try {
+      start = await ref
+          .read(travelModeProvider.notifier)
+          .createTrip(
+            trip,
+            rate: _needsRate ? double.parse(_rateController.text.trim()) : null,
+          );
+    } catch (_) {
+      if (mounted) setState(() => _saving = false);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l10n.netTravelStartFailed),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    if (!start.started) {
+      // No rate anywhere for this pair: ask for one instead of assuming 1.
+      setState(() {
+        _saving = false;
+        _needsRate = true;
+      });
+      return;
+    }
 
-    ref.read(travelModeProvider.notifier).createTrip(trip);
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
+    // Saved: only now say the trip started, and how its rate was found.
+    final rate = formatRate(
+      ref.read(travelModeProvider).exchangeRate,
+      locale: l10n.localeName,
+    );
+    final savedAt = start.savedAt;
+    final rateNote = switch (start.source) {
+      TripRateSource.saved when savedAt != null => l10n.netTravelSavedRate(
+        trip.homeCurrency,
+        rate,
+        trip.localCurrency,
+        ratesAsOfLabel(savedAt),
+      ),
+      TripRateSource.reference => l10n.netTravelReferenceRate(
+        trip.homeCurrency,
+        rate,
+        trip.localCurrency,
+      ),
+      _ => null,
+    };
+    navigator.pop();
+    messenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
             const Icon(Icons.flight_takeoff, color: Colors.white),
             const SizedBox(width: 8),
-            Expanded(child: Text(context.l10n.travelTripStarted(trip.name))),
+            Expanded(
+              child: Text(
+                [l10n.travelTripStarted(trip.name), ?rateNote].join(' '),
+              ),
+            ),
           ],
         ),
         behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: rateNote == null ? 4 : 8),
       ),
     );
   }
@@ -737,6 +807,7 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
                   if (val != null) {
                     setState(() {
                       _selectedHomeCurrency = val;
+                      _pairChanged();
                     });
                   }
                 },
@@ -764,6 +835,7 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
                   if (val != null) {
                     setState(() {
                       _selectedLocalCurrency = val;
+                      _pairChanged();
                     });
                   }
                 },
@@ -789,12 +861,55 @@ class _AddTripBottomSheetState extends ConsumerState<_AddTripBottomSheet> {
                   return null;
                 },
               ),
+              if (_needsRate) ...[
+                const SizedBox(height: 16),
+                Text(
+                  context.l10n.netTravelRateNeeded(
+                    _selectedHomeCurrency,
+                    _selectedLocalCurrency,
+                  ),
+                  style: TextStyle(
+                    color: AikoStatusColors.of(
+                      context,
+                    ).textFor(AikoColors.warningOrange),
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('travel-start-rate-field'),
+                  controller: _rateController,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.travelSpotRate,
+                    prefixText: '1 $_selectedHomeCurrency = ',
+                    suffixText: _selectedLocalCurrency,
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.currency_exchange),
+                  ),
+                  validator: (val) {
+                    final rate = double.tryParse(val?.trim() ?? '');
+                    if (rate == null || !(rate > 0) || !rate.isFinite) {
+                      return context.l10n.netTravelRateError;
+                    }
+                    return null;
+                  },
+                ),
+              ],
               const SizedBox(height: 24),
               SizedBox(
                 height: 50,
                 child: FilledButton.icon(
-                  onPressed: _submit,
-                  icon: const Icon(Icons.check),
+                  onPressed: _saving ? null : _submit,
+                  icon: _saving
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check),
                   label: Text(
                     context.l10n.travelActivate,
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),

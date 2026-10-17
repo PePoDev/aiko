@@ -1,4 +1,5 @@
 import 'package:aiko/app/providers.dart';
+import 'package:aiko/core/money/exchange_rates.dart';
 import 'package:aiko/core/money/money.dart';
 import 'package:aiko/features/investments/application/investments_provider.dart';
 import 'package:aiko/features/investments/domain/investment_holding.dart';
@@ -10,8 +11,10 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   ProviderContainer containerFor(
     List<InvestmentHolding> holdings,
-    Map<String, Decimal> rates,
-  ) {
+    Map<String, Decimal> rates, {
+    bool live = true,
+    DateTime? fetchedAt,
+  }) {
     final container = ProviderContainer(
       overrides: [
         profileProvider.overrideWith(
@@ -25,7 +28,14 @@ void main() {
           ),
         ),
         investmentsProvider.overrideWith(() => _Holdings(holdings)),
-        fxRatesProvider.overrideWith((ref, base) async => rates),
+        fxRatesProvider.overrideWithBuild(
+          (ref, notifier) async => ExchangeRates(
+            base: notifier.base,
+            rates: rates,
+            fetchedAt: fetchedAt ?? DateTime(2026, 10, 17),
+            isLive: live,
+          ),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -60,9 +70,12 @@ void main() {
     expect(allocation.slices.first.assetClass, 'bonds');
     expect(allocation.slices.first.percent, closeTo(76.92, 0.01));
     expect(allocation.slices.last.percent, closeTo(23.08, 0.01));
+    expect(allocation.leftOut, isEmpty);
+    // Live rates: no "Rates as of" note.
+    expect(allocation.ratesAsOf, isNull);
   });
 
-  test('holdings with no rate are left out', () async {
+  test('holdings with no rate are left out and named', () async {
     final container = containerFor([
       holding('set', 'stocks', Money.parse('1000', 'THB')),
       holding('bnd', 'bonds', Money.parse('100', 'USD')),
@@ -73,6 +86,37 @@ void main() {
     expect(allocation.holdingCount, 1);
     expect(allocation.slices.single.assetClass, 'stocks');
     expect(allocation.slices.single.percent, 100);
+    expect(allocation.leftOut.map((h) => h.symbol), ['BND']);
+  });
+
+  test('all holdings left out is not "no holdings yet"', () async {
+    final container = containerFor([
+      holding('bnd', 'bonds', Money.parse('100', 'USD')),
+    ], const {});
+
+    final allocation = await container.read(portfolioAllocationProvider.future);
+
+    expect(allocation.holdingCount, 0);
+    expect(allocation.hasHoldings, isTrue);
+    expect(allocation.leftOut, hasLength(1));
+  });
+
+  test('saved rates say how old they are', () async {
+    final fetchedAt = DateTime(2026, 10, 15, 9, 30);
+    final container = containerFor(
+      [
+        holding('set', 'stocks', Money.parse('1000', 'THB')),
+        holding('bnd', 'bonds', Money.parse('100', 'USD')),
+      ],
+      {'USD': Decimal.parse('0.03')},
+      live: false,
+      fetchedAt: fetchedAt,
+    );
+
+    final allocation = await container.read(portfolioAllocationProvider.future);
+
+    expect(allocation.holdingCount, 2);
+    expect(allocation.ratesAsOf, fetchedAt);
   });
 }
 

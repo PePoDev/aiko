@@ -1,4 +1,5 @@
 import '../../../core/firebase/firebase_backend.dart';
+import '../../../core/network/network_errors.dart';
 import '../../../l10n/l10n.dart';
 import 'dart:async';
 
@@ -151,12 +152,13 @@ class AikoChatController extends Notifier<ChatState> {
   }
 
   /// The stream ended without a done or error event (a dropped connection):
-  /// keep whatever arrived, or report a retryable failure, and stop typing.
+  /// whatever arrived stays, marked as cut off (not a complete answer), with
+  /// a retry; with nothing at all, a retryable failure. Typing stops.
   void _handleStreamClosed() {
     if (!ref.mounted || !state.isStreaming) return;
     final last = state.messages.isEmpty ? null : state.messages.last;
     if (last != null && !last.isUser && last.content.isNotEmpty) {
-      _finalizeLastMessage();
+      _handleEvent(const ChatReplyError(ChatFailure.cutOff));
     } else {
       _handleEvent(const ChatReplyError(ChatFailure.unavailable));
     }
@@ -171,6 +173,8 @@ class AikoChatController extends Notifier<ChatState> {
       case ChatReplyError(error: final e, retryable: final retryable):
         final failure = _failureOf(e);
         state = state.copyWith(
+          // Part of an answer that broke off stays, marked incomplete.
+          messages: _markLastIncomplete(state.messages),
           isStreaming: false,
           lastError: ChatError(
             _humanize(e),
@@ -178,6 +182,18 @@ class AikoChatController extends Notifier<ChatState> {
           ),
         );
     }
+  }
+
+  static List<ChatMessage> _markLastIncomplete(List<ChatMessage> messages) {
+    if (messages.isEmpty) return messages;
+    final last = messages.last;
+    if (last.isUser || last.content.isEmpty || last.incomplete) {
+      return messages;
+    }
+    return [
+      ...messages.sublist(0, messages.length - 1),
+      ChatMessage(role: last.role, content: last.content, incomplete: true),
+    ];
   }
 
   void _appendToLast(String delta) {
@@ -224,12 +240,12 @@ class AikoChatController extends Notifier<ChatState> {
         ChatFailure.unavailable => l10n.chatErrorUnavailable,
         ChatFailure.badResponse => l10n.chatErrorBadResponse,
         ChatFailure.offline => l10n.chatErrorOffline,
+        ChatFailure.network => l10n.chatErrorNetwork,
+        ChatFailure.timedOut => l10n.netChatTimedOut,
+        ChatFailure.cutOff => l10n.netChatCutOff,
       };
     }
-    final text = error.toString();
-    if (text.contains('SocketException') || text.contains('Failed host')) {
-      return l10n.chatErrorNetwork;
-    }
+    if (isNetworkError(error)) return l10n.chatErrorNetwork;
     return l10n.chatErrorGeneric;
   }
 }

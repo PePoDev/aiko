@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:aiko/features/aiko_assistant/application/chat_engine.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -117,6 +118,118 @@ void main() {
 
       final error = events.whereType<ChatReplyError>().single;
       expect(error.error, ChatFailure.badResponse);
+    });
+  });
+
+  group('HttpChatEngine offline and cut-off handling', () {
+    const url = 'https://example.test/functions/v1/aiko-chat';
+    const history = [ChatMessage(role: 'user', content: 'x')];
+
+    Future<List<ChatReplyEvent>> eventsFrom(
+      http.Client client, {
+      Duration responseTimeout = const Duration(seconds: 60),
+      Duration idleTimeout = const Duration(seconds: 45),
+    }) => HttpChatEngine(
+      functionUrl: url,
+      client: client,
+      responseTimeout: responseTimeout,
+      idleTimeout: idleTimeout,
+    ).streamReply(history: history).toList();
+
+    http.StreamedResponse sse(Stream<String> lines) => http.StreamedResponse(
+      lines.map(utf8.encode),
+      200,
+      headers: {'content-type': 'text/event-stream'},
+    );
+
+    test('a stream that ends without its done marker is cut off', () async {
+      final events = await eventsFrom(
+        MockClient.streaming(
+          (request, body) async =>
+              sse(Stream.fromIterable(['data: {"delta":"Half an "}\n\n'])),
+        ),
+      );
+      expect(events.whereType<ChatReplyDone>(), isEmpty);
+      expect(events.whereType<ChatReplyDelta>().single.delta, 'Half an ');
+      expect(events.last, isA<ChatReplyError>());
+      expect((events.last as ChatReplyError).error, ChatFailure.cutOff);
+    });
+
+    test('an empty answer is unavailable, not cut off', () async {
+      final events = await eventsFrom(
+        MockClient.streaming(
+          (request, body) async => sse(const Stream.empty()),
+        ),
+      );
+      expect(
+        events.whereType<ChatReplyError>().single.error,
+        ChatFailure.unavailable,
+      );
+    });
+
+    test('no connection is a retryable network failure', () async {
+      final events = await eventsFrom(
+        MockClient((_) async => throw http.ClientException('Failed to fetch')),
+      );
+      final error = events.whereType<ChatReplyError>().single;
+      expect(error.error, ChatFailure.network);
+      expect(ChatFailure.network.isRetryable, isTrue);
+    });
+
+    test('no answer in time ends the request', () async {
+      final never = Completer<http.StreamedResponse>();
+      final events = await eventsFrom(
+        MockClient.streaming((request, body) => never.future),
+        responseTimeout: const Duration(milliseconds: 20),
+      );
+      expect(
+        events.whereType<ChatReplyError>().single.error,
+        ChatFailure.timedOut,
+      );
+    });
+
+    test('a stall mid-answer marks the answer cut off', () async {
+      final lines = StreamController<String>();
+      lines.add('data: {"delta":"Partial"}\n\n');
+      addTearDown(lines.close);
+      final events = await eventsFrom(
+        MockClient.streaming((request, body) async => sse(lines.stream)),
+        idleTimeout: const Duration(milliseconds: 20),
+      );
+      expect(events.whereType<ChatReplyDelta>().single.delta, 'Partial');
+      expect(
+        events.whereType<ChatReplyError>().single.error,
+        ChatFailure.cutOff,
+      );
+    });
+  });
+
+  group('chatFailureFor', () {
+    test('classifies offline errors from every platform', () {
+      expect(
+        chatFailureFor(http.ClientException('SocketException: Failed host')),
+        ChatFailure.network,
+      );
+      expect(
+        chatFailureFor(FirebaseAuthException(code: 'network-request-failed')),
+        ChatFailure.network,
+      );
+      expect(chatFailureFor(TimeoutException('slow')), ChatFailure.timedOut);
+    });
+
+    test('anything after part of an answer is a cut-off', () {
+      expect(
+        chatFailureFor(
+          http.ClientException('Connection reset'),
+          partial: StringBuffer('Half'),
+        ),
+        ChatFailure.cutOff,
+      );
+    });
+
+    test('other errors pass through', () {
+      final error = StateError('bug');
+      expect(chatFailureFor(error), same(error));
     });
   });
 }

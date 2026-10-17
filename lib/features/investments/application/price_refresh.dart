@@ -1,6 +1,9 @@
 import 'dart:math';
 
+import 'package:firebase_core/firebase_core.dart';
+
 import '../../../core/money/money.dart';
+import '../../../core/network/network_errors.dart';
 import '../domain/investment_holding.dart';
 
 /// One market quote: a symbol priced in a currency.
@@ -24,6 +27,7 @@ class PriceRefreshResult {
     this.failed = 0,
     this.deferred = 0,
     this.needsCloud = false,
+    this.offline = false,
   });
 
   /// Live prices need the cloud backend, so nothing was tried.
@@ -40,15 +44,55 @@ class PriceRefreshResult {
   final int deferred;
 
   final bool needsCloud;
+
+  /// The refresh stopped because the server couldn't be reached; holdings
+  /// not refreshed keep their last saved price (counted in [deferred]).
+  final bool offline;
+}
+
+/// Requests the quotes for [keys] one at a time with [fetch], within
+/// [limiter]'s budget. A key mapped to null failed; keys left out were not
+/// requested. Stops at the server's own limit (`resource-exhausted`), and at
+/// the first network failure: that call never reached the server, so it
+/// gives its place in the budget back, and the rest would fail the same way.
+Future<({Map<QuoteKey, Money?> quotes, bool offline})> fetchQuotes(
+  List<QuoteKey> keys, {
+  required Future<Money> Function(QuoteKey key) fetch,
+  required MarketQuoteLimiter limiter,
+  DateTime Function() clock = DateTime.now,
+}) async {
+  final quotes = <QuoteKey, Money?>{};
+  for (final key in keys) {
+    final now = clock();
+    if (limiter.remaining(now) == 0) break;
+    limiter.record(now);
+    try {
+      quotes[key] = await fetch(key);
+    } catch (error) {
+      // Over the server's limit anyway (e.g. another device): this and the
+      // remaining quotes wait for a later refresh.
+      if (error is FirebaseException && error.code == 'resource-exhausted') {
+        break;
+      }
+      if (isNetworkError(error)) {
+        limiter.forget(now);
+        return (quotes: quotes, offline: true);
+      }
+      quotes[key] = null;
+    }
+  }
+  return (quotes: quotes, offline: false);
 }
 
 /// Applies fetched [quotes] to [holdings]. A key mapped to null failed; a key
 /// missing from [quotes] was not requested (deferred). Returns the holdings
 /// whose price changed (the only ones worth saving) and the counts.
+/// [offline] is passed on to the result.
 ({List<InvestmentHolding> changed, PriceRefreshResult result}) applyQuotes(
   List<InvestmentHolding> holdings,
-  Map<QuoteKey, Money?> quotes,
-) {
+  Map<QuoteKey, Money?> quotes, {
+  bool offline = false,
+}) {
   final changed = <InvestmentHolding>[];
   var updated = 0;
   var failed = 0;
@@ -75,6 +119,7 @@ class PriceRefreshResult {
       updated: updated,
       failed: failed,
       deferred: deferred,
+      offline: offline,
     ),
   );
 }
@@ -100,4 +145,7 @@ class MarketQuoteLimiter {
   }
 
   void record(DateTime now) => _calls.add(now);
+
+  /// Gives back the call recorded at [call] (it never reached the server).
+  void forget(DateTime call) => _calls.remove(call);
 }

@@ -1,8 +1,8 @@
-import 'package:decimal/decimal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 
 import '../../../app/providers.dart';
+import '../../../core/money/exchange_rates.dart';
 import '../../../core/money/money.dart';
 import '../../accounts/domain/account.dart';
 import '../../categories/application/category_budget_progress_service.dart';
@@ -247,16 +247,17 @@ Future<AikoFinancialContext?> _readFinancialContext(Ref ref) async {
     read(categoriesProvider.future),
     read(transactionsProvider.future),
   ).wait;
-  // Use rates the Overview already fetched; never wait on the network here.
+  // Use rates the Overview already fetched (or the saved copy); never wait
+  // on the network here.
   final rates =
       ref.read(fxRatesProvider(profile.baseCurrency)).value ??
-      const <String, Decimal>{};
+      ExchangeRates.none(profile.baseCurrency);
   return AikoFinancialContext.from(
     baseCurrency: profile.baseCurrency,
     accounts: accounts,
     categories: categories,
     transactions: transactions,
     now: DateTime.now(),
-    converter: CurrencyConverter(profile.baseCurrency, rates),
+    converter: CurrencyConverter.from(rates),
   );
 }

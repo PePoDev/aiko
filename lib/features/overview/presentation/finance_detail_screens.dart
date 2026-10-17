@@ -9,6 +9,7 @@ import '../../../l10n/domain_labels.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/aiko_data_widgets.dart';
+import '../../../shared/widgets/fx_rates_note.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
@@ -701,6 +702,12 @@ class AssetAllocationScreen extends ConsumerWidget {
                 message: context.l10n.allocationEmptyMessage,
               );
             }
+            // Holdings with no exchange rate (offline) are named, not
+            // silently dropped from the total, chart and count.
+            final leftOut = [
+              for (final holding in allocation.leftOut)
+                '${holding.symbol} (${holding.currency})',
+            ];
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -710,6 +717,17 @@ class AssetAllocationScreen extends ConsumerWidget {
                   icon: Icons.pie_chart_outline,
                   accentColor: AikoColors.analyticsTeal,
                 ),
+                if (FxRatesNote.applies(
+                  leftOutHoldings: leftOut,
+                  ratesAsOf: allocation.ratesAsOf,
+                ))
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+                    child: FxRatesNote(
+                      leftOutHoldings: leftOut,
+                      ratesAsOf: allocation.ratesAsOf,
+                    ),
+                  ),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),

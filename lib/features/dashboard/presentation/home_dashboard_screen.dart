@@ -16,6 +16,7 @@ import '../../../shared/layout/aiko_adaptive_columns.dart';
 import '../../../shared/layout/aiko_breakpoints.dart';
 import '../../../shared/widgets/aiko_data_widgets.dart';
 import '../../../shared/widgets/finance_card.dart';
+import '../../../shared/widgets/fx_rates_note.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../../theme/aiko_status_colors.dart';
@@ -38,7 +39,13 @@ class HomeDashboardScreen extends ConsumerStatefulWidget {
 
 class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   Future<void> _refresh() async {
+    // Exchange rates too, when the totals use them (a failed or offline fetch
+    // is tried again; new rates recompute the summary).
+    final baseCurrency =
+        ref.read(profileProvider).value?.baseCurrency ?? kDefaultBaseCurrency;
+    final rates = fxRatesProvider(baseCurrency);
     await Future.wait([
+      if (ref.exists(rates)) ref.read(rates.notifier).refresh(),
       ref.refresh(dashboardSummaryProvider.future),
       ref.refresh(transactionsProvider.future),
       ref.refresh(accountsProvider.future),
@@ -225,16 +232,15 @@ class _DailySpendingPanel extends ConsumerWidget {
                   ),
                 ],
               ),
-              if (summary?.excludedCurrencies case final excluded?
-                  when excluded.isNotEmpty) ...[
+              if (summary != null &&
+                  FxRatesNote.applies(
+                    excludedCurrencies: summary.excludedCurrencies,
+                    ratesAsOf: summary.ratesAsOf,
+                  )) ...[
                 const SizedBox(height: 8),
-                Text(
-                  context.l10n.dashExcludedCurrencies(
-                    (excluded.toList()..sort()).join(', '),
-                  ),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                FxRatesNote(
+                  excludedCurrencies: summary.excludedCurrencies,
+                  ratesAsOf: summary.ratesAsOf,
                 ),
               ],
             ],

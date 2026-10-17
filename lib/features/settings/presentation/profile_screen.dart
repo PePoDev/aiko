@@ -660,38 +660,62 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         children: [
                           Builder(
                             builder: (context) {
-                              final linked =
-                                  ref.watch(lineLinkedProvider).value ?? false;
+                              // Loading or unknown (offline, never seen on
+                              // this device) offers neither state.
+                              final status = ref
+                                  .watch(lineLinkedProvider)
+                                  .value;
+                              final linked = status == LineLinkStatus.linked;
+                              final known =
+                                  status != null &&
+                                  status != LineLinkStatus.unknown;
                               return ListTile(
                                 contentPadding: EdgeInsets.zero,
                                 leading: const Icon(
                                   Icons.chat_bubble_outline,
                                   color: AikoColors.primaryBlue,
                                 ),
-                                title: Text(
-                                  linked
-                                      ? context.l10n.profileLineConnected
-                                      : context.l10n.profileConnectLine,
-                                ),
-                                subtitle: Text(
-                                  linked
-                                      ? context
-                                            .l10n
-                                            .profileLineConnectedSubtitle
-                                      : context.l10n.profileConnectLineSubtitle,
-                                ),
+                                title: !known
+                                    ? const Text(
+                                        'LINE', // l10n-ignore: brand name
+                                      )
+                                    : Text(
+                                        linked
+                                            ? context.l10n.profileLineConnected
+                                            : context.l10n.profileConnectLine,
+                                      ),
+                                subtitle: status == null
+                                    ? null
+                                    : Text(switch (status) {
+                                        LineLinkStatus.linked =>
+                                          context
+                                              .l10n
+                                              .profileLineConnectedSubtitle,
+                                        LineLinkStatus.notLinked =>
+                                          context
+                                              .l10n
+                                              .profileConnectLineSubtitle,
+                                        LineLinkStatus.unknown =>
+                                          context.l10n.netLineStatusUnknown,
+                                      }),
                                 trailing: linked
                                     ? const Icon(
                                         Icons.check_circle,
                                         color: AikoColors.successGreen,
                                       )
-                                    : const Icon(Icons.chevron_right),
-                                onTap: linked
-                                    ? null
-                                    : () async {
-                                        await context.push('/connect-line');
-                                        ref.invalidate(lineLinkedProvider);
-                                      },
+                                    : known
+                                    ? const Icon(Icons.chevron_right)
+                                    : null,
+                                onTap: switch (status) {
+                                  LineLinkStatus.notLinked => () async {
+                                    await context.push('/connect-line');
+                                    ref.invalidate(lineLinkedProvider);
+                                  },
+                                  // Check again (for example back online).
+                                  LineLinkStatus.unknown =>
+                                    () => ref.invalidate(lineLinkedProvider),
+                                  _ => null,
+                                },
                               );
                             },
                           ),

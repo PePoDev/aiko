@@ -427,6 +427,126 @@
     }
   },
   "txRefreshRate": "Refresh live rate",
+  "netRatesAsOf": "Rates as of {date}.",
+  "@netRatesAsOf": {
+    "placeholders": {
+      "date": {
+        "type": "Object"
+      }
+    }
+  },
+  "netHoldingsLeftOut": "Not counted yet: {holdings}, because no exchange rate is available right now.",
+  "@netHoldingsLeftOut": {
+    "placeholders": {
+      "holdings": {
+        "type": "Object"
+      }
+    }
+  },
+  "netRateRefreshed": "Live rate updated: 1 {from} = {rate} {to}.",
+  "@netRateRefreshed": {
+    "placeholders": {
+      "from": {
+        "type": "Object"
+      },
+      "rate": {
+        "type": "Object"
+      },
+      "to": {
+        "type": "Object"
+      }
+    }
+  },
+  "netRateUsingSaved": "You're offline, so Aiko used the rate saved on {date}. Tap the rate to change it.",
+  "@netRateUsingSaved": {
+    "placeholders": {
+      "date": {
+        "type": "Object"
+      }
+    }
+  },
+  "netRateRefreshOffline": "You're offline, so the live rate couldn't be fetched. Tap the rate to type it yourself.",
+  "netRateRefreshFailed": "Couldn't get a live rate right now. Tap the rate to type it yourself.",
+  "netRateSavedNote": "Offline: using the rate saved on {date}. Check it before you save.",
+  "@netRateSavedNote": {
+    "placeholders": {
+      "date": {
+        "type": "Object"
+      }
+    }
+  },
+  "netRateNoConnection": "No connection to get the exchange rate. Tap the rate to type it; it's needed to save.",
+  "netRateMissing": "No live rate for {from} → {to}. Tap the rate to type it; it's needed to save.",
+  "@netRateMissing": {
+    "placeholders": {
+      "from": {
+        "type": "Object"
+      },
+      "to": {
+        "type": "Object"
+      }
+    }
+  },
+  "netChatTimedOut": "Aiko is taking too long to answer. Your connection may be slow; tap retry to try again.",
+  "netChatCutOff": "This answer was cut off before it finished. Tap retry for the full answer.",
+  "netChatAnswerIncomplete": "(Answer cut off)",
+  "netReceiptOffline": "You're offline, so Aiko couldn't read the receipt. The photo is attached; enter the details yourself or scan again when you're back online.",
+  "netReceiptNeedsCloud": "Receipt photo attached. Reading receipts needs Aiko cloud, so please enter the details yourself.",
+  "netPricesOffline": "You're offline, so live prices can't refresh. Holdings show their last saved prices.",
+  "netPricesUpdatedAt": "Prices last updated {time}.",
+  "@netPricesUpdatedAt": {
+    "placeholders": {
+      "time": {
+        "type": "Object"
+      }
+    }
+  },
+  "netLineOffline": "You're offline. Connect to the internet, then enter the code again.",
+  "netLineStatusUnknown": "Can't check LINE while offline. Tap to check again.",
+  "netTravelStartFailed": "Couldn't start the trip. Please try again.",
+  "netTravelSavedRate": "Using the rate saved on {date}: 1 {home} = {rate} {local}. Refresh when you're online.",
+  "@netTravelSavedRate": {
+    "placeholders": {
+      "home": {
+        "type": "Object"
+      },
+      "rate": {
+        "type": "Object"
+      },
+      "local": {
+        "type": "Object"
+      },
+      "date": {
+        "type": "Object"
+      }
+    }
+  },
+  "netTravelReferenceRate": "You're offline, so Aiko is using a reference rate: 1 {home} = {rate} {local}. Check it, and refresh when you're online.",
+  "@netTravelReferenceRate": {
+    "placeholders": {
+      "home": {
+        "type": "Object"
+      },
+      "rate": {
+        "type": "Object"
+      },
+      "local": {
+        "type": "Object"
+      }
+    }
+  },
+  "netTravelRateNeeded": "There's no connection to fetch today's rate, and Aiko has no saved rate for {home} → {local}. Enter the rate to start your trip.",
+  "@netTravelRateNeeded": {
+    "placeholders": {
+      "home": {
+        "type": "Object"
+      },
+      "local": {
+        "type": "Object"
+      }
+    }
+  },
+  "netTravelRateError": "Enter a rate above 0.",
   "txSelectAccount": "Select account",
   "txChooseAccount": "Choose account",
   "txCategory": "Category",
@@ -2614,7 +2734,7 @@
   "chatErrorUnavailable": "Aiko is unavailable right now. Try again soon.",
   "chatErrorBadResponse": "Aiko sent a reply the app couldn't read. Try again.",
   "chatErrorOffline": "Connect to Aiko cloud to chat.",
-  "chatErrorNetwork": "I couldn't reach Aiko just now. Check your connection and try again.",
+  "chatErrorNetwork": "You seem to be offline, so I can't answer just now. Check your connection, then tap retry.",
   "chatErrorGeneric": "Something went wrong. Tap retry to try again.",
   "chatBusyHint": "Aiko is busy...",
   "chatInputHint": "Ask about your money...",

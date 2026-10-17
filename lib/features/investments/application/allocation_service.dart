@@ -7,7 +7,14 @@ import '../domain/investment_holding.dart';
 class AllocationService {
   const AllocationService();
 
-  PortfolioAllocation build(List<InvestmentHolding> holdings) {
+  /// Allocation of [holdings] (all in one currency). [leftOut] are holdings
+  /// that could not be converted (no exchange rate), listed so the screen can
+  /// say so; [ratesAsOf] is when saved rates were used.
+  PortfolioAllocation build(
+    List<InvestmentHolding> holdings, {
+    List<InvestmentHolding> leftOut = const [],
+    DateTime? ratesAsOf,
+  }) {
     final currency = holdings.isNotEmpty ? holdings.first.currency : 'USD';
 
     final byClass = <String, Decimal>{};
@@ -38,6 +45,8 @@ class AllocationService {
       total: Money(amount: total, currency: currency),
       holdingCount: holdings.length,
       slices: slices,
+      leftOut: leftOut,
+      ratesAsOf: ratesAsOf,
     );
   }
 
@@ -146,15 +155,27 @@ class PortfolioAllocation {
     required this.total,
     required this.holdingCount,
     required this.slices,
+    this.leftOut = const [],
+    this.ratesAsOf,
   });
 
   final Money total;
+
+  /// Holdings counted in [total] and [slices].
   final int holdingCount;
 
   /// Allocation by asset class, largest first.
   final List<AllocationSlice> slices;
 
-  bool get hasHoldings => holdingCount > 0;
+  /// Holdings left out because no exchange rate was available for them.
+  final List<InvestmentHolding> leftOut;
+
+  /// When holdings were converted with the rates saved on the device, the
+  /// time those were fetched.
+  final DateTime? ratesAsOf;
+
+  /// Whether there are holdings at all, counted or left out.
+  bool get hasHoldings => holdingCount > 0 || leftOut.isNotEmpty;
 }
 
 class RebalanceAlert {

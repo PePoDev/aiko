@@ -3,7 +3,6 @@ import '../features/investments/application/portfolio_valuation.dart';
 import '../features/transactions/application/legacy_opening_balances.dart';
 import 'dart:async';
 
-import 'package:decimal/decimal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/config/app_config.dart';
 import '../core/notifications/transaction_reminder_service.dart';
@@ -33,6 +32,7 @@ import '../features/settings/domain/profile.dart';
 import '../features/transactions/domain/transaction.dart';
 import '../features/investments/data/investment_holding_repository.dart';
 import '../core/money/exchange_rate_service.dart';
+import '../core/money/exchange_rates.dart';
 import '../core/firebase/firebase_backend.dart';
 import '../core/offline/firestore_sync_state.dart';
 import '../core/offline/offline_store.dart';
@@ -40,7 +40,10 @@ import '../core/offline/offline_user_context.dart';
 import '../core/storage/secure_storage_service.dart';
 import '../core/storage/synced_preferences.dart';
 import '../l10n/app_localizations.dart';
+import 'exchange_rates_provider.dart';
 import 'locale_controller.dart';
+
+export 'exchange_rates_provider.dart';
 
 /// Commits the record batches that keep multi-record changes atomic (both
 /// legs of a transfer with their balances, an account with its opening
@@ -808,19 +811,6 @@ final profileProvider = FutureProvider.autoDispose<Profile>((ref) {
   }
 });
 
-/// Exchange rates quoted against a base currency, fetched once per session
-/// (one request) and only by callers that hold foreign-currency amounts.
-/// Empty when offline; callers leave unconverted amounts out and say so.
-final fxRatesProvider = FutureProvider.autoDispose
-    .family<Map<String, Decimal>, String>((ref, baseCurrency) async {
-      final rates = await ref
-          .read(exchangeRateServiceProvider)
-          .fetchRates(baseCurrency);
-      if (rates == null) return const {};
-      ref.keepAlive();
-      return rates;
-    });
-
 final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummary>((
   ref,
 ) async {
@@ -842,11 +832,16 @@ final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummary>((
     ).isNotEmpty;
     final rates = needsRates
         ? await ref.watch(fxRatesProvider(baseCurrency).future)
-        : const <String, Decimal>{};
+        : ExchangeRates.none(baseCurrency);
+    // A failed or saved-copy result is fetched again on each recompute
+    // (pull-to-refresh, data changes); new rates recompute the summary.
+    if (needsRates) {
+      ref.read(fxRatesProvider(baseCurrency).notifier).retryIfStale();
+    }
     final summary = buildDashboardSummary(
       accounts: accounts,
       transactions: transactions,
-      converter: CurrencyConverter(baseCurrency, rates),
+      converter: CurrencyConverter.from(rates),
       now: now,
     );
     // Keep the computed summary cached across tab switches so the Overview
@@ -935,19 +930,23 @@ final portfolioAllocationProvider =
       }
       // Holdings in other currencies are re-priced into the base currency
       // (like the Investments screen) so their shares add up; holdings with
-      // no rate are left out.
+      // no rate are left out and listed so the screen can say so.
       final needsRates = holdings.any(
         (holding) =>
             holding.currency.toUpperCase() != baseCurrency.toUpperCase(),
       );
       final rates = needsRates
           ? await ref.watch(fxRatesProvider(baseCurrency).future)
-          : const <String, Decimal>{};
-      final valued = valueHoldingsIn(
-        holdings,
-        CurrencyConverter(baseCurrency, rates),
+          : ExchangeRates.none(baseCurrency);
+      if (needsRates) {
+        ref.read(fxRatesProvider(baseCurrency).notifier).retryIfStale();
+      }
+      final valued = valueHoldingsIn(holdings, CurrencyConverter.from(rates));
+      final result = const AllocationService().build(
+        valued.holdings,
+        leftOut: valued.excludedHoldings,
+        ratesAsOf: valued.ratesAsOf,
       );
-      final result = const AllocationService().build(valued.holdings);
       ref.keepAlive();
       return result;
     });

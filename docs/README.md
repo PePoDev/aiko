@@ -5,9 +5,9 @@ Start with the project [README](../README.md) for the product, brand, rules and 
 | Page | Read it to… |
 | --- | --- |
 | [Getting started](getting-started.md) | Set up a machine, run the app in each mode, look up configuration, fix common problems |
-| [Architecture](architecture.md) | Understand layers, startup, routes, providers, offline sync and platform differences |
+| [Architecture](architecture.md) | Understand layers, startup, routes, providers, offline sync, guest mode, web offline loading and platform differences |
 | [Features](features.md) | See what each module does, where it lives, and the known gaps |
-| [Data model](data-model.md) | Look up every Firestore document, SQLite table, preference key and Storage path |
+| [Data model](data-model.md) | Look up every Firestore document, local record store table, preference key, device-only value and Storage path |
 | [Calculations](calculations.md) | Check the exact formula behind a number on screen |
 | [Backend](backend.md) | Use or change the Cloud Functions API, the AI chat pipeline and Security Rules |
 | [Security and privacy](security.md) | Know the trust boundaries, secrets, on-device data and what leaves the device |
@@ -41,7 +41,8 @@ Docs change in the **same commit** as the behavior they describe. Before you fin
 | How data is read, listened to or written; Functions queries or scaling; bundled or deployed web files | [Cost](cost.md) |
 | Theme tokens, shared widgets or brand assets | [Design system implementation](design-system.md) |
 | Strings or supported languages | [Localization](localization.md) |
-| Startup, providers, sync or offline behavior | [Architecture](architecture.md) |
+| Startup, providers, sync or offline behavior | [Architecture](architecture.md) (including [Offline behavior](architecture.md#offline-behavior)), [Features → Known gaps](features.md#known-gaps) |
+| The service worker, `tool/web_precache.mjs`, `web/index.html` or bundled fonts | [Architecture → Web offline loading](architecture.md#web-offline-loading), [Deployment](deployment.md#hosting-configuration), [Cost → Hosting](cost.md#hosting), [Testing](testing.md) |
 | A convention or recipe | [Contributing](contributing.md) |
 | A new page | This index |
 

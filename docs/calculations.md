@@ -44,7 +44,7 @@ Balances are signed: money you have is positive, money you owe (a used credit ca
 | Today's spending | Posted expenses dated today |
 | Safe to spend (weekly) | `max(0, (income − spending) ÷ 4.33)`, rounded to 2 decimals |
 
-Amounts in other currencies are converted with `CurrencyConverter`, using rates quoted against the base currency from `fxRatesProvider` (`ExchangeRateService.fetchRates`, one request per session, made only when another currency is present). Without a rate (offline), those amounts are left out and the Daily spending card names the currencies it couldn't count. Ask Aiko's on-device snapshot converts with the rates already fetched and never waits on the network.
+Amounts in other currencies are converted with `CurrencyConverter`, using rates quoted against the base currency from `fxRatesProvider`: live from `open.er-api.com`, or the copy saved on the device, which adds a "Rates as of {date}." note; read only when another currency is present ([Architecture → Exchange rates](architecture.md#exchange-rates)). Without any rate, those amounts are left out and the Daily spending card names the currencies it couldn't count. Ask Aiko's on-device snapshot converts with the rates already loaded (or the saved copy) and never waits on the network.
 
 ## Daily spending reaction
 

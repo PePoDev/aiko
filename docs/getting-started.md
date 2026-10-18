@@ -42,7 +42,7 @@ npm run firebase:start
 | Emulator UI | http://127.0.0.1:4000 |
 | Auth / Firestore / Storage / Functions | 127.0.0.1:9099 / 8081 / 9199 / 5001 |
 
-Create an email/password account in the app. Password-reset links appear in the Auth emulator output. Emulator data is exported to `.firebase-data/` on Ctrl-C and imported on the next start (gitignored; back it up if it matters). Keep using the same host and port, or the browser's local storage won't carry over.
+Create an email/password account in the app, or tap **Continue without an account** to try guest mode. Password-reset links appear in the Auth emulator output. Emulator data is exported to `.firebase-data/` on Ctrl-C and imported on the next start (gitignored; back it up if it matters). Keep using the same host and port, or the browser's local storage won't carry over.
 
 For hot reload, keep the emulators running and run the app separately:
 
@@ -52,6 +52,8 @@ flutter run -d chrome --web-port=8082 --dart-define-from-file=.env
 
 The VS Code launch configurations in `.vscode/launch.json` pass `--dart-define-from-file=.env` for you.
 
+To try the web app offline, add the service-worker precache after the build, then start the emulators: `flutter build web …` (as above), `npm run web:precache`, `npm run firebase:start`. Open the app once online, then go offline (browser dev tools → Network → Offline) and reload. `flutter run -d chrome` has no working service worker (it removes itself), so it can't start offline ([Architecture → Web offline loading](architecture.md#web-offline-loading)).
+
 ### 2. Local-only mode
 
 Omit every Firebase define:
@@ -60,7 +62,7 @@ Omit every Firebase define:
 flutter run -d chrome     # or any device
 ```
 
-The app opens straight on the dashboard, stores data in SQLite (IndexedDB on the web), seeds a Cash and a Bank Account, and has no sign-in, sync or cloud features ([Architecture → Runtime modes](architecture.md#runtime-modes)). Browser storage needs HTTPS or localhost and is lost when site data is cleared.
+The app opens straight on the dashboard, stores data in the local record store, `aiko_local.sqlite` (IndexedDB on the web), seeds a Cash and a Bank Account, and has no sign-in, sync or cloud features ([Architecture → Runtime modes](architecture.md#runtime-modes)). Browser storage needs HTTPS or localhost and is lost when site data is cleared.
 
 ### 3. Mobile against the emulators
 
@@ -114,7 +116,8 @@ Functions provider secrets live in `firebase/functions/.secret.local` locally, c
 | Functions tests | `npm --prefix firebase/functions test` |
 | Rules and functions emulator tests | `npx firebase emulators:exec --project demo-aiko --only auth,firestore,storage,functions "npm run test:rules"` |
 | Start emulators | `npm run firebase:start` |
-| Web build | `flutter build web --dart-define-from-file=.env` |
+| Web build | `flutter build web --dart-define-from-file=.env`, then `npm run web:precache` for offline loading |
+| Service-worker tests | `npm run test:web` |
 
 [Testing](testing.md) covers what each suite checks.
 
@@ -129,5 +132,8 @@ Functions provider secrets live in `firebase/functions/.secret.local` locally, c
 | Java crashes under Android/proot (Termux, Alpine) | `AIKO_ANDROID_PROOT_JAVA=1 npm run firebase:start` builds a process-scoped shim (`tool/proot_java_exec_memory.c`; needs `gcc musl-dev`). Low memory: `JAVA_TOOL_OPTIONS='-Xmx512m -XX:+UseSerialGC'` |
 | SQLite FFI tests fail on Alpine | Temporarily set `hooks.user_defines.sqlite3.source: system` in `pubspec.yaml` with `sqlite-dev` installed; don't commit it |
 | Ask Aiko says the provider isn't configured (503) | Set `AI_API_KEY`, `AI_MODEL`, `AI_BASE_URL` in `firebase/functions/.secret.local` and restart the emulators |
-| "A change could not sync" snackbar | A write was rejected (Security Rules or expired sign-in); check the emulator logs |
+| "A change could not sync" snackbar | A write was rejected (Security Rules or expired sign-in), or a file failed to upload 5 times; check the emulator logs |
+| The web app won't open offline | Run `npm run web:precache` after `flutter build web`, and load the app once online first; `flutter run` builds have no service worker |
+| `web:precache` fails listing Firebase SDK files | Run it in the checkout that ran `flutter build web` (it reads `.flutter-plugins-dependencies`) |
+| "Syncing…" stays while online | The device has a network but can't reach Firebase (captive portal, emulators stopped); changes stay queued until it can |
 | Google sign-in fails locally | Expected with emulators; use email/password |

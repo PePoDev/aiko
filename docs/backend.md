@@ -71,7 +71,9 @@ When the provider fails, an error event replaces `done`, with a stable code; pro
 | `{"error":"PROVIDER_DOWN"}` | No answer text was sent: provider unreachable, non-2xx, timed out, or the stream broke at once |
 | `{"error":"STREAM_FAILED"}` | The stream broke after some text was sent |
 
-`HttpChatEngine` (`lib/features/aiko_assistant/application/chat_engine.dart`) turns these into `ChatReplyDelta`, `ChatReplyDone` and `ChatReplyError`, and maps HTTP statuses to `ChatFailure` values (`401` sign-in expired, `403` forbidden, `429` rate limited, others unavailable).
+The function sends its headers as soon as the checks pass, then an SSE comment (`: ok`) and a keep-alive `: ping` every 15 s until the answer ends, because the first words can take minutes of tool rounds; clients skip lines that don't start with `data:`. Deploy Functions with or before the app, since the app's timeouts expect this ([Deployment](deployment.md#storage-and-functions)).
+
+`HttpChatEngine` (`lib/features/aiko_assistant/application/chat_engine.dart`) turns these into `ChatReplyDelta`, `ChatReplyDone` and `ChatReplyError`, and maps HTTP statuses to `ChatFailure` values (`401` sign-in expired, `403` forbidden, `429` rate limited, others unavailable). It allows 15 s to connect (Android/iOS), 60 s for the response headers (an ID-token refresh included) and 45 s between chunks. A transport failure is `network`, a timeout `timedOut`, and a stream that ends without `done` after some text `cutOff` (the text is kept); all three are retryable. Guests and local-only builds send nothing.
 
 How a request is answered:
 
@@ -89,6 +91,7 @@ sequenceDiagram
     F->>DB: read profile (base currency)
   end
   F->>F: system prompt + snapshot (≤6,000 chars)<br/>last 10 user/assistant messages (≤1,000 chars each)
+  F-->>App: event-stream headers, ": ok", then ": ping" every 15 s
   loop up to 4 tool rounds
     F->>AI: chat/completions (tools, no stream)
     alt reply has tool_calls
@@ -116,7 +119,7 @@ sequenceDiagram
 
 ### `deleteAccount`
 
-Requires a sign-in from the last 5 minutes (`auth_time`); otherwise it fails with `failed-precondition`, and the Profile screen asks the user to sign out, sign in again and retry within 5 minutes (`profileDeleteNeedsRecentSignIn`); other failures show a generic message. It deletes the user's `line_links`, the whole `users/{uid}` subtree and every Storage object under `users/{uid}/` in parallel, then the Auth user. The timeout is 300 s, for large accounts. It is immediate and permanent. Returns `{deleted: true}`. While it runs, the app pauses collection refreshes (`FirebaseSyncPause`) so nothing re-creates the profile.
+Requires a sign-in from the last 5 minutes (`auth_time`); otherwise it fails with `failed-precondition`, and the Profile screen asks the user to sign out, sign in again and retry within 5 minutes (`profileDeleteNeedsRecentSignIn`); other failures show a generic message. It deletes the user's `line_links`, the whole `users/{uid}` subtree and every Storage object under `users/{uid}/` in parallel, then the Auth user. The timeout is 300 s, for large accounts. It is immediate and permanent. Returns `{deleted: true}`. Before calling it, the app reads the profile once from the server to tell offline apart from other failures (offline: "Deleting your account needs a connection…"), takes the account's queued file uploads off the queue, and gives pending writes 15 s to upload, so nothing queued on the device re-creates a document afterwards. While it runs, the app pauses collection refreshes (`FirebaseSyncPause`) so nothing re-creates the profile ([Architecture](architecture.md#signing-out-and-switching-users)).
 
 ### LINE
 
@@ -142,7 +145,7 @@ sequenceDiagram
 
 The webhook returns `503` when LINE isn't configured and `401` for a bad signature. Otherwise it handles each event on its own: an event that fails (deleted account, rate limit, LINE API error) is logged and skipped, and the webhook still answers `200`, so LINE doesn't retry the batch and the other events get their replies. The reply call to LINE times out after 10 s.
 
-`redeemLinePairing` errors map to `LineLinkError` in the app (`lineLinkErrorForCode`): `invalid-argument` (malformed code), `not-found` (unknown or expired code), `already-exists` (LINE account linked to another user), `resource-exhausted` (too many attempts), `unauthenticated`.
+`redeemLinePairing` errors map to `LineLinkError` in the app (`lineLinkErrorForCode`): `invalid-argument` (malformed code), `not-found` (unknown or expired code), `already-exists` (LINE account linked to another user), `resource-exhausted` (too many attempts), `unauthenticated`. A call that gets no answer (offline, or the app's 15 s timeout) is `offline` (`lineLinkErrorFor`).
 
 No Firebase refresh token is stored for LINE. `line_links` and `line_pairings` are server-only.
 
@@ -157,6 +160,8 @@ Thin authenticated proxies to providers you configure. They `POST` JSON with `Au
 
 The app sends receipts as `imageBase64`, about a third larger than the image; the integer array older apps send as `imageBytes` was 3–4 times larger. `ocrScanner` still accepts `imageBytes` for one release. An older function rejects `imageBase64`, so deploy Functions before the app ([Deployment](deployment.md#storage-and-functions)).
 
+In the app, an OCR call times out after 45 s and each price quote after 35 s, and neither is sent for a guest. Only a failure in the SDK before the function answered counts as offline (`isCallableTransportFailure` in `lib/core/network/network_errors.dart`: web status 0, Android `unavailable`, iOS `unknown`, a bare `deadline-exceeded`); an error the function raises, `unavailable` included, shows as a normal failure.
+
 ## Security Rules
 
 ### Firestore (`firebase/firestore.rules`)
@@ -165,7 +170,7 @@ The app sends receipts as `imageBase64`, about a third larger than the image; th
 | --- | --- | --- | --- |
 | `users/{uid}/{finance}/{id}` (accounts, categories, category_groups, transactions, investment_holdings, attachments, transaction_splits) | Owner | Owner; `id` and `user_id` must match the path; decimal strings where required | Owner; default-category clones cannot be deleted |
 | `users/{uid}/profiles/{uid}` | Owner | Owner; document ID and `id` = uid | No |
-| `users/{uid}/preferences/{key}` | Owner | Owner; only a string `value` field | Owner |
+| `users/{uid}/preferences/{key}` | Owner | Owner; only a string `value`, or an `items` map that clients change with merges | Owner |
 | `users/{uid}/integrations/{id}` | Owner | No (server only) | No |
 | Everything else | No | No | No |
 

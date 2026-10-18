@@ -18,6 +18,7 @@ flutter test
 npm --prefix firebase/functions test
 npx firebase emulators:exec --project demo-aiko --only auth,firestore,storage,functions "npm run test:rules"
 flutter build web
+npm run test:web
 npm run docs:check
 ```
 
@@ -26,7 +27,9 @@ npm run docs:check
 | Topic | Rule |
 | --- | --- |
 | Money | `Money` / `Decimal` only; format with `MoneyFormatter`; store decimal strings |
-| Layers | Screens → providers → services/repositories → `OfflineStore`. Screens never call Firebase, Brick or SQLite. |
+| Layers | Screens → providers → services/repositories → `OfflineStore`. Screens never call Firebase or SQLite. |
+| Writes | Documents that belong together go in one `RecordBatch` and one `OfflineStore.commit` (repositories' `save`/`delete` take `batch:`), so they land together or not at all. Signed-in writes never wait for the server. |
+| Network | Anything that needs the server has a timeout, says so offline (`isNetworkError`) and isn't called for guests (`cloudFeatureNeedsSignIn`, both in `lib/core/network/network_errors.dart`). It never hangs or saves a guessed value. |
 | Naming | Files `snake_case.dart`, classes `PascalCase`, members `camelCase`, routes `/kebab-case`, DB fields `snake_case` |
 | Roles | `*Service`: pure, `const`, no Riverpod. `*Notifier`: reactive state with `ref.keepAlive()` after a successful load. `*Controller`: orchestrates notifier, service and UI side effects. `*Repository`: persistence, no `ref` or `BuildContext`. |
 | Widgets | Forward `super.key`; use shared widgets and theme tokens ([Design system](design-system.md)) |
@@ -50,21 +53,21 @@ npm run docs:check
 ### Adding a field
 
 1. Domain model (`domain/`) and its `copyWith`.
-2. Brick model (`lib/brick/models/*.model.dart`) and a **new** migration in `lib/brick/db/`, added to `migrations` and the schema in `schema.g.dart`. Never edit an old migration.
-3. Both codec halves in `lib/brick/adapters/*.dart` (SQLite and Firestore) and the mapper in `lib/brick/offline_model_mappers.dart`.
+2. The record in `lib/core/offline/records/` and both halves of its codec (`toRow`, `fromRow`). Read a missing value with a default: older documents and local rows don't have it. No migration is needed, because the local store keeps whole rows.
+3. The domain mapping in `lib/core/offline/records/record_mappers.dart`.
 4. Security Rules if the field needs validation (`firebase/firestore.rules`) and a rules test.
-5. A round-trip test in `test/brick/`.
+5. A round-trip test in `test/core/offline/records/`.
 6. [Data model](data-model.md).
 
 ### Adding a collection
 
 All of [Adding a field](#adding-a-field), plus:
 
-1. A `FirestoreAdapter` with a `collectionName`, registered in `firestoreAdapters` (`lib/brick/model_dictionary.dart`).
+1. A record class implementing `OfflineRecord` and its `RecordCodec` with a `collection`, registered in `RecordCodecs` (`lib/core/offline/records/record_codec.dart`: `all` and the by-type map), and exported from `records.dart`.
 2. Owner-scoped rules: add the name to `financeCollection` (or write a dedicated match) and add allow and deny tests.
 3. A repository in the feature's `data/` that resolves the user through `OfflineUserContext` and calls `OfflineStore`.
 4. A provider; add the collection to `firebaseSyncProvider` so other devices refresh and its reads become cache-first ([Cost](cost.md#cost-checklist-for-changes)).
-5. Anonymous-data claiming in `OfflineDataMigrator` if records can be created signed-out.
+5. Guest-data claiming in `OfflineDataMigrator` if records can be created signed out.
 6. Deletion: `deleteAccount` removes the `users/{uid}` subtree automatically; also delete any global server-side data.
 7. [Data model](data-model.md), [Backend](backend.md) and [Security](security.md).
 
@@ -86,7 +89,7 @@ All of [Adding a field](#adding-a-field), plus:
 
 1. Export it from `firebase/functions/src/index.ts`. Derive the user from `request.auth` or a verified ID token, rate-limit it, validate inputs, and declare secrets in the options.
 2. Treat a missing or `local-unconfigured` secret as "unavailable", not a crash.
-3. Call it through `FirebaseBackend.functions` from a repository or service.
+3. Call it through `FirebaseBackend.functions` from a repository or service, with a timeout; show transport failures as offline (`isNetworkError`) and don't call it for guests (`cloudFeatureNeedsSignIn`).
 4. Add emulator tests in `firebase/test/functions.test.cjs`.
 5. Add any new secret to `.secret.local.example`, [Deployment → Storage and Functions](deployment.md#storage-and-functions) and [Backend](backend.md).
 

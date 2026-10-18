@@ -40,9 +40,10 @@ This is a single repo for the Aiko product surface: Flutter app, landing page, F
 | State | Riverpod |
 | Navigation | GoRouter |
 | Backend | Firebase Auth, Firestore, Storage, Cloud Functions, Security Rules |
-| Offline Store | Firestore SDK persistence when signed in; SQLite for local-only data and existing mobile migrations |
-| Sync | Firestore SDK offline queue + shared collection listeners on web/mobile |
-| Attachments | Firebase Storage + Firestore metadata; persistent local byte cache on both platforms |
+| Offline Store | Firestore SDK persistence when signed in; in-house SQLite record store (`aiko_local.sqlite`, IndexedDB on web) for guests and local-only builds |
+| Sync | Firestore SDK offline write queue + shared collection listeners; `connectivity_plus` for the offline/sync banner |
+| Attachments | Firebase Storage + Firestore metadata; persistent local byte cache + upload queue on all platforms |
+| Web offline | Own service worker (`web/aiko_sw.js`) + bundled fonts |
 | Money | `decimal` (no floating-point) |
 | Charts | `fl_chart` |
 | Security | `flutter_secure_storage` |
@@ -63,23 +64,24 @@ npm --prefix firebase/functions ci
 npm run functions:build
 dart run sqflite_common_ffi_web:setup
 
-# Build the shared Flutter app
+# Build the shared Flutter app (+ precache, so it opens offline)
 flutter build web --dart-define=FIREBASE_PROJECT_ID=demo-aiko \
   --dart-define=FIREBASE_EMULATOR_HOST=127.0.0.1
+npm run web:precache
 
 # Auth, Firestore, Storage, Functions, Hosting, emulator UI
 npm run firebase:start
 ```
 
-Open **http://localhost:8080**. Emulator UI: **http://127.0.0.1:4000**. Create an email/password account in the app. The emulator exports data to `.firebase-data/` on graceful shutdown and imports it on the next run. These files contain local account/data state and stay gitignored. Use the same host/port to preserve browser storage. Build once before starting Hosting on a fresh clone. For live Flutter development use `flutter run -d chrome --web-port=8082` with the same defines (or `cp .env.example .env` and pass `--dart-define-from-file=.env`, as the VS Code launch configs do).
+Open **http://localhost:8080**. Emulator UI: **http://127.0.0.1:4000**. Create an email/password account in the app, or **Continue without an account** (guest mode: data stays on the device, offline included, until sign-in claims it). The emulator exports data to `.firebase-data/` on graceful shutdown and imports it on the next run. These files contain local account/data state and stay gitignored. Use the same host/port to preserve browser storage. Build once before starting Hosting on a fresh clone. For live Flutter development use `flutter run -d chrome --web-port=8082` with the same defines (or `cp .env.example .env` and pass `--dart-define-from-file=.env`, as the VS Code launch configs do); it has no offline service worker.
 
 **Mobile against the same backend:** run `flutter run -d <device>` with those defines; Android emulators use `FIREBASE_EMULATOR_HOST=10.0.2.2`. A physical phone needs the development machine's LAN address and emulator hosts explicitly bound to that interface. Share the same `demo-aiko` project and sign in with the same account. Google sign-in requires production Firebase/Google configuration; email/password works locally.
 
-**Local-only mode:** omit Firebase defines. SQLite stores finance data on mobile and in browser IndexedDB through `sqflite_common_ffi_web`. The app opens directly to the dashboard. No cross-device synchronization or cloud functions run in this mode. Browser storage requires HTTPS or localhost and can be removed by clearing site data.
+**Local-only mode:** omit Firebase defines. The local record store keeps finance data in SQLite on mobile and in browser IndexedDB through `sqflite_common_ffi_web`. The app opens directly to the dashboard. No cross-device synchronization or cloud functions run in this mode. Browser storage requires HTTPS or localhost and can be removed by clearing site data.
 
 **Production configuration:** register web, Android and iOS apps in one Firebase project. Enable Email/Password and Google Auth; configure authorized web domains, Android signing SHA fingerprints, and the iOS reversed Google client-ID URL scheme. Supply each platform's `FIREBASE_PROJECT_ID`, `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_AUTH_DOMAIN`, and optional `FIREBASE_REGION` (keep `us-central1`, where Functions deploy). Leave `FIREBASE_EMULATOR_HOST` unset. Native Google login also uses `GOOGLE_WEB_CLIENT_ID` and `GOOGLE_IOS_CLIENT_ID`. These client configuration values are public; provider secrets and Admin credentials never belong in the Flutter build.
 
-**Deployment:** GitHub Actions (`.github/workflows/ci.yml`) runs the quality gates on every push and publishes a Firebase Hosting preview channel for non-`main` branches. On `main`, after the gates pass, it deploys Firebase rules/indexes (plus Storage/Functions when enabled) and the live web app to Firebase Hosting. One-time Firebase and GitHub setup: [Deployment](docs/deployment.md). Test rules/functions locally first. See [Firebase migration and verification](docs/firebase.md) for data import, service configuration, and platform limits.
+**Deployment:** GitHub Actions (`.github/workflows/ci.yml`) runs the quality gates on every push and publishes a Firebase Hosting preview channel for non-`main` branches. On `main`, after the gates pass, it deploys Firebase rules/indexes (plus Storage/Functions when enabled) and the live web app to Firebase Hosting; every web build runs `npm run test:web` and `npm run web:precache`. One-time Firebase and GitHub setup: [Deployment](docs/deployment.md). Test rules/functions locally first. See [Firebase migration and verification](docs/firebase.md) for data import, service configuration, and platform limits.
 
 ---
 
@@ -87,11 +89,11 @@ Open **http://localhost:8080**. Emulator UI: **http://127.0.0.1:4000**. Create a
 
 ```sh
 lib/
-├── brick/        # Brick offline models, adapters, SQLite schema, mappers
-├── main.dart     # Entry point
-├── app/          # App wiring (router, bootstrap, providers)
-├── core/         # Framework utilities, no UI: config, firebase, formatting, money,
-│                 #   notifications, offline, prediction, storage
+├── main.dart     # Entry point (StartupGuard)
+├── app/          # App wiring (router, bootstrap, providers, sync listeners)
+├── core/         # Framework utilities, no UI: config, connectivity, firebase, formatting,
+│                 #   money, network, notifications, offline (records, OfflineStore,
+│                 #   sync state), prediction, storage (local stores, upload queue)
 ├── features/     # 16 feature modules (accounts, aiko_assistant, aiko_character, auth,
 │                 #   calculators, categories, dashboard, export, investments, learning_hub,
 │                 #   onboarding, overview, settings, transaction_capture, transactions,
@@ -101,8 +103,8 @@ lib/
 └── theme/        # Design system (colors, typography, themes)
 
 firebase/         # Firestore/Storage rules, Functions, emulator tests, legacy import tool
-web/              # Flutter web entrypoint and SQLite worker assets
-tool/             # Local emulator startup helpers, docs link check
+web/              # Flutter web entrypoint, bootstrap, service worker (aiko_sw.js), SQLite worker assets
+tool/             # Emulator startup helpers, docs link check, web precache script + node tests
 docs/             # How-it-works documentation; index: docs/README.md
 .github/          # CI quality gates; Firebase Hosting and backend deploy workflows
 landing/          # standalone Aiko landing page
@@ -123,7 +125,7 @@ GoRouter around an adaptive shell, 5 primary destinations: a bottom tab bar on p
 2. **Categories (`/categories`)** — 81 default categories in 13 groups + custom categories/groups; each category owns its budget.
 3. **Overview (`/home`)** — Static dashboard, fixed panel set/order: Daily spending (with safe this week, net cash flow, left to save), Daily summary, Net earnings, Category budgets, Spending calendar, Cash flow mapping. App bar: Notifications and Settings; floating quick-add (sidebar button on wide screens); two panel columns on wide screens. Set/order defined by `_homeWidgets` in `home_dashboard_screen.dart`, **not** user-customizable.
 4. **Transactions (`/transactions`)** — Month view, search, recurring previews; app bar opens Rules (→ Auto-capture) and Travel Mode; the month card opens the Monthly report.
-5. **Aiko (`/aiko`)** — Ask Aiko chat (needs Firebase); app-bar Profile button (`/profile`).
+5. **Aiko (`/aiko`)** — Ask Aiko chat (needs Firebase and an account); app-bar Profile button (`/profile`).
 
 **Settings (`/settings`)** — via the Overview app-bar settings icon. Flat tools list: Chance of Success, Investments, Asset Allocation, Holding Detail, Learning Hub, Calculators, and Export. App preferences include Profile, Appearance and Language.
 
@@ -140,18 +142,20 @@ One Flutter implementation shares domain logic, routes, repositories, and Fireba
 `application/` (services, workflows), `data/` (repositories, DTOs, sync adapters), `domain/` (immutable models), `presentation/` (screens, widgets, controllers).
 
 - Screens compose UI + consume Riverpod providers; application services hold business logic + coordinate repositories.
-- Repositories own persistence/sync — screens never call Firebase, Brick, or SQLite directly.
-- Domain models stay framework-light. Brick models (`lib/brick/models/`) store primitives only, map to domain via `lib/brick/offline_model_mappers.dart`.
+- Repositories own persistence/sync — screens never call Firebase or SQLite directly.
+- Domain models stay framework-light. Records (`lib/core/offline/records/`) store primitives only (a record's row is its Firestore document) and map to domain via `record_mappers.dart`.
 
 ### Offline-First & Sync
 
-Signed-in finance data lives at `users/{uid}/{collection}/{id}` in Firestore. The Firebase SDK owns its persistent offline cache, retry queue, and last-write-wins document conflict behavior. `OfflineStore` delegates to that SDK; no custom finance outbox. `firebaseSyncProvider` owns one listener per collection and invalidates shared providers on inserts, updates and deletes, so views on both platforms refresh. Late rejected writes surface a sync error in the app.
+Signed-in finance data lives at `users/{uid}/{collection}/{id}` in Firestore. The Firebase SDK owns its persistent offline cache (on before any Firestore use; multi-tab on web), write queue and last-write-wins document conflicts; no custom finance outbox. `OfflineStore` delegates to it: signed-in writes return once handed to the SDK (never waiting for the server), multi-document operations (transfers with balances, account + adjustment, cascading deletes) are one atomic `RecordBatch` (`commit`), and reads come from the cache once a listener has delivered (`FirestoreSyncState`; otherwise one shared 2 s wait, and a 3 s server read only for an unconfirmed empty cache). `firebaseSyncProvider` owns one listener per collection and invalidates shared providers on inserts, updates and deletes, so views on every device refresh; late rejected writes surface a sync error. The shell's banner says when the device is offline (with the last sync time) or changes are still syncing (`syncStatusProvider`, `connectivity_plus`).
 
-Local-only installations keep the existing Brick SQLite schema. Its models, schema migrations and SQLite/Firestore codecs are in `lib/brick/`. Codecs are maintained source (`model_dictionary.dart`, `adapters/*.dart`): update them and round-trip tests together when adding fields. Existing SQLite migrations remain immutable; add a migration for any local schema change. `details_json` remains a local string while Firestore `details` is a map; legacy local NULL values remain supported.
+Guests (cloud builds after **Continue without an account**) and local-only builds keep records in `LocalRecordStore` (`aiko_local.sqlite`, IndexedDB on web): a `records` table holding each record's Firestore row as JSON. Each type has one `RecordCodec` in `lib/core/offline/records/`; a new field needs the record, codec, mapper and a round-trip test, no migration. There is no Brick package: an old `aiko_offline.sqlite` is imported once at startup, then deleted.
 
-System templates remain the same 81 categories and 13 groups. Sign-in creates deterministic per-user UUIDv5 clones transactionally only when missing. Existing profile preferences and budgets are never reset. Anonymous account/category/group/transaction/holding data is claimed on sign-in, category references are rekeyed, and successfully queued local rows are removed to avoid repeated imports. Existing cloud exports can be imported with the create-only dry-run tool in `firebase/tools/`.
+System templates remain the same 81 categories and 13 groups. Sign-in creates the profile and deterministic per-user UUIDv5 clones only when missing (cache first, server only for misses; offline as one queued batch). Existing profile preferences and budgets are never reset. Guest account/category/group/transaction/holding data, budgets on defaults, attachments and preferences are claimed on sign-in: category references are rekeyed, same-name custom categories and groups merge, and successfully queued local rows are removed to avoid repeated imports. Existing cloud exports can be imported with the create-only dry-run tool in `firebase/tools/`.
 
-Appearance/profile data, language, Travel Mode and transaction rules synchronize. OS capture permissions and native notification scheduling remain device-specific. Browser receipt/image/PDF previews and export downloads use bytes instead of native filesystem APIs.
+Appearance/profile data, language, Travel Mode, transaction rules, lesson progress and notification dismissals synchronize; list preferences merge item by item. OS capture permissions and native notification scheduling remain device-specific; a reminder follows its transaction when another device deletes or edits it. Browser receipt/image/PDF previews and export downloads use bytes instead of native filesystem APIs.
+
+**Offline:** everything works offline on every platform (web after one online visit, through the service worker) except sign-in/up, Ask Aiko, OCR, live prices and rates, LINE and file uploads, which say they need a connection; uploads wait in a queue. A new device needs one online sync; on the web, tabs sharing the local record store see each other's changes only after a reload. See [Architecture → Offline behavior](docs/architecture.md#offline-behavior).
 
 ### Code Conventions
 
@@ -173,9 +177,9 @@ Dashboards/reports calculate summaries from repository projections. Cloud AI too
 
 ### Receipt & Attachment Strategy
 
-Bytes are cached durably in SQLite (IndexedDB-backed on web) before attachment metadata is saved. Uploads use Firebase Storage paths `users/{uid}/receipts/{id}/{fileName}` and Firestore `attachments` metadata. Remote files download through authenticated Storage access and cache locally. Failed uploads remain local and retry when their transaction's attachments are opened. Avatars use `users/{uid}/avatars/`; the profile contains the returned download URL. Local cache paths are device-specific and fall back to cloud images on other devices.
+Saving never waits for the network. Bytes go to `LocalFileCache` (`aiko_files.sqlite`, IndexedDB-backed on web) and metadata to its device `attachments` table; signed in, an upload job is queued in `FileSyncQueue` (`file_jobs`). The queue runs at launch/sign-in, on resume, on reconnect, on new work and on a 30 s–15 min backoff; after 5 failed attempts an upload is marked failed (tap to retry). Uploads go to `users/{uid}/receipts/{id}/{fileName}`, and only then is the Firestore `attachments` document written. Transaction detail and edit screens list attachments; files open from the device copy, else download (offline: "needs a connection"). Avatars upload to `users/{uid}/avatars/{microseconds}.{ext}`, one object per save; the profile keeps its previous URL until the upload finishes, then the old object is deleted. Local cache paths are device-specific and fall back to cloud images on other devices.
 
-The domain supports PDF, JPEG, PNG, WebP, HEIC, text/CSV/Markdown and Word files, up to 10 MiB. Images, PDFs and text have browser/native previews; HEIC and Word use an unsupported-preview fallback. Browser scheduled notifications and Android SMS/notification capture are not available; reminder times remain part of the shared transaction.
+The domain supports PDF, JPEG, PNG, WebP, HEIC, text/CSV/Markdown and Word files, up to 10 MiB. Images, PDFs and text have browser/native previews; HEIC and Word use an unsupported-preview fallback. Browsers have no scheduled notifications or SMS/notification capture (Android only); reminder times remain part of the shared transaction.
 
 ### Cost & Boundaries
 
@@ -186,14 +190,14 @@ Use the SDK cache and shared listeners, not a new listener per widget. Keep file
 ## Core Features
 
 - **🏠 Dashboard** — static fixed-order panels (above) + quick-add. Not user-customizable.
-- **💰 Money Tracking** — 13 transaction types (income, expense, transfer, refund, investment buy/sell, dividend, interest, loan payment, credit card payment, tax payment, fee, adjustment); transfers save linked `transferOut`/`transferIn` legs, edited and deleted together; opening balances and balance edits are signed adjustments, never income or spending. Receipts/attachments, recurring (Once/Daily/Weekly/Monthly/Annually, each with own end date or occurrence cap), reminders. Amount-first quick entry with cloud OCR and typed/dictated voice parsing. Rules auto-apply category and tags by merchant, keyword, amount, account, category or type. Android can auto-capture bank SMS and notifications (opt-in). Not built yet: splits (modeled, not saved), duplicate detection.
+- **💰 Money Tracking** — 13 transaction types (income, expense, transfer, refund, investment buy/sell, dividend, interest, loan payment, credit card payment, tax payment, fee, adjustment); transfers save linked `transferOut`/`transferIn` legs, edited and deleted together; opening balances and balance edits are signed adjustments, never income or spending. Receipts/attachments, recurring (Once/Daily/Weekly/Monthly/Annually, each with own end date or occurrence cap), reminders. Amount-first quick entry with cloud OCR and typed/dictated voice parsing. Rules auto-apply category and tags by merchant, keyword, amount, account, category or type. Android can auto-capture bank SMS and notifications (opt-in, on-device, works offline; Aiko's own notification listener, never booked twice). Not built yet: splits (modeled, not saved), duplicate detection.
 - **📊 Budgeting (in Categories)** — each Category owns an optional budget: daily/weekly/monthly/yearly, rollover of unused budget into the next period, thresholds (default 50/75/90/100%). Groups can hold an envelope budget; every category carries a fixed 50/30/20 bucket (needs/wants/savings/…) used by cash-flow views. Zero-based budgeting isn't built. Safe-to-Spend: `Leftover = Income − Spent − Unspent budgets` for the month; weekly safe = `(Income − Spending) ÷ 4.33` ([Calculations](docs/calculations.md)). Daily Spending compares today's posted expenses with the daily safe amount and shows Aiko's green, orange, or red reaction; with nothing safe to spend it asks for this month's income, or stays calm while nothing is spent.
 - **🎯 Goals (in Accounts)** — goal accounts (`Account.type == goal`) carry SMART target, date, priority. `currentBalance` is saved amount; Chance of Success reads the same row and projects the goal's own average monthly deposits.
 - **📈 Insights & Predictions** — cash flow (month + 12-month trend) + Sankey by budget group, safe-to-spend, monthly report vs. the month before (any month), budget/bill/goal notifications (tap to open, dismiss until the next period), Monte Carlo goal probability. Not built yet: end-of-month forecasts, overrun prediction, net worth projection, retirement readiness.
 - **🤖 Aiko AI Assistant** — streaming chat grounded in an on-device snapshot plus six read-only server tools; rule-based budget recommendations on category budgets; monthly report. Debt strategies come only from the chat model.
 - **💳 Credit & Debt** — credit cards (limit or shared limit, statement/due day, APR, rewards, annual fee, minimum payment), loans (principal, rate, term, payment, next due date), upcoming-payment notifications, credit card payoff calculator. Not built yet: statement balances, utilization, snowball/avalanche simulation.
-- **📱 Portfolio, Assets & Tax** — holdings in their own currencies with unrealized gain/loss and base-currency totals, allocation by asset class, rebalance alerts against fixed Stocks 70% / Bonds 30% targets, live prices via `marketFeed` (cloud only), dividend/interest/tax transactions, asset and liability accounts, receipt/document attachments. Not built yet: realized gains in the UI (a capital-gains service exists), allocation by currency/geography/risk, net worth trends, tax flagging, estimated tax reports.
-- **🌍 Travel Mode** — trip with home/local currency and budget, live or manual exchange rate, converter, foreign-fee log with merchants; accounts can use any currency. Not built yet: trip reports.
+- **📱 Portfolio, Assets & Tax** — holdings in their own currencies with unrealized gain/loss and base-currency totals, allocation by asset class, rebalance alerts against fixed Stocks 70% / Bonds 30% targets, live prices via `marketFeed` (cloud only, signed in), dividend/interest/tax transactions, asset and liability accounts, receipt/document attachments. Not built yet: realized gains in the UI (a capital-gains service exists), allocation by currency/geography/risk, net worth trends, tax flagging, estimated tax reports.
+- **🌍 Travel Mode** — trip with home/local currency and budget, live, saved, reference or manual exchange rate (never assumed 1.0), converter, foreign-fee log with merchants; accounts can use any currency. Exchange rates are cached on the device for offline totals and forms. Not built yet: trip reports.
 - **📤 Export & 📚 Learning Hub** — CSV (plain or Excel-friendly, signed amounts, formula-safe) and a printable HTML statement with per-currency totals; four lessons with quizzes and saved progress, glossary terms inline.
 
 ## Calculator Suite (30)
@@ -219,17 +223,17 @@ All 30 have a form and result in English and Thai. Calculator scenario saving/co
 
 `HttpChatEngine` streams `data: {"delta":"..."}` events from the `aikoChat` Firebase HTTPS function, ending with `{"done":true}` or a stable error code (`PROVIDER_DOWN`, `STREAM_FAILED`). A message that needs no tool costs one provider call; requests are time-bounded and cancelled when the app disconnects. The function verifies the Firebase ID token, rate limits the user, and owns the system prompt. It accepts the on-device financial snapshot and six read-only tools for account summaries, budget status, spending by category, cash flow, recent transactions and goal progress. Every tool receives the verified UID and reads only that user's collections; model input cannot choose another owner. Provider failures before or during streaming are reported without inventing an answer.
 
-Server-only secrets: `AI_API_KEY`, `AI_MODEL`, `AI_BASE_URL` (OpenAI-compatible endpoint). Local values belong in `firebase/functions/.secret.local` (gitignored). Unconfigured cloud AI returns 503; builds without Firebase have no chat (the Aiko tab replies "Connect to Aiko cloud to chat."). API reference: [Backend](docs/backend.md). Production secrets use Firebase Secret Manager.
+The function sends headers at once and an SSE `: ping` every 15 s; the app allows 15 s to connect, 60 s for a response and 45 s between chunks, and marks cut-off answers, so deploy Functions with or before the app. Server-only secrets: `AI_API_KEY`, `AI_MODEL`, `AI_BASE_URL` (OpenAI-compatible endpoint). Local values belong in `firebase/functions/.secret.local` (gitignored). Unconfigured cloud AI returns 503; builds without Firebase have no chat (the Aiko tab replies "Connect to Aiko cloud to chat."), and guests are asked to sign in (nothing is sent). API reference: [Backend](docs/backend.md). Production secrets use Firebase Secret Manager.
 
 `lineWebhook` verifies the LINE HMAC; `redeemLinePairing` consumes a hashed, expiring code transactionally under Firebase Auth. Link records are server-only; the profile sees an `integrations/line` status document. Unlike the previous backend, no user refresh token is stored for LINE. Configure `LINE_CHANNEL_SECRET` and `LINE_CHANNEL_ACCESS_TOKEN`, then point LINE to `lineWebhook`. OCR (`ocrScanner`) and price refresh (`marketFeed`) use explicitly configured server providers (`OCR_API_URL`/`OCR_API_KEY`, `MARKET_API_URL`/`MARKET_API_KEY`); they report unavailable when unset.
 
 ## Account Deletion
 
-Profile deletion calls the authenticated `deleteAccount` callable. It requires a sign-in from the last five minutes (otherwise the app asks you to sign in again), deletes the user's Firestore subtree, Storage objects and LINE mapping, then deletes the Firebase Auth identity. It is immediate and permanent; no grace period. Privileged server code always derives the UID from verified authentication.
+Profile deletion needs a connection: the app checks the server, takes the account's queued uploads off the queue and lets pending writes upload, then calls the authenticated `deleteAccount` callable. It requires a sign-in from the last five minutes (otherwise the app asks you to sign in again), deletes the user's Firestore subtree, Storage objects and LINE mapping, then deletes the Firebase Auth identity. It is immediate and permanent; no grace period. Privileged server code always derives the UID from verified authentication.
 
 ## Database Schema
 
-`users/{uid}` contains `profiles`, `accounts`, `transactions`, `transaction_splits` (allowed by rules, not written yet), `categories`, `category_groups`, `attachments`, `investment_holdings`, `preferences`, and read-only `integrations`. Field reference: [Data model](docs/data-model.md). Profiles use the UID as document ID; other entities keep their existing IDs and snake_case fields. Money values are decimal strings. Budgets remain category fields, goals remain account fields, recurring/reminder metadata remains on transactions, and attachment metadata references Storage paths. Global server-only `line_links`, `line_pairings`, and `rate_limits` cannot be read by clients. All other unspecified paths are denied.
+`users/{uid}` contains `profiles`, `accounts`, `transactions`, `transaction_splits` (allowed by rules, not written yet), `categories`, `category_groups`, `attachments`, `investment_holdings`, `preferences` (`{value}` or itemized `{items}`), and read-only `integrations`. Field reference: [Data model](docs/data-model.md). Profiles use the UID as document ID; other entities keep their existing IDs and snake_case fields. Money values are decimal strings. Budgets remain category fields, goals remain account fields, recurring/reminder metadata remains on transactions, and attachment metadata references Storage paths. Global server-only `line_links`, `line_pairings`, and `rate_limits` cannot be read by clients. All other unspecified paths are denied.
 
 **Backend changes:** update `firebase/firestore.rules`, `firebase/storage.rules`, Functions and tests together. Run emulator tests and the function build; merging to `main` deploys them through CI once tests pass. `firebase/tools/import_legacy.cjs` imports existing exported users, records and files with stable IDs; dry run is the default. Historical SQL design notes under `docs/superpowers/` describe the replaced backend, not active deployment instructions.
 
@@ -397,7 +401,8 @@ Account-type-specific inputs: add each from fresh state (subform appears/validat
 
 ```bash
 flutter test                       # money types, formatters, prediction, models, providers, rules,
-                                   # codecs/migrations, parsers
+                                   # codecs, stores, sync, parsers
+npm run test:web                   # service worker + precache script (Node)
 ```
 
 **Quality gates — run all before any release:**
@@ -407,6 +412,7 @@ npm --prefix firebase/functions test
 npm run test:rules                 # requires running emulators; or wrap it in
                                    # npx firebase emulators:exec --project demo-aiko --only auth,firestore,storage,functions
 flutter build web
+npm run test:web
 dart format --set-exit-if-changed lib test
 flutter analyze lib test
 flutter test
@@ -427,7 +433,7 @@ Planned tiers. No plan gating exists in code yet; every feature is available to 
 | **Premium** | Unlimited accounts, advanced reports, AI recommendations, forecasting, OCR, CC optimization, portfolio analytics, tax reports, PDF/Excel export, multi-device sync |
 | **Pro** | Double-entry accounting, balance sheets, reconciliation, business reports, invoices, multi-user, advanced tax, estate planning, full Monte Carlo, API access |
 
-**Security:** secure storage for device keys, owner-only Security Rules, server-side secrets, last-write-wins sync, local-only mode. Not built yet: remote device logout, AI-use acknowledgement (the old onboarding consent flag was removed), PIN/biometric app lock. Details: [Security and privacy](docs/security.md).
+**Security:** secure storage for device keys, owner-only Security Rules, server-side secrets, last-write-wins sync, local-only and guest modes, notification capture that broadcasts nothing. Not built yet: remote device logout, AI-use acknowledgement (the old onboarding consent flag was removed), PIN/biometric app lock. Details: [Security and privacy](docs/security.md).
 
 ---
 
@@ -437,18 +443,18 @@ Phases 1–6 ✅ (Foundation; Core Finance; Intelligence; Advanced Finance; Weal
 
 ## Common Tasks
 
-- **New feature module:** create `lib/features/<name>/` (4 layers); add routes; new collection → owner-scoped Firebase rules; offline → model + both codecs + SQLite migration; register app-wide providers; add model/repository-fallback/provider tests; use `Money`.
+- **New feature module:** create `lib/features/<name>/` (4 layers); add routes; new collection → owner-scoped Firebase rules; offline → record + codec + mapper + round-trip test; register app-wide providers; add model/repository-fallback/provider tests; use `Money`.
 - **New calculator:** add a `_CalculatorItem` in `calculator_library_screen.dart` and its `CalculatorForm` in `calculator_forms.dart` (pure math in `CalculatorServices`, with tests); add persistence/conversion only when the product flow exists. See [Contributing → Adding a calculator](docs/contributing.md#adding-a-calculator).
 - **New generated insight surface:** add the product screen first, then define the generator, persistence model/table, provider, display states, source-data references, Security Rules, and tests.
-- **New backend field:** extend its document codec, local SQLite migration, Security Rules, and round-trip/emulator coverage.
+- **New backend field:** extend its record codec, Security Rules, and round-trip/emulator coverage.
 
 ## Key Principles
 
-1. Clarity first. 2. Data first, Aiko enhanced. 3. Decimal-safe money (never `double`). 4. Privacy by design (Security Rules everywhere, secrets server-side, local-only mode; planned: encrypted local storage, AI use acknowledged at onboarding). 5. Offline first. 6. Actionable insights. 7. Warm, non-judgmental tone. 8. Test before ship.
+1. Clarity first. 2. Data first, Aiko enhanced. 3. Decimal-safe money (never `double`). 4. Privacy by design (Security Rules everywhere, secrets server-side, local-only and guest modes; planned: encrypted local storage, AI use acknowledged at onboarding). 5. Offline first. 6. Actionable insights. 7. Warm, non-judgmental tone. 8. Test before ship.
 
 ## Contributing
 
-Use `Money` (never `double`); go through repositories (screens never touch Firebase/Brick/SQLite); update local models/codecs for offline; add Security Rules to every new collection; consume shared widgets/tokens; write unit tests for new models/providers; run the QA checklist + all quality gates; keep Aiko's voice warm and non-judgmental. Step-by-step recipes: [Contributing](docs/contributing.md).
+Use `Money` (never `double`); go through repositories (screens never touch Firebase/SQLite); update records/codecs for offline; batch related writes; add Security Rules to every new collection; consume shared widgets/tokens; write unit tests for new models/providers; run the QA checklist + all quality gates; keep Aiko's voice warm and non-judgmental. Step-by-step recipes: [Contributing](docs/contributing.md).
 
 **License:** Private; not published to pub.dev. See `pubspec.yaml`.
 

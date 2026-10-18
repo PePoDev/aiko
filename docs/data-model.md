@@ -1,6 +1,6 @@
 # Data model
 
-This page lists every persisted record: domain types, Firestore documents, SQLite tables, preference keys and Storage paths. When you change a field, update its codec, migration, Security Rules, round-trip test and this page together ([Contributing](contributing.md#adding-a-field)).
+This page lists every persisted record: domain types, Firestore documents, the local record store, preference keys, device-only values and Storage paths. When you change a field, update its record, codec and mapper, Security Rules, round-trip test and this page together ([Contributing](contributing.md#adding-a-field)).
 
 ## Conventions
 
@@ -10,7 +10,7 @@ This page lists every persisted record: domain types, Firestore documents, SQLit
 | IDs | Client-generated UUID v4 strings, stable across devices and imports. Default category and group clones use deterministic UUID v5 IDs ([below](#default-taxonomy)). |
 | Ownership | Every finance document carries `user_id`, which must equal the `{uid}` path segment. Profiles use the uid as their document ID. |
 | Dates | ISO-8601 strings (`DateTime.toIso8601String()`); `updated_at` is UTC. |
-| Field names | Domain uses camelCase; Firestore and SQLite use snake_case. `OfflineStore` converts query fields automatically. |
+| Field names | Domain uses camelCase; Firestore documents and local records (the same rows) use snake_case. `RecordQuery.orderBy` takes the row field name, for example `date`. |
 | Versioning | `updated_at` and `version` exist on every record; the Firestore SDK resolves conflicts last-write-wins per document. |
 | Deletes | Hard deletes. Listeners on other devices drop the record; no tombstones. |
 
@@ -26,7 +26,7 @@ users/{uid}/
   investment_holdings/{id}
   attachments/{id}
   transaction_splits/{id}     # allowed by rules; not written by the app today
-  preferences/{key}           # {value: string}
+  preferences/{key}           # {value: string} or {items: {item: string}}
   integrations/line           # read-only to clients
 line_links/{lineUserId}       # server only
 line_pairings/{sha256(code)}  # server only
@@ -37,7 +37,7 @@ Everything outside these paths is denied. Rules: [Backend → Security Rules](ba
 
 ### `accounts`
 
-Domain: `Account` (`lib/features/accounts/domain/account.dart`). SQLite: `OfflineAccount`.
+Domain: `Account` (`lib/features/accounts/domain/account.dart`). Record: `OfflineAccount`.
 
 | Field | Type | Notes |
 | --- | --- | --- |
@@ -48,7 +48,7 @@ Domain: `Account` (`lib/features/accounts/domain/account.dart`). SQLite: `Offlin
 | `current_balance` | decimal string | For goals, the amount saved |
 | `institution` | string? | |
 | `include_in_net_worth`, `is_active` | bool | |
-| `details` | map | Type-specific details; stored locally as `details_json` text |
+| `details` | map | Type-specific details; `OfflineAccount.detailsJson` holds the same map as JSON text |
 | `goal_target_amount` | decimal string? | Goals only; same currency as the account |
 | `goal_target_date` | ISO string? | Goals only |
 | `goal_priority` | string | `high`, `medium` (default), `low` |
@@ -70,7 +70,7 @@ Domain: `Account` (`lib/features/accounts/domain/account.dart`). SQLite: `Offlin
 
 ### `transactions`
 
-Domain: `FinanceTransaction` (`lib/features/transactions/domain/transaction.dart`). SQLite: `OfflineTransaction`.
+Domain: `FinanceTransaction` (`lib/features/transactions/domain/transaction.dart`). Record: `OfflineTransaction`.
 
 | Field | Type | Notes |
 | --- | --- | --- |
@@ -104,7 +104,7 @@ Recurring rows are templates. `RecurringProjection` generates display-only futur
 
 ### `categories`
 
-Domain: `Category` (`lib/features/categories/domain/category.dart`). SQLite: `OfflineCategory`.
+Domain: `Category` (`lib/features/categories/domain/category.dart`). Record: `OfflineCategory`.
 
 | Field | Type | Notes |
 | --- | --- | --- |
@@ -128,27 +128,27 @@ Budgets are fields on the category; there is no separate budgets collection.
 
 ### `category_groups`
 
-Domain: `CategoryGroup`. Fields: `id`, `user_id`, `template_id`, `name`, `icon`, `color`, `sort_order`, `created_at` (same rule as categories), `budget_amount`, `budget_currency` (a group-level budget), `updated_at`, `version`.
+Domain: `CategoryGroup`. Record: `OfflineCategoryGroup`. Fields: `id`, `user_id`, `template_id`, `name`, `icon`, `color`, `sort_order`, `created_at` (same rule as categories), `budget_amount`, `budget_currency` (a group-level budget), `updated_at`, `version`.
 
 ### `profiles`
 
-Domain: `Profile` (`lib/features/settings/domain/profile.dart`). Document ID = uid.
+Domain: `Profile` (`lib/features/settings/domain/profile.dart`). Record: `OfflineProfile`. Document ID = uid.
 
 | Field | Notes |
 | --- | --- |
 | `id`, `email`, `display_name` | `display_name` defaults to the email's local part |
-| `base_currency`, `country`, `timezone` | Defaults `THB`, `TH`, `Asia/Bangkok` (`kDefaultBaseCurrency`, `kDefaultCountry`) |
+| `base_currency`, `country`, `timezone` | Defaults `THB`, `TH` (`kDefaultBaseCurrency`, `kDefaultCountry`) and the device's timezone, or `Asia/Bangkok` when it isn't known (`defaultProfileTimezone`), with or without an account |
 | `preferred_theme` | `system`, `light`, `dark` |
 | `aiko_character_visibility`, `aiko_personality_setting` | Defaults `full`, `supportive` |
 | `security_status` | `notConfigured`, `pinEnabled`, `biometricEnabled`, `lockedOut` |
 | `full_name`, `gender`, `date_of_birth`, `phone_number` | Optional personal fields; `gender` defaults to `preferNotToSay` |
-| `avatar_path` | Device cache path (other devices fall back to the URL) |
-| `avatar_url` | Firebase Storage download URL |
+| `avatar_path` | Device cache path of this save's photo, `aiko-cache:avatars/{uid}/{stamp}.{ext}`; other devices fall back to the URL |
+| `avatar_url` | Firebase Storage download URL. Keeps the previous photo's URL until the new upload finishes; a failed upload never clears it. Removing the photo clears both fields |
 | `updated_at`, `version` | |
 
 ### `investment_holdings`
 
-Domain: `InvestmentHolding` (`lib/features/investments/domain/investment_holding.dart`). Fields: `id`, `user_id`, `symbol`, `asset_class`, `quantity`, `average_cost`, `current_price`, `market_value` (decimal strings), `currency`, `target_allocation_percent` (number, optional; no UI sets it yet), `created_at`, `updated_at`, `version`.
+Domain: `InvestmentHolding` (`lib/features/investments/domain/investment_holding.dart`). Record: `OfflineInvestmentHolding`. Fields: `id`, `user_id`, `symbol`, `asset_class`, `quantity`, `average_cost`, `current_price`, `market_value` (decimal strings), `currency`, `target_allocation_percent` (number, optional; no UI sets it yet), `created_at`, `updated_at`, `version`.
 
 ### `attachments`
 
@@ -163,19 +163,21 @@ Written by `TransactionAttachmentRepository` (`lib/features/transactions/data/tr
 | `is_sensitive` | bool |
 | `export_policy` | `include` or `exclude` (whether exports include the file) |
 
-Supported types: PDF, JPEG, PNG, WebP, HEIC, text/CSV/Markdown and Word. Metadata is also cached per transaction in `LocalFileCache` so it is available offline.
+Supported types: PDF, JPEG, PNG, WebP, HEIC, text/CSV/Markdown and Word. Signed in, the document is written only after the file's upload, so `storage_path` is always the Storage path. Until then the same row, with an `aiko-cache:` path, waits in the device's `attachments` table ([below](#device-only-storage)); guest and local-only attachments live only there.
 
 ### `preferences`
 
-Small synced settings stored as `{ "value": "<string>" }` through `SyncedPreferences` (`lib/core/storage/synced_preferences.dart`). Signed out, the same keys live in device secure storage.
+Small synced settings, through `SyncedPreferences` (`lib/core/storage/synced_preferences.dart`). A document is either `{"value": "<string>"}` or, for lists that several devices may change offline, `{"items": {"<item>": "<string>"}}`, changed item by item with `set(merge: true)` and `FieldValue.delete()` (`ItemizedPreference`). Signed out, the same keys live in device secure storage (items as one JSON object), and signed in this device keeps a copy of each as `<uid>:<key>` ([Architecture → Preferences](architecture.md#preferences)).
 
-| Key | Value | Owner |
-| --- | --- | --- |
-| `aiko_language_code` | `en` or `th`; absent = follow device | `AppLocaleController` |
-| `transaction_rules_v1` | JSON array of `TransactionRule` | `TransactionRuleStore` |
-| `travel_mode_v1` | JSON of the active trip and exchange rate. Each foreign fee is the money JSON plus an optional `merchant` (fees saved without one still load) | `TravelModeNotifier` |
-| `learning_progress_v1` | JSON object of lesson key → `notStarted`, `read` or `completed` | `LessonProgressStore` |
-| `dismissed_notifications_v1` | JSON array of dismissed notification ids; ids from past periods are dropped on the next dismissal | `NotificationDismissalStore` |
+| Key | Shape | Value | Owner |
+| --- | --- | --- | --- |
+| `aiko_language_code` | value | `en` or `th`; absent = follow device | `AppLocaleController` |
+| `transaction_rules_v2` | items | One item per rule id; the value is the `TransactionRule` JSON | `TransactionRuleStore` |
+| `travel_mode_v1` | value | JSON of the active trip and exchange rate. Each foreign fee is the money JSON plus an optional `merchant` (fees saved without one still load) | `TravelModeNotifier` |
+| `learning_progress_v2` | items | One item per `<lesson key>:<level>` reached (`read`, `completed`), value empty; a lesson's progress is its highest level, so it never goes back | `LessonProgressStore` |
+| `dismissed_notifications_v2` | items | One item per dismissed notification id; the value is when it was dismissed (ISO). Dismissals of notifications no longer shown are dropped after 60 days | `NotificationDismissalStore` |
+
+The earlier single-value keys `transaction_rules_v1` (JSON array of rules), `learning_progress_v1` (JSON object of lesson key → level) and `dismissed_notifications_v1` (JSON array of ids) are read until the first `_v2` write, which carries them over. They are left untouched for older app versions, which keep using them.
 
 ### `integrations/line`
 
@@ -189,23 +191,41 @@ These values never sync.
 | --- | --- | --- |
 | Secure storage | `aiko_offline_user_id` | Current owner ID (`local:<uuid>` or uid) |
 | Secure storage | `aiko_known_account` | `true` after a successful sign-in; routes returning users to `/auth` |
-| Secure storage | `aiko_defaults_seeded:<uid>` | Stamp recording that this device ensured the user's profile and default categories ([Cost](cost.md)) |
+| Secure storage | `aiko_guest_mode` | `true` while a cloud build is used without an account ([Architecture](architecture.md#guest-mode-and-sign-in)) |
+| Secure storage | `aiko_guest_claim:<uid>` | How an interrupted guest sign-in should finish (`newAccount` or `existingAccount`) |
+| Secure storage | `aiko_defaults_seeded:<uid>` | Stamp recording that this device knows the user's profile and default categories exist ([Cost](cost.md)) |
 | Secure storage | `aiko_default_accounts_seeded:<uid>` | `true` once this device seeded the user's default Cash and Bank accounts (`DefaultAccountsSeedMarker`) |
+| Secure storage | `<uid>:<preference key>` | This device's copy of a synced preference, for offline reads |
+| Secure storage | Preference keys without a uid | Guest and local-only preferences; moved into the account at sign-in |
+| Secure storage | `<uid>:profile_changes_v1` | Profile fields saved on a stand-in profile, applied when the real one loads |
+| Secure storage | `<uid>:sync_last_synced_at` | Last time everything was in sync, for the offline banner |
 | Secure storage | `transaction_capture_settings` | Android capture on/off and target account |
-| `aiko_files.sqlite` | `files(path, bytes)` | Attachment and avatar bytes; attachment metadata cache |
-| App support dir | `capture_inbox/*.json` | Captured SMS and notifications waiting to be processed (Android) |
+| `aiko_local.sqlite` | `records`, `meta` | Guest and local-only records, and device values ([below](#local-record-store)) |
+| `aiko_files.sqlite` | `files(path, bytes, size, cached_at)` | Attachment and avatar bytes. Copies of cloud files (`receipts/users/…`) are trimmed oldest first to 100 MB (30 MB on the web); device-only bytes (`attachments/…`, `avatars/…`) never are |
+| `aiko_files.sqlite` | `attachments(id, owner_id, transaction_id, data, created_at)` | Attachment metadata kept on the device: every guest and local-only attachment, and a signed-in one until its upload finishes. `data` is the Firestore row as JSON |
+| `aiko_files.sqlite` | `file_jobs(id, owner_id, kind, data, seq, attempts)` | `FileSyncQueue` jobs in `seq` order: `attachment-upload`, `avatar-upload`, `attachments-purge` (up to 30 transaction ids) and `storage-delete`. `attempts` ≥ 5 marks a failed job waiting for the next launch |
+| App support dir | `capture_inbox/*.json` | Captured SMS and notifications waiting to be booked (Android) |
+| App support dir | `capture_ledger.json` | The last 200 captured messages, to spot the same payment arriving again |
 
-## Local SQLite schema
+`aiko_files.sqlite` is at schema version 3 (`LocalFileCache.schemaVersion`): version 2 added `attachments` and `file_jobs`, version 3 `size` and `cached_at`. Metadata that earlier versions kept as one `attachment-metadata/…` entry per transaction in `files` is moved into `attachments` once, and its never-uploaded files are queued.
 
-`AikoBrickRepository` (`lib/brick/repository.dart`) opens `aiko_offline.sqlite` with tables `OfflineAccount`, `OfflineTransaction`, `OfflineCategory`, `OfflineCategoryGroup`, `OfflineInvestmentHolding` and `OfflineProfile`. The schema is `lib/brick/db/schema.g.dart`. Migrations in `lib/brick/db/<timestamp>.migration.dart` run in version order at startup; the latest is `20261010120000` (`transfer_group_id` on transactions). Earlier migrations folded the old budgets table into categories and the old goals table into accounts.
+## Local record store
 
-Rules for local schema changes:
+`LocalRecordStore` (`lib/core/storage/local_record_store.dart`) opens `aiko_local.sqlite` (IndexedDB on the web) with two tables:
 
-- Existing migrations are immutable. Add a new migration for every column change and register it in `schema.g.dart`.
-- Codecs in `lib/brick/adapters/*.dart` and `lib/brick/model_dictionary.dart` are maintained by hand. Keep the SQLite and Firestore halves in sync.
-- Domain ↔ Brick mapping lives in `lib/brick/offline_model_mappers.dart`.
-- Tolerate legacy NULLs with `fromGenerator` helpers (see `accountDetailsFromSqlite`, `goalPriorityFromColumn`).
-- `test/brick/brick_migration_integrity_test.dart` and `test/brick/fresh_database_test.dart` guard the migration chain.
+| Table | Columns | Holds |
+| --- | --- | --- |
+| `records` | `collection`, `id`, `owner_id`, `data`, `updated_at`; primary key `(collection, id)`, index on `(collection, owner_id)` | Guest and local-only records of every collection; `data` is the record's Firestore row as JSON |
+| `meta` | `key`, `value` | `legacy_import:aiko_offline.sqlite` (when the old database was imported) and `legacy_import_failures:…`; device values under `device:` (`DeviceValueStore`): `fx_rates_v1` (last rates per base currency, newest 8), `prices_updated_at:<uid>` (last price refresh; `local` signed out) and `line_linked:<uid>` (last LINE status) |
+
+The schema version is `PRAGMA user_version` (`LocalRecordStore.schemaVersion`, now 1). A layout change bumps it and extends `_upgrade`; a new field needs no migration, because the row is stored whole.
+
+The earlier Brick database, `aiko_offline.sqlite` (one table per record type, one column per field), is imported once at startup by `LegacyStoreImport` and then deleted. Its decoders are tolerant (booleans as 0/1, JSON text columns, missing tables, columns or NULLs fall back to defaults, unreadable rows are skipped), and the import never replaces a record already in the store.
+
+Rules for record changes:
+
+- Add the field to the record class in `lib/core/offline/records/`, to both halves of its codec (`toRow`, `fromRow`) and to the domain mapping in `record_mappers.dart`. Read missing values with a default, since older documents and rows don't have them.
+- Add a round-trip test in `test/core/offline/records/`; `record_codecs_test.dart` checks that existing documents of every collection read back unchanged.
 
 ## Default taxonomy
 
@@ -219,14 +239,14 @@ Templates have fixed IDs (for example `00000000-0000-0000-c200-000000000001` for
 Uuid().v5(namespace, 'category:${uid.toLowerCase()}:${templateId.toLowerCase()}')
 ```
 
-So every device computes the same clone IDs, sign-in can create them idempotently, and imported transactions that reference template IDs are re-pointed to the user's clones (`CategoryDefaults.categoryIdForUser`). On clones, Security Rules allow edits only to the budget fields (plus setting an empty `created_at` once), and clones cannot be deleted. In local-only mode the templates are used directly, with stored budget overlays.
+So every device computes the same clone IDs, sign-in can create them idempotently, and imported transactions that reference template IDs are re-pointed to the user's clones (`CategoryDefaults.categoryIdForUser`). On clones, Security Rules allow edits only to the budget fields (plus setting an empty `created_at` once), and clones cannot be deleted. Guests and local-only builds use the templates directly, with budget overlays stored under the template IDs; a guest's overlays become the account's clones at sign-in.
 
 ## Storage paths
 
 | Path | Contents | Rule |
 | --- | --- | --- |
 | `users/{uid}/receipts/{id}/{fileName}` | Transaction attachments | Owner only, 1 byte–10 MiB, image/PDF/text/Word |
-| `users/{uid}/avatars/avatar.{ext}` | Profile photo | Same |
+| `users/{uid}/avatars/{microseconds}.{ext}` | Profile photo, one object per save; the previous one is deleted once the profile points at the new URL | Same |
 | `users/{uid}/documents/…`, `users/{uid}/exports/…` | Reserved by rules | Same |
 
 Account deletion removes everything under `users/{uid}/` ([Backend](backend.md#deleteaccount)).

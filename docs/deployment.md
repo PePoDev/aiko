@@ -7,7 +7,7 @@ GitHub Actions builds the Flutter web app and publishes it to Firebase Hosting i
 | Any branch except `main` | Quality gates, plus a **preview channel** for that branch, deployed in parallel. The URL appears as a `Hosting (preview)` check (Details link) on the commit, branch and any pull request, and in the run summary. |
 | `main` | Quality gates. If they pass: deploy Firebase rules/indexes, then the **live site** (`https://<project>.web.app`). |
 
-Quality gates: `dart format`, `flutter analyze`, `flutter test`, Functions unit tests, and the rules/storage/functions emulator tests ([Testing](testing.md)). Re-run any branch from **Actions → CI → Run workflow**. Previews deploy even when a gate fails, so you can see the change; the live site never does. Until the `FIREBASE_PROJECT_ID` variable is set ([GitHub settings](#3-github-settings)), CI runs the quality gates only and skips every deploy; once it is set, a missing secret or variable fails the deploy with its name.
+Quality gates: `dart format`, `flutter analyze`, `flutter test`, Functions unit tests, and the rules/storage/functions emulator tests ([Testing](testing.md)). Each web build also runs the service-worker tests (`npm run test:web`) before writing its precache. Re-run any branch from **Actions → CI → Run workflow**. Previews deploy even when a gate fails, so you can see the change; the live site never does. Until the `FIREBASE_PROJECT_ID` variable is set ([GitHub settings](#3-github-settings)), CI runs the quality gates only and skips every deploy; once it is set, a missing secret or variable fails the deploy with its name.
 
 ```mermaid
 flowchart LR
@@ -88,7 +88,7 @@ Both require the Blaze plan. Then:
 3. Grant the service account `roles/firebasestorage.admin` for Storage rules. For Functions also grant `roles/cloudfunctions.admin`, `roles/iam.serviceAccountUser`, `roles/secretmanager.admin` and `roles/artifactregistry.admin`, then add more if the deploy log asks for them.
 4. Set `FIREBASE_DEPLOY_ONLY` to `firestore,storage,functions`. Functions deploy in a separate `--force` call so CI can set the Artifact Registry cleanup policy and remove functions deleted from the `aiko` codebase. Rules and indexes deploy without `--force`, so indexes created in the console are kept. Hosting is not a valid value here; the web job deploys it after building the app.
 
-**Deploy Functions before the app.** On `main`, CI deploys Functions (when listed in `FIREBASE_DEPLOY_ONLY`) before the live site, which is the right order. If you deploy by hand, run `firebase deploy --only functions` first. A release can change a function's request format: the app now sends receipts to `ocrScanner` as `imageBase64`, which older `ocrScanner` versions reject, while the new function still accepts the old `imageBytes` from apps already open ([Backend](backend.md#ocrscanner-and-marketfeed)). Preview channels call the production Functions, so a preview of such a change works only once `main` has deployed them.
+**Deploy Functions with or before the app.** On `main`, CI deploys Functions (when listed in `FIREBASE_DEPLOY_ONLY`) before the live site, which is the right order. If you deploy by hand, run `firebase deploy --only functions` first. A release can change a function's contract: the app now sends receipts to `ocrScanner` as `imageBase64`, which older `ocrScanner` versions reject, while the new function still accepts the old `imageBytes` from apps already open ([Backend](backend.md#ocrscanner-and-marketfeed)). The app also gives `aikoChat` 60 s to respond and 45 s between chunks; the current function answers at once and sends a keep-alive every 15 s, but an older one sends nothing until the first words, so against it answers that need more than 60 s of tool rounds are cut off. Preview channels call the production Functions, so a preview of such a change works only once `main` has deployed them.
 
 ## Hosting configuration
 
@@ -98,14 +98,15 @@ Both require the Blaze plan. Then:
 | --- | --- | --- |
 | Everything (`**`) | `no-cache` | Flutter's `main.dart.js` and `flutter_bootstrap.js` are not content-hashed, so browsers revalidate them after each release; unchanged files still return `304 Not Modified` |
 | `/assets/assets/**` (bundled fonts, images, SVGs) | `public, max-age=3600, stale-while-revalidate=86400` | They rarely change; a new version can take up to an hour to appear |
+| `/aiko_sw.js` | `no-cache` | Stated explicitly: browsers must see each new service worker, which is how a new build reaches offline starts |
 
-The web job builds with `flutter build web --release --pwa-strategy=none`, so the page loads `main.dart.js` right away instead of first registering Flutter's deprecated service worker. The flag is itself deprecated; if Flutter drops it, the comment in `.github/workflows/deploy-web.yml` gives the replacement (a custom bootstrap script in `web/`). The same Hosting config powers the local Hosting emulator ([Getting started](getting-started.md)).
+The web job (`.github/workflows/deploy-web.yml`) builds with `flutter build web --release`. `web/flutter_bootstrap.js` starts the app without Flutter's deprecated service worker, so the build needs no `--pwa-strategy` flag. A **Service worker precache** step then runs `npm run test:web` and `npm run web:precache` in the same checkout: `tool/web_precache.mjs` writes the build's file list and hashes, and the Firebase JS SDK files the app loads (read from the build's `.flutter-plugins-dependencies`), into `build/web/aiko_sw.js`, and tags `build/web/index.html` with the build. It fails when it can't list the SDK files. Without this step the worker removes itself and the app needs a connection to open ([Architecture → Web offline loading](architecture.md#web-offline-loading)). The same Hosting config powers the local Hosting emulator ([Getting started](getting-started.md)).
 
 Rollback: **Hosting → Release history → Roll back** in the Firebase console, or redeploy an earlier commit with **Actions → CI → Run workflow** on `main`.
 
 ## Notes
 
-- Free (Spark) Hosting includes 10 GB storage and 360 MB/day transfer. A first visit downloads roughly 2–5 MB from Hosting; Flutter's CanvasKit renderer comes from Google's CDN. Blaze bills extra transfer at $0.15/GB.
+- Free (Spark) Hosting includes 10 GB storage and 360 MB/day transfer. A first visit downloads roughly 2–5 MB from Hosting for the page, then the service worker caches the rest of the build (about 15 MB uncompressed in all); later deploys download only changed files. Flutter's CanvasKit renderer comes from Google's CDN. Blaze bills extra transfer at $0.15/GB ([Cost → Hosting](cost.md#hosting)).
 - Set the cost guardrails once: a billing budget alert and a Hosting release-retention limit ([Cost → One-time guardrails](cost.md#one-time-guardrails)).
 - To use a custom domain for Google sign-in pop-ups, connect it under **Hosting → Add custom domain** and set `FIREBASE_AUTH_DOMAIN` to it; Hosting serves the `/__/auth/*` handler on every domain it hosts.
 - Only pushes trigger CI, so pull requests from forks get no preview and never receive secrets.

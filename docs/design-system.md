@@ -9,7 +9,7 @@ The README's [Design System](../README.md#design-system) section holds the rules
 | `lib/theme/aiko_colors.dart` | Primitive color constants (`AikoColors`) |
 | `lib/theme/aiko_status_colors.dart` | `AikoStatusColors`: readable status text colors per brightness (a theme extension) |
 | `lib/theme/aiko_theme.dart` | `AikoTheme.light()` / `AikoTheme.dark()`: `ColorScheme`, scaffold color, component themes and the status-color extension |
-| `lib/theme/aiko_typography.dart` | `AikoTypography.textTheme`: Hanken Grotesk headlines, Manrope body and labels, bundled Noto Sans Thai fallback (`assets/fonts/noto_sans_thai/`) |
+| `lib/theme/aiko_typography.dart` | `AikoTypography.textTheme`: Hanken Grotesk headlines, Manrope body and labels, Noto Sans Thai fallback, all bundled in `assets/fonts/` |
 | `lib/shared/widgets/` | Shared components (below) |
 | `assets/icons/`, `assets/images/aiko/`, `assets/rive/` | App icon and SVG marks, Aiko PNG expressions, Rive character slot |
 
@@ -47,7 +47,7 @@ Category colors are stored as `#RRGGBB` strings; `AikoColors.kAikoPrimaryColorHe
 
 ## Typography
 
-`AikoTypography.textTheme(foreground)` builds the Material text theme from the README's type scale: Hanken Grotesk for display, headline and title styles; Manrope for body and label styles; Noto Sans Thai as the fallback so Thai renders consistently. Hanken Grotesk and Manrope load at runtime through `google_fonts`, so the first offline launch falls back to system fonts for Latin text; Noto Sans Thai is bundled ([Localization → Fonts](localization.md#fonts)).
+`AikoTypography.textTheme(foreground)` builds the Material text theme from the README's type scale: Hanken Grotesk for display, headline and title styles; Manrope for body and label styles; Noto Sans Thai as the fallback so Thai renders consistently. All three are bundled. Hanken Grotesk (700) and Manrope (400, 500, 700) ship as assets under the file names `google_fonts` looks for (`assets/fonts/hanken_grotesk/`, `assets/fonts/manrope/`, SIL OFL, about 340 KB), and `AikoTypography` sets `GoogleFonts.config.allowRuntimeFetching = false`, so text looks the same offline and on the first web load. A new family or weight needs its TTF and a `pubspec.yaml` asset line; `test/theme/latin_font_test.dart` fails otherwise. Noto Sans Thai is covered in [Localization → Fonts](localization.md#fonts).
 
 ## Component themes
 
@@ -69,8 +69,11 @@ Filled and outlined buttons have a minimum size of 64 × 48px: 48px tall touch t
 | `AikoDataListCard`, `AikoDataRow` | `aiko_data_widgets.dart` | Grouped facts and settings rows |
 | `AikoDonutChart`, `AikoGauge` | `aiko_data_widgets.dart` | Labeled preview charts |
 | `AikoWordmark`, `AikoPrimaryButton`, `AikoSparkleBackdrop` | `aiko_idea_widgets.dart` | Brand moments on Welcome and Login |
-| `CachedAvatar` | `cached_avatar.dart` | Profile photo from the local cache or the Storage URL |
+| `CachedAvatar` | `cached_avatar.dart` | Profile photo from the local cache or the Storage URL. Each saved photo has its own cache path, so a device holding an older photo shows the URL instead |
 | `aikoSnackBar`, `showAikoSnackBar` | `aiko_snack_bar.dart` | Status messages (below) |
+| `AikoPageScaffold` | `aiko_snack_bar.dart` | A page with its own snack bars, shown once inside it (below) |
+| `FxRatesNote` | `fx_rates_note.dart` | Small print under totals that add other currencies: what was left out for lack of a rate, and "Rates as of …" when the saved rates were used |
+| `GuestSignInTile` | `lib/features/auth/presentation/guest_sign_in_tile.dart` | "Sign in to back up and sync" for guests (Profile, Settings) |
 | `AikoDiscardChangesGuard`, `confirmDiscardChanges` | `discard_changes_guard.dart` | Asking before a form with unsaved input closes (below) |
 | `InlineGlossaryText` | `lib/features/learning_hub/presentation/inline_glossary_text.dart` | Inline term definitions in lessons |
 
@@ -80,7 +83,7 @@ Charts elsewhere use `fl_chart`. Every chart needs a text summary (README rule).
 
 - **Pages as dialogs.** On wide screens `openAikoPage` shows the page as a dialog with `barrierDismissible: false` by default, so a click outside it or Escape doesn't close it and lose form input. Pass `true` only for read-only pages. The page's own close (×) button still closes it.
 - **Unsaved input.** Wrap a form's root in `AikoDiscardChangesGuard(hasUnsavedChanges: …)`. Every way out that goes through `Navigator.maybePop` (back or close button, system back gesture, a dialog barrier) then asks "Discard changes?" first. Closing in code after a save (`Navigator.pop`, `context.pop`) is never blocked. The transaction form, account form and Profile use it.
-- **Snack bars.** Build them with `aikoSnackBar(message, tone: AikoSnackTone.success)` (or `showAikoSnackBar(context, …)`). Every tone uses the theme's neutral background; the tone adds a status icon (success, warning, error) in the matching `AikoStatusColors` shade. Don't fill a snack bar with orange, green or red: white text on those fails contrast.
+- **Snack bars.** Build them with `aikoSnackBar(message, tone: AikoSnackTone.success)` (or `showAikoSnackBar(context, …)`). Every tone uses the theme's neutral background; the tone adds a status icon (success, warning, error) in the matching `AikoStatusColors` shade. Don't fill a snack bar with orange, green or red: white text on those fails contrast. A page opened with `openAikoPage` is a dialog over the shell on wide screens, so a snack bar shown through the app's messenger would appear twice; show the page's own messages through `AikoPageScaffold`'s `messengerKey` (the transaction form does). A message meant to outlive the page ("Saved" right before it closes) still goes to the app's messenger.
 - **Destructive confirmations** name the object and the effect, and confirm with a red button (`AikoColors.dangerRed`), for example deleting a transaction, an account or the user's account.
 
 ## Aiko artwork
@@ -88,7 +91,7 @@ Charts elsewhere use `fl_chart`. Every chart needs a text summary (README rule).
 | Asset | Used by |
 | --- | --- |
 | `aiko.riv` in `assets/rive/` (not yet committed; see `assets/rive/README.md`) | `AikoCharacter` (moods: neutral, thinking, happy, worried, celebrating) |
-| `assets/images/aiko/aiko_{welcome,thinking,happy,warning,celebrating,encouraging}.png` | PNG fallback for `AikoCharacter`; the Welcome carousel |
+| `assets/images/aiko/aiko_{welcome,thinking,happy,warning,celebrating,encouraging}.png` | PNG fallback for `AikoCharacter`; the Welcome carousel. If one can't load, `AikoArtFallback` (a drawn circle with an icon) takes its place |
 | `assets/icons/aiko_aiko.svg` | `AikoAvatar` |
 | `assets/icons/aiko_title.svg` | Not referenced by code (the wordmark is text in `AikoWordmark`) |
 | `assets/icons/app_icon.png`, `app_icon_padded.png` | Launcher-icon sources for `flutter_launcher_icons`; deliberately not bundled into the app (`pubspec.yaml` lists only the SVGs) |

@@ -20,8 +20,8 @@ Aiko is fully available in **English (`en`)** and **Thai (`th`)**. Every user-fa
 
 `AppLocaleController` resolves the language on startup:
 
-1. A saved choice (`aiko_language_code`, `en` or `th`) wins. It's a synced preference, so it follows the user across devices when signed in.
-2. Otherwise the device language, if supported ("System default").
+1. A saved choice (`aiko_language_code`, `en` or `th`) wins. It's a synced preference, so it follows the user across devices when signed in; a choice made before signing in moves into the account if the account has none.
+2. Otherwise the device language, if supported ("System default"). This is also used when the saved choice can't be read, offline included.
 3. Otherwise English.
 
 Settings → Language offers System default, English and Thai; each language is listed in the current language and in itself ("Thai (ไทย)", "อังกฤษ (English)"). On Android 13+ the per-app language setting lists the same two (`android/app/src/main/res/xml/locales_config.xml`); iOS declares them in `CFBundleLocalizations` (`ios/Runner/Info.plist`).
@@ -41,7 +41,7 @@ Settings → Language offers System default, English and Thai; each language is 
 | `const` tables (navigation items, intro slides) | Store a tear-off `String Function(AppLocalizations)` instead of a string; see `aikoNavigationItems` |
 | Enum values | `value.label(l10n)` from `domain_labels.dart`; never `value.name` |
 
-Errors from repositories and services stay English for logs. Screens map them to localized text by type or code: `authErrorMessage` maps Firebase Auth codes; `LineLinkError` (`emptyCode`, `invalidCode`, `expiredCode`, `alreadyLinked`, `tooManyAttempts`, `signedOut`, `failed`, mapped from the function's error codes by `lineLinkErrorForCode`) and `ChatFailure` are enums; `localizedAccountValidationMessage` maps `AccountValidationMessages`. Don't show `$error` to users.
+Errors from repositories and services stay English for logs. Screens map them to localized text by type or code: `authErrorMessage` maps Firebase Auth codes and takes an `offline` message for network failures; `LineLinkError` (`emptyCode`, `invalidCode`, `expiredCode`, `alreadyLinked`, `tooManyAttempts`, `signedOut`, `offline`, `failed`, mapped from the function's error codes by `lineLinkErrorForCode`), `ChatFailure` and `ReceiptOcrFailure` are enums; `localizedAccountValidationMessage` maps `AccountValidationMessages`. Don't show `$error` to users.
 
 ### Built-in categories
 
@@ -66,7 +66,7 @@ CSV column headers, transaction types and category names, and the HTML statement
 
 ## Fonts
 
-Hanken Grotesk and Manrope (loaded with `google_fonts`) have no Thai glyphs. `AikoTypography` sets `NotoSansThai` as the fallback family, bundled in `pubspec.yaml` (`fonts:`, weights 400–800, about 240 KB). Thai therefore renders offline and on the first web load, without waiting for a font download.
+Hanken Grotesk and Manrope (bundled assets used through `google_fonts`, which never downloads them; [Design system → Typography](design-system.md#typography)) have no Thai glyphs. `AikoTypography` sets `NotoSansThai` as the fallback family, bundled in `pubspec.yaml` (`fonts:`, weights 400–800, about 240 KB). Text in both languages therefore renders offline and on the first web load, without waiting for a font download.
 
 ## Adding or changing a string
 

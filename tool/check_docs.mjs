@@ -18,7 +18,8 @@ function anchorsOf(file) {
   const seen = new Map();
   const anchors = new Set();
   let fenced = false;
-  for (const line of readFileSync(join(root, file), 'utf8').split('\n')) {
+  // \r? so CRLF checkouts (Windows autocrlf) still match headings.
+  for (const line of readFileSync(join(root, file), 'utf8').split(/\r?\n/)) {
     if (line.startsWith('```')) fenced = !fenced;
     const heading = !fenced && line.match(/^#{1,6}\s+(.*)$/);
     if (!heading) continue;

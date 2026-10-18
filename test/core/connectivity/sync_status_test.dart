@@ -3,10 +3,14 @@ import 'dart:async';
 import 'package:aiko/core/connectivity/network_status.dart';
 import 'package:aiko/core/connectivity/sync_status.dart';
 import 'package:aiko/core/offline/firestore_sync_state.dart';
+import 'package:aiko/core/storage/file_sync_queue.dart';
 import 'package:aiko/core/storage/secure_storage_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart' show Database;
+
+import '../storage/file_store_harness.dart';
 
 class _FakeMonitor implements NetworkMonitor {
   _FakeMonitor(this.online);
@@ -65,6 +69,8 @@ void main() {
     late FirestoreSyncState sync;
     late _FakeMonitor monitor;
     late MemorySecureStorageService storage;
+    late Database files;
+    late FileSyncQueue queue;
 
     ProviderContainer container() {
       final container = ProviderContainer(
@@ -72,6 +78,7 @@ void main() {
           firestoreSyncStateProvider.overrideWithValue(sync),
           networkMonitorProvider.overrideWithValue(monitor),
           syncStatusStorageProvider.overrideWithValue(storage),
+          fileSyncQueueProvider.overrideWithValue(queue),
           syncStatusProvider.overrideWith(
             () => SyncStatusNotifier(
               syncingDelay: const Duration(milliseconds: 20),
@@ -84,10 +91,74 @@ void main() {
       return container;
     }
 
-    setUp(() {
+    setUp(() async {
       sync = FirestoreSyncState();
       monitor = _FakeMonitor(true);
       storage = MemorySecureStorageService();
+      files = await openMemoryFileCache();
+      queue = testQueue(FakeRemoteFileStore(), signedInUserId: () => null);
+    });
+
+    tearDown(() async {
+      await queue.dispose();
+      await closeMemoryFileCache(files);
+    });
+
+    Future<void> waitFor(bool Function() condition) async {
+      for (var i = 0; i < 50 && !condition(); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    }
+
+    test('files waiting to upload show as syncing; failed ones and other '
+        'users\' don\'t', () async {
+      sync.beginListening('user-1', ['accounts']);
+      final c = container();
+      await pumpEventQueue();
+      expect(c.read(syncStatusProvider).syncing, isFalse);
+
+      await queue.enqueue(
+        const FileJob(id: 'theirs', ownerId: 'user-2', kind: 'upload'),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(c.read(syncStatusProvider).syncing, isFalse);
+
+      await queue.enqueue(
+        const FileJob(id: 'mine', ownerId: 'user-1', kind: 'upload'),
+      );
+      await waitFor(() => c.read(syncStatusProvider).syncing);
+      expect(c.read(syncStatusProvider).syncing, isTrue);
+      expect(syncBannerFor(c.read(syncStatusProvider)), SyncBanner.syncing);
+
+      // It fails for good: no longer "syncing" (it is reported instead).
+      await files.update(
+        'file_jobs',
+        {'attempts': FileSyncQueue.maxAttempts},
+        where: 'id = ?',
+        whereArgs: ['mine'],
+      );
+      queue.notifyChanged();
+      await waitFor(() => !c.read(syncStatusProvider).syncing);
+      expect(c.read(syncStatusProvider).syncing, isFalse);
+
+      await queue.remove('mine');
+      await pumpEventQueue();
+      expect(c.read(syncStatusProvider).syncing, isFalse);
+    });
+
+    test('files waiting for a user who signed out don\'t count', () async {
+      await queue.enqueue(
+        const FileJob(id: 'mine', ownerId: 'user-1', kind: 'upload'),
+      );
+      sync.beginListening('user-1', ['accounts']);
+      final c = container();
+      await waitFor(() => c.read(syncStatusProvider).syncing);
+      expect(c.read(syncStatusProvider).syncing, isTrue);
+
+      sync.stopListening();
+      await waitFor(() => !c.read(syncStatusProvider).syncing);
+      expect(c.read(syncStatusProvider).signedIn, isFalse);
+      expect(c.read(syncStatusProvider).syncing, isFalse);
     });
 
     test(

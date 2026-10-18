@@ -34,21 +34,19 @@ class TransactionDetailScreen extends ConsumerStatefulWidget {
       _TransactionDetailScreenState();
 }
 
+/// A transaction's attachments, read by one listener while a screen shows
+/// them. The subscription lives here rather than in a widget of the lazily
+/// built list, which may be disposed and built again while scrolling.
+final _attachmentsProvider = StreamProvider.autoDispose
+    .family<List<TransactionAttachment>, String>(
+      (ref, transactionId) =>
+          TransactionAttachmentRepository().watchForTransaction(transactionId),
+    );
+
 class _TransactionDetailScreenState
     extends ConsumerState<TransactionDetailScreen> {
   late FinanceTransaction _transaction;
   final _attachmentRepository = TransactionAttachmentRepository();
-  Stream<List<TransactionAttachment>>? _attachments;
-  String? _attachmentsOf;
-
-  /// The attachments of [transactionId], read by one listener while shown.
-  Stream<List<TransactionAttachment>> _attachmentsFor(String transactionId) {
-    if (_attachmentsOf != transactionId) {
-      _attachmentsOf = transactionId;
-      _attachments = _attachmentRepository.watchForTransaction(transactionId);
-    }
-    return _attachments!;
-  }
 
   @override
   void initState() {
@@ -182,6 +180,8 @@ class _TransactionDetailScreenState
               ).firstOrNull?.id ??
               transaction.id
         : transaction.id;
+    final attachments =
+        ref.watch(_attachmentsProvider(attachmentsOf)).value ?? const [];
 
     return Scaffold(
       appBar: AppBar(
@@ -279,26 +279,20 @@ class _TransactionDetailScreenState
               ],
             ),
           ),
-          StreamBuilder<List<TransactionAttachment>>(
-            stream: _attachmentsFor(attachmentsOf),
-            builder: (context, snapshot) {
-              final attachments = snapshot.data ?? const [];
-              if (attachments.isEmpty) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: FinanceCard(
-                  title: context.l10n.txAttachments,
-                  icon: Icons.attach_file,
-                  accentColor: AikoColors.deepBlue,
-                  child: TransactionAttachmentSection(
-                    attachments: attachments,
-                    showTitle: false,
-                    showUploadState: _attachmentRepository.uploadsToCloud,
-                  ),
+          if (attachments.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: FinanceCard(
+                title: context.l10n.txAttachments,
+                icon: Icons.attach_file,
+                accentColor: AikoColors.deepBlue,
+                child: TransactionAttachmentSection(
+                  attachments: attachments,
+                  showTitle: false,
+                  showUploadState: _attachmentRepository.uploadsToCloud,
                 ),
-              );
-            },
-          ),
+              ),
+            ),
           if (transaction.splits.isNotEmpty) ...[
             const SizedBox(height: 16),
             FinanceCard(

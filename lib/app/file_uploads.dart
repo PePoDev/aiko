@@ -1,4 +1,6 @@
+import '../core/offline/offline_store.dart';
 import '../core/storage/file_sync_queue.dart';
+import '../core/storage/local_file_cache.dart';
 import '../features/settings/application/profile_avatar_service.dart';
 import '../features/transactions/data/transaction_attachment_repository.dart';
 
@@ -8,5 +10,25 @@ import '../features/transactions/data/transaction_attachment_repository.dart';
 void startFileUploads() {
   TransactionAttachmentRepository().registerUploads();
   ProfileAvatarService().registerUploads();
-  FileSyncQueue.instance.start();
+  final queue = FileSyncQueue.instance;
+  // A file that keeps failing to upload is reported like a change the
+  // server refused (a snackbar); its job waits for the next launch.
+  queue.failures.listen(OfflineStore.errors.add);
+  queue.start();
+}
+
+/// After [userId]'s account was deleted: forgets their waiting uploads and
+/// deletes, the attachments kept on this device for them and the cached
+/// copies of their files. Before deleting the account, call
+/// [FileSyncQueue.suspend] (and [FileSyncQueue.resume] afterwards) so that
+/// no upload runs meanwhile.
+Future<void> forgetFilesOf(String userId) async {
+  final queue = FileSyncQueue.instance;
+  final db = await LocalFileCache.database();
+  await db.transaction((txn) async {
+    await TransactionAttachmentRepository().forgetOwner(userId, txn: txn);
+    await LocalFileCache.removeUnder('avatars/$userId/', txn: txn);
+    await queue.clearOwner(userId, txn: txn);
+  });
+  queue.notifyChanged();
 }

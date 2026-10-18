@@ -165,6 +165,24 @@ class ProfileAvatarService {
     );
   }
 
+  /// Queues uploading a photo that [userId]'s profile shows from this
+  /// device only ([localPath], no URL yet), such as the one a guest saved
+  /// before signing up. The bytes stay where they are; signed in as
+  /// [userId] only.
+  Future<void> queueSavedPhoto(String userId, String localPath) async {
+    if (!localPath.startsWith(LocalFileCache.pathPrefix)) return;
+    final name = localPath.substring(localPath.lastIndexOf('/') + 1);
+    if (name.isEmpty) return;
+    await queueUpload(
+      ProfileAvatar(
+        ownerId: userId,
+        localPath: localPath,
+        remotePath: 'users/$userId/avatars/$name',
+        contentType: _contentTypeFor(_extensionFor(name)),
+      ),
+    );
+  }
+
   /// Drops a picked photo that was never saved.
   Future<void> discard(PendingAvatar pending) =>
       LocalFileCache.remove(pending.previewPath);
@@ -194,7 +212,9 @@ class ProfileAvatarService {
   }
 
   /// Uploads the saved photo ([uploadKind] job), then points the profile at
-  /// it, unless a newer photo or a removal came first.
+  /// it, unless a newer photo or a removal came first. What happens next is
+  /// decided from the profile, so a second run of the same job (another
+  /// browser tab) never deletes the photo the profile shows.
   Future<void> _upload(FileJob job, FileJobRun run) async {
     final localPath = job.data['local_path'] as String;
     final remotePath = job.data['remote_path'] as String;
@@ -211,22 +231,33 @@ class ProfileAvatarService {
       contentType: job.data['content_type'] as String,
     );
     final url = await remote.downloadUrl(remotePath);
+    // Signed out meanwhile: the profile below would be someone else's.
+    run.checkOwner();
     final profile = await _profiles.load();
-    if (!await run.isCurrent() || profile.avatarPath != localPath) {
-      await _queue.enqueueDelete(job.ownerId, remotePath);
+    run.checkOwner();
+    if (profile.id != job.ownerId) throw const FileOwnerSignedOut();
+    final shownUrl = profile.avatarUrl;
+    final shownPath = shownUrl == null || shownUrl.isEmpty
+        ? null
+        : remote.pathOf(shownUrl);
+    if (profile.avatarPath != localPath) {
+      // Replaced or removed meanwhile. Other devices may still show this
+      // upload until the newer photo is up, if another run linked it.
+      if (shownPath != remotePath) {
+        await _queue.enqueueDelete(job.ownerId, remotePath);
+      }
       return;
     }
-    final previousUrl = profile.avatarUrl;
-    if (previousUrl != url) {
+    // Another run of this job (another tab) finished it first.
+    if (!await run.isCurrent()) return;
+    if (shownUrl != url) {
+      run.checkOwner();
       await _profiles.save(profile.copyWith(avatarUrl: () => url));
     }
-    final previousPath = previousUrl == null || previousUrl.isEmpty
-        ? null
-        : remote.pathOf(previousUrl);
-    if (previousPath != null &&
-        previousPath != remotePath &&
-        previousPath.startsWith('users/${job.ownerId}/')) {
-      await _queue.enqueueDelete(job.ownerId, previousPath);
+    if (shownPath != null &&
+        shownPath != remotePath &&
+        shownPath.startsWith('users/${job.ownerId}/')) {
+      await _queue.enqueueDelete(job.ownerId, shownPath);
     }
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:aiko/core/storage/file_sync_queue.dart';
@@ -25,6 +26,39 @@ class _Profiles implements ProfileRepository {
     saves++;
     return profile = next;
   }
+}
+
+/// Storage shared with [shared] whose uploads are slower, or wait for
+/// [release] when [hold].
+class _SlowRemote extends FakeRemoteFileStore {
+  _SlowRemote(this.shared, this.putDelay, {this.hold = false});
+
+  final FakeRemoteFileStore shared;
+  final Duration putDelay;
+  final bool hold;
+  final started = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<void> put(
+    String path,
+    Uint8List bytes, {
+    required String contentType,
+  }) async {
+    if (!started.isCompleted) started.complete();
+    if (hold) await release.future;
+    await Future<void>.delayed(putDelay);
+    await shared.put(path, bytes, contentType: contentType);
+  }
+
+  @override
+  Future<void> delete(String path) => shared.delete(path);
+
+  @override
+  Future<String> downloadUrl(String path) => shared.downloadUrl(path);
+
+  @override
+  String? pathOf(String url) => shared.pathOf(url);
 }
 
 const _uid = 'uid-1';
@@ -236,6 +270,104 @@ void main() {
       expect(remote.calls, isNot(contains('put ${avatar.remotePath}')));
       expect(remote.files, isEmpty);
       expect(profiles.profile.avatarUrl, isNull);
+    });
+
+    test('two tabs running the same upload never delete the photo the '
+        'profile shows', () async {
+      // Both tabs share the database; the second one's upload is slower.
+      FileSyncQueue tab(Duration putDelay) => FileSyncQueue(
+        remote: _SlowRemote(remote, putDelay),
+        signedInUserId: () => signedIn,
+        retryDelay: (_) => null,
+        autoProcess: false,
+      );
+      final tab1 = tab(Duration.zero);
+      final tab2 = tab(const Duration(milliseconds: 50));
+      ProfileAvatarService tabService(FileSyncQueue tabQueue) =>
+          ProfileAvatarService(
+            resolveUserId: () async => _uid,
+            signedInUserId: () => signedIn,
+            queue: tabQueue,
+            profiles: profiles,
+          )..registerUploads();
+      final avatars = tabService(tab1);
+      tabService(tab2);
+      remote.failure = FakeRemoteFileStore.offline;
+      final avatar = await saveNewPhoto(avatars, [6, 6]);
+      remote.failure = null;
+
+      // Back online: both tabs run a pass, then the deletes they queued.
+      await Future.wait([tab1.process(), tab2.process()]);
+      await tab1.process();
+      await tab2.process();
+
+      final url = 'https://files.test/${avatar.remotePath}';
+      expect(profiles.profile.avatarUrl, url);
+      expect(remote.files.keys, [avatar.remotePath]);
+      await tab1.dispose();
+      await tab2.dispose();
+    });
+
+    test('a sign-out during the upload leaves the profile and the job for '
+        'the owner', () async {
+      final avatars = service();
+      final slow = _SlowRemote(remote, Duration.zero, hold: true);
+      final slowQueue = testQueue(slow, signedInUserId: () => signedIn);
+      // The same app's uploads, run by a queue whose upload is held.
+      ProfileAvatarService(
+        resolveUserId: () async => signedIn ?? 'local:guest',
+        signedInUserId: () => signedIn,
+        queue: slowQueue,
+        profiles: profiles,
+      ).registerUploads();
+      final avatar = await saveNewPhoto(avatars, [7]);
+
+      final pass = slowQueue.process();
+      await slow.started.future;
+      signedIn = null; // Log out while the photo uploads.
+      slow.release.complete();
+      await pass;
+
+      expect(profiles.profile.avatarUrl, _oldUrl);
+      expect(remote.files.keys, contains(avatar.remotePath));
+      final job = (await slowQueue.pending()).single;
+      expect(job.kind, ProfileAvatarService.uploadKind);
+      expect(job.attempts, 0);
+
+      signedIn = _uid;
+      await slowQueue.process();
+      await slowQueue.process();
+      expect(
+        profiles.profile.avatarUrl,
+        'https://files.test/${avatar.remotePath}',
+      );
+      expect(remote.files.keys, [avatar.remotePath]);
+      await slowQueue.dispose();
+    });
+
+    test('a photo saved as a guest is uploaded after signing up', () async {
+      final avatars = service();
+      // The guest's photo, carried into the new account's profile.
+      final guestPath = await LocalFileCache.write(
+        'avatars/local:guest/123.png',
+        [8, 8],
+      );
+      profiles.profile = profiles.profile.copyWith(
+        avatarPath: () => guestPath,
+        avatarUrl: () => null,
+      );
+      remote.files.clear();
+
+      await avatars.queueSavedPhoto(_uid, guestPath);
+      await queue.process();
+
+      expect(remote.files['users/$_uid/avatars/123.png'], [8, 8]);
+      expect(remote.contentTypes['users/$_uid/avatars/123.png'], 'image/png');
+      expect(
+        profiles.profile.avatarUrl,
+        'https://files.test/users/$_uid/avatars/123.png',
+      );
+      expect(profiles.profile.avatarPath, guestPath);
     });
 
     test('a photo changed during its upload is not linked', () async {

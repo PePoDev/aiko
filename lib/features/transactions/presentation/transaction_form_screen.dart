@@ -562,6 +562,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       captured = await _imagePicker.pickImage(
         source: ImageSource.camera,
         imageQuality: 88,
+        // Plenty for reading a receipt, and well under the upload limit even
+        // from a high-resolution camera.
+        maxWidth: 2560,
+        maxHeight: 2560,
         preferredCameraDevice: CameraDevice.rear,
         requestFullMetadata: false,
       );
@@ -581,13 +585,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
-    final Uint8List imageBytes;
-    final String cachedPath;
-    try {
-      imageBytes = await captured.readAsBytes();
-      // Survives a reload, unlike the picker's file (a blob: URL on the web).
-      cachedPath = await _cacheNewAttachment(imageBytes);
-    } catch (_) {
+    void showUnreadable() {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -596,6 +594,31 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
+    }
+
+    final Uint8List imageBytes;
+    try {
+      imageBytes = await captured.readAsBytes();
+    } catch (_) {
+      showUnreadable();
+      return;
+    }
+    if (!mounted) return;
+    // The same limits as picked files, checked now: Save can't refuse it.
+    if (imageBytes.isEmpty) {
+      showUnreadable();
+      return;
+    }
+    if (imageBytes.length > TransactionAttachment.maxUploadBytes) {
+      _showFormError(context.l10n.filesTooLarge);
+      return;
+    }
+    final String cachedPath;
+    try {
+      // Survives a reload, unlike the picker's file (a blob: URL on the web).
+      cachedPath = await _cacheNewAttachment(imageBytes);
+    } catch (_) {
+      showUnreadable();
       return;
     }
 
@@ -1512,10 +1535,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         .saveTransaction(savedTx);
 
     await _syncReminder(savedTx);
-    await _saveAttachmentsFor(txId);
+    final unsaved = await _saveAttachmentsFor(txId);
 
     if (!mounted) return;
-    _showSaveSuccess(context.l10n.txSaved);
+    _showSaveSuccess(context.l10n.txSaved, unsavedAttachments: unsaved);
     Navigator.of(context).pop(saved);
   }
 
@@ -1635,10 +1658,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     // Reminder + receipts/docs attach to the outflow leg.
     await _syncReminder(outLeg);
-    await _saveAttachmentsFor(outLeg.id);
+    final unsaved = await _saveAttachmentsFor(outLeg.id);
     if (!mounted) return;
 
-    _showSaveSuccess(l10n.txTransferSaved);
+    _showSaveSuccess(l10n.txTransferSaved, unsavedAttachments: unsaved);
     // Hand back the leg that was opened (the inflow for a new transfer).
     final openedId = widget.initialTransaction?.id ?? inLeg.id;
     Navigator.of(context).pop(saved.firstWhere((leg) => leg.id == openedId));
@@ -1647,8 +1670,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   /// Saves the new attachments with transaction [txId] and deletes the
   /// removed ones. Both happen on the device at once; uploads and cloud
   /// deletes run in the background (FileSyncQueue), so Save never waits
-  /// for the network.
-  Future<void> _saveAttachmentsFor(String txId) async {
+  /// for the network. Returns how many new attachments couldn't be saved.
+  Future<int> _saveAttachmentsFor(String txId) async {
+    var unsaved = 0;
     for (final attachment in _attachments) {
       if (_savedAttachmentIds.contains(attachment.id)) continue;
       try {
@@ -1657,6 +1681,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         );
         _newAttachmentPaths.remove(attachment.storagePath);
       } catch (error) {
+        unsaved++;
         debugPrint('[aiko-files] saving attachment failed: $error');
       }
     }
@@ -1667,6 +1692,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         debugPrint('[aiko-files] deleting attachment failed: $error');
       }
     }
+    return unsaved;
   }
 
   void _showSaveError() {
@@ -1679,7 +1705,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     );
   }
 
-  void _showSaveSuccess(String message) {
+  /// Says the transaction was saved, or, when [unsavedAttachments] of its
+  /// new attachments couldn't be kept, that those need attaching again.
+  void _showSaveSuccess(String message, {int unsavedAttachments = 0}) {
+    if (unsavedAttachments > 0) {
+      _showFormError(context.l10n.filesSaveFailed(unsavedAttachments));
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(

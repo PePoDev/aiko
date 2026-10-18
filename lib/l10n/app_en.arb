@@ -702,6 +702,15 @@
   "filesTooLarge": "This file is larger than 10 MB. Please choose a smaller one.",
   "filesUnsupportedType": "Aiko can attach photos, PDFs, text files and Word documents.",
   "filesUnreadable": "Unable to read this file. Please try another one.",
+  "filesUploadFailed": "This file couldn't be uploaded. Tap to try again.",
+  "filesSaveFailed": "{count, plural, =1{Saved, but 1 attachment couldn't be kept. Please attach it again.} other{Saved, but {count} attachments couldn't be kept. Please attach them again.}}",
+  "@filesSaveFailed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "txAdjustmentEditHint": "Balance adjustments come from the account's balance. To change one, edit the account's balance.",
   "delete": "Delete",
   "txDeleted": "Transaction deleted!",

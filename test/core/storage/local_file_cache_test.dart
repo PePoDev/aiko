@@ -78,12 +78,70 @@ void main() {
       addTearDown(upgraded.close);
 
       expect(await upgraded.getVersion(), LocalFileCache.schemaVersion);
-      expect(
-        (await upgraded.query('files')).single['path'],
-        'aiko-cache:avatars/u.jpg',
-      );
+      final file = (await upgraded.query('files')).single;
+      expect(file['path'], 'aiko-cache:avatars/u.jpg');
+      // Sizes of files from before are filled in for trim.
+      expect(file['size'], 1);
       expect(await upgraded.query('attachments'), isEmpty);
       expect(await upgraded.query('file_jobs'), isEmpty);
     },
   );
+
+  test('trim lets the oldest copies under a key go, nothing else', () async {
+    Future<void> writeAt(String key, int size, int at) async {
+      await LocalFileCache.write(key, List.filled(size, 1));
+      await db.update(
+        'files',
+        {'cached_at': at},
+        where: 'path = ?',
+        whereArgs: ['aiko-cache:$key'],
+      );
+    }
+
+    await writeAt('receipts/users/u/old', 40, 1);
+    await writeAt('receipts/users/u/mid', 40, 2);
+    await writeAt('receipts/users/u/new', 40, 3);
+    await writeAt('attachments/waiting', 400, 0);
+
+    await LocalFileCache.trim('receipts/', maxBytes: 100);
+
+    expect(
+      await LocalFileCache.contains('aiko-cache:receipts/users/u/new'),
+      isTrue,
+    );
+    expect(
+      await LocalFileCache.contains('aiko-cache:receipts/users/u/mid'),
+      isTrue,
+    );
+    expect(
+      await LocalFileCache.contains('aiko-cache:receipts/users/u/old'),
+      isFalse,
+    );
+    // Bytes that exist only here are never trimmed.
+    expect(
+      await LocalFileCache.contains('aiko-cache:attachments/waiting'),
+      isTrue,
+    );
+  });
+
+  test('removeUnder deletes only the files under that key', () async {
+    await LocalFileCache.write('avatars/u1/a.jpg', [1]);
+    await LocalFileCache.write('avatars/u1/b.jpg', [1]);
+    await LocalFileCache.write('avatars/u10/c.jpg', [1]);
+
+    await LocalFileCache.removeUnder('avatars/u1/');
+
+    expect(
+      await LocalFileCache.contains('aiko-cache:avatars/u1/a.jpg'),
+      isFalse,
+    );
+    expect(
+      await LocalFileCache.contains('aiko-cache:avatars/u1/b.jpg'),
+      isFalse,
+    );
+    expect(
+      await LocalFileCache.contains('aiko-cache:avatars/u10/c.jpg'),
+      isTrue,
+    );
+  });
 }

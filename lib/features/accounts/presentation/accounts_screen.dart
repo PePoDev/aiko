@@ -14,6 +14,7 @@ import '../../../shared/layout/adaptive_presentation.dart';
 import '../../../shared/widgets/finance_card.dart';
 import '../../../shared/widgets/screen_states.dart';
 import '../../../theme/aiko_colors.dart';
+import '../../transactions/data/transaction_attachment_repository.dart';
 import '../../transactions/domain/transaction.dart';
 import '../../transactions/presentation/transaction_detail_screen.dart';
 import '../application/account_balances.dart';
@@ -585,6 +586,12 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
           unawaited(TransactionReminderService.instance.cancel(transaction.id));
         }
       }
+      // Their files go too; cloud copies are deleted once online.
+      unawaited(
+        TransactionAttachmentRepository().deleteForTransactions(
+          deleted.map((transaction) => transaction.id),
+        ),
+      );
       if (!mounted) {
         return;
       }

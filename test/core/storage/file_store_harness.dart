@@ -66,7 +66,11 @@ class FakeRemoteFileStore implements RemoteFileStore {
   }
 
   @override
-  Future<Uint8List> get(String path, {required int maxBytes}) async {
+  Future<Uint8List> get(
+    String path, {
+    required int maxBytes,
+    int? sizeBytes,
+  }) async {
     calls.add('get $path');
     _check();
     final bytes = files[path];

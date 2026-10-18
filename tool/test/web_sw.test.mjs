@@ -262,7 +262,9 @@ test('caches what the page loaded before the worker controlled it', async () => 
   const worker = await installed();
   const local = `${SCOPE}canvaskit/chromium/canvaskit.js`;
   const firebase = 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
-  Object.assign(worker.network.routes, { [CANVASKIT]: 'wasm', [local]: 'js', [firebase]: 'auth' });
+  // From a page of the previous build that this worker took over.
+  const older = 'https://www.gstatic.com/flutter-canvaskit/rev1/chromium/canvaskit.wasm';
+  Object.assign(worker.network.routes, { [CANVASKIT]: 'wasm', [local]: 'js', [firebase]: 'auth', [older]: 'old' });
   worker.network.log = [];
   await dispatch(worker, 'message', {
     data: {
@@ -270,6 +272,7 @@ test('caches what the page loaded before the worker controlled it', async () => 
       urls: [
         CANVASKIT,
         CANVASKIT,
+        older,
         local,
         firebase,
         `${SCOPE}main.dart.js`,
@@ -336,4 +339,199 @@ test('unknown CDN versions are kept when the build does not name them', async ()
   await dispatch(worker, 'install');
   await dispatch(worker, 'activate');
   assert.deepEqual(cdn.urls(), [sdk]);
+});
+
+const GSTATIC = 'https://www.gstatic.com';
+
+/** A cache storage whose CDN cache holds [urls] (as CORS responses). */
+async function cdnCaches(urls) {
+  const caches = new FakeCacheStorage();
+  const cdn = await caches.open('aiko-cdn');
+  for (const url of urls) await cdn.put(url, typed(new Response(`cached ${url}`), 'cors'));
+  return { caches, cdn };
+}
+
+test('an update that cannot download a CDN file fails and keeps the current build', async () => {
+  const old = [`${GSTATIC}/flutter-canvaskit/rev1/chromium/canvaskit.js`, `${GSTATIC}/flutter-canvaskit/rev1/chromium/canvaskit.wasm`];
+  const failures = [
+    new TypeError('connection reset'),
+    typed(new Response('busy', { status: 503 }), 'cors'),
+    typed(new Response(''), 'opaque'),
+  ];
+  for (const failure of failures) {
+    const { caches, cdn } = await cdnCaches(old);
+    const network = new FakeNetwork();
+    serve(network, BUILD);
+    network.routes[`${GSTATIC}/flutter-canvaskit/rev2/chromium/canvaskit.js`] = 'js2';
+    network.routes[`${GSTATIC}/flutter-canvaskit/rev2/chromium/canvaskit.wasm`] = failure;
+    const worker = loadWorker({ manifest: manifestFor(BUILD), caches, network });
+    await assert.rejects(dispatch(worker, 'install'));
+    assert.equal(worker.state.skippedWaiting, false);
+    // The current build's CanvasKit stays for its offline starts.
+    for (const url of old) assert.ok(cdn.urls().includes(url), url);
+  }
+});
+
+test('an update caches every Firebase SDK file the build lists, also for an unchanged SDK version', async () => {
+  const sdk = `${GSTATIC}/firebasejs/12.19.0`;
+  const { caches, cdn } = await cdnCaches([
+    `${sdk}/firebase-app.js`,
+    `${sdk}/firebase-firestore.js`,
+    `${GSTATIC}/firebasejs/12.0.0/firebase-auth.js`,
+  ]);
+  const network = new FakeNetwork();
+  serve(network, BUILD);
+  Object.assign(network.routes, {
+    [`${sdk}/firebase-auth.js`]: 'auth',
+    [`${sdk}/firebase-firestore-pipelines.js`]: 'pipelines',
+  });
+  const firebasejs = ['firebase-app.js', 'firebase-auth.js', 'firebase-firestore-pipelines.js'];
+  const worker = loadWorker({ manifest: manifestFor(BUILD, { cdnFiles: { firebasejs } }), caches, network });
+  await dispatch(worker, 'install');
+  // Only the missing ones are downloaded, and not a file the build no longer loads.
+  const downloaded = network.log.filter((entry) => entry.url.startsWith(GSTATIC)).map((entry) => entry.url);
+  assert.deepEqual(downloaded.sort(), [`${sdk}/firebase-auth.js`, `${sdk}/firebase-firestore-pipelines.js`]);
+  await dispatch(worker, 'activate');
+  assert.deepEqual(cdn.urls().sort(), [
+    `${sdk}/firebase-app.js`,
+    `${sdk}/firebase-auth.js`,
+    `${sdk}/firebase-firestore-pipelines.js`,
+    `${sdk}/firebase-firestore.js`,
+  ]);
+});
+
+test('an update downloads no Firebase SDK in a browser that never loaded it', async () => {
+  const { caches } = await cdnCaches([`${GSTATIC}/flutter-canvaskit/rev2/chromium/canvaskit.wasm`]);
+  const network = new FakeNetwork();
+  serve(network, BUILD);
+  const manifest = manifestFor(BUILD, { cdnFiles: { firebasejs: ['firebase-app.js'] } });
+  const worker = loadWorker({ manifest, caches, network });
+  await dispatch(worker, 'install');
+  assert.equal(worker.state.skippedWaiting, true);
+  assert.deepEqual(network.log.filter((entry) => !entry.url.startsWith(SCOPE)), []);
+});
+
+test('old CDN versions are kept until all of the current ones are cached', async () => {
+  const canvaskit = (rev, file) => `${GSTATIC}/flutter-canvaskit/${rev}/chromium/${file}`;
+  const oldSdk = `${GSTATIC}/firebasejs/12.0.0/firebase-app.js`;
+  const { caches, cdn } = await cdnCaches([
+    canvaskit('rev1', 'canvaskit.js'),
+    canvaskit('rev1', 'canvaskit.wasm'),
+    canvaskit('rev2', 'canvaskit.wasm'),
+    oldSdk,
+  ]);
+  const worker = loadWorker({ manifest: manifestFor(BUILD), caches });
+  await worker.context.pruneCdn();
+  assert.equal(cdn.urls().length, 4);
+  await cdn.put(canvaskit('rev2', 'canvaskit.js'), typed(new Response('js'), 'cors'));
+  await worker.context.pruneCdn();
+  assert.deepEqual(cdn.urls().filter((url) => url.includes('canvaskit')).sort(), [
+    canvaskit('rev2', 'canvaskit.js'),
+    canvaskit('rev2', 'canvaskit.wasm'),
+  ]);
+  // The SDK at 12.19.0 was never cached: the old version stays.
+  assert.ok(cdn.urls().includes(oldSdk));
+});
+
+test('an update that cannot refresh a runtime-cached file fails and keeps the old copies', async () => {
+  const v1 = await installed();
+  const runtime = await v1.caches.open('aiko-runtime');
+  const js = `${SCOPE}canvaskit/canvaskit.js`;
+  const wasm = `${SCOPE}canvaskit/canvaskit.wasm`;
+  const gone = `${SCOPE}old.js`;
+  for (const url of [js, wasm, gone]) await runtime.put(url, typed(new Response('v1'), 'basic'));
+  const v2Files = { ...BUILD, 'main.dart.js': 'main v2' };
+  const network = new FakeNetwork();
+  serve(network, { ...v2Files, 'canvaskit/canvaskit.js': 'js v2' });
+  network.routes[gone] = typed(new Response('', { status: 404 }), 'basic');
+  const v2 = loadWorker({ manifest: manifestFor(v2Files), caches: v1.caches, network });
+  await assert.rejects(dispatch(v2, 'install'), /Failed to fetch/);
+  for (const url of [js, wasm, gone]) assert.equal(await text(await runtime.match(url)), 'v1', url);
+
+  network.routes[wasm] = 'wasm v2';
+  const retry = loadWorker({ manifest: manifestFor(v2Files), caches: v1.caches, network });
+  await dispatch(retry, 'install');
+  assert.equal(await text(await runtime.match(js)), 'js v2');
+  assert.equal(await text(await runtime.match(wasm)), 'wasm v2');
+  assert.equal(await runtime.match(gone), undefined);
+});
+
+/** index.html as tool/web_precache.mjs tags it with its build's version. */
+const tagged = (version, body = 'app') => `<html><head><meta name="aiko-build" content="${version}"></head>${body}</html>`;
+
+/** A worker with [files] installed whose network then serves [served]. */
+async function installedServing(files, served, extra) {
+  const worker = await installed(files, extra);
+  worker.network.routes = {};
+  serve(worker.network, served);
+  if (served['index.html']) worker.network.routes[SCOPE] = served['index.html'];
+  worker.network.log = [];
+  return worker;
+}
+
+test('a page from the precache loads all its files from the precache', async () => {
+  const worker = await installedServing(BUILD, {});
+  // Offline: the page comes from the cache...
+  assert.equal(await text(await dispatchFetch(worker, navigation(SCOPE), { resultingClientId: 'page' })), '<html>app v1</html>');
+  // ...and so does every file it loads, even once the network is back.
+  serve(worker.network, { 'main.dart.js': 'main v2', 'assets/assets/images/aiko/aiko_happy.png': 'png v2' });
+  worker.network.log = [];
+  const png = `${SCOPE}assets/assets/images/aiko/aiko_happy.png`;
+  assert.equal(await text(await dispatchFetch(worker, new Request(`${SCOPE}main.dart.js`), { clientId: 'page' })), 'main v1');
+  assert.equal(await text(await dispatchFetch(worker, new Request(png), { clientId: 'page' })), 'png');
+  assert.deepEqual(worker.network.log, []);
+});
+
+test('a page of the precached build from the network loads its files from the precache', async () => {
+  const version = '0123456789abcdef';
+  const files = { ...BUILD, 'index.html': tagged(version) };
+  const worker = await installedServing(files, files, { version });
+  assert.equal(await text(await dispatchFetch(worker, navigation(SCOPE), { resultingClientId: 'page' })), files['index.html']);
+  worker.network.log = [];
+  assert.equal(await text(await dispatchFetch(worker, new Request(`${SCOPE}main.dart.js`), { clientId: 'page' })), 'main v1');
+  assert.deepEqual(worker.network.log, []);
+});
+
+test('a page of a newer build loads every file from the network, however slow', async () => {
+  const v2 = {
+    'index.html': tagged('newer-build'),
+    'flutter_bootstrap.js': 'boot rev3',
+    'main.dart.js': 'main v2',
+    'assets/assets/images/aiko/aiko_happy.png': 'png v2',
+  };
+  const worker = await installedServing({ ...BUILD, 'flutter_bootstrap.js': 'boot rev2' }, v2);
+  // Slower than the 3 s fallback to the cache, which has the other build.
+  worker.network.routes[`${SCOPE}main.dart.js`] = () =>
+    new Promise((resolve) => setTimeout(() => resolve(typed(new Response('main v2'), 'basic')), 3500));
+  const loaded = [await text(await dispatchFetch(worker, navigation(SCOPE), { resultingClientId: 'page' }))];
+  for (const path of ['flutter_bootstrap.js', 'main.dart.js', 'assets/assets/images/aiko/aiko_happy.png']) {
+    loaded.push(await text(await dispatchFetch(worker, new Request(SCOPE + path), { clientId: 'page' })));
+  }
+  assert.deepEqual(loaded, Object.values(v2));
+
+  // Offline now: the other build's copies are never used instead.
+  worker.network.routes = {};
+  await assert.rejects(dispatchFetch(worker, new Request(`${SCOPE}main.dart.js`), { clientId: 'page' }));
+  await assert.rejects(
+    dispatchFetch(worker, new Request(`${SCOPE}assets/assets/images/aiko/aiko_happy.png`), { clientId: 'page' }),
+  );
+  assert.deepEqual((await worker.caches.open('aiko-runtime')).urls(), []);
+});
+
+test('a page from the network without a build tag counts as another build', async () => {
+  const worker = await installedServing(BUILD, { ...BUILD, 'index.html': '<html>untagged</html>', 'main.dart.js': 'main v2' });
+  await dispatchFetch(worker, navigation(SCOPE), { resultingClientId: 'page' });
+  assert.equal(await text(await dispatchFetch(worker, new Request(`${SCOPE}main.dart.js`), { clientId: 'page' })), 'main v2');
+});
+
+test('a worker the page starts loads its files from where the page does', async () => {
+  const worker = await installedServing({ ...BUILD, 'sqflite_sw.js': 'sqflite v1', 'sqlite3.wasm': 'wasm v1' }, {});
+  await dispatchFetch(worker, navigation(SCOPE), { resultingClientId: 'page' });
+  serve(worker.network, { 'sqflite_sw.js': 'sqflite v2', 'sqlite3.wasm': 'wasm v2' });
+  const script = await dispatchFetch(worker, new Request(`${SCOPE}sqflite_sw.js`), {
+    clientId: 'page',
+    resultingClientId: 'db-worker',
+  });
+  assert.equal(await text(script), 'sqflite v1');
+  assert.equal(await text(await dispatchFetch(worker, new Request(`${SCOPE}sqlite3.wasm`), { clientId: 'db-worker' })), 'wasm v1');
 });

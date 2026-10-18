@@ -53,6 +53,7 @@
   "startupFailedMessage": "Something went wrong while opening your data on this device. Try again; if it keeps happening, close and reopen the app.",
   "webStartupSlowTitle": "Aiko is taking longer than usual",
   "webStartupSlowMessage": "Starting up is taking longer than it should, which can happen on a slow or missing connection. Aiko carries on by itself once it's ready, or you can try again.",
+  "webStartupSlowNativeMessage": "Starting up is taking longer than it should, for example while Aiko prepares the data on this device. Aiko carries on by itself once it's ready, or you can try again.",
   "discardChangesTitle": "Discard changes?",
   "discardChangesMessage": "Your edits haven't been saved yet. If you leave now, they'll be lost.",
   "discardChangesKeepEditing": "Keep editing",

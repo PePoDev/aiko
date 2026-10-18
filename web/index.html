@@ -62,21 +62,10 @@
         sw.controller.postMessage({ type: 'aiko-cache-urls', urls: urls });
       }
 
-      window.addEventListener('flutter-first-frame', function () {
-        firstFrame = true;
-        var loading = document.getElementById('aiko-loading');
-        if (loading) loading.remove();
-        if (navigator.storage && navigator.storage.persist) {
-          navigator.storage.persisted().then(function (persisted) {
-            if (!persisted) return navigator.storage.persist();
-          }).catch(function () {});
-        }
-        cacheLoadedFiles();
-      });
-
-      if (!sw) return;
-      sw.addEventListener('controllerchange', cacheLoadedFiles);
-      window.addEventListener('load', function () {
+      // Registered once the app shows something (also the startup error
+      // screen), so a first visit's caching doesn't slow down its start.
+      function registerWorker() {
+        if (!sw) return;
         sw.register('aiko_sw.js', { updateViaCache: 'none' }).then(function (registration) {
           // Long-open tabs pick up new builds for the next offline start.
           function update() {
@@ -87,7 +76,23 @@
         }).catch(function (error) {
           console.warn('Aiko offline support is unavailable:', error);
         });
+      }
+
+      window.addEventListener('flutter-first-frame', function () {
+        if (firstFrame) return;
+        firstFrame = true;
+        var loading = document.getElementById('aiko-loading');
+        if (loading) loading.remove();
+        if (navigator.storage && navigator.storage.persist) {
+          navigator.storage.persisted().then(function (persisted) {
+            if (!persisted) return navigator.storage.persist();
+          }).catch(function () {});
+        }
+        registerWorker();
+        cacheLoadedFiles();
       });
+
+      if (sw) sw.addEventListener('controllerchange', cacheLoadedFiles);
     })();
   </script>
   <script src="firebase_emulators.js"></script>

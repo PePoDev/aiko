@@ -77,9 +77,12 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
 
-      # Lists the build's files and hashes in build/web/aiko_sw.js, so the app
-      # opens offline after one visit and browsers notice each new build.
-      # Without it the worker removes itself (the app then needs a connection).
+      # Lists the build's files and hashes, and the Firebase JS SDK files it
+      # loads, in build/web/aiko_sw.js and tags build/web/index.html with the
+      # build, so the app opens offline after one visit and browsers notice
+      # each new build. Needs the flutter build above (its
+      # .flutter-plugins-dependencies). Without it the worker removes itself
+      # (the app then needs a connection).
       - name: Service worker precache
         run: |
           npm run test:web

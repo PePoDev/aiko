@@ -17,7 +17,9 @@
 //   network takes longer than NETWORK_TIMEOUT_MS. The page then loads all
 //   its files from one build: from the precache when it came from there or
 //   is the precached build (its aiko-build tag says which), otherwise (a
-//   newer deploy) from the network only.
+//   newer deploy) from the network, however slow. Only when the network
+//   fails do that page's files other than the app's code (BUILD_CODE), such
+//   as images and the PDF viewer, fall back to this build's cached copies.
 // - Files of a page this worker didn't load (it restarted or took the page
 //   over): network first like navigations for files Hosting serves
 //   `no-cache`; the cache for assets/assets/** (served with max-age),
@@ -68,6 +70,13 @@ const PRECACHE_URLS = new Set(
 const CDN_VERSIONED = /^https:\/\/www\.gstatic\.com\/(flutter-canvaskit|firebasejs)\/([^/?#]+)\/([^?#]+)$/;
 // index.html's build tag, written by tool/web_precache.mjs.
 const BUILD_META = /<meta name="aiko-build" content="([^"]*)">/;
+// The app's code, compiled for each build (paths within the scope): the page,
+// Flutter's loader and bootstrap, the compiled app with any deferred parts or
+// wasm variant, and a locally served CanvasKit. A page never runs these from
+// two builds. Package files (the database worker, sqlite3.wasm, the PDF
+// viewer) change only with their package, so another build's copy may stand
+// in for them offline.
+const BUILD_CODE = /^(?:index\.html|flutter\.js|flutter_bootstrap\.js|main\.dart\.[^/]+|canvaskit\/.+)$/;
 
 let offlineUntil = 0;
 // Where each page (client id) loads its files from: a promise of 'precache'
@@ -188,8 +197,9 @@ async function handleNavigation(event) {
 
 /**
  * Where the rest of a page that came from the network loads from: the
- * precache when the page is this worker's build, otherwise the network, so
- * one page never runs files of two builds. Null when it can't be read.
+ * precache when the page is this worker's build, otherwise the network (see
+ * [fetchForOtherBuild]), so one page never runs code of two builds. Null
+ * when it can't be read.
  */
 async function sourceOfPage(response) {
   if (response.status !== 200 || response.type !== 'basic') return null;
@@ -218,8 +228,7 @@ async function sourceOf(event) {
 async function handleNetworkFirst(event) {
   const url = event.request.url;
   const source = await sourceOf(event);
-  // A page of another build: that build's files, never copies of this one.
-  if (source === 'network') return fetch(event.request);
+  if (source === 'network') return fetchForOtherBuild(event);
   if (source === 'precache') {
     const precached = await matchPrecache(url);
     if (precached) return precached;
@@ -235,7 +244,7 @@ async function handleNetworkFirst(event) {
 
 async function handleStaleWhileRevalidate(event) {
   const url = event.request.url;
-  if ((await sourceOf(event)) === 'network') return fetch(event.request);
+  if ((await sourceOf(event)) === 'network') return fetchForOtherBuild(event);
   // Precached files change only with a new build, which brings a new cache.
   const precached = await matchPrecache(url);
   if (precached) return precached;
@@ -247,6 +256,23 @@ async function handleStaleWhileRevalidate(event) {
   if (!cached) return network;
   extend(event, network.catch(() => {}));
   return cached;
+}
+
+/**
+ * A file for a page of another build: that build's copy from the network,
+ * however slow. Only when the network fails does a file other than the app's
+ * code ([BUILD_CODE]), such as an image, fall back to this build's cached
+ * copy, which serves the page better than none.
+ */
+async function fetchForOtherBuild(event) {
+  try {
+    return await fetch(event.request);
+  } catch (error) {
+    const url = event.request.url;
+    const cached = BUILD_CODE.test(scopePath(url)) ? undefined : await matchCached(url);
+    if (cached) return cached;
+    throw error;
+  }
 }
 
 async function handleCdn(event) {
@@ -521,6 +547,11 @@ async function matchCached(url) {
 async function matchPrecache(url) {
   const key = precacheKey(url);
   return key ? (await caches.open(PRECACHE_CACHE)).match(key, MATCH) : undefined;
+}
+
+/** [href]'s path within the scope, without query or fragment. */
+function scopePath(href) {
+  return new URL(href).pathname.slice(SCOPE.pathname.length);
 }
 
 /** The precache URL for [href] (ignoring query and fragment), or null. */

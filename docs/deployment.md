@@ -7,7 +7,7 @@ GitHub Actions builds the Flutter web app and publishes it to Firebase Hosting i
 | Any branch except `main` | Quality gates, plus a **preview channel** for that branch, deployed in parallel. The URL appears as a `Hosting (preview)` check (Details link) on the commit, branch and any pull request, and in the run summary. |
 | `main` | Quality gates. If they pass: deploy Firebase rules/indexes, then the **live site** (`https://<project>.web.app`). |
 
-Quality gates: `dart format`, `flutter analyze`, `flutter test`, Functions unit tests, and the rules/storage/functions emulator tests ([Testing](testing.md)). Each web build also runs the service-worker tests (`npm run test:web`) before writing its precache. Re-run any branch from **Actions → CI → Run workflow**. Previews deploy even when a gate fails, so you can see the change; the live site never does. Until the `FIREBASE_PROJECT_ID` variable is set ([GitHub settings](#3-github-settings)), CI runs the quality gates only and skips every deploy; once it is set, a missing secret or variable fails the deploy with its name.
+Quality gates: `dart format`, `flutter analyze`, `flutter test`, Functions unit tests, the rules/storage/functions emulator tests, and the service-worker tests (`npm run test:web`) ([Testing](testing.md)). Each web build runs the service-worker tests again before writing its precache. Re-run any branch from **Actions → CI → Run workflow**. Previews deploy even when a gate fails, so you can see the change; the live site never does. Until the `FIREBASE_PROJECT_ID` variable is set ([GitHub settings](#3-github-settings)), CI runs the quality gates only and skips every deploy; once it is set, a missing secret or variable fails the deploy with its name.
 
 ```mermaid
 flowchart LR

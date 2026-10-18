@@ -73,7 +73,9 @@ const BUILD_META = /<meta name="aiko-build" content="([^"]*)">/;
 // The app's code, compiled for each build (paths within the scope): the page,
 // Flutter's loader and bootstrap, the compiled app with any deferred parts or
 // wasm variant, and a locally served CanvasKit. A page never runs these from
-// two builds.
+// two builds. Package files (the database worker, sqlite3.wasm, the PDF
+// viewer) change only with their package, so another build's copy may stand
+// in for them offline.
 const BUILD_CODE = /^(?:index\.html|flutter\.js|flutter_bootstrap\.js|main\.dart\.[^/]+|canvaskit\/.+)$/;
 
 let offlineUntil = 0;

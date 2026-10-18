@@ -141,10 +141,12 @@ final firebaseSyncProvider = Provider<void>((ref) {
       sync.stopListening();
     } else {
       sync.beginListening(user.uid, refresh.keys);
-      // Writes queued before this session (an earlier launch, offline) wait
-      // to upload too.
+      // Writes queued before this session (an earlier launch offline, or
+      // another browser tab) wait to upload too.
       try {
-        sync.trackWrite(FirebaseBackend.firestore.waitForPendingWrites());
+        sync.trackQueuedWrites(
+          FirebaseBackend.firestore.waitForPendingWrites(),
+        );
       } catch (_) {
         // Unsupported: the listeners still report documents with changes.
       }

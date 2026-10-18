@@ -373,6 +373,60 @@ void main() {
       expect(sync.hasPendingWrites, isFalse);
     });
 
+    test('writes queued before this session are pending until '
+        'waitForPendingWrites completes', () async {
+      final sync = state()..beginListening('uid', collections);
+      final queued = Completer<void>();
+
+      sync.trackQueuedWrites(queued.future);
+      expect(sync.hasPendingWrites, isTrue);
+
+      queued.complete();
+      await pumpEventQueue();
+      expect(sync.hasPendingWrites, isFalse);
+    });
+
+    test('queued writes that waitForPendingWrites never reports (another '
+        "browser tab's) stop counting once every listener has the server's "
+        'data with no local changes', () async {
+      final sync = state()..beginListening('uid', collections);
+      sync.trackQueuedWrites(Completer<void>().future);
+
+      // Offline: the cache, or the server with this tab's changes waiting.
+      sync.markSnapshot('accounts', fromCache: true);
+      sync.markSnapshot('transactions', fromCache: true);
+      expect(sync.hasPendingWrites, isTrue);
+      sync.markSnapshot('accounts', fromCache: false);
+      sync.markSnapshot(
+        'transactions',
+        fromCache: false,
+        hasPendingWrites: true,
+      );
+      expect(sync.hasPendingWrites, isTrue);
+      expect(sync.inSync, isFalse);
+
+      sync.markSnapshot('transactions', fromCache: false);
+      expect(sync.hasPendingWrites, isFalse);
+      expect(sync.inSync, isTrue);
+    });
+
+    test('queued writes are forgotten on sign-out', () async {
+      final sync = state()..beginListening('alice', collections);
+      final queued = Completer<void>();
+      sync.trackQueuedWrites(queued.future);
+
+      sync.stopListening();
+      sync.beginListening('bob', collections);
+      expect(sync.hasPendingWrites, isFalse);
+
+      // Bob's own queue is followed; Alice's answer doesn't end it.
+      final bobQueued = Completer<void>();
+      sync.trackQueuedWrites(bobQueued.future);
+      queued.complete();
+      await pumpEventQueue();
+      expect(sync.hasPendingWrites, isTrue);
+    });
+
     test("signing out forgets the previous user's writes", () async {
       final sync = state()..beginListening('alice', collections);
       final stuck = Completer<void>();

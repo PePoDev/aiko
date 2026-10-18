@@ -110,6 +110,11 @@ class FileJobRun {
 /// connection moves to the back and ends the pass; one that fails otherwise
 /// is retried until [maxAttempts], then waits as [FileJob.failed] (reported
 /// on [failures]) until the next launch or until it is queued again.
+///
+/// An upload still running when the device comes back online (most likely
+/// waiting between Storage's own retries) is cancelled and starts again at
+/// once. One running when its owner signs out is cancelled too, so nothing
+/// uploads as them after they left; the job waits for them, unchanged.
 class FileSyncQueue {
   FileSyncQueue({
     Future<Database> Function()? database,
@@ -160,6 +165,13 @@ class FileSyncQueue {
   bool _suspended = false;
   bool _retriedFailed = false;
 
+  /// Whose jobs the running pass runs, if one runs.
+  String? _passOwner;
+
+  /// The running job's upload was cancelled for the job to start again at
+  /// once ([followNetwork]).
+  bool _restartJob = false;
+
   /// 30 s after the first failing pass, doubling to at most 15 minutes.
   static Duration defaultRetryDelay(int round) =>
       Duration(seconds: min(30 * pow(2, round).toInt(), 15 * 60));
@@ -186,18 +198,32 @@ class FileSyncQueue {
     if (auth == null) return;
     _started = true;
     FirebaseRemoteFileStore.configureRetries(FirebaseBackend.storage);
-    auth.authStateChanges().listen((user) {
-      if (user != null) unawaited(process());
-    });
+    followUser(auth.authStateChanges().map((user) => user?.uid));
     WidgetsBinding.instance.addObserver(_ResumeObserver(this));
     followNetwork(const PlatformNetworkMonitor().onlineChanges);
   }
 
+  /// Follows who is signed in ([users]: their ids, null when signed out). A
+  /// pass starts when someone signs in, and the upload of a job whose owner
+  /// is no longer signed in is cancelled (the job waits for them).
+  StreamSubscription<String?> followUser(Stream<String?> users) {
+    return users.listen((uid) {
+      final owner = _passOwner;
+      if (owner != null && owner != uid) remote.cancelUploads();
+      if (uid != null) unawaited(process());
+    });
+  }
+
   /// Runs a pass with a fresh backoff whenever [online] reports the device
-  /// back online, instead of waiting for the backoff timer.
+  /// back online, instead of waiting for the backoff timer. Back from
+  /// offline, an upload still running is cancelled and starts again at once,
+  /// instead of waiting out Storage's own retries.
   StreamSubscription<bool> followNetwork(Stream<bool> online) {
     bool? wasOnline;
     return online.listen((isOnline) {
+      if (isOnline && wasOnline == false && _running != null) {
+        if (remote.cancelUploads()) _restartJob = true;
+      }
       if (isOnline && wasOnline != true) retryNow();
       wasOnline = isOnline;
     });
@@ -360,6 +386,15 @@ class FileSyncQueue {
   Future<void> _pass() async {
     final uid = _signedInUserId();
     if (uid == null || uid.isEmpty || _suspended) return;
+    _passOwner = uid;
+    try {
+      await _runJobsOf(uid);
+    } finally {
+      _passOwner = null;
+    }
+  }
+
+  Future<void> _runJobsOf(String uid) async {
     var failed = false;
     try {
       if (!_retriedFailed) {
@@ -372,6 +407,7 @@ class FileSyncQueue {
         if (_suspended || _signedInUserId() != uid) return;
         final handler = _handlers[job.kind];
         if (handler == null || job.failed) continue;
+        _restartJob = false;
         try {
           await handler(job, FileJobRun._(this, job));
           await _finish(job);
@@ -379,6 +415,15 @@ class FileSyncQueue {
           // Signed out while it ran: it runs again when they are back.
           return;
         } catch (error) {
+          // Signed out while it ran (its upload cancelled): the same.
+          if (_signedInUserId() != uid) return;
+          if (_restartJob && isTransientFileError(error)) {
+            // Cancelled to start again now that the device is back online:
+            // a new pass runs it first, with no attempt counted.
+            _restartJob = false;
+            _again = true;
+            return;
+          }
           failed = true;
           if (isTransientFileError(error)) {
             // Most likely offline: the rest would fail the same way. Going

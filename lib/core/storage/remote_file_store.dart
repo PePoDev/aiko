@@ -23,6 +23,10 @@ abstract interface class RemoteFileStore {
 
   /// The object path a download URL points at, or null for any other URL.
   String? pathOf(String url);
+
+  /// Cancels the uploads ([put]) in progress, which then fail with the
+  /// [FirebaseException] `canceled`. Returns whether there were any.
+  bool cancelUploads();
 }
 
 /// Whether [error] is worth retrying later as it is (no connection, a slow
@@ -74,15 +78,34 @@ class FirebaseRemoteFileStore implements RemoteFileStore {
 
   FirebaseStorage get _storage => FirebaseBackend.storage;
 
+  /// Uploads in progress, for [cancelUploads].
+  static final _uploads = <UploadTask>{};
+
   @override
   Future<void> put(
     String path,
     Uint8List bytes, {
     required String contentType,
   }) async {
-    await _storage
+    final task = _storage
         .ref(path)
         .putData(bytes, SettableMetadata(contentType: contentType));
+    _uploads.add(task);
+    try {
+      await task;
+    } finally {
+      _uploads.remove(task);
+    }
+  }
+
+  @override
+  bool cancelUploads() {
+    if (_uploads.isEmpty) return false;
+    for (final task in _uploads.toList()) {
+      // Also stops the wait between Storage's own retries.
+      unawaited(task.cancel().then<void>((_) {}, onError: (Object _) {}));
+    }
+    return true;
   }
 
   @override

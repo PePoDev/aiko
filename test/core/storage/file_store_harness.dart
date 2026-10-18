@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:aiko/core/storage/file_sync_queue.dart';
@@ -42,10 +43,24 @@ class FakeRemoteFileStore implements RemoteFileStore {
   final calls = <String>[];
   Object? failure;
 
+  /// While set, uploads wait for it (like an upload between Storage's own
+  /// retries) unless [cancelUploads] cancels them.
+  Completer<void>? holdUploads;
+  final _uploading = <Completer<void>>{};
+
+  /// How many uploads [cancelUploads] cancelled.
+  var cancelled = 0;
+
   /// An error that [isTransientFileError] treats as "offline".
   static final offline = FirebaseException(
     plugin: 'firebase_storage',
     code: 'retry-limit-exceeded',
+  );
+
+  /// What a cancelled upload fails with.
+  static final canceled = FirebaseException(
+    plugin: 'firebase_storage',
+    code: 'canceled',
   );
 
   void _check() {
@@ -61,6 +76,21 @@ class FakeRemoteFileStore implements RemoteFileStore {
   }) async {
     calls.add('put $path');
     _check();
+    final hold = holdUploads;
+    if (hold != null) {
+      final upload = Completer<void>();
+      _uploading.add(upload);
+      unawaited(
+        hold.future.then((_) {
+          if (!upload.isCompleted) upload.complete();
+        }),
+      );
+      try {
+        await upload.future;
+      } finally {
+        _uploading.remove(upload);
+      }
+    }
     files[path] = bytes;
     contentTypes[path] = contentType;
   }
@@ -100,4 +130,15 @@ class FakeRemoteFileStore implements RemoteFileStore {
   String? pathOf(String url) => url.startsWith('https://files.test/')
       ? url.substring('https://files.test/'.length)
       : null;
+
+  @override
+  bool cancelUploads() {
+    final running = _uploading.where((upload) => !upload.isCompleted);
+    if (running.isEmpty) return false;
+    for (final upload in running.toList()) {
+      cancelled++;
+      upload.completeError(canceled);
+    }
+    return true;
+  }
 }

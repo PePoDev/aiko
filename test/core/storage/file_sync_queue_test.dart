@@ -287,6 +287,122 @@ void main() {
     await backoff.dispose();
   });
 
+  group('an upload in progress', () {
+    late StreamController<bool> online;
+    late StreamController<String?> users;
+    late String? signedIn;
+    late FileSyncQueue uploads;
+
+    setUp(() {
+      online = StreamController<bool>();
+      users = StreamController<String?>();
+      signedIn = 'uid-1';
+      uploads = FileSyncQueue(
+        remote: remote,
+        signedInUserId: () => signedIn,
+        retryDelay: (_) => null,
+        autoProcess: false,
+      );
+      uploads.register(
+        'upload',
+        (job, run) => remote.put(
+          'users/${job.ownerId}/${job.id}',
+          Uint8List(1),
+          contentType: 'image/png',
+        ),
+      );
+      uploads.followNetwork(online.stream);
+      uploads.followUser(users.stream);
+    });
+
+    tearDown(() async {
+      final hold = remote.holdUploads;
+      if (hold != null && !hold.isCompleted) hold.complete();
+      await online.close();
+      await users.close();
+      await uploads.dispose();
+    });
+
+    Future<void> startUploading() async {
+      remote.holdUploads = Completer<void>();
+      await uploads.enqueue(_job('a', kind: 'upload'));
+      await uploads.enqueue(_job('b', kind: 'upload'));
+      unawaited(uploads.process());
+      await pumpEventQueue();
+      expect(remote.calls, ['put users/uid-1/a']);
+    }
+
+    test('starts again at once when the device is back online, instead of '
+        "waiting out Storage's own retries", () async {
+      online.add(true);
+      await pumpEventQueue();
+      await startUploading();
+
+      online.add(false);
+      await pumpEventQueue();
+      expect(remote.cancelled, 0);
+
+      online.add(true);
+      await pumpEventQueue();
+      expect(remote.cancelled, 1);
+      // The same job again, first in line, with no attempt counted.
+      expect(remote.calls, ['put users/uid-1/a', 'put users/uid-1/a']);
+      final waiting = await uploads.pending();
+      expect(waiting.map((job) => job.id), ['a', 'b']);
+      expect(waiting.first.attempts, 0);
+
+      remote.holdUploads!.complete();
+      await uploads.process();
+      expect(await uploads.pending(), isEmpty);
+      expect(remote.files.keys, ['users/uid-1/a', 'users/uid-1/b']);
+    });
+
+    test(
+      'keeps going when the network is first reported, or still there',
+      () async {
+        await startUploading();
+
+        online.add(true);
+        await pumpEventQueue();
+        online.add(true);
+        await pumpEventQueue();
+
+        expect(remote.cancelled, 0);
+        expect(remote.calls, ['put users/uid-1/a']);
+      },
+    );
+
+    test('is cancelled when its owner signs out; the job waits for them, '
+        'unchanged', () async {
+      users.add('uid-1');
+      await startUploading();
+
+      signedIn = null;
+      users.add(null);
+      await pumpEventQueue();
+
+      expect(remote.cancelled, 1);
+      expect(remote.files, isEmpty);
+      final waiting = await uploads.pending();
+      expect(waiting.map((job) => job.id), ['a', 'b']);
+      expect(waiting.first.attempts, 0);
+
+      // Back again: uploaded once.
+      remote.holdUploads!.complete();
+      remote.holdUploads = null;
+      signedIn = 'uid-1';
+      users.add('uid-1');
+      await pumpEventQueue();
+      await uploads.process();
+      expect(await uploads.pending(), isEmpty);
+      expect(
+        remote.calls.where((call) => call == 'put users/uid-1/a'),
+        hasLength(2),
+      );
+      expect(remote.files.keys, ['users/uid-1/a', 'users/uid-1/b']);
+    });
+  });
+
   test(
     'passes of queues sharing a lock (browser tabs) never overlap',
     () async {

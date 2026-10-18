@@ -279,7 +279,7 @@ Known limitations:
 
 | Cache | Holds | How it's served |
 | --- | --- | --- |
-| `aiko-precache-<version>` | One build's files, each checked against its hash at install; files unchanged since the last build are copied over, not downloaded | Each page load is pinned to one build: a page from the precache, or from the network carrying the precached build's tag, loads every file from the precache; a page of a newer build loads everything from the network |
+| `aiko-precache-<version>` | One build's files, each checked against its hash at install; files unchanged since the last build are copied over, not downloaded | Each page load is pinned to one build: a page from the precache, or from the network carrying the precached build's tag, loads every file from the precache; a page of a newer build loads everything from the network, however slow, and only when the network fails gets the cached copies of files other than the app's code (`index.html`, `flutter.js`, `flutter_bootstrap.js`, `main.dart.*`, `canvaskit/`), such as images, fonts and the PDF viewer |
 | `aiko-cdn` | Versioned `www.gstatic.com` CanvasKit and Firebase JS SDK files, and `fonts.gstatic.com` fallback fonts (successful CORS responses only) | Cache first |
 | `aiko-runtime` | Other files from this site fetched while online, such as a locally served CanvasKit | When the network fails |
 

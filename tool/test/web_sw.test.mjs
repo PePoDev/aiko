@@ -501,21 +501,61 @@ test('a page of a newer build loads every file from the network, however slow', 
   };
   const worker = await installedServing({ ...BUILD, 'flutter_bootstrap.js': 'boot rev2' }, v2);
   // Slower than the 3 s fallback to the cache, which has the other build.
-  worker.network.routes[`${SCOPE}main.dart.js`] = () =>
-    new Promise((resolve) => setTimeout(() => resolve(typed(new Response('main v2'), 'basic')), 3500));
+  const slow = (body) => () => new Promise((resolve) => setTimeout(() => resolve(typed(new Response(body), 'basic')), 3500));
+  worker.network.routes[`${SCOPE}main.dart.js`] = slow('main v2');
+  worker.network.routes[`${SCOPE}assets/assets/images/aiko/aiko_happy.png`] = slow('png v2');
   const loaded = [await text(await dispatchFetch(worker, navigation(SCOPE), { resultingClientId: 'page' }))];
-  for (const path of ['flutter_bootstrap.js', 'main.dart.js', 'assets/assets/images/aiko/aiko_happy.png']) {
-    loaded.push(await text(await dispatchFetch(worker, new Request(SCOPE + path), { clientId: 'page' })));
+  const files = ['flutter_bootstrap.js', 'main.dart.js', 'assets/assets/images/aiko/aiko_happy.png'];
+  for (const response of await Promise.all(files.map((path) => dispatchFetch(worker, new Request(SCOPE + path), { clientId: 'page' })))) {
+    loaded.push(await text(response));
   }
   assert.deepEqual(loaded, Object.values(v2));
 
-  // Offline now: the other build's copies are never used instead.
+  // Offline now: the other build's code is never used instead.
   worker.network.routes = {};
-  await assert.rejects(dispatchFetch(worker, new Request(`${SCOPE}main.dart.js`), { clientId: 'page' }));
-  await assert.rejects(
-    dispatchFetch(worker, new Request(`${SCOPE}assets/assets/images/aiko/aiko_happy.png`), { clientId: 'page' }),
-  );
+  for (const path of ['main.dart.js', 'main.dart.js?v=2', 'flutter_bootstrap.js']) {
+    await assert.rejects(dispatchFetch(worker, new Request(SCOPE + path), { clientId: 'page' }), path);
+  }
   assert.deepEqual((await worker.caches.open('aiko-runtime')).urls(), []);
+});
+
+test("offline, a page of a newer build gets this build's copies of files other than its code", async () => {
+  const files = {
+    ...BUILD,
+    'flutter.js': 'loader v1',
+    'flutter_bootstrap.js': 'boot v1',
+    'main.dart.wasm': 'app wasm v1',
+    'assets/packages/pdfrx/assets/pdfium.wasm': 'pdfium v1',
+    'sqlite3.wasm': 'sqlite v1',
+  };
+  const v2 = { 'index.html': tagged('newer-build'), 'main.dart.js': 'main v2', 'sqflite_sw.js': 'sqflite v2' };
+  const worker = await installedServing(files, v2);
+  const runtime = await worker.caches.open('aiko-runtime');
+  const extra = `${SCOPE}assets/assets/images/extra.png`;
+  const localCanvasKit = `${SCOPE}canvaskit/chromium/canvaskit.wasm`;
+  await runtime.put(extra, typed(new Response('extra v1'), 'basic'));
+  await runtime.put(localCanvasKit, typed(new Response('canvaskit rev2'), 'basic'));
+  await dispatchFetch(worker, navigation(SCOPE), { resultingClientId: 'page' });
+  // The page starts its database worker while still online.
+  await dispatchFetch(worker, new Request(`${SCOPE}sqflite_sw.js`), { clientId: 'page', resultingClientId: 'db-worker' });
+
+  worker.network.routes = {};
+  const load = async (path, clientId = 'page') => text(await dispatchFetch(worker, new Request(SCOPE + path), { clientId }));
+  assert.equal(await load('assets/assets/images/aiko/aiko_happy.png'), 'png');
+  assert.equal(await load('assets/assets/images/extra.png'), 'extra v1');
+  assert.equal(await load('assets/packages/pdfrx/assets/pdfium.wasm'), 'pdfium v1');
+  assert.equal(await load('sqlite3.wasm', 'db-worker'), 'sqlite v1');
+  for (const path of ['index.html', 'flutter.js', 'flutter_bootstrap.js', 'main.dart.js', 'main.dart.wasm', 'main.dart.js_1.part.js', 'canvaskit/chromium/canvaskit.wasm']) {
+    await assert.rejects(dispatchFetch(worker, new Request(SCOPE + path), { clientId: 'page' }), path);
+  }
+  await assert.rejects(dispatchFetch(worker, new Request(`${SCOPE}assets/assets/images/new.png`), { clientId: 'page' }));
+  assert.deepEqual(runtime.urls(), [extra, localCanvasKit]);
+
+  // Back online: the network's copy again, and an error response is no failure.
+  serve(worker.network, { 'assets/assets/images/aiko/aiko_happy.png': 'png v2' });
+  worker.network.routes[`${SCOPE}sqlite3.wasm`] = typed(new Response('busy', { status: 503 }), 'basic');
+  assert.equal(await load('assets/assets/images/aiko/aiko_happy.png'), 'png v2');
+  assert.equal((await dispatchFetch(worker, new Request(`${SCOPE}sqlite3.wasm`), { clientId: 'db-worker' })).status, 503);
 });
 
 test('a page from the network without a build tag counts as another build', async () => {

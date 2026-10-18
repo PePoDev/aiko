@@ -11,8 +11,9 @@ abstract interface class RemoteFileStore {
   /// Uploads [bytes] to [path], replacing what is there.
   Future<void> put(String path, Uint8List bytes, {required String contentType});
 
-  /// The object at [path], at most [maxBytes] long.
-  Future<Uint8List> get(String path, {required int maxBytes});
+  /// The object at [path], at most [maxBytes] long; [sizeBytes] is its
+  /// expected size, when known.
+  Future<Uint8List> get(String path, {required int maxBytes, int? sizeBytes});
 
   /// Deletes the object at [path]; an object that is already gone is fine.
   Future<void> delete(String path);
@@ -34,7 +35,6 @@ bool isTransientFileError(Object error) {
       'unknown',
       'canceled',
       'unauthenticated',
-      'quota-exceeded',
       'unavailable',
       'deadline-exceeded',
       'network-request-failed',
@@ -58,8 +58,12 @@ class FirebaseRemoteFileStore implements RemoteFileStore {
   static const downloadRetryTime = Duration(seconds: 15);
   static const operationRetryTime = Duration(seconds: 15);
 
-  /// Bound on one download, however slow the connection.
-  static const downloadTimeout = Duration(seconds: 60);
+  /// Bound on one download of [bytes]: a minute plus the time they take on a
+  /// slow mobile connection (about 200 kbit/s), so a large file still opens
+  /// on a slow link while a stalled one gives up. (The web reads the file
+  /// with a plain request that has no retry time of its own.)
+  static Duration downloadTimeoutFor(int bytes) =>
+      Duration(seconds: 60 + bytes ~/ 25000);
 
   static void configureRetries(FirebaseStorage storage) {
     storage
@@ -82,11 +86,19 @@ class FirebaseRemoteFileStore implements RemoteFileStore {
   }
 
   @override
-  Future<Uint8List> get(String path, {required int maxBytes}) async {
+  Future<Uint8List> get(
+    String path, {
+    required int maxBytes,
+    int? sizeBytes,
+  }) async {
     final bytes = await _storage
         .ref(path)
         .getData(maxBytes)
-        .timeout(downloadTimeout);
+        .timeout(
+          downloadTimeoutFor(
+            sizeBytes == null || sizeBytes <= 0 ? maxBytes : sizeBytes,
+          ),
+        );
     if (bytes == null) throw StateError('The file is unavailable.');
     return bytes;
   }

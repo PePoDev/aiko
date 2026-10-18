@@ -94,6 +94,22 @@ void main() {
   CollectionReference<Map<String, dynamic>> cloudRows() =>
       firestore.collection('users').doc(_uid).collection('attachments');
 
+  /// The Firestore row of an attachment another device uploaded.
+  Map<String, dynamic> cloudRow(String id, String path) => {
+    'created_at': '2026-09-01T00:00:00.000Z',
+    'id': id,
+    'user_id': _uid,
+    'storage_bucket': 'receipts',
+    'storage_path': path,
+    'file_name': path.split('/').last,
+    'content_type': 'application/pdf',
+    'size_bytes': 5,
+    'linked_entity_type': 'transaction',
+    'linked_entity_id': 'tx-1',
+    'is_sensitive': false,
+    'export_policy': 'include',
+  };
+
   group('signed out', () {
     test('attachments stay on the device and nothing is queued', () async {
       final saved = await repository.save(await attachment('a1'));
@@ -397,12 +413,146 @@ void main() {
       await queue.process();
 
       await repository.deleteForTransactions(['tx-1', 'tx-2']);
+      // The cleanup, then the Storage deletes it queued.
+      await queue.process();
       await queue.process();
 
       expect(remote.files, isEmpty);
+      expect((await cloudRows().get()).docs, isEmpty);
       expect(await repository.listForTransaction('tx-1'), isEmpty);
       expect(await repository.listForTransaction('tx-2'), isEmpty);
+      expect(await queue.pending(), isEmpty);
     });
+
+    test('deleting a transaction offline finds its cloud attachments once '
+        'online, even ones this device never listed', () async {
+      const path = 'users/$_uid/receipts/web/web.pdf';
+      remote.files[path] = Uint8List.fromList([1]);
+      await cloudRows().doc('web').set(cloudRow('web', path));
+      // Waiting on this device: goes at once.
+      await repository.save(await attachment('a1'));
+
+      remote.failure = FakeRemoteFileStore.offline;
+      await repository.deleteForTransactions(['tx-1']);
+      expect(
+        await LocalFileCache.contains('aiko-cache:attachments/a1'),
+        isFalse,
+      );
+      await queue.process();
+      expect(remote.files, isNotEmpty);
+
+      remote.failure = null;
+      await queue.process();
+      await queue.process();
+      expect(remote.files, isEmpty);
+      expect((await cloudRows().get()).docs, isEmpty);
+      expect(await queue.pending(), isEmpty);
+    });
+
+    test('a sign-out during the upload keeps the attachment and its upload '
+        'for the owner', () async {
+      final slow = _SlowRemote();
+      repository = build(slow);
+      await repository.save(await attachment('a1'));
+
+      final pass = queue.process();
+      await slow.started.future;
+      signedIn = null; // Log out while the file uploads.
+      slow.release.complete();
+      await pass;
+
+      // Nothing was written as someone else; the device copy is kept.
+      expect((await cloudRows().get()).docs, isEmpty);
+      final job = (await queue.pending()).single;
+      expect(job.ownerId, _uid);
+      expect(job.attempts, 0);
+      final rows = await db.query('attachments');
+      expect(rows.single['owner_id'], _uid);
+
+      signedIn = _uid;
+      await queue.process();
+      expect(
+        (await cloudRows().doc('a1').get()).data()!['storage_path'],
+        'users/$_uid/receipts/a1/a1.jpg',
+      );
+      expect(await db.query('attachments'), isEmpty);
+    });
+
+    test('an upload that fails for good says so and can be retried', () async {
+      final saved = await repository.save(await attachment('a1'));
+      expect(await repository.uploadStalled(saved), isFalse);
+
+      remote.failure = StateError('rejected');
+      for (var i = 0; i < FileSyncQueue.maxAttempts; i++) {
+        await queue.process();
+      }
+      expect(await repository.uploadStalled(saved), isTrue);
+      // Still waiting on this device, not lost.
+      expect(
+        (await repository.listForTransaction('tx-1')).single.storagePath,
+        saved.storagePath,
+      );
+
+      remote.failure = null;
+      await repository.retryUpload(saved);
+      expect(await repository.uploadStalled(saved), isFalse);
+      await queue.process();
+      expect(remote.files.keys, ['users/$_uid/receipts/a1/a1.jpg']);
+      expect(await repository.uploadStalled(saved), isFalse);
+    });
+
+    test('an attachment left without its upload is queued again at the next '
+        'launch', () async {
+      final dir = Directory.systemTemp.createTempSync('aiko_stranded');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final path = '${dir.path}/${LocalFileCache.fileName}';
+      final jobId = TransactionAttachmentRepository.uploadJobId('a1');
+      var launch = await LocalFileCache.openAt(
+        path,
+        factory: databaseFactoryFfiNoIsolate,
+      );
+      LocalFileCache.useDatabase(launch);
+      final saved = await repository.save(await attachment('a1'));
+      // What earlier versions left after dropping a failing upload.
+      await queue.remove(jobId);
+      expect(await repository.uploadStalled(saved), isTrue);
+
+      // The next launch opens the database again.
+      await launch.close();
+      launch = await LocalFileCache.openAt(
+        path,
+        factory: databaseFactoryFfiNoIsolate,
+      );
+      LocalFileCache.useDatabase(launch);
+      expect(await repository.listForTransaction('tx-1'), hasLength(1));
+      expect(await queue.job(jobId), isNotNull);
+
+      await queue.process();
+      expect(remote.files.keys, ['users/$_uid/receipts/a1/a1.jpg']);
+      LocalFileCache.useDatabase(db);
+      await launch.close();
+    });
+
+    test(
+      'forgetOwner drops the device rows and copies of that user only',
+      () async {
+        await repository.save(await attachment('a1'));
+        await repository.save(await attachment('a2'));
+        await queue.process(); // a1 and a2 uploaded; copies kept.
+        await repository.save(await attachment('a3')); // Still waiting.
+        await LocalFileCache.write('receipts/users/uid-2/receipts/x/x.jpg', [
+          1,
+        ]);
+
+        await repository.forgetOwner(_uid);
+
+        expect(await db.query('attachments'), isEmpty);
+        final kept = await db.query('files', columns: ['path']);
+        expect(kept.map((row) => row['path']), [
+          'aiko-cache:receipts/users/uid-2/receipts/x/x.jpg',
+        ]);
+      },
+    );
   });
 
   test('guest attachments are claimed and uploaded after sign-in', () async {

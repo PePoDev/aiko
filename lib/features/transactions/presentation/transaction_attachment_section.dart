@@ -1,5 +1,8 @@
+import '../../../core/storage/file_sync_queue.dart';
 import '../../../core/storage/local_file_cache.dart';
 import '../../../l10n/l10n.dart';
+import '../../../theme/aiko_colors.dart';
+import 'dart:async';
 import 'dart:typed_data';
 import '../data/transaction_attachment_repository.dart';
 
@@ -123,10 +126,10 @@ class _AttachmentThumb extends StatelessWidget {
             ),
           ),
           if (waitingToUpload)
-            const Positioned(
-              left: 6,
-              bottom: 6,
-              child: _WaitingToUploadBadge(),
+            Positioned(
+              left: 0,
+              bottom: 0,
+              child: _UploadStateBadge(attachment: attachment),
             ),
           if (onRemove != null)
             Positioned(
@@ -140,31 +143,99 @@ class _AttachmentThumb extends StatelessWidget {
   }
 }
 
-/// Marks a file that is saved on this device and uploads when online.
-class _WaitingToUploadBadge extends StatelessWidget {
-  const _WaitingToUploadBadge();
+/// Marks a file that is saved on this device and uploads when online, or,
+/// when its upload failed for good, offers to try again.
+class _UploadStateBadge extends StatefulWidget {
+  const _UploadStateBadge({required this.attachment});
+
+  final TransactionAttachment attachment;
+
+  @override
+  State<_UploadStateBadge> createState() => _UploadStateBadgeState();
+}
+
+class _UploadStateBadgeState extends State<_UploadStateBadge> {
+  final _repository = TransactionAttachmentRepository();
+  StreamSubscription<void>? _queueChanges;
+  var _stalled = false;
+  var _check = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _queueChanges = FileSyncQueue.instance.changes.listen((_) => _refresh());
+    _refresh();
+  }
+
+  @override
+  void didUpdateWidget(covariant _UploadStateBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.attachment.id != widget.attachment.id) _refresh();
+  }
+
+  @override
+  void dispose() {
+    _queueChanges?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    final check = ++_check;
+    bool stalled;
+    try {
+      stalled = await _repository.uploadStalled(widget.attachment);
+    } catch (_) {
+      stalled = false;
+    }
+    if (!mounted || check != _check || stalled == _stalled) return;
+    setState(() => _stalled = stalled);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final label = context.l10n.filesWaitingToUpload;
-    return Tooltip(
-      message: label,
-      child: Semantics(
-        label: label,
-        child: const DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.black54,
-            shape: BoxShape.circle,
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(4),
-            child: Icon(
-              Icons.cloud_upload_outlined,
-              size: 16,
-              color: Colors.white,
-            ),
+    if (!_stalled) {
+      final label = context.l10n.filesWaitingToUpload;
+      return Padding(
+        padding: const EdgeInsets.all(6),
+        child: Tooltip(
+          message: label,
+          child: Semantics(
+            label: label,
+            child: const _BadgeIcon(icon: Icons.cloud_upload_outlined),
           ),
         ),
+      );
+    }
+    // Same 48px touch target as the remove button.
+    return IconButton(
+      tooltip: context.l10n.filesUploadFailed,
+      onPressed: () {
+        setState(() => _stalled = false);
+        unawaited(_repository.retryUpload(widget.attachment));
+      },
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+      icon: const _BadgeIcon(
+        icon: Icons.sync_problem_outlined,
+        color: AikoColors.dangerRed,
+      ),
+    );
+  }
+}
+
+class _BadgeIcon extends StatelessWidget {
+  const _BadgeIcon({required this.icon, this.color = Colors.black54});
+
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(icon, size: 16, color: Colors.white),
       ),
     );
   }

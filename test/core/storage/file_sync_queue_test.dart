@@ -114,26 +114,229 @@ void main() {
     },
   );
 
-  test(
-    'other failures are counted, and the job is dropped at the limit',
-    () async {
-      queue.register('broken', (job, run) async {
-        throw StateError('rejected');
-      });
-      await queue.enqueue(_job('broken', kind: 'broken'));
-      await queue.enqueue(_job('fine'));
+  test('other failures are counted; at the limit the job fails for good, '
+      'is reported and waits for the next launch', () async {
+    var runs = 0;
+    queue.register('broken', (job, run) async {
+      runs++;
+      throw StateError('rejected');
+    });
+    final failures = <Object>[];
+    final subscription = queue.failures.listen(failures.add);
+    await queue.enqueue(_job('broken', kind: 'broken'));
+    await queue.enqueue(_job('fine'));
 
+    await queue.process();
+    // A rejection doesn't hold up the rest.
+    expect(ran, ['fine']);
+    expect((await queue.pending()).single.attempts, 1);
+
+    for (var i = 1; i < FileSyncQueue.maxAttempts; i++) {
       await queue.process();
-      // A rejection doesn't hold up the rest.
-      expect(ran, ['fine']);
-      expect((await queue.pending()).single.attempts, 1);
+    }
+    await pumpEventQueue();
+    final failed = (await queue.pending()).single;
+    expect(failed.failed, isTrue);
+    expect(failures.single, isA<StateError>());
+    expect(await queue.counts('uid-1'), (pending: 1, failed: 1));
+    expect(await queue.pendingCount('uid-1'), 1);
 
-      for (var i = 1; i < FileSyncQueue.maxAttempts; i++) {
-        await queue.process();
-      }
-      expect(await queue.pending(), isEmpty);
+    // Not run again on this launch...
+    await queue.process();
+    expect(runs, FileSyncQueue.maxAttempts);
+
+    // ...but the next launch gives it another set of tries.
+    final relaunched = testQueue(remote);
+    relaunched.register('broken', (job, run) async => runs++);
+    await relaunched.process();
+    expect(runs, FileSyncQueue.maxAttempts + 1);
+    expect(await relaunched.pending(), isEmpty);
+    await subscription.cancel();
+    await relaunched.dispose();
+  });
+
+  test('a delete that keeps failing is dropped at the limit', () async {
+    remote.failure = StateError('rejected');
+    await queue.enqueueDelete('uid-1', 'users/uid-1/receipts/r1/a.jpg');
+
+    for (var i = 0; i < FileSyncQueue.maxAttempts; i++) {
+      await queue.process();
+    }
+
+    expect(await queue.pending(), isEmpty);
+  });
+
+  test('queueing a failed job again gives it a fresh start', () async {
+    queue.register('broken', (job, run) async => throw StateError('no'));
+    await queue.enqueue(_job('a', kind: 'broken'));
+    for (var i = 0; i < FileSyncQueue.maxAttempts; i++) {
+      await queue.process();
+    }
+    expect((await queue.job('a'))!.failed, isTrue);
+
+    await queue.enqueue(_job('a', kind: 'broken'));
+
+    expect((await queue.job('a'))!.attempts, 0);
+    expect(await queue.counts('uid-1'), (pending: 1, failed: 0));
+  });
+
+  test('a job whose owner signed out while it ran waits for them, '
+      'without counting an attempt', () async {
+    String? signedIn = 'uid-1';
+    final perUser = testQueue(remote, signedInUserId: () => signedIn);
+    var runs = 0;
+    perUser.register('write', (job, run) async {
+      runs++;
+      if (runs == 1) signedIn = null; // Logged out during the upload.
+      run.checkOwner();
+    });
+    await perUser.enqueue(_job('a', kind: 'write'));
+    await perUser.enqueue(_job('b', kind: 'write'));
+
+    await perUser.process();
+    final waiting = await perUser.pending();
+    expect(waiting.map((job) => job.id), ['a', 'b']);
+    expect(waiting.first.attempts, 0);
+
+    signedIn = 'uid-1';
+    await perUser.process();
+    expect(await perUser.pending(), isEmpty);
+    await perUser.dispose();
+  });
+
+  test(
+    'suspend waits for the running job and holds passes until resume',
+    () async {
+      final started = Completer<void>();
+      final release = Completer<void>();
+      queue.register('slow', (job, run) async {
+        ran.add(job.id);
+        started.complete();
+        await release.future;
+      });
+      await queue.enqueue(_job('first', kind: 'slow'));
+      await queue.enqueue(_job('second'));
+
+      unawaited(queue.process());
+      await started.future;
+      var suspended = false;
+      final suspending = queue.suspend().then((_) => suspended = true);
+      await pumpEventQueue();
+      expect(suspended, isFalse);
+
+      release.complete();
+      await suspending;
+      // The running job finished; the next one didn't start.
+      expect(ran, ['first']);
+      await queue.process();
+      expect(ran, ['first']);
+      expect((await queue.pending()).single.id, 'second');
+
+      queue.resume();
+      await queue.process();
+      expect(ran, ['first', 'second']);
     },
   );
+
+  test('coming back online runs a pass at once with a fresh backoff', () async {
+    final rounds = <int>[];
+    final backoff = FileSyncQueue(
+      remote: remote,
+      signedInUserId: () => 'uid-1',
+      retryDelay: (round) {
+        rounds.add(round);
+        return null;
+      },
+      autoProcess: false,
+    );
+    var offline = true;
+    var runs = 0;
+    backoff.register('upload', (job, run) async {
+      runs++;
+      if (offline) throw FakeRemoteFileStore.offline;
+    });
+    await backoff.enqueue(_job('a', kind: 'upload'));
+    await backoff.process();
+    await backoff.process();
+    expect(rounds, [0, 1]);
+
+    final online = StreamController<bool>();
+    final subscription = backoff.followNetwork(online.stream);
+    online.add(false);
+    await pumpEventQueue();
+    expect(runs, 2);
+
+    offline = false;
+    online.add(true);
+    await pumpEventQueue();
+    expect(runs, 3);
+    expect(await backoff.pending(), isEmpty);
+
+    // Still online (another network): no extra pass.
+    online.add(true);
+    await pumpEventQueue();
+    expect(runs, 3);
+
+    // Back to the first delay after the next failure.
+    offline = true;
+    await backoff.enqueue(_job('b', kind: 'upload'));
+    await backoff.process();
+    expect(rounds, [0, 1, 0]);
+    await subscription.cancel();
+    await online.close();
+    await backoff.dispose();
+  });
+
+  test(
+    'passes of queues sharing a lock (browser tabs) never overlap',
+    () async {
+      // One lock for both "tabs", like the browser's Web Lock.
+      Future<void> lastPass = Future.value();
+      Future<void> lock(Future<void> Function() pass) {
+        final next = lastPass.then((_) => pass());
+        lastPass = next.catchError((_) {});
+        return next;
+      }
+
+      FileSyncQueue tab() => FileSyncQueue(
+        remote: remote,
+        signedInUserId: () => 'uid-1',
+        retryDelay: (_) => null,
+        exclusive: lock,
+        autoProcess: false,
+      );
+      final tab1 = tab();
+      final tab2 = tab();
+      final runs = <String>[];
+      var running = 0;
+      var overlapped = false;
+      for (final (name, queue) in [('tab1', tab1), ('tab2', tab2)]) {
+        queue.register('upload', (job, run) async {
+          if (++running > 1) overlapped = true;
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          runs.add('$name ${job.id}');
+          running--;
+        });
+      }
+      await tab1.enqueue(_job('a', kind: 'upload'));
+
+      await Future.wait([tab1.process(), tab2.process()]);
+
+      expect(overlapped, isFalse);
+      expect(runs, ['tab1 a']);
+      await tab1.dispose();
+      await tab2.dispose();
+    },
+  );
+
+  test('clearOwner forgets only that owner\'s jobs', () async {
+    await queue.enqueue(_job('mine', owner: 'uid-1'));
+    await queue.enqueue(_job('theirs', owner: 'uid-2'));
+
+    await queue.clearOwner('uid-1');
+
+    expect((await queue.pending()).single.id, 'theirs');
+  });
 
   test('a job replaced while it ran stays queued', () async {
     final started = Completer<void>();

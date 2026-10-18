@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../offline/firestore_sync_state.dart';
+import '../storage/file_sync_queue.dart';
 import '../storage/secure_storage_service.dart';
 import 'network_status.dart';
 
@@ -24,8 +25,11 @@ class SyncStatus {
   /// local-only builds keep everything on the device.
   final bool signedIn;
 
-  /// Signed-in changes have been waiting to upload for a moment (a write
-  /// that the server acknowledges straight away isn't worth a message).
+  /// Signed-in changes, or files (attachments, the profile photo), have
+  /// been waiting to upload for a moment (a write that the server
+  /// acknowledges straight away isn't worth a message). Files whose upload
+  /// failed for good until the next launch don't count; they are reported
+  /// when they fail.
   final bool syncing;
 
   /// The last time everything was known to be in sync with the server.
@@ -51,7 +55,7 @@ enum SyncBanner {
   /// A guest or local-only build offline: only network features are out.
   offlineLocal,
 
-  /// Online, and signed-in changes are still uploading.
+  /// Online, and signed-in changes or files are still uploading.
   syncing,
 }
 
@@ -70,14 +74,19 @@ final firestoreSyncStateProvider = Provider<FirestoreSyncState>(
   (ref) => FirestoreSyncState.instance,
 );
 
+/// The app's [FileSyncQueue]; overridden in tests.
+final fileSyncQueueProvider = Provider<FileSyncQueue>(
+  (ref) => FileSyncQueue.instance,
+);
+
 /// Where the last sync time is remembered between launches; overridden in
 /// tests.
 final syncStatusStorageProvider = Provider<SecureStorageService>(
   (ref) => FlutterSecureStorageService(),
 );
 
-/// Whether the device is offline, whether signed-in changes are waiting to
-/// upload, and when everything was last in sync.
+/// Whether the device is offline, whether signed-in changes or files are
+/// waiting to upload, and when everything was last in sync.
 final syncStatusProvider = NotifierProvider<SyncStatusNotifier, SyncStatus>(
   SyncStatusNotifier.new,
 );
@@ -96,37 +105,60 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
   String? _rememberedFor;
   var _online = true;
 
+  /// Whether files of [_filesFor] are waiting to upload (not counting ones
+  /// that failed for good), as last counted.
+  var _filesWaiting = false;
+  String? _filesFor;
+
+  /// The user and number of the latest count of files.
+  String? _countingFor;
+  var _fileCount = 0;
+
   @override
   SyncStatus build() {
     final sync = ref.watch(firestoreSyncStateProvider);
+    final files = ref.watch(fileSyncQueueProvider);
     final online = ref.watch(deviceOnlineProvider).value ?? true;
     _online = online;
     // Reads skip the network while the device has none.
     sync.deviceOffline = !online;
-    final subscription = sync.changes.listen((_) => _update(sync));
+    final subscription = sync.changes.listen((_) {
+      _update(sync);
+      // Signed in or out: count the new user's files.
+      if (sync.userId != _countingFor) unawaited(_countFiles(sync, files));
+    });
+    final fileChanges = files.changes.listen(
+      (_) => unawaited(_countFiles(sync, files)),
+    );
     ref.onDispose(() {
       subscription.cancel();
+      fileChanges.cancel();
       _syncingTimer?.cancel();
     });
     final status = _statusOf(sync, syncing: false);
     _syncingTimer?.cancel();
     _syncingTimer = null;
-    if (sync.hasPendingWrites) _startSyncingTimer(sync);
+    if (_hasPending(sync)) _startSyncingTimer(sync);
     unawaited(_restoreRemembered(sync));
+    unawaited(_countFiles(sync, files));
     return status;
   }
+
+  bool _hasPending(FirestoreSyncState sync) =>
+      sync.hasPendingWrites ||
+      (_filesWaiting && _filesFor != null && _filesFor == sync.userId);
 
   SyncStatus _statusOf(FirestoreSyncState sync, {required bool syncing}) =>
       SyncStatus(
         offline: !_online,
         signedIn: sync.userId != null,
-        syncing: syncing && sync.hasPendingWrites,
+        syncing: syncing && _hasPending(sync),
         lastSyncedAt: sync.lastSyncedAt ?? _rememberedAt(sync),
       );
 
   void _update(FirestoreSyncState sync) {
     if (!ref.mounted) return;
-    if (!sync.hasPendingWrites) {
+    if (!_hasPending(sync)) {
       _syncingTimer?.cancel();
       _syncingTimer = null;
     } else if (_syncingTimer == null && !state.syncing) {
@@ -134,6 +166,27 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     }
     state = _statusOf(sync, syncing: state.syncing);
     unawaited(_remember(sync));
+  }
+
+  /// Counts the signed-in user's files waiting to upload, and updates the
+  /// status when that changes whether any are.
+  Future<void> _countFiles(FirestoreSyncState sync, FileSyncQueue files) async {
+    final ticket = ++_fileCount;
+    final uid = _countingFor = sync.userId;
+    var waiting = false;
+    if (uid != null) {
+      try {
+        final counts = await files.counts(uid);
+        waiting = counts.pending > counts.failed;
+      } catch (_) {
+        // No file database here: nothing of theirs is waiting.
+      }
+    }
+    if (!ref.mounted || ticket != _fileCount) return;
+    final changed = waiting != _filesWaiting || uid != _filesFor;
+    _filesWaiting = waiting;
+    _filesFor = uid;
+    if (changed) _update(sync);
   }
 
   void _startSyncingTimer(FirestoreSyncState sync) {

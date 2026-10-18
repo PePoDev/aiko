@@ -21,10 +21,14 @@ class LocalFileCache {
   static const fileName = 'aiko_files.sqlite';
 
   /// Bump it and extend [_upgrade] when the table layout changes.
-  static const schemaVersion = 2;
+  static const schemaVersion = 3;
 
   /// Prefix of every path [write] returns.
   static const pathPrefix = 'aiko-cache:';
+
+  /// How much room copies of cloud files may take ([trim]). The web keeps
+  /// the whole database in memory, so it keeps fewer.
+  static const cloudCopiesBytes = kIsWeb ? 30 << 20 : 100 << 20;
 
   static Future<Database>? _database;
 
@@ -93,6 +97,17 @@ class LocalFileCache {
         'CREATE INDEX file_jobs_owner ON file_jobs (owner_id, seq)',
       );
     }
+    if (from < 3) {
+      // Size and write time of each file, so [trim] can let the oldest
+      // copies of cloud files go without reading their bytes.
+      await db.execute(
+        'ALTER TABLE files ADD COLUMN size INTEGER NOT NULL DEFAULT 0',
+      );
+      await db.execute(
+        'ALTER TABLE files ADD COLUMN cached_at INTEGER NOT NULL DEFAULT 0',
+      );
+      await db.execute('UPDATE files SET size = length(bytes)');
+    }
   }
 
   /// Whether [path] points at bytes on this device (a cache path, a picker
@@ -115,6 +130,8 @@ class LocalFileCache {
     await (txn ?? await database()).insert('files', {
       'path': path,
       'bytes': Uint8List.fromList(bytes),
+      'size': bytes.length,
+      'cached_at': DateTime.now().millisecondsSinceEpoch,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
     return path;
   }
@@ -160,11 +177,52 @@ class LocalFileCache {
     await executor.delete('files', where: 'path = ?', whereArgs: [target]);
     await executor.update(
       'files',
-      {'path': target},
+      {'path': target, 'cached_at': DateTime.now().millisecondsSinceEpoch},
       where: 'path = ?',
       whereArgs: [path],
     );
     return target;
+  }
+
+  /// Deletes every cached file whose key starts with [keyPrefix].
+  static Future<void> removeUnder(
+    String keyPrefix, {
+    DatabaseExecutor? txn,
+  }) async {
+    final prefix = '$pathPrefix$keyPrefix';
+    await (txn ?? await database()).delete(
+      'files',
+      where: 'substr(path, 1, ?) = ?',
+      whereArgs: [prefix.length, prefix],
+    );
+  }
+
+  /// Lets the oldest files whose key starts with [keyPrefix] go until those
+  /// left take at most [maxBytes]. Only for copies that can be fetched again
+  /// (downloads and uploaded files), never for bytes that exist only here.
+  static Future<void> trim(
+    String keyPrefix, {
+    int maxBytes = cloudCopiesBytes,
+    DatabaseExecutor? txn,
+  }) async {
+    final executor = txn ?? await database();
+    final prefix = '$pathPrefix$keyPrefix';
+    final rows = await executor.query(
+      'files',
+      columns: const ['path', 'size'],
+      where: 'substr(path, 1, ?) = ?',
+      whereArgs: [prefix.length, prefix],
+      orderBy: 'cached_at DESC, path',
+    );
+    var kept = 0;
+    final drop = <String>[];
+    for (final row in rows) {
+      kept += row['size']! as int;
+      if (kept > maxBytes) drop.add(row['path']! as String);
+    }
+    for (final path in drop) {
+      await executor.delete('files', where: 'path = ?', whereArgs: [path]);
+    }
   }
 
   static Future<bool> _exists(DatabaseExecutor executor, String path) async {

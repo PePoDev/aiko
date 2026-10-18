@@ -31,11 +31,15 @@ import 'records/records.dart';
 /// - A default category or group the guest gave a budget is that default's
 ///   clone in the account. The guest's budget goes on it only while the
 ///   account's clone still has the default budget, and only the budget
-///   fields are written (the rules keep the rest of a clone fixed). This
-///   waits for a later claim while the account's clone can't be read.
+///   fields are written (the rules keep the rest of a clone fixed).
 /// - A custom category or group named like one the account has becomes that
 ///   one (the guest's transactions and subcategories move to it), as the
-///   repositories don't allow two of the same name.
+///   repositories don't allow two of the same name. Its budget goes on that
+///   one, budget fields only, when that one has none.
+///
+/// While the account's record can't be read, such a budget waits on this
+/// device for a later claim into the same account ([waitingOwner]); no
+/// other account's claim takes it.
 ///
 /// Guest attachments are handed over too ([claimFiles]) and their uploads
 /// queued.
@@ -62,6 +66,11 @@ class OfflineDataMigrator {
   /// same name, by guest id (filled by [claimAnonymousData]).
   final _mergedIds = <String, String>{};
 
+  /// The owner of guest categories and groups kept on this device until
+  /// their budget can be claimed into [userId]'s account. Not `local:`, so
+  /// guests and other accounts' claims leave them alone.
+  static String waitingOwner(String userId) => 'claim:$userId';
+
   /// The id the category a guest record pointed at ([categoryId]) has in the
   /// account of [userId] after [claimAnonymousData].
   String? claimedCategoryId(String userId, String? categoryId) =>
@@ -81,14 +90,15 @@ class OfflineDataMigrator {
     }
     _mergedIds.clear();
     final merged = <OfflineRecord>[];
+    final waiting = <OfflineRecord>[];
 
     // Order matters: parents are queued before rows that reference them.
     var migrated = 0;
     migrated += await _claim<OfflineAccount>(
       (row) => row.toDomain().toOffline(userId: realUserId),
     );
-    migrated += await _claimGroups(realUserId, merged);
-    migrated += await _claimCategories(realUserId, merged);
+    migrated += await _claimGroups(realUserId, merged, waiting);
+    migrated += await _claimCategories(realUserId, merged, waiting);
     migrated += await _claim<OfflineTransaction>((row) {
       final transaction = row.toDomain();
       return transaction
@@ -104,6 +114,7 @@ class OfflineDataMigrator {
     // Gone once nothing points at them any more; until then a repeated claim
     // (after the app was closed midway) merges them again.
     await _dropLocal(merged);
+    await _keepWaiting(waiting, realUserId);
     // Attachment metadata and bytes live in the file cache, not the record
     // store; this never throws.
     migrated += await _claimFiles(realUserId);
@@ -130,14 +141,19 @@ class OfflineDataMigrator {
     }
   }
 
-  Future<List<TModel>> _orphans<TModel extends OfflineRecord>() async {
+  /// The guest rows of [TModel], and those waiting for [waitingFor]'s
+  /// account ([waitingOwner]).
+  Future<List<TModel>> _orphans<TModel extends OfflineRecord>({
+    String? waitingFor,
+  }) async {
+    final waiting = waitingFor == null ? null : waitingOwner(waitingFor);
     final rows = await _store.get<TModel>(localOnly: true);
     return rows
-        .where(
-          (row) => (row.ownerId ?? '').startsWith(
-            OfflineUserContext.localUserIdPrefix,
-          ),
-        )
+        .where((row) {
+          final owner = row.ownerId ?? '';
+          return owner.startsWith(OfflineUserContext.localUserIdPrefix) ||
+              owner == waiting;
+        })
         .toList(growable: false);
   }
 
@@ -204,9 +220,40 @@ class OfflineDataMigrator {
     }
   }
 
-  Future<int> _claimGroups(String userId, List<OfflineRecord> merged) async {
+  /// Keeps the guest [rows] whose budget couldn't be claimed yet for a later
+  /// claim into [userId]'s account only: they move to [waitingOwner].
+  Future<void> _keepWaiting(List<OfflineRecord> rows, String userId) async {
+    final owner = waitingOwner(userId);
+    final batch = RecordBatch();
+    for (final row in rows) {
+      if (row.ownerId == owner) continue;
+      final codec = RecordCodecs.forRecord(row);
+      batch
+        ..delete(row)
+        ..add(
+          RecordWrite.put(
+            collection: codec.collection,
+            id: codec.idOf(row),
+            ownerId: owner,
+            row: {...codec.toRow(row), 'user_id': owner},
+          ),
+        );
+    }
+    if (batch.isEmpty) return;
     try {
-      final orphans = await _orphans<OfflineCategoryGroup>();
+      await _store.commit(batch, localOnly: true);
+    } catch (error) {
+      if (kDebugMode) debugPrint('[aiko-sync] keeping waiting rows: $error');
+    }
+  }
+
+  Future<int> _claimGroups(
+    String userId,
+    List<OfflineRecord> merged,
+    List<OfflineRecord> waiting,
+  ) async {
+    try {
+      final orphans = await _orphans<OfflineCategoryGroup>(waitingFor: userId);
       if (orphans.isEmpty) return 0;
       final overlays = [
         for (final row in orphans)
@@ -217,6 +264,7 @@ class OfflineDataMigrator {
           if (!row.toDomain().isDefault) row,
       ];
       final kept = <OfflineCategoryGroup>[];
+      final budgeted = <(OfflineCategoryGroup, String)>[];
       if (custom.isNotEmpty) {
         final taken = <String, String>{
           for (final group in await _accountRecords<OfflineCategoryGroup>(
@@ -242,7 +290,11 @@ class OfflineDataMigrator {
             taken[name] = row.id;
           } else {
             _mergedIds[row.id] = match;
-            merged.add(row);
+            if (_groupHasBudget(row)) {
+              budgeted.add((row, match));
+            } else {
+              merged.add(row);
+            }
           }
         }
       }
@@ -251,7 +303,8 @@ class OfflineDataMigrator {
             row.toDomain(),
             userId: userId,
           ).toOffline(userId: userId);
-      return custom.length -
+      final claimed =
+          custom.length -
           kept.length +
           await _claimRows<OfflineCategoryGroup>(kept, clone) +
           await _claimOverlays<OfflineCategoryGroup>(
@@ -265,7 +318,17 @@ class OfflineDataMigrator {
             ).toOffline(userId: userId),
             sameBudget: _sameGroupBudget,
             budgetFields: _groupBudgetFields,
+            waiting: waiting,
           );
+      await _mergeBudgets<OfflineCategoryGroup>(
+        userId,
+        budgeted,
+        hasBudget: _groupHasBudget,
+        budgetFields: _groupBudgetFields,
+        merged: merged,
+        waiting: waiting,
+      );
+      return claimed;
     } catch (error) {
       if (kDebugMode) debugPrint('[aiko-sync] claim groups failed: $error');
       return 0;
@@ -275,9 +338,10 @@ class OfflineDataMigrator {
   Future<int> _claimCategories(
     String userId,
     List<OfflineRecord> merged,
+    List<OfflineRecord> waiting,
   ) async {
     try {
-      final orphans = await _orphans<OfflineCategory>();
+      final orphans = await _orphans<OfflineCategory>(waitingFor: userId);
       if (orphans.isEmpty) return 0;
       final overlays = [
         for (final row in orphans)
@@ -292,6 +356,7 @@ class OfflineDataMigrator {
           if (!row.toDomain().isDefault && row.parentId != null) row,
       ];
       final kept = <OfflineCategory>[];
+      final budgeted = <(OfflineCategory, String)>[];
       if (custom.isNotEmpty) {
         String key(String name, String type, String? parentId) =>
             '${name.toLowerCase()}\u0000$type\u0000${parentId ?? ''}';
@@ -312,7 +377,11 @@ class OfflineDataMigrator {
             if (row.isActive) taken[rowKey] = row.id;
           } else {
             _mergedIds[row.id] = match;
-            merged.add(row);
+            if (_categoryHasBudget(row)) {
+              budgeted.add((row, match));
+            } else {
+              merged.add(row);
+            }
           }
         }
       }
@@ -327,7 +396,8 @@ class OfflineDataMigrator {
         ).toOffline(userId: userId);
       }
 
-      return custom.length -
+      final claimed =
+          custom.length -
           kept.length +
           await _claimRows<OfflineCategory>(kept, clone) +
           await _claimOverlays<OfflineCategory>(
@@ -341,7 +411,17 @@ class OfflineDataMigrator {
             ).toOffline(userId: userId),
             sameBudget: _sameCategoryBudget,
             budgetFields: _categoryBudgetFields,
+            waiting: waiting,
           );
+      await _mergeBudgets<OfflineCategory>(
+        userId,
+        budgeted,
+        hasBudget: _categoryHasBudget,
+        budgetFields: _categoryBudgetFields,
+        merged: merged,
+        waiting: waiting,
+      );
+      return claimed;
     } catch (error) {
       if (kDebugMode) debugPrint('[aiko-sync] claim categories failed: $error');
       return 0;
@@ -352,7 +432,8 @@ class OfflineDataMigrator {
   /// clones of those defaults ([clone] gives the clone with the guest's
   /// budget, [defaultBudget] one with the default budget). Separate from the
   /// guest's own categories, so a write the server refuses never holds those
-  /// up; a refused budget is not retried (the account keeps its own).
+  /// up; a refused budget is not retried (the account keeps its own). An
+  /// overlay whose clone can't be read goes to [waiting].
   Future<int> _claimOverlays<TModel extends OfflineRecord>(
     String userId,
     List<TModel> overlays, {
@@ -360,6 +441,7 @@ class OfflineDataMigrator {
     required TModel Function(TModel row) defaultBudget,
     required bool Function(TModel a, TModel b) sameBudget,
     required List<String> budgetFields,
+    required List<OfflineRecord> waiting,
   }) async {
     if (overlays.isEmpty) return 0;
     final codec = RecordCodecs.of<TModel>();
@@ -374,7 +456,10 @@ class OfflineDataMigrator {
     for (var i = 0; i < overlays.length; i++) {
       final read = accounts[i];
       // What the account has is unknown (offline): a later claim decides.
-      if (!read.known) continue;
+      if (!read.known) {
+        waiting.add(overlays[i]);
+        continue;
+      }
       final guest = claimed[i];
       final id = codec.idOf(guest);
       done.add(overlays[i]);
@@ -402,20 +487,97 @@ class OfflineDataMigrator {
       // A budget the account set on this default stays.
       if (!sameBudget(account, defaultBudget(overlays[i]))) continue;
       writes.add(
-        RecordWrite.put(
-          collection: codec.collection,
-          id: id,
-          ownerId: userId,
-          row: {
-            ...accountRow,
-            'id': id,
-            'user_id': userId,
-            for (final field in budgetFields) field: guestRow[field],
-            'updated_at': guestRow['updated_at'],
-          },
+        _budgetWrite(
+          codec.collection,
+          userId,
+          id,
+          accountRow,
+          guestRow,
+          budgetFields,
         ),
       );
     }
+    await _commitWrites(writes);
+    await _removeStale(done, doneIds);
+    return done.length;
+  }
+
+  /// Carries the budget of each guest row of [merges] onto the account's
+  /// record of the same name it became (by id) when that one has none,
+  /// writing only the budget fields. The guest rows go once decided
+  /// ([merged]); one whose account record can't be read goes to [waiting].
+  Future<void> _mergeBudgets<TModel extends OfflineRecord>(
+    String userId,
+    List<(TModel, String)> merges, {
+    required bool Function(TModel row) hasBudget,
+    required List<String> budgetFields,
+    required List<OfflineRecord> merged,
+    required List<OfflineRecord> waiting,
+  }) async {
+    if (merges.isEmpty) return;
+    final codec = RecordCodecs.of<TModel>();
+    final accounts = await Future.wait([
+      for (final (_, id) in merges) _readAccountRow<TModel>(userId, id),
+    ]);
+    final decided = <TModel>[];
+    final writes = <RecordWrite>[];
+    for (var i = 0; i < merges.length; i++) {
+      final (guest, id) = merges[i];
+      final read = accounts[i];
+      if (!read.known) {
+        waiting.add(guest);
+        continue;
+      }
+      decided.add(guest);
+      final accountRow = read.data;
+      if (accountRow == null) continue;
+      try {
+        // A budget the account set stays.
+        if (hasBudget(codec.fromRow(accountRow))) continue;
+      } catch (_) {
+        continue; // Unreadable here: leave the account's as it is.
+      }
+      writes.add(
+        _budgetWrite(
+          codec.collection,
+          userId,
+          id,
+          accountRow,
+          codec.toRow(guest),
+          budgetFields,
+        ),
+      );
+    }
+    await _commitWrites(writes);
+    merged.addAll(decided);
+  }
+
+  /// The account's [accountRow] (record [id]) with the [budgetFields] of
+  /// [guestRow]: nothing else changes (the rules keep the rest of a default
+  /// clone fixed).
+  static RecordWrite _budgetWrite(
+    String collection,
+    String userId,
+    String id,
+    Map<String, dynamic> accountRow,
+    Map<String, dynamic> guestRow,
+    List<String> budgetFields,
+  ) => RecordWrite.put(
+    collection: collection,
+    id: id,
+    ownerId: userId,
+    row: {
+      ...accountRow,
+      'id': id,
+      'user_id': userId,
+      for (final field in budgetFields) field: guestRow[field],
+      'updated_at': guestRow['updated_at'],
+    },
+  );
+
+  /// Commits [writes] to the account in batches of at most
+  /// [OfflineStore.maxBatchWrites].
+  Future<void> _commitWrites(List<RecordWrite> writes) async {
     for (
       var start = 0;
       start < writes.length;
@@ -430,8 +592,6 @@ class OfflineDataMigrator {
       }
       await _store.commit(batch);
     }
-    await _removeStale(done, doneIds);
-    return done.length;
   }
 
   /// The account's [TModel] records (the cache, or briefly the server, signed
@@ -534,3 +694,10 @@ bool _sameCategoryBudget(OfflineCategory a, OfflineCategory b) =>
 bool _sameGroupBudget(OfflineCategoryGroup a, OfflineCategoryGroup b) =>
     _sameAmount(a.budgetAmount, b.budgetAmount) &&
     (a.budgetAmount == null || a.budgetCurrency == b.budgetCurrency);
+
+/// A null amount or currency is no budget.
+bool _categoryHasBudget(OfflineCategory row) =>
+    row.budgetAmount != null && row.budgetCurrency != null;
+
+bool _groupHasBudget(OfflineCategoryGroup row) =>
+    row.budgetAmount != null && row.budgetCurrency != null;

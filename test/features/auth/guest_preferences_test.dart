@@ -14,6 +14,8 @@ import 'package:aiko/features/transactions/domain/transaction_rule.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../core/storage/offline_firestore.dart';
+
 const _uid = 'user-1';
 
 TransactionRule _rule(
@@ -112,12 +114,11 @@ void main() {
       'budget-basics': LessonProgress.completed,
     });
     expect(await NotificationDismissalStore(account).load(), {'bill:1'});
-    for (final key in [
-      AppLocaleController.languageKey,
-      ...GuestPreferences.dataKeys,
-    ]) {
+    for (final key in GuestPreferences.dataKeys) {
       expect(await device.read(key), isNull, reason: key);
     }
+    // Welcome and the login screen still use it after a log-out.
+    expect(await device.read(AppLocaleController.languageKey), 'th');
   });
 
   test('an existing account keeps its own language and trip, and gains the '
@@ -141,7 +142,63 @@ void main() {
     expect(await LessonProgressStore(account).load(), {
       'budget-basics': LessonProgress.completed,
     });
-    expect(await device.read(AppLocaleController.languageKey), isNull);
+    expect(await device.read(AppLocaleController.languageKey), 'th');
+  });
+
+  test('the account keeps every dismissal of its own, old ones too', () async {
+    // From the earlier format (no time), and one dismissed long ago.
+    await firestore
+        .collection('users')
+        .doc(_uid)
+        .collection('preferences')
+        .doc(NotificationDismissalStore.legacyKey)
+        .set({'value': '["goal:g1:100"]'});
+    await NotificationDismissalStore(
+      account,
+      clock: () => DateTime.utc(2020),
+    ).dismiss('bill:old', const ['goal:g1:100']);
+    await setUpGuest();
+
+    await guest.claim(_uid);
+
+    expect(await NotificationDismissalStore(account).load(), {
+      'goal:g1:100',
+      'bill:old',
+      'bill:1',
+    });
+  });
+
+  test('while the account can\'t be read, its language and trip are left '
+      'alone and the trip waits on the device', () async {
+    final offline = SyncedPreferences(
+      local: device,
+      // Offline, with nothing cached: reads never answer.
+      firestore: OfflineFirestore(),
+      userId: () => _uid,
+      sync: FirestoreSyncState(
+        firstSnapshotWait: Duration.zero,
+        serverWait: const Duration(milliseconds: 20),
+      ),
+    );
+    await setUpGuest();
+
+    await GuestPreferences(
+      device: device,
+      account: offline,
+      signedInUserId: () => _uid,
+    ).claim(_uid);
+
+    // Nothing written to the account (each write updates this copy first).
+    for (final key in [
+      AppLocaleController.languageKey,
+      GuestPreferences.travelKey,
+    ]) {
+      expect(await device.read('$_uid:$key'), isNull, reason: key);
+    }
+    expect(await device.read(AppLocaleController.languageKey), 'th');
+    expect(await device.read(GuestPreferences.travelKey), _trip('Japan'));
+    // Rules wait among the account's deferred changes instead.
+    expect(await device.read(TransactionRuleStore.storageKey), isNull);
   });
 
   test('nothing moves unless that account is signed in', () async {

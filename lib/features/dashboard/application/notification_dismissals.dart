@@ -63,6 +63,24 @@ class NotificationDismissalStore {
     return (await _preference.write(changes)).keys.toSet();
   }
 
+  /// Adds the dismissals kept in [other] (a guest's, on the device) that
+  /// aren't here yet, with when they were made, in one write. Nothing is
+  /// dropped: the dismissals already here stay as they are. Throws when
+  /// either can't be read.
+  Future<void> addFrom(NotificationDismissalStore other) async {
+    final incoming = await other._preference.read();
+    if (incoming.isEmpty) return;
+    final stored = await _preference.read();
+    final now = _clock().toUtc().toIso8601String();
+    final changes = <String, String?>{
+      for (final MapEntry(key: id, value: at) in incoming.entries)
+        // An unknown time (earlier versions stored none) would count as old.
+        if (!stored.containsKey(id))
+          id: DateTime.tryParse(at) == null ? now : at,
+    };
+    if (changes.isNotEmpty) await _preference.write(changes);
+  }
+
   /// Whether [dismissedAt] is before [cutoff]; unknown times (earlier
   /// versions stored none) count as old.
   static bool _isOlderThan(String dismissedAt, DateTime cutoff) {

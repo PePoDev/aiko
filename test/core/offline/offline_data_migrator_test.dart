@@ -147,23 +147,29 @@ void main() {
       expect(claimed.every((row) => row['user_id'] == _realUserId), isTrue);
     });
 
-    CollectionReference<Map<String, dynamic>> cloud(String collection) =>
-        firestore.collection('users').doc(_realUserId).collection(collection);
+    CollectionReference<Map<String, dynamic>> cloud(
+      String collection, {
+      String userId = _realUserId,
+    }) => firestore.collection('users').doc(userId).collection(collection);
 
-    String groceriesCloneId() => CategoryDefaults.cloneIdForUser(
-      userId: _realUserId,
-      templateId: CategoryDefaults.groceriesId,
-    );
+    String groceriesCloneId({String userId = _realUserId}) =>
+        CategoryDefaults.cloneIdForUser(
+          userId: userId,
+          templateId: CategoryDefaults.groceriesId,
+        );
 
     /// The account's clone of Groceries, stamped by an older app version.
-    Future<void> accountGroceries({String? budget}) => cloud('categories')
-        .doc(groceriesCloneId())
+    Future<void> accountGroceries({
+      String? budget,
+      String userId = _realUserId,
+    }) => cloud('categories', userId: userId)
+        .doc(groceriesCloneId(userId: userId))
         .set(
           RecordCodecs.categories.toRow(
             CategoryDefaults.cloneForUser(
-              userId: _realUserId,
+              userId: userId,
               template: CategoryDefaults.byId[CategoryDefaults.groceriesId]!,
-            ).toOffline(userId: _realUserId).withBudget(budget),
+            ).toOffline(userId: userId).withBudget(budget),
           ),
         );
 
@@ -275,7 +281,189 @@ void main() {
       expect((await cloud('categories').doc('pets').get()).exists, isTrue);
       final left = await store.get<OfflineCategory>(localOnly: true);
       expect(left.single.id, CategoryDefaults.groceriesId);
-      expect(left.single.userId, _localUserId);
+      expect(left.single.userId, OfflineDataMigrator.waitingOwner(_realUserId));
+    });
+
+    test('a budget left waiting goes only into the account it was meant '
+        'for', () async {
+      const otherUserId = '22222222-2222-4222-8222-222222222222';
+      await _ClaimStore(local, firestore: firestore).commit(
+        RecordBatch()..upsert(
+          guestCategory(
+            CategoryDefaults.groceriesId,
+            'Groceries',
+            budget: '3000',
+          ),
+        ),
+        localOnly: true,
+      );
+      await OfflineDataMigrator(
+        store: _ClaimStore(local, firestore: firestore),
+        firestore: OfflineFirestore(),
+        serverTimeout: const Duration(milliseconds: 20),
+      ).claimAnonymousData(_realUserId);
+
+      // Another account signs in on this device before it is claimed.
+      await accountGroceries(userId: otherUserId);
+      final other = _ClaimStore(
+        local,
+        firestore: firestore,
+        userId: otherUserId,
+      );
+      expect(
+        await OfflineDataMigrator(
+          store: other,
+          firestore: firestore,
+        ).claimAnonymousData(otherUserId),
+        0,
+      );
+      await pumpEventQueue();
+      expect(other.remoteBatchSizes, isEmpty);
+      expect(
+        (await cloud(
+              'categories',
+              userId: otherUserId,
+            ).doc(groceriesCloneId(userId: otherUserId)).get())
+            .data()!['budget_amount'],
+        isNull,
+      );
+      expect(await local.rows('categories'), hasLength(1));
+
+      // Back in the account it was meant for, now readable.
+      await accountGroceries();
+      await OfflineDataMigrator(
+        store: _ClaimStore(local, firestore: firestore),
+        firestore: firestore,
+      ).claimAnonymousData(_realUserId);
+      await pumpEventQueue();
+      expect(
+        (await cloud(
+          'categories',
+        ).doc(groceriesCloneId()).get()).data()!['budget_amount'],
+        '3000',
+      );
+      expect(await local.rows('categories'), isEmpty);
+    });
+
+    test('a custom category or group named like the account\'s brings its '
+        'budget when that one has none, budget fields only', () async {
+      await cloud('category_groups')
+          .doc('account-kids')
+          .set(
+            RecordCodecs.categoryGroups.toRow(
+              OfflineCategoryGroup(
+                id: 'account-kids',
+                userId: _realUserId,
+                name: 'Kids',
+                icon: 'child',
+                color: '#000000',
+                sortOrder: 1,
+              ),
+            ),
+          );
+      for (final (id, name, budget) in [
+        ('account-pets', 'Pets', null),
+        ('account-toys', 'Toys', '500'),
+      ]) {
+        await cloud('categories')
+            .doc(id)
+            .set(
+              RecordCodecs.categories.toRow(
+                guestCategory(id, name, budget: budget).withOwner(_realUserId),
+              ),
+            );
+      }
+      final store = _ClaimStore(local, firestore: firestore);
+      await store.commit(
+        RecordBatch()..addAll([
+          OfflineCategoryGroup(
+            id: 'guest-kids',
+            userId: _localUserId,
+            name: 'kids',
+            icon: 'star',
+            color: '#FFFFFF',
+            sortOrder: 9,
+            budgetAmount: '2000',
+            budgetCurrency: 'THB',
+          ),
+          guestCategory('guest-pets', 'pets', budget: '300'),
+          guestCategory('guest-toys', 'toys', budget: '100'),
+        ]),
+        localOnly: true,
+      );
+
+      await OfflineDataMigrator(
+        store: store,
+        firestore: firestore,
+      ).claimAnonymousData(_realUserId);
+      await pumpEventQueue();
+
+      final kids = (await cloud(
+        'category_groups',
+      ).doc('account-kids').get()).data()!;
+      expect(kids['budget_amount'], '2000');
+      expect(kids['budget_currency'], 'THB');
+      expect(
+        [kids['name'], kids['icon'], kids['sort_order']],
+        ['Kids', 'child', 1],
+      );
+      final pets = (await cloud(
+        'categories',
+      ).doc('account-pets').get()).data()!;
+      expect(pets['budget_amount'], '300');
+      expect(pets['name'], 'Pets');
+      expect(
+        (await cloud(
+          'categories',
+        ).doc('account-toys').get()).data()!['budget_amount'],
+        '500',
+      );
+      expect(await local.rows('categories'), isEmpty);
+      expect(await local.rows('category_groups'), isEmpty);
+    });
+
+    test('a merged budget waits while the account\'s category can\'t be '
+        'read', () async {
+      await cloud('categories')
+          .doc('account-pets')
+          .set(
+            RecordCodecs.categories.toRow(
+              guestCategory('account-pets', 'Pets').withOwner(_realUserId),
+            ),
+          );
+      final store = _ClaimStore(local, firestore: firestore);
+      await store.commit(
+        RecordBatch()..addAll([
+          guestCategory('guest-pets', 'pets', budget: '300'),
+          _tx('t', categoryId: 'guest-pets'),
+        ]),
+        localOnly: true,
+      );
+
+      await OfflineDataMigrator(
+        store: store,
+        firestore: OfflineFirestore(),
+        serverTimeout: const Duration(milliseconds: 20),
+      ).claimAnonymousData(_realUserId);
+      await pumpEventQueue();
+
+      expect((await cloudTransactions()).single['category_id'], 'account-pets');
+      final left = (await store.get<OfflineCategory>(localOnly: true)).single;
+      expect(left.id, 'guest-pets');
+      expect(left.userId, OfflineDataMigrator.waitingOwner(_realUserId));
+
+      await OfflineDataMigrator(
+        store: store,
+        firestore: firestore,
+      ).claimAnonymousData(_realUserId);
+      await pumpEventQueue();
+      expect(
+        (await cloud(
+          'categories',
+        ).doc('account-pets').get()).data()!['budget_amount'],
+        '300',
+      );
+      expect(await local.rows('categories'), isEmpty);
     });
 
     test('a custom category or group named like the account\'s becomes that '
@@ -397,12 +585,15 @@ extension on OfflineCategory {
 /// which collections are claimed, the sizes of Firestore batches, and can
 /// have the server reject them.
 class _ClaimStore extends OfflineStore {
-  _ClaimStore(LocalRecordStore local, {FakeFirebaseFirestore? firestore})
-    : super(
-        local: local,
-        firestore: firestore,
-        signedInUserId: () => firestore == null ? null : _realUserId,
-      );
+  _ClaimStore(
+    LocalRecordStore local, {
+    FakeFirebaseFirestore? firestore,
+    String userId = _realUserId,
+  }) : super(
+         local: local,
+         firestore: firestore,
+         signedInUserId: () => firestore == null ? null : userId,
+       );
 
   final List<String> claimCommits = [];
   final List<int> remoteBatchSizes = [];

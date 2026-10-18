@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../app/file_uploads.dart';
 import '../../../core/storage/file_sync_queue.dart';
 
 /// One account's jobs in the file upload queue ([FileSyncQueue]: attachment
@@ -26,53 +27,34 @@ class AccountFileJobs {
     }
   }
 
-  /// Takes [ownerId]'s waiting jobs off the queue and lets an upload that is
-  /// running finish, so none completes after the server deleted the account
-  /// (it would put the file, and its record, back). Returns the jobs taken,
-  /// for [release] should the account stay; null when the running upload
-  /// didn't finish within [timeout] (the jobs are back on the queue then).
-  Future<List<FileJob>?> hold(
-    String ownerId, {
-    Duration timeout = const Duration(seconds: 15),
-  }) async {
-    final List<FileJob> held;
-    try {
-      held = await queue.pending(ownerId: ownerId);
-      for (final job in held) {
-        await queue.remove(job.id);
-      }
-    } catch (error) {
-      // An unreadable queue runs no uploads either.
-      debugPrint('[auth] upload queue unreadable: $error');
-      return const [];
-    }
+  /// Stops the queue before the account is deleted, so that no upload
+  /// completes after the server deleted it (it would put the file, and its
+  /// record, back): no job starts until [release], and the one running now
+  /// finishes first. The jobs stay queued. False when the running one didn't
+  /// finish within [timeout]; the queue runs again then.
+  Future<bool> hold({Duration timeout = const Duration(seconds: 15)}) async {
     var settled = true;
-    // A pass that is running ends after the jobs it started with.
-    await queue.process().timeout(timeout, onTimeout: () => settled = false);
-    if (settled) return held;
-    await release(held);
-    return null;
-  }
-
-  /// Puts [jobs] taken by [hold] back on the queue.
-  Future<void> release(List<FileJob> jobs) async {
-    for (final job in jobs) {
-      try {
-        await queue.enqueue(job);
-      } catch (error) {
-        debugPrint('[auth] upload ${job.id} not queued again: $error');
-      }
-    }
-  }
-
-  /// Deletes every job of [ownerId] (their account is gone).
-  Future<void> drop(String ownerId) async {
     try {
-      for (final job in await queue.pending(ownerId: ownerId)) {
-        await queue.remove(job.id);
-      }
+      await queue.suspend().timeout(timeout, onTimeout: () => settled = false);
     } catch (error) {
-      debugPrint('[auth] upload queue unreadable: $error');
+      // The pass ended with an error: nothing runs any more.
+      debugPrint('[auth] upload queue pass failed: $error');
+    }
+    if (!settled) release();
+    return settled;
+  }
+
+  /// Lets the queue run again after [hold].
+  void release() => queue.resume();
+
+  /// After [ownerId]'s account was deleted: forgets their waiting jobs
+  /// (those queued meanwhile too), the attachments kept on this device for
+  /// them and the cached copies of their files ([forgetFilesOf]).
+  Future<void> forget(String ownerId) async {
+    try {
+      await forgetFilesOf(ownerId, queue: queue);
+    } catch (error) {
+      debugPrint('[auth] files of the deleted account not forgotten: $error');
     }
   }
 }

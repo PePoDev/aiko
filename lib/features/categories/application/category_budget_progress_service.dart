@@ -1,7 +1,6 @@
 import 'package:decimal/decimal.dart';
 
 import '../../../core/money/money.dart';
-import '../../../l10n/app_localizations.dart';
 import '../../categories/domain/category.dart';
 import '../../transactions/domain/transaction.dart';
 
@@ -56,16 +55,6 @@ class CategoryBudgetProgress {
     return Money(amount: base.amount + carried.amount, currency: base.currency);
   }
 
-  Money? get remaining {
-    final limit = this.limit;
-    if (limit == null) return null;
-    final diff = limit - used;
-    if (diff.amount <= Money.zero(diff.currency).amount) {
-      return Money.zero(diff.currency);
-    }
-    return diff;
-  }
-
   /// 0..1 (or >1 if over-budget).
   double get ratio {
     final limit = this.limit;
@@ -75,21 +64,6 @@ class CategoryBudgetProgress {
     final r = used.amount.toDouble() / limit.amount.toDouble();
     if (r.isNaN || r.isInfinite) return 0;
     return r.clamp(0.0, double.infinity).toDouble();
-  }
-
-  bool get isOverBudget {
-    final limit = this.limit;
-    if (limit == null) return false;
-    return used.amount > limit.amount;
-  }
-
-  /// True when one of the configured alert thresholds (0..100) has been
-  /// crossed by [ratio].
-  bool get crossesAlertThreshold {
-    final thresholds = category.alertThresholds;
-    if (thresholds.isEmpty) return false;
-    final percent = ratio * 100;
-    return thresholds.any((t) => percent >= t);
   }
 }
 
@@ -159,28 +133,6 @@ class CategoryBudgetProgressService {
     final unused = limit.amount - spent.amount;
     if (unused <= Decimal.zero) return null;
     return Money(amount: unused, currency: limit.currency);
-  }
-
-  /// A warm tone message in [l10n]'s language. Non-judgmental (per
-  /// AGENTS.md brand voice).
-  String recommendation(
-    CategoryBudgetProgress progress,
-    int daysLeft,
-    AppLocalizations l10n,
-  ) {
-    if (!progress.category.hasBudget) {
-      return l10n.budgetAdviceNone;
-    }
-    if (progress.isOverBudget) {
-      return l10n.budgetAdviceOver;
-    }
-    final limit = progress.limit;
-    final remaining = progress.remaining;
-    if (limit == null || remaining == null || daysLeft <= 0) {
-      return l10n.budgetAdviceMindful;
-    }
-    final daily = remaining.amount.toDouble() / daysLeft.clamp(1, 31);
-    return l10n.budgetAdviceDaily(daily.toStringAsFixed(0), limit.currency);
   }
 
   Money _sumExpenses(

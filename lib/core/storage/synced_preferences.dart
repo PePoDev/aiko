@@ -284,10 +284,6 @@ class SyncedPreferences implements SecureStorageService, PreferenceItemStorage {
   }
 
   @override
-  Future<void> deleteAll() async =>
-      throw UnsupportedError('Delete named preferences explicitly.');
-
-  @override
   Future<Map<String, String>?> readItems(String key) async =>
       (await readItemsState(key)).items;
 

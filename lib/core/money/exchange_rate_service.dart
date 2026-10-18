@@ -34,28 +34,6 @@ class ExchangeRateService {
   /// How long a request may take before it counts as no connection.
   static const timeout = Duration(seconds: 10);
 
-  /// Returns how many [to] units one [from] unit buys, or `null` on failure.
-  Future<Decimal?> fetchRate(String from, String to) async {
-    final fromCode = from.trim().toUpperCase();
-    final toCode = to.trim().toUpperCase();
-    if (fromCode == toCode) {
-      return Decimal.one;
-    }
-    if (toCode.length != 3) {
-      return null;
-    }
-    return (await fetchRates(fromCode))?[toCode];
-  }
-
-  /// Like [latestRates], but `null` on failure.
-  Future<Map<String, Decimal>?> fetchRates(String base) async {
-    try {
-      return await latestRates(base);
-    } on ExchangeRateException {
-      return null;
-    }
-  }
-
   /// Every rate quoted against [base] (how many units of each currency one
   /// [base] unit buys), from a single request. Throws [ExchangeRateException]
   /// when there are none.

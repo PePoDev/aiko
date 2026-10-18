@@ -345,31 +345,6 @@ void main() {
       await slowQueue.dispose();
     });
 
-    test('a photo saved as a guest is uploaded after signing up', () async {
-      final avatars = service();
-      // The guest's photo, carried into the new account's profile.
-      final guestPath = await LocalFileCache.write(
-        'avatars/local:guest/123.png',
-        [8, 8],
-      );
-      profiles.profile = profiles.profile.copyWith(
-        avatarPath: () => guestPath,
-        avatarUrl: () => null,
-      );
-      remote.files.clear();
-
-      await avatars.queueSavedPhoto(_uid, guestPath);
-      await queue.process();
-
-      expect(remote.files['users/$_uid/avatars/123.png'], [8, 8]);
-      expect(remote.contentTypes['users/$_uid/avatars/123.png'], 'image/png');
-      expect(
-        profiles.profile.avatarUrl,
-        'https://files.test/users/$_uid/avatars/123.png',
-      );
-      expect(profiles.profile.avatarPath, guestPath);
-    });
-
     test('a photo changed during its upload is not linked', () async {
       final avatars = service();
       final avatar = await saveNewPhoto(avatars, [5]);

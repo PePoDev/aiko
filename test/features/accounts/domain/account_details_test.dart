@@ -38,7 +38,7 @@ void main() {
   });
 
   test('LoanDetails equality round-trips', () {
-    final a = LoanDetails(
+    LoanDetails loan() => LoanDetails(
       loanType: LoanType.mortgage,
       principal: Money.parse('250000', 'USD'),
       interestRatePercent: 6.5,
@@ -46,7 +46,7 @@ void main() {
       monthlyPayment: Money.parse('1580', 'USD'),
       nextDueDate: DateTime.utc(2026, 7, 1),
     );
-    expect(a, equals(a.copyWith()));
+    expect(loan(), equals(loan()));
   });
 
   test('a new loan is next due a month from today, not in 1970', () {

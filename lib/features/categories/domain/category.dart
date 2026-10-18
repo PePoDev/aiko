@@ -187,10 +187,6 @@ class CategoryGroup {
   /// on a per-user overlay row (see CategoryGroupsNotifier).
   final Money? budgetLimit;
 
-  /// True when this group has a usable group-level budget (limit > 0).
-  bool get hasBudget =>
-      budgetLimit != null && budgetLimit!.amount > Decimal.zero;
-
   /// Whether this is one of the global, read-only default groups (Food &
   /// Drink, Transport, …, Other). System groups cannot be edited, deleted, or
   /// chosen as a target when assigning a category to a group.

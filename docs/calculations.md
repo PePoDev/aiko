@@ -69,16 +69,6 @@ ratio      = used ÷ daily safe   (0 when daily safe ≤ 0)
 
 The panel also shows the month's net cash flow (income − spending) and "left to save" (net cash flow − weekly safe to spend).
 
-## Safe-to-spend breakdown
-
-`BudgetInsightsService.safeToSpend` (`lib/features/overview/application/budget_insights_service.dart`), current month:
-
-```text
-reserved  = Σ over budgeted categories of what's left of their budget in its current period (with rollover)
-leftover  = income − spent − reserved
-daysRemaining = days left in the month, including today
-```
-
 ## Category budget progress
 
 `CategoryBudgetProgressService` (`lib/features/categories/application/category_budget_progress_service.dart`) sums expenses in the category over its period:
@@ -92,7 +82,7 @@ daysRemaining = days left in the month, including today
 
 **Rollover**: with `rolloverUnused`, what was left of the previous period's limit is added to this period's limit (one period back; overspending doesn't reduce the next limit). Nothing carries into the category's first period: the period of its `created_at`, or, when that is empty, of its first transaction. Default category clones usually have no `created_at`, so they use the first-transaction rule.
 
-The recommendation is "Keep this category under `remaining ÷ daysLeft` `<currency>`/day to stay on track", or a gentle over-budget message. The Categories screen, budget **notifications**, safe-to-spend, Ask Aiko's snapshot and the Overview's Category budgets card all use this progress, each budget in its own period. Notifications fire at the highest crossed threshold (default 50/75/90/100%): warnings below 100% and danger at 100% or more. The Category budgets card charts the month's spending, so it compares only monthly budgets.
+The Categories screen, budget **notifications**, Ask Aiko's snapshot and the Overview's Category budgets card all use this progress, each budget in its own period. Notifications fire at the highest crossed threshold (default 50/75/90/100%): warnings below 100% and danger at 100% or more. The Category budgets card charts the month's spending, so it compares only monthly budgets.
 
 ## Cash flow
 
@@ -105,7 +95,6 @@ The recommendation is "Keep this category under `remaining ÷ daysLeft` `<curren
 
 Transfers between your own accounts and balance adjustments are in neither set.
 
-- **Overview**: this month's `income` and `expense` totals and their difference, plus a 12-month trend of net = inflow − outflow per month.
 - **Sankey**: this month's inflow total, and outflow grouped by each category's 50/30/20 bucket (`needs`, `wants`, `savings`, `debt`, …; uncategorized → `custom`).
 
 ## Monthly report
@@ -149,7 +138,6 @@ Days until due count calendar dates, not hours. Bill **notifications** fire for 
 Each run compounds monthly: `balance = balance × (1 + r) + contribution`, with `r ~ Normal(6%/12, 12%/√12)` drawn by Box–Muller. Results:
 
 - **Probability**: share of runs ending at or above the target. A goal already at or above its target is 100% without simulating.
-- **Conservative / expected / optimistic**: the 10th, 50th and 90th percentile final balances.
 
 The forecast is cached per goal ID (`goalForecastProvider`), so the 1,000 runs aren't repeated on every rebuild.
 
@@ -160,8 +148,7 @@ The forecast is cached per goal ID (`goalForecastProvider`), so the 1,000 runs a
 | Output | Rule |
 | --- | --- |
 | Allocation | Market value per asset class ÷ total market value × 100, largest first. Holdings are first converted to the base currency (`valueHoldingsIn`); holdings with no rate are left out |
-| Holding drift | `|actual % − target %| > 5` (default tolerance) |
-| Rebalance alert | Per target asset class, drift beyond the tolerance, with signed drift |
+| Rebalance alert | Per target asset class, drift (`actual % − target %`) beyond the tolerance (default 5), with signed drift |
 | Capital gains on sale | proceeds = sale price × quantity; cost basis = average cost × quantity; gain = proceeds − cost basis. The quantity must be within the holding. |
 
 ## Calculators

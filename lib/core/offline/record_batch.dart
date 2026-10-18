@@ -44,7 +44,6 @@ class RecordBatch {
   List<RecordWrite> get writes => List.unmodifiable(_writes);
   int get length => _writes.length;
   bool get isEmpty => _writes.isEmpty;
-  bool get isNotEmpty => _writes.isNotEmpty;
 
   /// Stores [record] (insert or replace).
   void upsert(OfflineRecord record) {

@@ -39,9 +39,6 @@ class _ThrowingStorage implements SecureStorageService {
 
   @override
   Future<void> delete(String key) async {}
-
-  @override
-  Future<void> deleteAll() async {}
 }
 
 void main() {

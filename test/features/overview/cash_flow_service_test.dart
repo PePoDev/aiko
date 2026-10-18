@@ -30,33 +30,6 @@ void main() {
     group: group,
   );
 
-  test('overview nets income minus expenses and excludes transfers', () {
-    final flow = const CashFlowService(trendMonths: 1).overview(
-      transactions: [
-        tx(TransactionType.income, '5000', DateTime(2026, 6, 1)),
-        tx(TransactionType.expense, '3000', DateTime(2026, 6, 2)),
-        // Internal transfer must not affect cash flow.
-        tx(TransactionType.transferOut, '900', DateTime(2026, 6, 3)),
-        tx(TransactionType.transferIn, '900', DateTime(2026, 6, 3)),
-      ],
-      asOf: asOf,
-    );
-
-    expect(flow.income, Money.parse('5000', 'USD'));
-    expect(flow.expenses, Money.parse('3000', 'USD'));
-    expect(flow.net, Money.parse('2000', 'USD'));
-    expect(flow.monthlyNet.single, 2000);
-  });
-
-  test('overview trend has one entry per requested month', () {
-    final flow = const CashFlowService(trendMonths: 3).overview(
-      transactions: [tx(TransactionType.income, '100', DateTime(2026, 6, 1))],
-      asOf: asOf,
-    );
-    expect(flow.monthlyNet.length, 3);
-    expect(flow.monthlyNet.last, 100); // current month is last
-  });
-
   test('sankey buckets outflow by category budget group', () {
     final sankey = const CashFlowService().sankey(
       transactions: [
@@ -75,6 +48,9 @@ void main() {
         ),
         // No category -> Other/custom bucket.
         tx(TransactionType.expense, '200', DateTime(2026, 6, 4)),
+        // Internal transfer must not affect cash flow.
+        tx(TransactionType.transferOut, '900', DateTime(2026, 6, 5)),
+        tx(TransactionType.transferIn, '900', DateTime(2026, 6, 5)),
       ],
       categories: [
         cat('rent', CategoryBudgetGroup.needs),
@@ -93,8 +69,6 @@ void main() {
   });
 
   test('empty input is inactive', () {
-    final flow = const CashFlowService().overview(transactions: [], asOf: asOf);
-    expect(flow.hasActivity, isFalse);
     expect(
       const CashFlowService()
           .sankey(transactions: [], categories: [], asOf: asOf)

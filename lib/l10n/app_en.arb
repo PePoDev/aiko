@@ -1422,20 +1422,6 @@
   "groupPickerLabel": "Group",
   "groupUngrouped": "Ungrouped",
   "groupCreateNew": "Create new group...",
-  "budgetAdviceNone": "No budget set for this category yet.",
-  "budgetAdviceOver": "You are above target. Let us adjust together for the next period.",
-  "budgetAdviceMindful": "Stay mindful of this category for the rest of the period.",
-  "budgetAdviceDaily": "Keep this category under {amount} {currency}/day to stay on track.",
-  "@budgetAdviceDaily": {
-    "placeholders": {
-      "amount": {
-        "type": "Object"
-      },
-      "currency": {
-        "type": "Object"
-      }
-    }
-  },
   "dashDailySummary": "Daily summary",
   "dashNetEarnings": "Net earnings",
   "dashCategoryBudgets": "Category budgets",

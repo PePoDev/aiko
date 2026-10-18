@@ -1093,10 +1093,6 @@ abstract final class CategoryGroupDefaults {
   /// Bills & Financial — fees, taxes, loan payment, credit card payment, savings.
   static const String billsFinancialId = '00000000-0000-0000-c300-00000000000d';
 
-  /// Back-compat alias for the catch-all group. Was "System"; now renamed
-  /// "Other". The id is identical to [otherId].
-  static const String systemId = otherId;
-
   /// The id of the group that absorbs every unfiled custom category
   /// (`groupId == null/empty`). Today this is the renamed "Other" group.
   static const String unfiledGroupId = otherId;
@@ -1288,18 +1284,4 @@ abstract final class CategoryGroupDefaults {
       sortOrder: _otherSort,
     ),
   ];
-
-  /// Back-compat alias for the renamed "System" group. Prefer [otherId] in
-  /// new code — kept so existing call sites keep compiling.
-  static CategoryGroup get system => other;
-
-  /// The renamed "Other" group as a domain object.
-  static CategoryGroup get other => const CategoryGroup(
-    id: otherId,
-    userId: '',
-    name: 'Other',
-    icon: 'category',
-    color: '#64748B',
-    sortOrder: _otherSort,
-  );
 }

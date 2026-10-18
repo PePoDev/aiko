@@ -32,8 +32,6 @@ void main() {
     final ghosts = projection.occurrencesInMonth(t, 2026, 6);
     // 29th and 30th only (June has 30 days), anchor itself excluded.
     expect(ghosts.map((g) => g.date.day), [29, 30]);
-    expect(ghosts.every(RecurringProjection.isPreview), isTrue);
-    expect(RecurringProjection.sourceId(ghosts.first), 'tmpl');
   });
 
   test('monthly series clamps Jan 31 anchor to Feb 28', () {

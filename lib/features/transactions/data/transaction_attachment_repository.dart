@@ -439,13 +439,6 @@ class TransactionAttachmentRepository {
     return controller.stream;
   }
 
-  Future<List<TransactionAttachment>> exportableForTransaction(
-    String transactionId,
-  ) async {
-    final attachments = await listForTransaction(transactionId);
-    return attachments.where((item) => item.isExportable).toList();
-  }
-
   /// After sign-in: hands every guest attachment on this device to [userId]
   /// and queues their uploads. Returns how many were claimed; never throws.
   Future<int> claimGuestAttachments(String userId) async {

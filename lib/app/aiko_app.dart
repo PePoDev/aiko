@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../core/config/app_config.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/auth/data/guest_mode.dart';
 import '../features/settings/domain/profile.dart';
@@ -18,9 +17,7 @@ import 'locale_controller.dart';
 import 'providers.dart';
 
 class AikoApp extends StatefulWidget {
-  const AikoApp({required this.config, super.key});
-
-  final AppConfig config;
+  const AikoApp({super.key});
 
   @override
   State<AikoApp> createState() => _AikoAppState();

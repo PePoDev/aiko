@@ -66,7 +66,7 @@ Amounts in other currencies are converted with live rates, or offline with the r
 - 81 default categories in 13 groups, cloned per user at sign-in, plus custom categories. Custom categories are archived rather than deleted, so transactions that use one still show its name (lists, detail and exports read `allCategoriesProvider`). Default clones can't be renamed or deleted, but their budgets are editable.
 - Each category can own one **budget**: amount, period (daily/weekly/monthly/yearly), rollover, alert thresholds (default 50/75/90/100%). Groups can carry a group budget.
 - Category groups are user-editable; deleting a custom group moves its categories to "Ungrouped". Default groups can't be deleted.
-- `CategoryBudgetProgressService` computes spend against the budget for the current period and a warm recommendation ("Keep this category under 120 THB/day to stay on track.").
+- `CategoryBudgetProgressService` computes spend against the budget for the current period.
 
 ## Transactions
 
@@ -130,7 +130,7 @@ How `BankMessageParser` reads a message:
 | Asset Allocation | `/portfolio/allocation` | Allocation by asset class in the base currency (holdings in other currencies converted with `fxRatesProvider`). Holdings with no rate are left out and named, for example "BND (USD)"; when all are, the total shows "—" and the chart is hidden |
 | Holding Detail | `/portfolio/holding?id=<holding id>` | One holding's performance, with a picker for the others (the largest holding without `id`) |
 
-Services: `BudgetInsightsService` (safe-to-spend), `CashFlowService` (overview and Sankey), `GoalForecastService` (Monte Carlo), `MonthlyReportService`.
+Services: `CashFlowService` (Sankey), `GoalForecastService` (Monte Carlo), `MonthlyReportService`.
 
 ## Investments
 
@@ -200,7 +200,7 @@ Current behavior that differs from what the UI or the README suggests. Fix the c
 | Area | Gap |
 | --- | --- |
 | Split transactions | `TransactionSplit` and its validation exist, but no screen creates splits and the codec does not persist them. |
-| Duplicate transactions | No duplicate detection. `TransactionRepository.duplicate` copies a transaction but nothing calls it. |
+| Duplicate transactions | No duplicate detection or copy action. |
 | App lock | `SecurityStatus` has `pinEnabled`/`biometricEnabled` and matching strings, but no PIN or biometric lock is implemented. |
 | Aiko character | `aiko.riv` is not in `assets/rive/` yet; the PNG fallback is always used until it is added. |
 | Ask Aiko offline | No on-device answers; local-only builds and guests cannot chat. |

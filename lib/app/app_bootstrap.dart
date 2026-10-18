@@ -53,5 +53,5 @@ class AppBootstrap {
     await LegacyStoreImport(target: store).run();
   }
 
-  Widget buildApp() => AikoApp(config: config);
+  Widget buildApp() => const AikoApp();
 }

@@ -164,14 +164,6 @@ void main() {
     expect(forecast.months, 6);
     expect(forecast.monthlyContribution, closeTo(100, 0.001));
     expect(forecast.result.successProbabilityPercent, inInclusiveRange(0, 100));
-    expect(
-      forecast.result.conservativeAmount,
-      lessThanOrEqualTo(forecast.result.expectedAmount),
-    );
-    expect(
-      forecast.result.expectedAmount,
-      lessThanOrEqualTo(forecast.result.optimisticAmount),
-    );
   });
 
   test('a goal already at its target is certain', () {

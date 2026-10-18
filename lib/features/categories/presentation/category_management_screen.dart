@@ -645,7 +645,6 @@ class _GroupHeader extends StatelessWidget {
                 spent: total ?? Money.zero(budget!.currency),
                 limit: budget!,
                 segments: segments,
-                color: color,
               ),
               if (segments.isNotEmpty) ...[
                 const SizedBox(height: 6),
@@ -721,14 +720,12 @@ class _GroupBudgetProgress extends StatelessWidget {
     required this.spent,
     required this.limit,
     required this.segments,
-    required this.color,
     super.key,
   });
 
   final Money spent;
   final Money limit;
   final List<_BudgetSegment> segments;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {

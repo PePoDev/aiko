@@ -68,40 +68,6 @@ class TransactionRepository {
     if (batch == null) await _store.commit(target);
   }
 
-  Future<List<FinanceTransaction>> search(String query) async {
-    final currentList = await list();
-    final lower = query.toLowerCase();
-    return currentList
-        .where(
-          (item) =>
-              (item.merchant ?? '').toLowerCase().contains(lower) ||
-              (item.categoryId ?? '').toLowerCase().contains(lower),
-        )
-        .toList(growable: false);
-  }
-
-  Future<FinanceTransaction> duplicate(String id, String newId) async {
-    final currentList = await list();
-    final original = currentList.firstWhere((item) => item.id == id);
-    final copy = FinanceTransaction(
-      id: newId,
-      userId: original.userId,
-      accountId: original.accountId,
-      type: original.type,
-      amount: original.amount,
-      date: DateTime.now(),
-      categoryId: original.categoryId,
-      merchant: original.merchant,
-      note: original.note,
-      tags: original.tags,
-      splits: original.splits,
-      isRecurring: original.isRecurring,
-      recurringFrequency: original.recurringFrequency,
-      recurringSettings: original.recurringSettings,
-    );
-    return save(copy);
-  }
-
   void _validate(FinanceTransaction transaction) {
     if (transaction.amount.amount <=
             Money.zero(transaction.amount.currency).amount &&

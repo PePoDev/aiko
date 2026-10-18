@@ -45,6 +45,6 @@ void main() {
       ],
     );
 
-    expect(alerts.single.direction, 'overweight');
+    expect(alerts.single.driftPercent, greaterThan(0)); // overweight
   });
 }

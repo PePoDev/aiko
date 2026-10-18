@@ -53,30 +53,6 @@ class AllocationService {
     );
   }
 
-  double allocationPercent(
-    InvestmentHolding holding,
-    List<InvestmentHolding> portfolio,
-  ) {
-    final total = portfolio.fold<double>(
-      0,
-      (sum, item) => sum + item.marketValue.amount.toDouble(),
-    );
-    if (total == 0) {
-      return 0;
-    }
-    return holding.marketValue.amount.toDouble() / total * 100;
-  }
-
-  bool isDrifted({
-    required InvestmentHolding holding,
-    required List<InvestmentHolding> portfolio,
-    required AllocationTarget target,
-    double tolerancePercent = 5,
-  }) {
-    final actual = allocationPercent(holding, portfolio);
-    return (actual - target.targetPercent).abs() > tolerancePercent;
-  }
-
   List<RebalanceAlert> rebalanceAlerts({
     required List<InvestmentHolding> portfolio,
     required List<AllocationTarget> targets,
@@ -91,12 +67,7 @@ class AllocationService {
       final drift = actual - target.targetPercent;
       if (drift.abs() > tolerancePercent) {
         alerts.add(
-          RebalanceAlert(
-            assetClass: target.assetClass,
-            targetPercent: target.targetPercent,
-            actualPercent: actual,
-            driftPercent: drift,
-          ),
+          RebalanceAlert(assetClass: target.assetClass, driftPercent: drift),
         );
       }
     }
@@ -185,19 +156,10 @@ class PortfolioAllocation {
 }
 
 class RebalanceAlert {
-  const RebalanceAlert({
-    required this.assetClass,
-    required this.targetPercent,
-    required this.actualPercent,
-    required this.driftPercent,
-  });
+  const RebalanceAlert({required this.assetClass, required this.driftPercent});
 
   final String assetClass;
-  final double targetPercent;
-  final double actualPercent;
   final double driftPercent;
-
-  String get direction => driftPercent > 0 ? 'overweight' : 'underweight';
 }
 
 class CapitalGainsEstimate {

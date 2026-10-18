@@ -93,7 +93,7 @@ void main() {
 
     await container
         .read(transactionsProvider.notifier)
-        .addTransaction(
+        .saveTransaction(
           FinanceTransaction(
             id: 'coffee',
             userId: 'user',

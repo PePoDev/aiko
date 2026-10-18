@@ -3,12 +3,8 @@ import 'package:aiko/features/categories/application/category_budget_progress_se
 import 'package:aiko/features/categories/domain/category.dart';
 import 'package:aiko/features/transactions/domain/transaction.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:aiko/l10n/app_localizations.dart';
-import 'package:flutter/widgets.dart';
 
 void main() {
-  final english = lookupAppLocalizations(const Locale('en'));
-
   const service = CategoryBudgetProgressService();
 
   Category categoryWithBudget(Money limit) {
@@ -96,7 +92,7 @@ void main() {
   });
 
   group('CategoryBudgetProgress', () {
-    test('remaining is null when no limit is set', () {
+    test('limit is null when no limit is set', () {
       final category = Category(
         id: 'cat-1',
         userId: 'u',
@@ -111,47 +107,6 @@ void main() {
         used: Money.parse('10', 'USD'),
       );
       expect(result.limit, isNull);
-      expect(result.remaining, isNull);
-    });
-
-    test('remaining caps at zero when over-budget', () {
-      final category = categoryWithBudget(Money.parse('50', 'USD'));
-      final result = CategoryBudgetProgress(
-        category: category,
-        used: Money.parse('100', 'USD'),
-      );
-      expect(result.isOverBudget, isTrue);
-      expect(result.remaining?.amount.toString(), '0');
-    });
-  });
-
-  group('CategoryBudgetProgressService.recommendation', () {
-    test('returns the no-budget message when the category has no limit', () {
-      final category = Category(
-        id: 'cat-1',
-        userId: 'u',
-        name: 'X',
-        type: CategoryType.expense,
-        group: CategoryBudgetGroup.needs,
-        icon: 'x',
-        color: '#000000',
-      );
-      final result = service.progressFor(category, const []);
-      expect(service.recommendation(result, 7, english), contains('No budget'));
-    });
-
-    test('offers a daily-limit suggestion when on track', () {
-      final category = categoryWithBudget(Money.parse('300', 'USD'));
-      final result = service.progressFor(category, [
-        postedExpense(
-          id: 't1',
-          categoryId: 'cat-1',
-          amount: Money.parse('50', 'USD'),
-        ),
-      ]);
-      final message = service.recommendation(result, 10, english);
-      expect(message, contains('Keep this category under'));
-      expect(message, contains('USD/day'));
     });
   });
 
@@ -242,7 +197,6 @@ void main() {
       );
       expect(result.carriedOver, Money.parse('300', 'THB'));
       expect(result.limit, Money.parse('1300', 'THB'));
-      expect(result.remaining, Money.parse('1200', 'THB'));
     });
 
     test('nothing carries over without rollover, after overspending, '

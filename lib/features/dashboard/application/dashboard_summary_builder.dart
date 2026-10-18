@@ -8,7 +8,7 @@ import '../domain/dashboard_summary.dart';
 
 /// Converts amounts into [baseCurrency] with rates quoted against it
 /// ([ratesFromBase]: how many units of each currency one base unit buys, as
-/// `ExchangeRateService.fetchRates(base)` returns them).
+/// `ExchangeRateService.latestRates(base)` returns them).
 class CurrencyConverter {
   CurrencyConverter(
     String baseCurrency, [

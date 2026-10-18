@@ -56,7 +56,6 @@ const REQUEST_TIMEOUT_MS = 60_000;
 // The whole answer (tool rounds + final answer), so a slow provider ends with
 // an error event well before the 300 s function timeout kills the request.
 const CHAT_DEADLINE_MS = 240_000;
-const MAX_USER_MSG = 1000; // server backstop; UI caps real input at 300 chars.
 
 // Truncate JSON sent to the model, keeping it valid by stuffing the marker
 // inside a string rather than slicing mid-token.
@@ -64,24 +63,6 @@ function cap(json: string, max: number): string {
   return json.length > max
     ? `${JSON.stringify(json.slice(0, max))} /*truncated*/`
     : json;
-}
-
-const encoder = new TextEncoder();
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
-} as const;
-
-function sseEvent(payload: Record<string, unknown>): Uint8Array {
-  return encoder.encode(`data: ${JSON.stringify(payload)}\n\n`);
-}
-
-function jsonResponse(status: number, body: Record<string, unknown>): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
-  });
 }
 
 interface IncomingMessage {

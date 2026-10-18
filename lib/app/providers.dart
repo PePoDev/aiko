@@ -21,7 +21,6 @@ import '../features/dashboard/domain/app_notification.dart';
 import '../features/dashboard/domain/dashboard_due_item.dart';
 import '../features/dashboard/domain/dashboard_summary.dart';
 import '../features/investments/application/allocation_service.dart';
-import '../features/overview/application/budget_insights_service.dart';
 import '../features/overview/application/cash_flow_service.dart';
 import '../features/overview/application/goal_forecast_service.dart';
 import '../features/overview/application/monthly_report_service.dart';
@@ -184,16 +183,6 @@ class TransactionsNotifier extends AsyncNotifier<List<FinanceTransaction>> {
       return;
     }
     state = AsyncValue.data(upsertTransactionsByDate(current, saved));
-  }
-
-  Future<void> addTransaction(
-    FinanceTransaction transaction, {
-    bool updateAccountBalance = true,
-  }) async {
-    await saveTransaction(
-      transaction,
-      updateAccountBalance: updateAccountBalance,
-    );
   }
 
   /// Deletes [id] and, for a linked transfer leg, its partner leg too, so a
@@ -369,10 +358,6 @@ class AccountsNotifier extends AsyncNotifier<List<Account>> {
       // acceptable for fresh installs even with no secure-storage backend.
       Error.throwWithStackTrace(error, stackTrace);
     }
-  }
-
-  Future<void> addAccount(Account account) async {
-    await saveAccount(account);
   }
 
   /// Saves [account] and, when given, the [adjustment] transaction that backs
@@ -607,10 +592,6 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
       return -1;
     }
     return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-  }
-
-  Future<void> addCategory(Category category) async {
-    await saveCategory(category);
   }
 
   Future<void> saveCategory(Category category) async {
@@ -933,20 +914,6 @@ final monthlyReportProvider = FutureProvider.autoDispose
       return report;
     });
 
-/// Cash-flow overview (this month's in/out/net + 12-month net trend) from real
-/// transactions.
-final cashFlowOverviewProvider = FutureProvider.autoDispose<CashFlowOverview>((
-  ref,
-) async {
-  final transactions = await ref.watch(transactionsProvider.future);
-  final result = const CashFlowService().overview(
-    transactions: transactions,
-    asOf: DateTime.now(),
-  );
-  ref.keepAlive();
-  return result;
-});
-
 /// Cash-flow Sankey breakdown (income vs outflow grouped by budget group).
 final cashFlowSankeyProvider = FutureProvider.autoDispose<CashFlowSankey>((
   ref,
@@ -954,21 +921,6 @@ final cashFlowSankeyProvider = FutureProvider.autoDispose<CashFlowSankey>((
   final transactions = await ref.watch(transactionsProvider.future);
   final categories = await ref.watch(categoriesProvider.future);
   final result = const CashFlowService().sankey(
-    transactions: transactions,
-    categories: categories,
-    asOf: DateTime.now(),
-  );
-  ref.keepAlive();
-  return result;
-});
-
-/// Safe-to-spend leftover breakdown from real income, spending and budgets.
-final safeToSpendProvider = FutureProvider.autoDispose<SafeToSpend>((
-  ref,
-) async {
-  final transactions = await ref.watch(transactionsProvider.future);
-  final categories = await ref.watch(categoriesProvider.future);
-  final result = const BudgetInsightsService().safeToSpend(
     transactions: transactions,
     categories: categories,
     asOf: DateTime.now(),
@@ -1147,13 +1099,3 @@ final notificationsProvider = FutureProvider.autoDispose<List<AppNotification>>(
     return withoutDismissed(all, dismissed);
   },
 );
-
-/// All accounts with `type = goal`, derived from [accountsProvider].
-final goalAccountsDerivedProvider = Provider<AsyncValue<List<Account>>>((ref) {
-  final accountsAsync = ref.watch(accountsProvider);
-  return accountsAsync.whenData(
-    (accounts) => accounts
-        .where((a) => a.type == AccountType.goal)
-        .toList(growable: false),
-  );
-});

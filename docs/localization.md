@@ -36,7 +36,7 @@ Settings → Language offers System default, English and Thai; each language is 
 | Before an `await` in a handler | Read `final l10n = context.l10n;` first, then use `l10n` after the gap (the `use_build_context_synchronously` lint enforces this) |
 | `initState` | `currentL10n()`; context lookups aren't allowed there |
 | Providers that build text | Watch the language: `lookupAppLocalizations(ref.watch(appLocaleControllerProvider)…)` (see `_l10nOf` in `lib/app/providers.dart`), so the text updates when it changes |
-| Pure services | Take `AppLocalizations l10n` as a parameter (for example `buildNotifications`, `CategoryBudgetProgressService.recommendation`); tests pass `lookupAppLocalizations(const Locale('en'))` |
+| Pure services | Take `AppLocalizations l10n` as a parameter (for example `buildNotifications`); tests pass `lookupAppLocalizations(const Locale('en'))` |
 | Background work and seeded data | `currentL10n()` (reminder notification channel, default account names at sign-up, auto-captured transaction notes) |
 | `const` tables (navigation items, intro slides) | Store a tear-off `String Function(AppLocalizations)` instead of a string; see `aikoNavigationItems` |
 | Enum values | `value.label(l10n)` from `domain_labels.dart`; never `value.name` |

@@ -164,12 +164,7 @@ class GoalForecastService {
     final current = goal.currentBalance.amount.toDouble();
     final target = goal.targetAmount?.amount.toDouble() ?? 0;
     final result = current >= target
-        ? MonteCarloSimulationResult(
-            successProbabilityPercent: 100,
-            optimisticAmount: current,
-            expectedAmount: current,
-            conservativeAmount: current,
-          )
+        ? const MonteCarloSimulationResult(successProbabilityPercent: 100)
         : engine.run(
             currentBalance: current,
             monthlyContribution: contribution,

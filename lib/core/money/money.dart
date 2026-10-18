@@ -29,21 +29,9 @@ class Money implements Comparable<Money> {
     return Money(amount: amount * multiplier, currency: currency);
   }
 
-  Money dividedByInt(int divisor, {int scale = 6}) {
-    if (divisor == 0) {
-      throw ArgumentError.value(divisor, 'divisor', 'Cannot divide by zero');
-    }
-    return Money(
-      amount: (amount / Decimal.fromInt(divisor)).toDecimal(
-        scaleOnInfinitePrecision: scale,
-      ),
-      currency: currency,
-    );
-  }
-
   /// Splits the receiver's amount by [other] and returns the result as a
   /// `double`. Use this for ratios (e.g. "this / total") rather than money
-  /// splits — use [dividedByInt] / `times` for money math so the result
+  /// splits — use `times` for money math so the result
   /// stays in `Decimal`.
   double ratio(Money other) {
     _assertSameCurrency(other);

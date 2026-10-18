@@ -15,7 +15,6 @@ void main() {
 
   test('validates supported attachment metadata', () {
     expect(attachment.isValidForUpload, isTrue);
-    expect(attachment.isExportable, isTrue);
   });
 
   test('copyWith changes only the owner, transaction and path', () {

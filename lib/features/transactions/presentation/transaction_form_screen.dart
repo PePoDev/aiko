@@ -2399,7 +2399,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             _ReminderSection(
               reminderAt: _reminderAt,
               lead: _reminderLead,
-              transactionDate: _selectedDate,
               onToggle: (value) {
                 setState(() {
                   if (!value) {
@@ -3886,7 +3885,6 @@ class _ReminderSection extends StatelessWidget {
   const _ReminderSection({
     required this.reminderAt,
     required this.lead,
-    required this.transactionDate,
     required this.onToggle,
     required this.onLeadChanged,
     required this.onPick,
@@ -3894,7 +3892,6 @@ class _ReminderSection extends StatelessWidget {
 
   final DateTime? reminderAt;
   final ReminderLead lead;
-  final DateTime transactionDate;
   final ValueChanged<bool> onToggle;
   final ValueChanged<ReminderLead> onLeadChanged;
   final VoidCallback onPick;

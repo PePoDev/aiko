@@ -11,14 +11,6 @@ class RecurringProjection {
 
   static const String _marker = '#preview#';
 
-  /// True when [transaction] is one of our synthetic preview rows.
-  static bool isPreview(FinanceTransaction transaction) =>
-      transaction.id.contains(_marker);
-
-  /// The source template id a preview row was generated from.
-  static String sourceId(FinanceTransaction preview) =>
-      preview.id.split(_marker).first;
-
   /// Occurrences of [template] that fall inside the calendar month
   /// (`year`/`month`), strictly after the template's own anchor date and
   /// before the series ends (end date / max occurrences).

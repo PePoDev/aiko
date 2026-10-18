@@ -165,24 +165,6 @@ class ProfileAvatarService {
     );
   }
 
-  /// Queues uploading a photo that [userId]'s profile shows from this
-  /// device only ([localPath], no URL yet), such as the one a guest saved
-  /// before signing up. The bytes stay where they are; signed in as
-  /// [userId] only.
-  Future<void> queueSavedPhoto(String userId, String localPath) async {
-    if (!localPath.startsWith(LocalFileCache.pathPrefix)) return;
-    final name = localPath.substring(localPath.lastIndexOf('/') + 1);
-    if (name.isEmpty) return;
-    await queueUpload(
-      ProfileAvatar(
-        ownerId: userId,
-        localPath: localPath,
-        remotePath: 'users/$userId/avatars/$name',
-        contentType: _contentTypeFor(_extensionFor(name)),
-      ),
-    );
-  }
-
   /// Drops a picked photo that was never saved.
   Future<void> discard(PendingAvatar pending) =>
       LocalFileCache.remove(pending.previewPath);

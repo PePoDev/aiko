@@ -46,14 +46,6 @@ void main() {
     expect(accounts.first.currentBalance, Money.parse('-25.5', 'THB'));
   });
 
-  test('archive keeps the account but marks it inactive', () async {
-    await repository.save(account('a', 'Checking'));
-
-    await repository.archive('a');
-
-    expect((await repository.list()).single.isActive, isFalse);
-  });
-
   test('with a batch, the save and delete land on commit', () async {
     await repository.save(account('old', 'Old'));
     final batch = RecordBatch();

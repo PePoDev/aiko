@@ -41,18 +41,6 @@ class AccountRepository {
     return record.toDomain();
   }
 
-  Future<void> archive(String id) async {
-    final userId = await _userContext.resolveUserId();
-    final accounts = await _store.get<OfflineAccount>(
-      query: RecordQuery(ownerId: userId, id: id, limit: 1),
-    );
-    if (accounts.isEmpty) {
-      return;
-    }
-    final account = accounts.first.toDomain();
-    await save(account.copyWith(isActive: false));
-  }
-
   /// Deletes the current user's account [id]. With a [batch], the delete is
   /// staged there for the caller to commit instead.
   Future<void> delete(String id, {RecordBatch? batch}) async {

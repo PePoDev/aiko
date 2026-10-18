@@ -195,7 +195,4 @@ class _ThrowingStorage implements SecureStorageService {
 
   @override
   Future<void> delete(String key) async => throw StateError('storage down');
-
-  @override
-  Future<void> deleteAll() async => throw StateError('storage down');
 }

@@ -6,8 +6,6 @@ abstract interface class SecureStorageService {
   Future<void> write(String key, String value);
 
   Future<void> delete(String key);
-
-  Future<void> deleteAll();
 }
 
 class FlutterSecureStorageService implements SecureStorageService {
@@ -18,9 +16,6 @@ class FlutterSecureStorageService implements SecureStorageService {
 
   @override
   Future<void> delete(String key) => _storage.delete(key: key);
-
-  @override
-  Future<void> deleteAll() => _storage.deleteAll();
 
   @override
   Future<String?> read(String key) => _storage.read(key: key);
@@ -37,11 +32,6 @@ class MemorySecureStorageService implements SecureStorageService {
   @override
   Future<void> delete(String key) async {
     _values.remove(key);
-  }
-
-  @override
-  Future<void> deleteAll() async {
-    _values.clear();
   }
 
   @override

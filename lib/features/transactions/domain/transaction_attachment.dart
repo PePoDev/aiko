@@ -66,10 +66,6 @@ class TransactionAttachment {
         supportedMimeTypes.contains(mimeType);
   }
 
-  bool get isExportable {
-    return isValidForUpload && exportPolicy == AttachmentExportPolicy.include;
-  }
-
   /// True for any image MIME type we can render as a thumbnail with
   /// [Image.file]. HEIC is excluded — Flutter's default decoders don't read
   /// it on every platform, so it falls back to the generic file icon.

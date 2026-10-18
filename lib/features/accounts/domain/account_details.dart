@@ -163,22 +163,6 @@ class LoanDetails extends AccountDetails {
   @override
   String get variantName => 'loan';
 
-  LoanDetails copyWith({
-    LoanType? loanType,
-    Money? principal,
-    double? interestRatePercent,
-    int? termMonths,
-    Money? monthlyPayment,
-    DateTime? nextDueDate,
-  }) => LoanDetails(
-    loanType: loanType ?? this.loanType,
-    principal: principal ?? this.principal,
-    interestRatePercent: interestRatePercent ?? this.interestRatePercent,
-    termMonths: termMonths ?? this.termMonths,
-    monthlyPayment: monthlyPayment ?? this.monthlyPayment,
-    nextDueDate: nextDueDate ?? this.nextDueDate,
-  );
-
   @override
   bool operator ==(Object other) =>
       other is LoanDetails &&
@@ -206,10 +190,6 @@ class InvestmentDetails extends AccountDetails {
   @override
   String get variantName => 'investment';
 
-  InvestmentDetails copyWith({String? accountNumberLast4}) => InvestmentDetails(
-    accountNumberLast4: accountNumberLast4 ?? this.accountNumberLast4,
-  );
-
   @override
   bool operator ==(Object other) =>
       other is InvestmentDetails &&
@@ -232,18 +212,6 @@ class AssetDetails extends AccountDetails {
   final String? notes;
   @override
   String get variantName => 'asset';
-
-  AssetDetails copyWith({
-    AssetClass? assetClass,
-    Money? purchasePrice,
-    DateTime? purchaseDate,
-    String? notes,
-  }) => AssetDetails(
-    assetClass: assetClass ?? this.assetClass,
-    purchasePrice: purchasePrice ?? this.purchasePrice,
-    purchaseDate: purchaseDate ?? this.purchaseDate,
-    notes: notes ?? this.notes,
-  );
 
   @override
   bool operator ==(Object other) =>
@@ -270,16 +238,6 @@ class LiabilityDetails extends AccountDetails {
   @override
   String get variantName => 'liability';
 
-  LiabilityDetails copyWith({
-    String? liabilityType,
-    double? interestRatePercent,
-    String? notes,
-  }) => LiabilityDetails(
-    liabilityType: liabilityType ?? this.liabilityType,
-    interestRatePercent: interestRatePercent ?? this.interestRatePercent,
-    notes: notes ?? this.notes,
-  );
-
   @override
   bool operator ==(Object other) =>
       other is LiabilityDetails &&
@@ -296,9 +254,6 @@ class OtherDetails extends AccountDetails {
   final String? notes;
   @override
   String get variantName => 'other';
-
-  OtherDetails copyWith({String? notes}) =>
-      OtherDetails(notes: notes ?? this.notes);
 
   @override
   bool operator ==(Object other) =>

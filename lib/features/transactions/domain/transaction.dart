@@ -102,13 +102,6 @@ class RecurringSettings {
   final int? monthOfYear;
 
   static const RecurringSettings empty = RecurringSettings();
-
-  bool get isEmpty =>
-      endDate == null &&
-      maxOccurrences == null &&
-      dayOfWeek == null &&
-      dayOfMonth == null &&
-      monthOfYear == null;
 }
 
 class FinanceTransaction {

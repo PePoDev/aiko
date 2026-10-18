@@ -8,10 +8,9 @@ import 'dart:ui' show DartPluginRegistrant;
 
 import 'package:another_telephony/telephony.dart';
 import 'package:decimal/decimal.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:notification_listener_service/notification_event.dart';
-import 'package:notification_listener_service/notification_listener_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -31,13 +30,21 @@ class CapturedMessage {
     required this.sender,
     required this.body,
     required this.receivedAt,
+    this.notificationKey,
   });
 
   final String id;
   final String source; // 'sms' | 'notification'
   final String sender; // SMS address or notifying package name
   final String body;
+
+  /// When the money moved, as near as the message tells: an SMS's sending
+  /// time, or when a notification was captured.
   final DateTime receivedAt;
+
+  /// The posted notification's key (the same while an app updates one
+  /// notification); null for an SMS.
+  final String? notificationKey;
 
   /// The channel it came through: all SMS share one; each app posting
   /// notifications is its own.
@@ -49,6 +56,7 @@ class CapturedMessage {
     'sender': sender,
     'body': body,
     'received_at': receivedAt.toIso8601String(),
+    if (notificationKey != null) 'notification_key': notificationKey,
   };
 
   factory CapturedMessage.fromJson(Map<String, dynamic> json) =>
@@ -60,6 +68,7 @@ class CapturedMessage {
         receivedAt:
             DateTime.tryParse(json['received_at'] as String? ?? '') ??
             DateTime.now(),
+        notificationKey: json['notification_key'] as String?,
       );
 }
 
@@ -77,8 +86,9 @@ String _newCaptureId() =>
     '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(1 << 32)}';
 
 /// The inbox entry for an incoming SMS, or null when the text isn't a money
-/// movement, so personal texts are never written to disk.
-CapturedMessage? capturedSms({String? address, String? body}) {
+/// movement, so personal texts are never written to disk. [timestamp] is the
+/// SMS's service centre timestamp in milliseconds ([SmsMessage.date]).
+CapturedMessage? capturedSms({String? address, String? body, int? timestamp}) {
   final text = body?.trim() ?? '';
   if (_captureParser.parse(text) == null) return null;
   return CapturedMessage(
@@ -86,19 +96,37 @@ CapturedMessage? capturedSms({String? address, String? body}) {
     source: _smsSource,
     sender: address ?? '',
     body: text,
-    receivedAt: DateTime.now(),
+    receivedAt: smsSentAt(timestamp, DateTime.now()),
   );
 }
 
+/// The oldest SMS timestamp taken at face value: service centres keep an SMS
+/// they can't deliver for about a week at most.
+const _maxSmsDelay = Duration(days: 7);
+
+/// When an SMS was sent, from its service centre [timestamp] (milliseconds
+/// since the epoch), so one the carrier delivers late keeps its own date and
+/// still matches the bank app's notification of the same payment. No
+/// timestamp, or one no delivery delay explains (later than [now], or more
+/// than a week old: a wrong service centre clock), counts as [now].
+@visibleForTesting
+DateTime smsSentAt(int? timestamp, DateTime now) {
+  if (timestamp == null) return now;
+  final sent = DateTime.fromMillisecondsSinceEpoch(timestamp);
+  if (sent.isAfter(now) || now.difference(sent) > _maxSmsDelay) return now;
+  return sent;
+}
+
 /// The inbox entry for a posted notification, or null when it isn't one to
-/// capture: a removal, one of Aiko's own, or text that isn't a money movement.
+/// capture: one of Aiko's own, or text that isn't a money movement. [key] is
+/// the notification's key (the same while its app updates it).
 CapturedMessage? capturedNotification({
   String? packageName,
   String? title,
   String? content,
-  bool removed = false,
+  String? key,
 }) {
-  if (removed || packageName == _ownPackage) return null;
+  if (packageName == _ownPackage) return null;
   final text = '${title ?? ''} ${content ?? ''}'.trim();
   if (_captureParser.parse(text) == null) return null;
   return CapturedMessage(
@@ -107,6 +135,25 @@ CapturedMessage? capturedNotification({
     sender: packageName ?? '',
     body: text,
     receivedAt: DateTime.now(),
+    notificationKey: key,
+  );
+}
+
+/// The inbox entry for an [event] of Aiko's notification listener
+/// (CaptureNotificationListener in android/app: a map of the posting
+/// package, the notification's key, title and text), or null when it isn't
+/// one to capture.
+CapturedMessage? capturedNotificationEvent(Object? event) {
+  if (event is! Map) return null;
+  String? text(String name) => switch (event[name]) {
+    final String value => value,
+    _ => null,
+  };
+  return capturedNotification(
+    packageName: text('packageName'),
+    title: text('title'),
+    content: text('content'),
+    key: text('key'),
   );
 }
 
@@ -203,8 +250,15 @@ class CapturedMessageInbox {
 }
 
 /// How far apart two captures of the same money movement can arrive (an SMS
-/// and the notification for it, or a notification posted again).
+/// and the notification for it, or a notification its app posts again).
 const captureDuplicateWindow = Duration(minutes: 5);
+
+/// How far apart one app's notifications with the same text, posted as two
+/// notifications (a group summary repeating one, or an alert posted twice),
+/// still count as one movement. Further apart they are two payments that
+/// read alike; the same notification updated stays one for the whole
+/// [captureDuplicateWindow].
+const captureRepostWindow = Duration(minutes: 1);
 
 /// What the processor remembers about a message it booked or matched to an
 /// earlier one: enough to spot the same money movement arriving again.
@@ -216,6 +270,7 @@ class CaptureRecord {
     required this.type,
     required this.amount,
     required this.at,
+    this.keyHash,
     this.duplicateOf,
   });
 
@@ -227,6 +282,10 @@ class CaptureRecord {
         type: draft.type.name,
         amount: draft.amount.amount.toString(),
         at: message.receivedAt,
+        keyHash: switch (message.notificationKey) {
+          final String key => _textHash(key),
+          null => null,
+        },
       );
 
   factory CaptureRecord.fromJson(Map<String, dynamic> json) => CaptureRecord(
@@ -236,6 +295,7 @@ class CaptureRecord {
     type: json['type'] as String,
     amount: json['amount'] as String,
     at: DateTime.parse(json['at'] as String),
+    keyHash: json['key'] as String?,
     duplicateOf: json['duplicate_of'] as String?,
   );
 
@@ -249,6 +309,10 @@ class CaptureRecord {
   final String amount;
   final DateTime at;
 
+  /// A hash of the notification's key; null for an SMS (or a record kept
+  /// before keys were).
+  final String? keyHash;
+
   /// The booked message this one repeated; null when it was booked itself.
   final String? duplicateOf;
 
@@ -259,6 +323,7 @@ class CaptureRecord {
     type: type,
     amount: amount,
     at: at,
+    keyHash: keyHash,
     duplicateOf: original,
   );
 
@@ -269,6 +334,7 @@ class CaptureRecord {
     'type': type,
     'amount': amount,
     'at': at.toIso8601String(),
+    if (keyHash != null) 'key': keyHash,
     if (duplicateOf != null) 'duplicate_of': duplicateOf,
   };
 }
@@ -318,16 +384,21 @@ class CaptureLedger {
     bool near(CaptureRecord r) =>
         r.at.difference(next.at).abs() <= captureDuplicateWindow;
 
-    // The same notification posted again (an update or a re-post). Two SMS
+    // The same notification posted again: an update of it (the same key),
+    // or the same text posted as another notification moments later. Two SMS
     // with the same text are two messages, so SMS never match here.
     if (next.origin != _smsSource) {
       for (final r in _records) {
-        if (r.id != next.id &&
-            r.origin == next.origin &&
-            r.textHash == next.textHash &&
-            near(r)) {
-          return r.duplicateOf ?? r.id;
+        if (r.id == next.id ||
+            r.origin != next.origin ||
+            r.textHash != next.textHash) {
+          continue;
         }
+        final sameNotification = r.keyHash != null && r.keyHash == next.keyHash;
+        final repost = sameNotification
+            ? near(r)
+            : r.at.difference(next.at).abs() <= captureRepostWindow;
+        if (repost) return r.duplicateOf ?? r.id;
       }
     }
     // The same movement reported through another channel: the bank's SMS and
@@ -396,24 +467,33 @@ Future<void> captureSmsBackgroundHandler(SmsMessage message) async {
   WidgetsFlutterBinding.ensureInitialized();
   // Plugins with a Dart-side implementation (path_provider) register here.
   DartPluginRegistrant.ensureInitialized();
-  await queueBackgroundSms(address: message.address, body: message.body);
+  await queueBackgroundSms(
+    address: message.address,
+    body: message.body,
+    timestamp: message.date,
+  );
 }
 
 /// Queues an SMS the background isolate received; true when it was queued.
 ///
-/// Only money movements are kept, and nothing while auto-capture is off: the
-/// plugin keeps starting this isolate after capture is switched off (see
-/// [TransactionCaptureService.stop]), so the switch is checked here. Settings
-/// that can't be read queue the message anyway; the processor decides once
-/// they can.
+/// Only money movements are kept, and nothing while auto-capture is off.
+/// [TransactionCaptureService.stop] switches the SMS receiver off, but one
+/// that was already on its way may still arrive, so the switch is checked
+/// here too. Settings that can't be read queue the message anyway; the
+/// processor decides once they can.
 @visibleForTesting
 Future<bool> queueBackgroundSms({
   String? address,
   String? body,
+  int? timestamp,
   CapturedMessageInbox inbox = const CapturedMessageInbox(),
   SecureStorageService? storage,
 }) async {
-  final captured = capturedSms(address: address, body: body);
+  final captured = capturedSms(
+    address: address,
+    body: body,
+    timestamp: timestamp,
+  );
   if (captured == null) return false;
   final settings = await TransactionCaptureSettings.tryLoad(storage);
   if (settings != null && !settings.enabled) return false;
@@ -421,8 +501,17 @@ Future<bool> queueBackgroundSms({
   return true;
 }
 
+/// Aiko's own bridge to its Android capture components (CaptureBridge in
+/// android/app): notification access, the SMS receiver switch, and the
+/// notifications CaptureNotificationListener passes on, all inside Aiko's
+/// process.
+const _captureChannel = MethodChannel('dev.pepo.aiko/capture');
+const _capturedNotifications = EventChannel(
+  'dev.pepo.aiko/capture/notifications',
+);
+
 /// Owns the OS permission grants and the live listeners that drop messages
-/// into the inbox. Android-only; the plugins no-op elsewhere.
+/// into the inbox. Android-only; elsewhere nothing is captured.
 class TransactionCaptureService {
   TransactionCaptureService({this.onQueued});
 
@@ -431,64 +520,91 @@ class TransactionCaptureService {
 
   final _telephony = Telephony.instance;
   final _inbox = const CapturedMessageInbox();
-  StreamSubscription<ServiceNotificationEvent>? _notifSub;
+  StreamSubscription<Object?>? _notifSub;
 
   /// Whether SMS reaching the foreground listener are queued; the plugin
   /// keeps the listener until the app stops.
   var _smsOn = false;
 
+  bool get _android =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
   Future<bool> notificationsGranted() async =>
-      (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) &&
-      await NotificationListenerService.isPermissionGranted();
+      _android && await _call('notificationAccessGranted') == true;
 
-  /// Opens the system "notification access" screen for the user to grant.
+  /// Opens the system "notification access" screen for the user to grant;
+  /// true when access is on once they come back.
   Future<bool> requestNotifications() async =>
-      (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) &&
-      await NotificationListenerService.requestPermission();
+      _android && await _call('requestNotificationAccess') == true;
 
-  Future<bool> requestSms() async =>
-      (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) &&
-      (await _telephony.requestPhoneAndSmsPermissions ?? false);
+  Future<bool> requestSms() async {
+    if (!_android) return false;
+    final granted = await _telephony.requestPhoneAndSmsPermissions ?? false;
+    // Capture is on but SMS access came only now: the background handler
+    // couldn't be registered without it, so register it now.
+    if (granted && _smsOn) _listenSms();
+    return granted;
+  }
 
   Future<void> start() async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
-      return; // SMS/notification capture is Android-only
-    }
+    if (!_android) return; // SMS/notification capture is Android-only
     _smsOn = true;
-    _telephony.listenIncomingSms(
-      onNewMessage: (message) {
-        if (!_smsOn) return;
-        _queue(capturedSms(address: message.address, body: message.body));
-      },
-      onBackgroundMessage: captureSmsBackgroundHandler,
-      listenInBackground: true,
-    );
+    _listenSms();
+    // The receiver only hands SMS on once the handler registered above is
+    // stored, so switching it on right away is safe.
+    await _call('setSmsReceiverEnabled', true);
 
-    // ponytail: the notification stream only fires while the Flutter engine is
-    // alive (foreground or backgrounded-but-not-killed). That covers the common
-    // case; the inbox is drained on resume. Upgrade path: a foreground service
-    // if you need notifications captured after the OS kills the engine.
+    // ponytail: notifications only arrive while the Flutter engine is alive
+    // (foreground or backgrounded-but-not-killed). That covers the common
+    // case; the inbox is drained on resume. Upgrade path: queue them from
+    // CaptureNotificationListener when no engine is listening.
     await _notifSub?.cancel();
-    _notifSub = NotificationListenerService.notificationsStream.listen(
-      (event) => _queue(
-        capturedNotification(
-          packageName: event.packageName,
-          title: event.title,
-          content: event.content,
-          removed: event.hasRemoved == true,
-        ),
-      ),
+    _notifSub = _capturedNotifications.receiveBroadcastStream().listen(
+      (event) => _queue(capturedNotificationEvent(event)),
+      onError: (Object error) =>
+          debugPrint('Notification capture failed: $error'),
     );
   }
 
-  /// Stops queuing captured messages. The plugin keeps handing SMS that
-  /// arrive in the background to [captureSmsBackgroundHandler]; switching
-  /// that off goes through its SMS permission check, which would ask for the
-  /// permission again, so the handler checks the setting itself instead.
+  /// Stops queuing captured messages and switches the SMS receiver off, so
+  /// no SMS starts Aiko's background handler while capture is off.
   Future<void> stop() async {
     _smsOn = false;
     await _notifSub?.cancel();
     _notifSub = null;
+    if (_android) await _call('setSmsReceiverEnabled', false);
+  }
+
+  /// Hands SMS to the foreground listener and, while the app is in the
+  /// background or not running, to [captureSmsBackgroundHandler]. Without
+  /// SMS access the plugin asks for it first and registers nothing if it is
+  /// refused.
+  void _listenSms() {
+    _telephony.listenIncomingSms(
+      onNewMessage: (message) {
+        if (!_smsOn) return;
+        _queue(
+          capturedSms(
+            address: message.address,
+            body: message.body,
+            timestamp: message.date,
+          ),
+        );
+      },
+      onBackgroundMessage: captureSmsBackgroundHandler,
+      listenInBackground: true,
+    );
+  }
+
+  Future<Object?> _call(String method, [Object? arguments]) async {
+    try {
+      return await _captureChannel.invokeMethod<Object?>(method, arguments);
+    } on PlatformException catch (error) {
+      debugPrint('Capture $method failed: $error');
+    } on MissingPluginException catch (_) {
+      // Not Aiko's Android app (a test, or another embedding).
+    }
+    return null;
   }
 
   Future<void> _queue(CapturedMessage? message) async {
@@ -507,11 +623,21 @@ class TransactionCaptureService {
 /// user's chosen capture account. Runs on app start, on resume, and shortly
 /// after a message is captured while the app runs.
 class CapturedMessageProcessor {
-  CapturedMessageProcessor(this._ref);
+  CapturedMessageProcessor(
+    this._ref, {
+    CapturedMessageInbox inbox = const CapturedMessageInbox(),
+    CaptureLedgerStore ledger = const CaptureLedgerStore(),
+    SecureStorageService? settingsStorage,
+  }) : _inbox = inbox,
+       _ledger = ledger,
+       _settingsStorage = settingsStorage;
 
   final Ref _ref;
-  final _inbox = const CapturedMessageInbox();
-  final _ledger = const CaptureLedgerStore();
+  final CapturedMessageInbox _inbox;
+  final CaptureLedgerStore _ledger;
+
+  /// Where [TransactionCaptureSettings] are read; null for the device's.
+  final SecureStorageService? _settingsStorage;
   final _parser = const BankMessageParser();
   final _matcher = const TransactionRuleMatcher();
 
@@ -544,23 +670,35 @@ class CapturedMessageProcessor {
 
   Future<int> _processInbox() async {
     if (!(!kIsWeb && defaultTargetPlatform == TargetPlatform.android)) return 0;
-    final settings = await TransactionCaptureSettings.tryLoad();
+    final settings = await TransactionCaptureSettings.tryLoad(_settingsStorage);
     if (settings == null) return 0; // unreadable for now; keep the queue
     if (!settings.enabled) {
-      // Queued while auto-capture was off (the SMS receiver outlives the
-      // switch): never book these later.
+      // Queued while auto-capture was off (an SMS already on its way when it
+      // was switched off): never book these later.
       await _inbox.clear();
       return 0;
     }
-    if (settings.accountId == null) return 0;
+    final accountId = settings.accountId;
+    if (accountId == null) return 0;
 
     final messages = await _inbox.drain();
     if (messages.isEmpty) return 0;
 
+    // firebase_sync invalidates the transactions list after every snapshot,
+    // this run's own writes included. Listening keeps it alive through that
+    // (it rebuilds instead), so the notifier booking below stays usable even
+    // on a screen that doesn't show transactions.
+    final transactions = _ref.listen(transactionsProvider, (_, _) {});
+    try {
+      return await _book(messages, accountId);
+    } finally {
+      transactions.close();
+    }
+  }
+
+  Future<int> _book(List<CapturedMessage> messages, String accountId) async {
     final accounts = await _ref.read(accountsProvider.future);
-    final account = accounts
-        .where((a) => a.id == settings.accountId)
-        .firstOrNull;
+    final account = accounts.where((a) => a.id == accountId).firstOrNull;
     if (account == null) return 0; // capture account was deleted
 
     // A bank's message states amounts in that account's currency.
@@ -604,7 +742,9 @@ class CapturedMessageProcessor {
         );
       },
       isBooked: saved.contains,
-      add: notifier.addTransaction,
+      // One write together with the capture account's balance, so bookings
+      // never race each other to set it.
+      add: notifier.saveTransactions,
       remove: _inbox.remove,
       ledger: ledger,
       saveLedger: _ledger.save,
@@ -612,8 +752,13 @@ class CapturedMessageProcessor {
   }
 }
 
-/// Books each captured message through [add] and removes it from the inbox
-/// through [remove]; returns how many transactions were created.
+/// At most this many captured messages are booked in one write; with the
+/// capture account's balance that stays within one batch
+/// ([OfflineStore.maxBatchWrites]).
+const _maxBookedPerWrite = 400;
+
+/// Books the captured [messages] and removes them from the inbox through
+/// [remove]; returns how many transactions were created.
 ///
 /// [draftFor] builds the transaction with the id it is given
 /// ([capturedTransactionId]). The message's inbox id is its stable key: it
@@ -630,10 +775,14 @@ class CapturedMessageProcessor {
 /// are recorded first, so a repeat of one that sorts earlier in the inbox
 /// is still recognised.
 ///
-/// A message that doesn't parse ([draftFor] returns null), would book a zero
-/// or negative amount, or fails to build or save is dropped, never retried:
-/// the inbox is sorted, so a message left behind would come first on every
-/// resume and block everything captured after it.
+/// Everything new is booked through one [add] (more than
+/// [_maxBookedPerWrite] messages take several), so the account balance is
+/// written once. When that fails, the messages are booked one per [add]:
+/// one that still fails stays in the inbox for the next run (booking it
+/// again is safe, see above) and holds back nothing else, unless the draft
+/// itself is invalid (an [ArgumentError]), which no retry fixes. A message
+/// that doesn't parse ([draftFor] returns null or throws) or would book a
+/// zero or negative amount is dropped.
 @visibleForTesting
 Future<int> bookCapturedMessages(
   List<CapturedMessage> messages, {
@@ -643,12 +792,15 @@ Future<int> bookCapturedMessages(
   )
   draftFor,
   required bool Function(String transactionId) isBooked,
-  required Future<void> Function(FinanceTransaction draft) add,
+  required Future<void> Function(List<FinanceTransaction> drafts) add,
   required Future<void> Function(String id) remove,
   CaptureLedger? ledger,
   Future<void> Function(CaptureLedger ledger)? saveLedger,
 }) async {
   final seen = ledger ?? CaptureLedger();
+  // Transaction ids this run has written.
+  final booked = <String>{};
+  bool alreadyBooked(String id) => booked.contains(id) || isBooked(id);
 
   Future<void> saveSeen() async {
     try {
@@ -658,9 +810,12 @@ Future<int> bookCapturedMessages(
     }
   }
 
-  Future<void> remember(CaptureRecord record) async {
-    seen.add(record);
-    await saveSeen();
+  Future<void> removeFromInbox(CapturedMessage message) async {
+    try {
+      await remove(message.id);
+    } catch (error) {
+      debugPrint('Could not remove captured message ${message.id}: $error');
+    }
   }
 
   var recovered = false;
@@ -679,42 +834,88 @@ Future<int> bookCapturedMessages(
   }
   if (recovered) await saveSeen();
 
-  Future<bool> book(CapturedMessage message) async {
-    if (seen.contains(message.id)) return false;
+  /// Records [message] in [seen] and returns its draft when it is to be
+  /// booked; null when there is nothing to book. Throws when the draft can't
+  /// be built.
+  FinanceTransaction? settle(CapturedMessage message) {
+    if (seen.contains(message.id)) return null;
     final transactionId = capturedTransactionId(message);
     final draft = draftFor(message, transactionId);
-    if (draft == null || draft.amount.amount <= Decimal.zero) return false;
+    if (draft == null || draft.amount.amount <= Decimal.zero) return null;
     assert(draft.id == transactionId, 'draftFor must use the id it is given');
     final record = CaptureRecord.of(message, draft);
-    if (isBooked(transactionId)) {
-      await remember(record);
-      return false;
+    if (alreadyBooked(transactionId)) {
+      seen.add(record);
+      return null;
     }
     final original = seen.originalOf(record);
     if (original != null) {
-      await remember(record.asDuplicateOf(original));
-      return false;
+      seen.add(record.asDuplicateOf(original));
+      return null;
     }
-    await add(draft);
-    await remember(record);
-    return true;
+    seen.add(record);
+    return draft;
   }
 
-  var created = 0;
+  final before = seen.records;
+  final drafts = <FinanceTransaction>[];
   for (final message in messages) {
     try {
-      if (await book(message)) created++;
+      final draft = settle(message);
+      if (draft != null) drafts.add(draft);
     } catch (error) {
       debugPrint('Dropped captured message ${message.id}: $error');
     }
-    try {
-      // Drop whether booked or not, so the queue never re-scans the same text.
-      await remove(message.id);
-    } catch (error) {
-      debugPrint('Could not remove captured message ${message.id}: $error');
-    }
   }
-  return created;
+  try {
+    for (var at = 0; at < drafts.length; at += _maxBookedPerWrite) {
+      final part = drafts.sublist(
+        at,
+        min(at + _maxBookedPerWrite, drafts.length),
+      );
+      await add(part);
+      booked.addAll(part.map((draft) => draft.id));
+    }
+    await saveSeen();
+    // Every message is settled now, so the queue never re-scans the same
+    // text.
+    for (final message in messages) {
+      await removeFromInbox(message);
+    }
+    return booked.length;
+  } catch (error) {
+    debugPrint('Booking captured messages one at a time: $error');
+    seen._records
+      ..clear()
+      ..addAll(before);
+  }
+
+  for (final message in messages) {
+    final FinanceTransaction? draft;
+    try {
+      draft = settle(message);
+    } catch (error) {
+      debugPrint('Dropped captured message ${message.id}: $error');
+      await removeFromInbox(message);
+      continue;
+    }
+    if (draft != null) {
+      try {
+        await add([draft]);
+        booked.add(draft.id);
+      } catch (error) {
+        seen._records.removeWhere((record) => record.id == message.id);
+        if (error is! ArgumentError) {
+          debugPrint('Kept captured message ${message.id} to retry: $error');
+          continue;
+        }
+        debugPrint('Dropped captured message ${message.id}: $error');
+      }
+    }
+    await saveSeen();
+    await removeFromInbox(message);
+  }
+  return booked.length;
 }
 
 /// Persisted on/off switch + the account auto-captured transactions land on.

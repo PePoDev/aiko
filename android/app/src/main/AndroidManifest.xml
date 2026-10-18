@@ -49,25 +49,29 @@
                     android:host="login-callback"/>
             </intent-filter>
         </activity>
-        <!-- Auto-capture. Neither plugin merges these in, so without them no
-             SMS or notification ever reaches the app. Both run on the device
-             and need no network.
-             another_telephony: hands each incoming SMS to the Dart listener
-             (app in front) or to captureSmsBackgroundHandler in a background
-             isolate (app in the background or not running). -->
+        <!-- Auto-capture. Both run on the device and need no network.
+             CaptureSmsReceiver hands each incoming SMS to another_telephony,
+             which passes it to the Dart listener (app in front) or to
+             captureSmsBackgroundHandler in a background isolate (app in the
+             background or not running). It is off until capture starts:
+             CaptureBridge switches it on in start() and off in stop(), so no
+             SMS wakes Aiko while capture is off. -->
         <receiver
-            android:name="com.shounakmulay.telephony.sms.IncomingSmsReceiver"
+            android:name=".CaptureSmsReceiver"
+            android:enabled="false"
             android:permission="android.permission.BROADCAST_SMS"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.provider.Telephony.SMS_RECEIVED"/>
             </intent-filter>
         </receiver>
-        <!-- notification_listener_service: the system binds it once the user
-             turns Aiko on under "Notification access"; the label is the name
-             shown there. -->
+        <!-- The system binds it once the user turns Aiko on under
+             "Notification access" (the label is the name shown there). It
+             passes notifications to Dart inside Aiko's process: nothing is
+             broadcast, so other apps can't read or fake them. Only the
+             system can bind it (BIND_NOTIFICATION_LISTENER_SERVICE). -->
         <service
-            android:name="notification.listener.service.NotificationListener"
+            android:name=".CaptureNotificationListener"
             android:label="Aiko"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
             android:exported="true">

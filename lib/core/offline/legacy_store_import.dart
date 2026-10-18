@@ -33,10 +33,21 @@ class LegacyStoreImport {
   final String legacyPath;
 
   String get _doneKey => 'legacy_import:$legacyPath';
+  String get _failuresKey => 'legacy_import_failures:$legacyPath';
+
+  /// How many starts in a row a failed import of an existing old database
+  /// stops (the app offers Retry). Starting without the user's records would
+  /// let a fresh default profile take the place of theirs, and the import
+  /// never replaces a record. After that many, the app starts anyway (an old
+  /// database that can't be read must not lock the user out) and the import
+  /// is retried at every start.
+  static const maxBlockingFailures = 3;
 
   /// Imports the old database if there is one. Returns the number of records
-  /// read from it (0 when there is none or it was imported before). Never
-  /// throws: a failed import is retried on the next start.
+  /// read from it (0 when there is none or it was imported before). A failed
+  /// import is retried on the next start; it throws for the first
+  /// [maxBlockingFailures] failures, so startup stops before anything writes
+  /// new records.
   Future<int> run() async {
     try {
       if (await _target.meta(_doneKey) != null) {
@@ -61,7 +72,26 @@ class LegacyStoreImport {
       return writes.length;
     } catch (error) {
       debugPrint('[aiko-store] importing $legacyPath failed: $error');
+      if (await _failureStopsStartup()) rethrow;
       return 0;
+    }
+  }
+
+  /// Counts a failed import of an existing old database; true while it
+  /// should stop startup ([maxBlockingFailures]).
+  Future<bool> _failureStopsStartup() async {
+    try {
+      if (!await _factory.databaseExists(legacyPath)) return false;
+      final failures =
+          (int.tryParse(await _target.meta(_failuresKey) ?? '') ?? 0) + 1;
+      await _target.transaction(
+        (txn) => txn.setMeta(_failuresKey, '$failures'),
+      );
+      return failures <= maxBlockingFailures;
+    } catch (error) {
+      // Not even countable: starting beats a startup that can never succeed.
+      debugPrint('[aiko-store] counting the failed import failed: $error');
+      return false;
     }
   }
 
@@ -214,7 +244,7 @@ OfflineProfile _profile(Map<String, Object?> r) => OfflineProfile(
   email: _string(r['email']) ?? '',
   baseCurrency: _string(r['base_currency']) ?? kDefaultBaseCurrency,
   country: _string(r['country']) ?? kDefaultCountry,
-  timezone: _string(r['timezone']) ?? 'UTC',
+  timezone: _string(r['timezone']),
   preferredTheme: _string(r['preferred_theme']) ?? 'system',
   aikoCharacterVisibility: _string(r['aiko_character_visibility']) ?? 'full',
   aikoPersonalitySetting:

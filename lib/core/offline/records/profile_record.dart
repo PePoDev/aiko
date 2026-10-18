@@ -1,4 +1,26 @@
+import 'package:timezone/timezone.dart' as tz;
+
 import 'record_codec.dart';
+
+/// The timezone a new profile is saved with: this device's (an IANA name,
+/// known once the reminder service has loaded the timezone database), else
+/// Thailand's, the app's default country. Profiles made with and without an
+/// account get the same one.
+String defaultProfileTimezone() {
+  String? local;
+  try {
+    local = tz.local.name;
+  } catch (_) {
+    // The timezone database isn't loaded (web, or before startup).
+  }
+  // Before (or without) loading, the package reports UTC for every device.
+  if (local != null &&
+      local.isNotEmpty &&
+      (local != 'UTC' || DateTime.now().timeZoneOffset == Duration.zero)) {
+    return local;
+  }
+  return 'Asia/Bangkok';
+}
 
 class OfflineProfile implements OfflineRecord {
   OfflineProfile({
@@ -7,7 +29,7 @@ class OfflineProfile implements OfflineRecord {
     required this.email,
     required this.baseCurrency,
     required this.country,
-    this.timezone = 'UTC',
+    String? timezone,
     this.preferredTheme = 'system',
     this.aikoCharacterVisibility = 'full',
     this.aikoPersonalitySetting = 'supportive',
@@ -20,7 +42,8 @@ class OfflineProfile implements OfflineRecord {
     this.avatarUrl,
     DateTime? updatedAt,
     this.version = 1,
-  }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
+  }) : timezone = timezone ?? defaultProfileTimezone(),
+       updatedAt = updatedAt ?? DateTime.now().toUtc();
 
   /// The user's id: a profile belongs to the user it describes.
   @override
@@ -72,7 +95,7 @@ class ProfileCodec extends RecordCodec<OfflineProfile> {
     email: row['email'] as String,
     baseCurrency: row['base_currency'] as String,
     country: row['country'] as String,
-    timezone: row['timezone'] as String,
+    timezone: row['timezone'] as String?,
     preferredTheme: row['preferred_theme'] as String,
     aikoCharacterVisibility: row['aiko_character_visibility'] as String,
     aikoPersonalitySetting: row['aiko_personality_setting'] as String,

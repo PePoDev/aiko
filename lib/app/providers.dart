@@ -487,13 +487,33 @@ final accountsProvider =
       return AccountsNotifier();
     });
 
+/// [stored] with [saved] in place of the record with its id (or added).
+List<T> _withSavedRecord<T>(
+  List<T> stored,
+  T saved,
+  String Function(T record) idOf,
+) {
+  final id = idOf(saved);
+  final index = stored.indexWhere((record) => idOf(record) == id);
+  if (index < 0) return [...stored, saved];
+  return [...stored]..[index] = saved;
+}
+
 class CategoriesNotifier extends AsyncNotifier<List<Category>> {
+  /// The stored categories the list was last built from, and whose they are:
+  /// a save updates them in memory instead of reading the store again, which
+  /// signed in on Android can be served before the write is applied.
+  List<Category>? _stored;
+  String? _storedFor;
+
   @override
   Future<List<Category>> build() async {
     try {
       final repo = ref.watch(categoryRepositoryProvider);
       final userId = await repo.currentUserId();
       final storedCategories = await repo.list(userId: userId);
+      _stored = storedCategories;
+      _storedFor = userId;
       // Keep the merged category list cached across tab switches so the
       // Overview / Categories screens render instantly on return; pull-to-
       // refresh recomputes it on demand. A failed load is not cached.
@@ -597,9 +617,14 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(categoryRepositoryProvider);
-      await repo.save(category);
+      final saved = await repo.save(category);
       final userId = await repo.currentUserId();
-      final storedCategories = await repo.list(userId: userId);
+      final stored = _stored;
+      final storedCategories = stored != null && _storedFor == userId
+          ? _withSavedRecord(stored, saved, (category) => category.id)
+          : await repo.list(userId: userId);
+      _stored = storedCategories;
+      _storedFor = userId;
       return _combineWithDefaults(storedCategories, userId: userId);
     });
     if (state.hasError) {
@@ -619,10 +644,20 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
           break;
         }
       }
+      final stored = _stored;
       if (category == null || category.isDefault) {
         await repo.delete(id);
+        if (stored != null) {
+          _stored = [
+            for (final item in stored)
+              if (item.id != id) item,
+          ];
+        }
       } else {
-        await repo.save(category.copyWith(isActive: false));
+        final archived = await repo.save(category.copyWith(isActive: false));
+        if (stored != null) {
+          _stored = _withSavedRecord(stored, archived, (item) => item.id);
+        }
       }
       if (previousCategories != null) {
         return previousCategories
@@ -631,6 +666,8 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
       }
       final userId = await repo.currentUserId();
       final storedCategories = await repo.list(userId: userId);
+      _stored = storedCategories;
+      _storedFor = userId;
       return _combineWithDefaults(storedCategories, userId: userId);
     });
     if (state.hasError) {
@@ -675,12 +712,20 @@ List<Category> withArchivedCategories(
 }
 
 class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
+  /// The stored groups the list was last built from, and whose they are
+  /// (see [CategoriesNotifier]).
+  List<CategoryGroup>? _stored;
+  String? _storedFor;
+
   @override
   Future<List<CategoryGroup>> build() async {
     try {
       final repo = ref.watch(categoryGroupRepositoryProvider);
       final userId = await repo.currentUserId();
-      return _merge(await repo.list(userId: userId), userId: userId);
+      final storedGroups = await repo.list(userId: userId);
+      _stored = storedGroups;
+      _storedFor = userId;
+      return _merge(storedGroups, userId: userId);
     } catch (error, stackTrace) {
       // Surface to `AikoScreenState.error`; offline + secure-storage broken
       // must render a recoverable error widget, not a provider-tree crash.
@@ -743,9 +788,16 @@ class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(categoryGroupRepositoryProvider);
-      await repo.save(group);
+      final saved = await repo.save(group);
       final userId = await repo.currentUserId();
-      return _merge(await repo.list(userId: userId), userId: userId);
+      final stored = _stored;
+      final storedGroups = stored != null && _storedFor == userId
+          ? (_withSavedRecord(stored, saved, (group) => group.id)
+              ..sort(CategoryGroupRepository.compareGroups))
+          : await repo.list(userId: userId);
+      _stored = storedGroups;
+      _storedFor = userId;
+      return _merge(storedGroups, userId: userId);
     });
     if (state.hasError) {
       Error.throwWithStackTrace(state.error!, state.stackTrace!);
@@ -776,6 +828,13 @@ class CategoryGroupsNotifier extends AsyncNotifier<List<CategoryGroup>> {
       }
       await groupRepo.delete(id, batch: batch);
       await ref.read(offlineStoreProvider).commit(batch);
+      final stored = _stored;
+      if (stored != null) {
+        _stored = [
+          for (final group in stored)
+            if (group.id != id) group,
+        ];
+      }
       if (currentGroups != null) {
         return [
           for (final group in currentGroups)

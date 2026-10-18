@@ -33,9 +33,24 @@ class CategoryRepository {
 
   /// Saves [category] for the current user. With a [batch], the write is
   /// staged there for the caller to commit instead.
+  ///
+  /// A custom category can't take the name of another active one of the same
+  /// type and parent. Only a new name (or type, parent, or a restore) is
+  /// checked: a category that already shares its name (made on two devices
+  /// while offline, or brought in from a guest) can still be edited.
   Future<Category> save(Category category, {RecordBatch? batch}) async {
     final currentList = await list();
-    if (!category.isDefault) {
+    Category? stored;
+    for (final item in currentList) {
+      if (item.id == category.id) stored = item;
+    }
+    final identityChanged =
+        stored == null ||
+        !stored.isActive ||
+        stored.name.toLowerCase() != category.name.toLowerCase() ||
+        stored.type != category.type ||
+        stored.parentId != category.parentId;
+    if (!category.isDefault && identityChanged) {
       final duplicate = currentList.any(
         (item) =>
             item.isActive &&

@@ -96,6 +96,83 @@ void main() {
     expect((await repository.list()).single.id, clone.id);
   });
 
+  test('a category that already shares its name can still be edited; a '
+      'rename into a taken name cannot', () async {
+    const pets = Category(
+      id: 'dddddddd-0000-4000-8000-000000000010',
+      userId: userId,
+      name: 'Pets',
+      type: CategoryType.expense,
+      group: CategoryBudgetGroup.custom,
+    );
+    // Two "Pets", as made on two devices offline (saved past the check).
+    await store.upsert(pets.toOffline(userId: userId));
+    await store.upsert(
+      pets
+          .copyWith(id: 'dddddddd-0000-4000-8000-000000000011')
+          .toOffline(userId: userId),
+    );
+
+    final budgeted = await repository.save(
+      pets.copyWith(monthlyLimit: Money.parse('900', 'THB')),
+    );
+    expect(budgeted.monthlyLimit, Money.parse('900', 'THB'));
+
+    await repository.save(
+      const Category(
+        id: 'dddddddd-0000-4000-8000-000000000012',
+        userId: userId,
+        name: 'Plants',
+        type: CategoryType.expense,
+        group: CategoryBudgetGroup.custom,
+      ),
+    );
+    await expectLater(
+      repository.save(
+        pets.copyWith(id: 'dddddddd-0000-4000-8000-000000000012'),
+      ),
+      throwsArgumentError,
+    );
+    await expectLater(
+      repository.save(
+        pets.copyWith(id: 'dddddddd-0000-4000-8000-000000000013'),
+      ),
+      throwsArgumentError,
+    );
+  });
+
+  test('a custom group cannot take a default group\'s name, even before the '
+      'default is stored; one that has it can still be edited', () async {
+    final groups = CategoryGroupRepository(
+      store: store,
+      userContext: const FixedUserContext(userId),
+    );
+    final defaultName = CategoryGroupDefaults.all.first.name;
+
+    await expectLater(
+      groups.save(CategoryGroup(id: 'mine', userId: userId, name: defaultName)),
+      throwsArgumentError,
+    );
+
+    // Brought in from a guest under the default's name.
+    await store.upsert(
+      CategoryGroup(
+        id: 'claimed',
+        userId: userId,
+        name: defaultName,
+      ).toOffline(userId: userId),
+    );
+    final saved = await groups.save(
+      CategoryGroup(
+        id: 'claimed',
+        userId: userId,
+        name: defaultName,
+        budgetLimit: Money.parse('100', 'THB'),
+      ),
+    );
+    expect(saved.budgetLimit, Money.parse('100', 'THB'));
+  });
+
   test('a custom group is deleted; default ones are kept', () async {
     final groups = CategoryGroupRepository(
       store: store,

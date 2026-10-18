@@ -35,6 +35,14 @@ class ProfileRepository {
   /// reinstall that kept the session), so it may well exist on the server.
   static final _placeholders = <String, Profile>{};
 
+  /// The profile each user saved last, briefly: a read right after the save
+  /// may be served before the write is applied (signed in on Android).
+  static final _recentSaves =
+      <String, ({OfflineProfile profile, DateTime at})>{};
+
+  /// How long [_recentSaves] answers for a read that comes back older.
+  static const _recentSaveWindow = Duration(seconds: 5);
+
   /// Users known (this run) to have no deferred changes on this device, so
   /// loads skip the device-storage read.
   static final _withoutDeferred = <String>{};
@@ -50,6 +58,9 @@ class ProfileRepository {
   Future<Profile> load() async {
     final userId = await _resolveUserId();
     final store = _offlineStore;
+    // Taken before the read: a listener that syncs while the read waits
+    // doesn't prove that a profile the read missed doesn't exist.
+    final confirmed = _syncState.isServerSynced('profiles');
     final stored = await _storedProfile(store, userId);
     if (stored != null) {
       _placeholders.remove(userId);
@@ -64,15 +75,20 @@ class ProfileRepository {
     // would re-create the document of an account that is being deleted;
     // the user's first Save stores it if it's still missing.
     if (!store.canSyncRemote) return save(profile);
-    if (_syncState.isServerSynced('profiles')) {
+    final Profile shown;
+    if (confirmed) {
       _placeholders.remove(userId);
+      shown = profile;
     } else {
-      _placeholders[userId] = profile;
+      shown = _placeholders.putIfAbsent(userId, () => profile);
     }
     final deferred = await _deferredChanges(userId);
-    return deferred == null ? profile : _withChanges(profile, deferred);
+    return deferred == null ? shown : withProfileChanges(shown, deferred);
   }
 
+  /// Saves [profile]. An editor that may have been filled from a stand-in
+  /// saves the stored profile with only its own changes on top
+  /// ([profileChanges], [withProfileChanges]).
   Future<Profile> save(Profile profile) async {
     final userId = await _resolveUserId();
     final store = _offlineStore;
@@ -92,8 +108,14 @@ class ProfileRepository {
       _placeholders.remove(userId);
       return _applyDeferredChanges(store, userId, stored, extra: changes);
     }
-    final saved = await store.upsert(next.toOffline());
+    final saved = await _upsert(store, next);
     if (store.canSyncRemote) await _clearDeferredChanges(userId);
+    return saved;
+  }
+
+  Future<Profile> _upsert(OfflineStore store, Profile profile) async {
+    final saved = await store.upsert(profile.toOffline());
+    _recentSaves[saved.id] = (profile: saved, at: DateTime.now());
     return saved.toDomain();
   }
 
@@ -101,7 +123,16 @@ class ProfileRepository {
     final profiles = await store.get<OfflineProfile>(
       query: RecordQuery(id: userId, limit: 1),
     );
-    return profiles.isEmpty ? null : profiles.first.toDomain();
+    final read = profiles.isEmpty ? null : profiles.first;
+    final recent = _recentSaves[userId];
+    if (recent != null) {
+      final fresh =
+          DateTime.now().difference(recent.at) < _recentSaveWindow &&
+          (read == null || read.updatedAt.isBefore(recent.profile.updatedAt));
+      if (fresh) return recent.profile.toDomain();
+      _recentSaves.remove(userId);
+    }
+    return read?.toDomain();
   }
 
   Profile _defaultProfile(String userId) {
@@ -127,10 +158,9 @@ class ProfileRepository {
   }) async {
     final changes = {...?await _deferredChanges(userId), ...extra};
     if (changes.isEmpty) return stored;
-    final merged = _withChanges(stored, changes);
-    final saved = await store.upsert(merged.toOffline());
+    final saved = await _upsert(store, withProfileChanges(stored, changes));
     await _clearDeferredChanges(userId);
-    return saved.toDomain();
+    return saved;
   }
 
   String _deferredKey(String userId) => '$userId:profile_changes_v1';
@@ -193,6 +223,7 @@ class ProfileRepository {
   static void resetPlaceholders() {
     _placeholders.clear();
     _withoutDeferred.clear();
+    _recentSaves.clear();
   }
 }
 
@@ -211,7 +242,7 @@ Map<String, dynamic> profileChanges(Profile before, Profile after) {
 const _bookkeeping = {'id', 'updated_at', 'version'};
 
 /// [profile] with the stored fields in [changes] replaced.
-Profile _withChanges(Profile profile, Map<String, dynamic> changes) {
+Profile withProfileChanges(Profile profile, Map<String, dynamic> changes) {
   final codec = RecordCodecs.profiles;
   final row = {...codec.toRow(profile.toOffline())};
   for (final MapEntry(:key, :value) in changes.entries) {

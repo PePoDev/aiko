@@ -1,7 +1,10 @@
+import 'package:aiko/app/locale_controller.dart';
 import 'package:aiko/core/offline/offline_user_context.dart';
 import 'package:aiko/core/storage/secure_storage_service.dart';
 import 'package:aiko/features/auth/data/auth_repository.dart';
 import 'package:aiko/features/auth/data/guest_mode.dart';
+import 'package:aiko/features/auth/data/guest_preferences.dart';
+import 'package:aiko/features/transactions/data/transaction_rule_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _BrokenStorage extends MemorySecureStorageService {
@@ -64,10 +67,30 @@ void main() {
     );
     await GuestMode.enter(storage);
     final first = await context.resolveUserId();
+    await storage.write(TransactionRuleStore.storageKey, '{}');
 
     await GuestMode.enter(storage);
 
     expect(await context.resolveUserId(), first);
+    expect(await storage.read(TransactionRuleStore.storageKey), '{}');
+  });
+
+  test('a new guest starts without earlier guest preferences, in the '
+      'language picked on Welcome', () async {
+    final storage = MemorySecureStorageService();
+    await OfflineUserContext(
+      storage: storage,
+      signedInUserId: () => 'real-uid',
+    ).resolveUserId();
+    await storage.write(TransactionRuleStore.storageKey, '{}');
+    await storage.write(GuestPreferences.travelKey, '{}');
+    await storage.write(AppLocaleController.languageKey, 'th');
+
+    await GuestMode.enter(storage);
+
+    expect(await storage.read(TransactionRuleStore.storageKey), isNull);
+    expect(await storage.read(GuestPreferences.travelKey), isNull);
+    expect(await storage.read(AppLocaleController.languageKey), 'th');
   });
 
   group('AuthRepository', () {

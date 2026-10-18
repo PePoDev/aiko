@@ -26,7 +26,7 @@ void main() {
       holding('AAPL', 'Stocks', '100', '6'), // 600
       holding('VOO', 'Stocks', '100', '2'), // 200 -> Stocks 800
       holding('BND', 'Bonds', '100', '2'), // 200
-    ]);
+    ], baseCurrency: 'USD');
 
     expect(allocation.total, Money.parse('1000', 'USD'));
     expect(allocation.holdingCount, 3);
@@ -37,9 +37,21 @@ void main() {
   });
 
   test('empty portfolio reports no holdings', () {
-    final allocation = service.build([]);
+    final allocation = service.build([], baseCurrency: 'thb');
     expect(allocation.hasHoldings, isFalse);
-    expect(allocation.total, Money.zero('USD'));
+    expect(allocation.nothingCounted, isFalse);
+    expect(allocation.total, Money.zero('THB'));
     expect(allocation.slices, isEmpty);
+  });
+
+  test('every holding left out: nothing counted, base-currency total', () {
+    final allocation = service.build(
+      [],
+      baseCurrency: 'THB',
+      leftOut: [holding('AAPL', 'Stocks', '100', '1')],
+    );
+    expect(allocation.hasHoldings, isTrue);
+    expect(allocation.nothingCounted, isTrue);
+    expect(allocation.total, Money.zero('THB'));
   });
 }

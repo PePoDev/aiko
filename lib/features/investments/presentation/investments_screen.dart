@@ -91,6 +91,7 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
     }
     final l10n = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
     setState(() => _isRefreshing = true);
     final rates = fxRatesProvider(_baseCurrency);
     if (ref.exists(rates)) unawaited(ref.read(rates.notifier).refresh());
@@ -101,7 +102,16 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
       final message = _refreshMessage(result, l10n);
       if (message != null) {
         messenger.showSnackBar(
-          SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+          SnackBar(
+            content: Text(message),
+            behavior: SnackBarBehavior.floating,
+            action: result.needsSignIn
+                ? SnackBarAction(
+                    label: l10n.authLogIn,
+                    onPressed: () => router.push('/auth'),
+                  )
+                : null,
+          ),
         );
       }
     } catch (_) {
@@ -121,6 +131,9 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
   String? _refreshMessage(PriceRefreshResult result, AppLocalizations l10n) {
     if (result.needsCloud) {
       return l10n.holdingPricesNeedCloud;
+    }
+    if (result.needsSignIn) {
+      return l10n.netPricesNeedSignIn;
     }
     if (result.offline) {
       return [

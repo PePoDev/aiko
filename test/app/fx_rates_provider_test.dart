@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:aiko/app/providers.dart';
+import 'package:aiko/core/connectivity/network_status.dart';
 import 'package:aiko/core/money/exchange_rate_repository.dart';
 import 'package:aiko/core/money/exchange_rates.dart';
 import 'package:aiko/core/money/money.dart';
@@ -10,10 +13,30 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../core/money/fake_rate_service.dart';
 
+/// A connection that tests switch on and off.
+class _FakeNetwork implements NetworkMonitor {
+  _FakeNetwork(this.online);
+
+  bool online;
+  final _changes = StreamController<bool>.broadcast();
+
+  void set(bool value) {
+    online = value;
+    _changes.add(value);
+  }
+
+  @override
+  Future<bool> isOnline() async => online;
+
+  @override
+  Stream<bool> get onlineChanges => _changes.stream;
+}
+
 void main() {
   late FakeRateService service;
   late MemoryDeviceValues values;
   late DateTime now;
+  late _FakeNetwork network;
 
   setUp(() {
     now = DateTime(2026, 10, 17, 9);
@@ -21,11 +44,13 @@ void main() {
     service = FakeRateService({
       'THB': {'USD': Decimal.parse('0.025')},
     });
+    network = _FakeNetwork(true);
   });
 
   ProviderContainer container() {
     final container = ProviderContainer(
       overrides: [
+        networkMonitorProvider.overrideWithValue(network),
         exchangeRateRepositoryProvider.overrideWithValue(
           ExchangeRateRepository(
             service: service,
@@ -113,6 +138,28 @@ void main() {
     final rates = c.read(fxRatesProvider('THB')).requireValue;
     expect(rates.isLive, isTrue);
     expect(rates.rates['USD'], Decimal.parse('0.025'));
+  });
+
+  test('coming back online fetches the rates at once', () async {
+    await saveRatesFrom(DateTime(2026, 10, 15, 8));
+    service.offline = true;
+    network.online = false;
+    final c = container();
+    final sub = c.listen(fxRatesProvider('THB'), (_, _) {});
+    addTearDown(sub.close);
+    await c.read(fxRatesProvider('THB').future);
+    await settle();
+    expect(c.read(fxRatesProvider('THB')).requireValue.isLive, isFalse);
+    final requests = service.requests.length;
+
+    service.offline = false;
+    network.set(true);
+    await settle();
+
+    final rates = c.read(fxRatesProvider('THB')).requireValue;
+    expect(rates.isLive, isTrue);
+    expect(rates.rates['USD'], Decimal.parse('0.025'));
+    expect(service.requests, hasLength(requests + 1));
   });
 
   test('pull-to-refresh fetches again at once', () async {

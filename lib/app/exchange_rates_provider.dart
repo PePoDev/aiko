@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/connectivity/network_status.dart';
 import '../core/money/exchange_rate_repository.dart';
 import '../core/money/exchange_rates.dart';
 import '../core/storage/device_values.dart';
@@ -32,8 +33,8 @@ final exchangeRateRepositoryProvider = Provider<ExchangeRateRepository>(
 /// is awaited; when it fails the result is empty (callers leave unconverted
 /// amounts out and say so), and it is fetched again: on the next read
 /// ([FxRatesNotifier.retryIfStale]), on pull-to-refresh
-/// ([FxRatesNotifier.refresh]) and on a backing-off timer, so a failed fetch
-/// never sticks for the session.
+/// ([FxRatesNotifier.refresh]), on a backing-off timer, and as soon as the
+/// device is back online, so a failed fetch never sticks for the session.
 final fxRatesProvider = AsyncNotifierProvider.autoDispose
     .family<FxRatesNotifier, ExchangeRates, String>(FxRatesNotifier.new);
 
@@ -70,6 +71,9 @@ class FxRatesNotifier extends AsyncNotifier<ExchangeRates> {
     // Rates are app-wide; keep them (and the retry timer) for the session.
     ref.keepAlive();
     ref.onDispose(() => _retryTimer?.cancel());
+    ref.listen(deviceOnlineProvider, (previous, next) {
+      if (previous?.value == false && next.value == true) _backOnline();
+    });
 
     final session = _repository.sessionRates(base);
     if (session != null) return session;
@@ -110,6 +114,15 @@ class FxRatesNotifier extends AsyncNotifier<ExchangeRates> {
     _retries = 0;
     state = AsyncData(live);
     return true;
+  }
+
+  /// Back online: rates that aren't live (the saved copy, or none) are
+  /// fetched at once, and the automatic retries start over.
+  void _backOnline() {
+    if (state.value?.isLive ?? false) return;
+    _retryTimer?.cancel();
+    _retries = 0;
+    unawaited(refresh());
   }
 
   /// Callers that use the rates call this on every read: a result that is

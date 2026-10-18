@@ -15,7 +15,8 @@ void main() {
       isNetworkError(Exception('SocketException: Failed host lookup')),
       isTrue,
     );
-    // Callables: Android/iOS report `unavailable`, the web a bare `internal`.
+    // Callables: Android reports `unavailable` with a bare message, the web
+    // (JS SDK 12) `internal` with "internal [0]" (no HTTP response).
     expect(
       isNetworkError(
         FirebaseFunctionsException(code: 'unavailable', message: 'UNAVAILABLE'),
@@ -24,7 +25,7 @@ void main() {
     );
     expect(
       isNetworkError(
-        FirebaseFunctionsException(code: 'internal', message: 'internal'),
+        FirebaseFunctionsException(code: 'internal', message: 'internal [0]'),
       ),
       isTrue,
     );
@@ -47,6 +48,35 @@ void main() {
       ),
       isTrue,
     );
+    expect(
+      isNetworkError(
+        FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'unavailable',
+          message: 'Failed to get document because the client is offline.',
+        ),
+      ),
+      isTrue,
+    );
+  });
+
+  test('a callable timeout is a transport failure on every platform', () {
+    for (final message in [
+      'deadline-exceeded',
+      'DEADLINE_EXCEEDED',
+      'DEADLINE EXCEEDED',
+    ]) {
+      expect(
+        isCallableTransportFailure(
+          FirebaseFunctionsException(
+            code: 'deadline-exceeded',
+            message: message,
+          ),
+        ),
+        isTrue,
+        reason: message,
+      );
+    }
   });
 
   test('answers from the server are not network errors', () {
@@ -65,6 +95,38 @@ void main() {
           code: 'internal',
           message: 'Receipt image too large.',
         ),
+      ),
+      isFalse,
+    );
+    // The function's own errors carry its message, even `unavailable`.
+    expect(
+      isNetworkError(
+        FirebaseFunctionsException(
+          code: 'unavailable',
+          message: 'Provider request failed.',
+        ),
+      ),
+      isFalse,
+    );
+    expect(
+      isNetworkError(
+        FirebaseFunctionsException(
+          code: 'unavailable',
+          message: 'Provider request failed. [503]',
+        ),
+      ),
+      isFalse,
+    );
+    // A server crash: "INTERNAL" on Android/iOS, "INTERNAL [500]" on the web.
+    expect(
+      isNetworkError(
+        FirebaseFunctionsException(code: 'internal', message: 'INTERNAL'),
+      ),
+      isFalse,
+    );
+    expect(
+      isNetworkError(
+        FirebaseFunctionsException(code: 'internal', message: 'INTERNAL [500]'),
       ),
       isFalse,
     );

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -27,11 +28,16 @@ class PriceRefreshResult {
     this.failed = 0,
     this.deferred = 0,
     this.needsCloud = false,
+    this.needsSignIn = false,
     this.offline = false,
   });
 
   /// Live prices need the cloud backend, so nothing was tried.
   const PriceRefreshResult.needsCloud() : this(needsCloud: true);
+
+  /// Live prices need an account (a guest is using a cloud build), so
+  /// nothing was tried.
+  const PriceRefreshResult.needsSignIn() : this(needsSignIn: true);
 
   /// Holdings that got a fresh quote. Only those whose price changed are
   /// saved.
@@ -45,16 +51,20 @@ class PriceRefreshResult {
 
   final bool needsCloud;
 
+  final bool needsSignIn;
+
   /// The refresh stopped because the server couldn't be reached; holdings
   /// not refreshed keep their last saved price (counted in [deferred]).
   final bool offline;
 }
 
 /// Requests the quotes for [keys] one at a time with [fetch], within
-/// [limiter]'s budget. A key mapped to null failed; keys left out were not
-/// requested. Stops at the server's own limit (`resource-exhausted`), and at
-/// the first network failure: that call never reached the server, so it
-/// gives its place in the budget back, and the rest would fail the same way.
+/// [limiter]'s budget. A key mapped to null failed (the server answered with
+/// an error, e.g. a symbol its provider can't price) and the next key is
+/// tried. Keys left out were not requested. Stops at the server's own limit
+/// (`resource-exhausted`), and at the first network failure, since the rest
+/// would fail the same way. A call that never reached the server gives its
+/// place in the budget back; one that timed out may have reached it.
 Future<({Map<QuoteKey, Money?> quotes, bool offline})> fetchQuotes(
   List<QuoteKey> keys, {
   required Future<Money> Function(QuoteKey key) fetch,
@@ -75,7 +85,7 @@ Future<({Map<QuoteKey, Money?> quotes, bool offline})> fetchQuotes(
         break;
       }
       if (isNetworkError(error)) {
-        limiter.forget(now);
+        if (!_mayHaveReachedServer(error)) limiter.forget(now);
         return (quotes: quotes, offline: true);
       }
       quotes[key] = null;
@@ -83,6 +93,10 @@ Future<({Map<QuoteKey, Money?> quotes, bool offline})> fetchQuotes(
   }
   return (quotes: quotes, offline: false);
 }
+
+bool _mayHaveReachedServer(Object error) =>
+    error is TimeoutException ||
+    (error is FirebaseException && error.code == 'deadline-exceeded');
 
 /// Applies fetched [quotes] to [holdings]. A key mapped to null failed; a key
 /// missing from [quotes] was not requested (deferred). Returns the holdings

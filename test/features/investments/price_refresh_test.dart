@@ -160,6 +160,63 @@ void main() {
       expect(limiter.remaining(clock), limiter.maxCalls - 3);
     });
 
+    test('a symbol the provider cannot price fails alone, online', () async {
+      // The function's own `unavailable` (provider down or unknown symbol)
+      // is an answer: the refresh goes on and doesn't say "offline".
+      final limiter = MarketQuoteLimiter();
+      final fetched = await fetchQuotes(
+        keys,
+        fetch: (key) async {
+          if (key.symbol == 'VTI') {
+            throw FirebaseFunctionsException(
+              code: 'unavailable',
+              message: 'Provider request failed.',
+            );
+          }
+          return Money.parse('10', key.currency);
+        },
+        limiter: limiter,
+        clock: () => clock,
+      );
+      expect(fetched.offline, isFalse);
+      expect(fetched.quotes[keys[0]], isNull);
+      expect(fetched.quotes[keys[1]], Money.parse('10', 'USD'));
+      expect(fetched.quotes[keys[2]], Money.parse('10', 'USD'));
+      expect(limiter.remaining(clock), limiter.maxCalls - 3);
+    });
+
+    test('a timeout stops the refresh but keeps its budget slot', () async {
+      // The call may have reached the server, which counted it.
+      final limiter = MarketQuoteLimiter();
+      final fetched = await fetchQuotes(
+        keys,
+        fetch: (key) async => throw FirebaseFunctionsException(
+          code: 'deadline-exceeded',
+          message: 'DEADLINE_EXCEEDED',
+        ),
+        limiter: limiter,
+        clock: () => clock,
+      );
+      expect(fetched.offline, isTrue);
+      expect(fetched.quotes, isEmpty);
+      expect(limiter.remaining(clock), limiter.maxCalls - 1);
+    });
+
+    test('no response on the web counts as offline', () async {
+      final limiter = MarketQuoteLimiter();
+      final fetched = await fetchQuotes(
+        keys,
+        fetch: (key) async => throw FirebaseFunctionsException(
+          code: 'internal',
+          message: 'internal [0]',
+        ),
+        limiter: limiter,
+        clock: () => clock,
+      );
+      expect(fetched.offline, isTrue);
+      expect(limiter.remaining(clock), limiter.maxCalls);
+    });
+
     test("the server's own limit stops the refresh", () async {
       final fetched = await fetchQuotes(
         keys,

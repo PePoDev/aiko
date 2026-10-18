@@ -708,12 +708,15 @@ class AssetAllocationScreen extends ConsumerWidget {
               for (final holding in allocation.leftOut)
                 '${holding.symbol} (${holding.currency})',
             ];
+            // With every holding left out there is no total and no mix to
+            // chart, only the note naming them.
+            final nothingCounted = allocation.nothingCounted;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 AikoMetricCard(
                   label: context.l10n.allocationTotalPortfolio,
-                  value: allocation.total.format(),
+                  value: nothingCounted ? '—' : allocation.total.format(),
                   icon: Icons.pie_chart_outline,
                   accentColor: AikoColors.analyticsTeal,
                 ),
@@ -728,7 +731,8 @@ class AssetAllocationScreen extends ConsumerWidget {
                       ratesAsOf: allocation.ratesAsOf,
                     ),
                   ),
-                Card(
+                if (!nothingCounted) ...[
+                  Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: AikoDonutChart(
@@ -762,6 +766,7 @@ class AssetAllocationScreen extends ConsumerWidget {
                       ),
                   ],
                 ),
+                ],
               ],
             );
           },

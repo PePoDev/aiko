@@ -15,6 +15,10 @@ enum ReceiptOcrFailure {
   /// Local-only build: reading receipts needs the cloud.
   needsCloud,
 
+  /// A guest on a cloud build: reading receipts needs an account, so the
+  /// photo was not sent.
+  needsSignIn,
+
   /// The server refused or failed.
   failed,
 }
@@ -70,6 +74,9 @@ class ReceiptOcrService {
     final call = this.call;
     if (call == null && !FirebaseBackend.isConfigured) {
       return const ReceiptAutofill.failed(ReceiptOcrFailure.needsCloud);
+    }
+    if (call == null && cloudFeatureNeedsSignIn()) {
+      return const ReceiptAutofill.failed(ReceiptOcrFailure.needsSignIn);
     }
 
     try {

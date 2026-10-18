@@ -57,9 +57,19 @@ export const aikoChat = onRequest({timeoutSeconds:300, secrets}, async (req,res)
   const messages: Record<string,unknown>[] = [{role:'system',content:systemPromptFor(profile?.base_currency ?? 'THB', req.body.financialContext, req.body.systemContext?.locale)},
     ...req.body.messages.filter(m => ['user','assistant'].includes(m.role)).slice(-10).map(m => ({role:m.role,content:m.content.slice(0,1000)}))];
   res.set({'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform'});
+  // The first words can take minutes (tool rounds), so the headers go out now
+  // and an SSE comment every 15 s keeps the client's idle timeout (45 s) from
+  // giving up meanwhile. Clients skip lines that don't start with "data:".
+  res.flushHeaders();
+  res.write(': ok\n\n');
+  const beat = setInterval(() => { if (!res.destroyed) res.write(': ping\n\n'); }, 15000);
   const event = (data:unknown) => { if (!res.destroyed) res.write(`data: ${JSON.stringify(data)}\n\n`); };
   // Errors reach the client as a stable code ({error: 'PROVIDER_DOWN'}); details are logged.
-  await answerChat(uid,messages,model,{delta:text=>event({delta:text}),done:()=>event({done:true}),fail:code=>event({error:code})},clientGone.signal);
+  try {
+    await answerChat(uid,messages,model,{delta:text=>event({delta:text}),done:()=>event({done:true}),fail:code=>event({error:code})},clientGone.signal);
+  } finally {
+    clearInterval(beat);
+  }
   res.end();
 });
 

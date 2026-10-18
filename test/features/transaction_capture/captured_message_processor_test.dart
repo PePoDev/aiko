@@ -17,12 +17,14 @@ CapturedMessage _message(
   String source = 'sms',
   String sender = 'BANK',
   DateTime? at,
+  String? key,
 }) => CapturedMessage(
   id: id,
   source: source,
   sender: sender,
   body: body,
   receivedAt: at ?? _t0,
+  notificationKey: key,
 );
 
 FinanceTransaction _draft(
@@ -39,7 +41,9 @@ FinanceTransaction _draft(
 );
 
 /// Books [messages] with every draft at [amount] (or what [amountFor] says),
-/// returning the ids of the messages that became transactions.
+/// returning the ids of the messages that became transactions. [writes]
+/// collects the messages of each write; a message in [failing] can't be
+/// saved.
 Future<List<String>> _book(
   List<CapturedMessage> messages, {
   String amount = '120.00',
@@ -48,6 +52,8 @@ Future<List<String>> _book(
   CaptureLedger? ledger,
   Future<void> Function(CaptureLedger ledger)? saveLedger,
   List<String>? removed,
+  List<List<String>>? writes,
+  Map<String, Object> failing = const {},
 }) async {
   final bookedMessages = <String>[];
   final byTransaction = {
@@ -57,7 +63,14 @@ Future<List<String>> _book(
     messages,
     draftFor: (message, id) => _draft(id, amountFor?.call(message) ?? amount),
     isBooked: saved.contains,
-    add: (draft) async => bookedMessages.add(byTransaction[draft.id]!),
+    add: (drafts) async {
+      final ids = [for (final draft in drafts) byTransaction[draft.id]!];
+      for (final id in ids) {
+        if (failing[id] case final error?) throw error;
+      }
+      writes?.add(ids);
+      bookedMessages.addAll(ids);
+    },
     remove: (id) async => removed?.add(id),
     ledger: ledger,
     saveLedger: saveLedger,
@@ -83,38 +96,175 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('bookCapturedMessages', () {
+    test('every new message is booked in one write', () async {
+      final writes = <List<String>>[];
+      final removed = <String>[];
+      final booked = await _book(
+        [
+          _message('1-sms', 'Paid THB 120.00'),
+          _message('2-sms', 'Paid THB 99.00'),
+          _message(
+            '3-notification',
+            'You paid 45 baht',
+            source: 'notification',
+            sender: 'wallet.app',
+          ),
+        ],
+        amountFor: (m) => switch (m.id) {
+          '1-sms' => '120',
+          '2-sms' => '99',
+          _ => '45',
+        },
+        writes: writes,
+        removed: removed,
+      );
+
+      // One write, so the account balance is set once and never races.
+      expect(writes, [
+        ['1-sms', '2-sms', '3-notification'],
+      ]);
+      expect(booked, ['1-sms', '2-sms', '3-notification']);
+      expect(removed, ['1-sms', '2-sms', '3-notification']);
+    });
+
+    test('a very long inbox takes a few writes', () async {
+      final writes = <List<String>>[];
+      final messages = [
+        for (var i = 0; i < 450; i++)
+          _message(i.toString().padLeft(4, '0'), 'Paid THB $i'),
+      ];
+      final booked = await _book(
+        messages,
+        amountFor: (m) => '${int.parse(m.id) + 1}',
+        writes: writes,
+      );
+
+      expect(booked, hasLength(450));
+      expect(writes.map((w) => w.length), [400, 50]);
+    });
+
     test(
-      'a failing message is dropped and the rest are still booked',
+      'a message that can\'t be saved stays queued; the rest are booked',
       () async {
-        final added = <String>[];
+        final writes = <List<String>>[];
         final removed = <String>[];
-        final created = await bookCapturedMessages(
+        final ledger = CaptureLedger();
+        final booked = await _book(
           [
-            _message('1-bad', 'throws while building'),
-            _message('2-save-fails', 'add throws'),
-            _message('3-good', 'books fine'),
+            _message('1-ok', 'Paid THB 120.00'),
+            _message('2-stuck', 'Paid THB 99.00'),
+            _message('3-ok', 'Paid THB 45.00'),
           ],
-          draftFor: (message, id) {
-            if (message.id == '1-bad') throw const FormatException('bad');
-            return _draft(id, '120.00');
+          amountFor: (m) => switch (m.id) {
+            '1-ok' => '120',
+            '2-stuck' => '99',
+            _ => '45',
           },
-          isBooked: (_) => false,
-          add: (draft) async {
-            if (draft.id ==
-                capturedTransactionId(_message('2-save-fails', ''))) {
-              throw ArgumentError('Amount must be greater than zero.');
-            }
-            added.add(draft.id);
-          },
-          remove: (id) async => removed.add(id),
+          failing: {'2-stuck': StateError('store unavailable')},
+          writes: writes,
+          ledger: ledger,
+          removed: removed,
         );
 
-        expect(created, 1);
-        expect(added, [capturedTransactionId(_message('3-good', ''))]);
-        // Every message leaves the inbox, so none can block later resumes.
-        expect(removed, ['1-bad', '2-save-fails', '3-good']);
+        // The write of all three failed, so each was tried on its own.
+        expect(writes, [
+          ['1-ok'],
+          ['3-ok'],
+        ]);
+        expect(booked, ['1-ok', '3-ok']);
+        // Left in the inbox for the next run, which books it once.
+        expect(removed, ['1-ok', '3-ok']);
+        expect(ledger.contains('2-stuck'), isFalse);
       },
     );
+
+    test('nothing is lost while saving fails altogether', () async {
+      final removed = <String>[];
+      final ledger = CaptureLedger();
+      final booked = await _book(
+        [_message('1-sms', 'Paid THB 120.00'), _message('2-sms', 'x')],
+        amountFor: (m) => m.id == '1-sms' ? '120' : '99',
+        // Say the transactions list was disposed in the middle of the run.
+        failing: {
+          '1-sms': StateError('disposed'),
+          '2-sms': StateError('disposed'),
+        },
+        ledger: ledger,
+        removed: removed,
+      );
+
+      expect(booked, isEmpty);
+      expect(removed, isEmpty);
+      expect(ledger.records, isEmpty);
+    });
+
+    test('a repeat books in place of a message that cannot be saved', () async {
+      final removed = <String>[];
+      final ledger = CaptureLedger();
+      final messages = [
+        _message('1-sms', 'Paid THB 120.00'),
+        _message(
+          '2-notification',
+          'KBank Paid THB 120.00',
+          source: 'notification',
+          sender: 'sms.app',
+        ),
+      ];
+      final booked = await _book(
+        messages,
+        failing: {'1-sms': StateError('disposed')},
+        ledger: ledger,
+        removed: removed,
+      );
+
+      // The notification of the SMS that couldn't be saved books in its
+      // place; the SMS stays queued and is matched to it next time.
+      expect(booked, ['2-notification']);
+      expect(removed, ['2-notification']);
+
+      final retried = await _book([messages.first], ledger: ledger);
+      expect(retried, isEmpty);
+      expect(
+        ledger.records.singleWhere((r) => r.id == '1-sms').duplicateOf,
+        '2-notification',
+      );
+    });
+
+    test('a draft the store rejects as invalid is dropped', () async {
+      final removed = <String>[];
+      final booked = await _book(
+        [_message('1-invalid', 'Paid THB 1.00'), _message('2-ok', 'x')],
+        amountFor: (m) => m.id == '1-invalid' ? '1' : '2',
+        failing: {'1-invalid': ArgumentError('Split total must equal amount')},
+        removed: removed,
+      );
+
+      // No retry would fix it, so it doesn't stay queued.
+      expect(booked, ['2-ok']);
+      expect(removed, ['1-invalid', '2-ok']);
+    });
+
+    test('a message whose draft cannot be built is dropped', () async {
+      final added = <String>[];
+      final removed = <String>[];
+      final created = await bookCapturedMessages(
+        [
+          _message('1-bad', 'throws while building'),
+          _message('2-good', 'books fine'),
+        ],
+        draftFor: (message, id) {
+          if (message.id == '1-bad') throw const FormatException('bad');
+          return _draft(id, '120.00');
+        },
+        isBooked: (_) => false,
+        add: (drafts) async => added.addAll(drafts.map((d) => d.id)),
+        remove: (id) async => removed.add(id),
+      );
+
+      expect(created, 1);
+      expect(added, [capturedTransactionId(_message('2-good', ''))]);
+      expect(removed, ['1-bad', '2-good']);
+    });
 
     test('never books a zero or negative amount', () async {
       final removed = <String>[];
@@ -152,7 +302,7 @@ void main() {
         [_message('a', ''), _message('b', '')],
         draftFor: (message, id) => _draft(id, '10'),
         isBooked: (_) => false,
-        add: (draft) async => added.add(draft.id),
+        add: (drafts) async => added.addAll(drafts.map((d) => d.id)),
         remove: (id) async {
           if (id == 'a') throw StateError('file locked');
         },
@@ -331,6 +481,74 @@ void main() {
       expect(booked, ['1-notification']);
     });
 
+    test('the same text from one app minutes apart is two payments', () async {
+      // An e-wallet that says nothing but the amount and the shop.
+      final booked = await _book([
+        _message(
+          '1-notification',
+          'You paid 60 baht to Cafe Amazon',
+          source: 'notification',
+          sender: 'wallet.app',
+          key: '0|wallet.app|101|null|10123',
+        ),
+        _message(
+          '2-notification',
+          'You paid 60 baht to Cafe Amazon',
+          source: 'notification',
+          sender: 'wallet.app',
+          key: '0|wallet.app|102|null|10123',
+          at: _t0.add(const Duration(minutes: 3)),
+        ),
+      ]);
+
+      expect(booked, ['1-notification', '2-notification']);
+    });
+
+    test('one notification updated minutes later books once', () async {
+      const key = '0|bank.app|7|null|10123';
+      final booked = await _book([
+        _message(
+          '1-notification',
+          'You paid 120 baht',
+          source: 'notification',
+          sender: 'bank.app',
+          key: key,
+        ),
+        _message(
+          '2-notification',
+          'You paid 120 baht',
+          source: 'notification',
+          sender: 'bank.app',
+          key: key,
+          at: _t0.add(const Duration(minutes: 3)),
+        ),
+      ]);
+
+      expect(booked, ['1-notification']);
+    });
+
+    test('a group summary repeating a notification books once', () async {
+      final booked = await _book([
+        _message(
+          '1-notification',
+          'You paid 120 baht',
+          source: 'notification',
+          sender: 'bank.app',
+          key: '0|bank.app|7|null|10123',
+        ),
+        _message(
+          '2-summary',
+          'You paid 120 baht',
+          source: 'notification',
+          sender: 'bank.app',
+          key: '0|bank.app|0|g:payments|10123',
+          at: _t0.add(const Duration(seconds: 1)),
+        ),
+      ]);
+
+      expect(booked, ['1-notification']);
+    });
+
     test('a re-posted SMS app notification stays a repeat', () async {
       final booked = await _book([
         _message('1-sms', 'Paid THB 120.00'),
@@ -390,11 +608,37 @@ void main() {
               : TransactionType.expense,
         ),
         isBooked: (_) => false,
-        add: (draft) async => directions.add(draft.type.name),
+        add: (drafts) async =>
+            directions.addAll(drafts.map((d) => d.type.name)),
         remove: (_) async {},
       );
       expect(created, 2);
       expect(directions, ['expense', 'income']);
+    });
+
+    test('a late SMS still matches the bank app notification', () async {
+      final notifiedAt = DateTime.now().subtract(const Duration(minutes: 9));
+      final ledger = CaptureLedger();
+      final first = await _book([
+        _message(
+          '1-notification',
+          'You paid 120 baht',
+          source: 'notification',
+          sender: 'bank.app',
+          at: notifiedAt,
+        ),
+      ], ledger: ledger);
+      // The carrier delivers the bank's SMS nine minutes late; it is dated
+      // when it was sent.
+      final sms = capturedSms(
+        address: 'KBANK',
+        body: 'Paid THB 120.00',
+        timestamp: notifiedAt.millisecondsSinceEpoch,
+      )!;
+      final second = await _book([sms], ledger: ledger);
+
+      expect(first, ['1-notification']);
+      expect(second, isEmpty);
     });
 
     test(
@@ -461,7 +705,12 @@ void main() {
       final ledger = CaptureLedger([
         CaptureRecord.of(_message('1', 'Paid THB 120'), _draft('x', '120.00')),
         CaptureRecord.of(
-          _message('2', 'KBank Paid THB 120', source: 'notification'),
+          _message(
+            '2',
+            'KBank Paid THB 120',
+            source: 'notification',
+            key: '0|sms.app|3|null|10123',
+          ),
           _draft('y', '120'),
         ).asDuplicateOf('1'),
       ]);
@@ -472,6 +721,10 @@ void main() {
 
       expect(jsonEncode(copy.toJson()), jsonEncode(ledger.toJson()));
       expect(copy.records.last.duplicateOf, '1');
+      expect(copy.records.first.keyHash, isNull);
+      expect(copy.records.last.keyHash, ledger.records.last.keyHash);
+      // Only a hash of the key is kept.
+      expect(copy.records.last.keyHash, isNot(contains('sms.app')));
       // Amounts compare by value: "120.00" and "120" are the same.
       expect(copy.records.first.amount, copy.records.last.amount);
     });
@@ -500,27 +753,19 @@ void main() {
       expect(capturedSms(address: 'KBANK', body: null), isNull);
     });
 
-    test('notifications: removals and Aiko\'s own are skipped', () {
+    test('notifications: Aiko\'s own and other texts are skipped', () {
       final posted = capturedNotification(
         packageName: 'com.bank.app',
         title: 'Payment',
         content: 'You paid THB 120.00',
+        key: '0|com.bank.app|7|null|10123',
       );
       expect(posted, isNotNull);
       expect(posted!.source, 'notification');
       expect(posted.sender, 'com.bank.app');
       expect(posted.body, 'Payment You paid THB 120.00');
       expect(posted.origin, 'notification:com.bank.app');
-
-      expect(
-        capturedNotification(
-          packageName: 'com.bank.app',
-          title: 'Payment',
-          content: 'You paid THB 120.00',
-          removed: true,
-        ),
-        isNull,
-      );
+      expect(posted.notificationKey, '0|com.bank.app|7|null|10123');
       // A reminder Aiko posted itself ("฿5,000.00 · รายจ่าย").
       expect(
         capturedNotification(
@@ -536,6 +781,71 @@ void main() {
           title: 'Ploy',
           content: 'Lunch?',
         ),
+        isNull,
+      );
+    });
+
+    test('reads the events of Aiko\'s notification listener', () {
+      final posted = capturedNotificationEvent({
+        'packageName': 'com.bank.app',
+        'key': '0|com.bank.app|7|null|10123',
+        'title': 'Payment',
+        'content': 'You paid THB 120.00',
+      });
+      expect(posted!.sender, 'com.bank.app');
+      expect(posted.body, 'Payment You paid THB 120.00');
+      expect(posted.notificationKey, '0|com.bank.app|7|null|10123');
+
+      expect(
+        capturedNotificationEvent({
+          'packageName': 'com.bank.app',
+          'title': null,
+          'content': 'You paid THB 120.00',
+        })!.body,
+        'You paid THB 120.00',
+      );
+      expect(capturedNotificationEvent('not a map'), isNull);
+      expect(
+        capturedNotificationEvent({'packageName': 'chat.app', 'content': 7}),
+        isNull,
+      );
+    });
+
+    test('an SMS is dated when it was sent, within reason', () {
+      final now = DateTime(2026, 10, 18, 0, 7);
+      final sent = DateTime(2026, 10, 17, 23, 58);
+
+      expect(smsSentAt(sent.millisecondsSinceEpoch, now), sent);
+      expect(smsSentAt(null, now), now);
+      // A service centre clock ahead of the phone, or years off.
+      expect(
+        smsSentAt(
+          now.add(const Duration(hours: 7)).millisecondsSinceEpoch,
+          now,
+        ),
+        now,
+      );
+      expect(smsSentAt(DateTime(2000).millisecondsSinceEpoch, now), now);
+      // Held for days (phone off) is still believable.
+      final daysAgo = now.subtract(const Duration(days: 3));
+      expect(smsSentAt(daysAgo.millisecondsSinceEpoch, now), daysAgo);
+    });
+
+    test('a queued message keeps its notification key', () {
+      final message = _message(
+        '1',
+        'You paid 120 baht',
+        source: 'notification',
+        key: '0|bank.app|7|null|10123',
+      );
+      final copy = CapturedMessage.fromJson(
+        jsonDecode(jsonEncode(message.toJson())) as Map<String, dynamic>,
+      );
+      expect(copy.notificationKey, '0|bank.app|7|null|10123');
+      expect(
+        CapturedMessage.fromJson(
+          _message('2', 'Paid THB 1').toJson(),
+        ).notificationKey,
         isNull,
       );
     });

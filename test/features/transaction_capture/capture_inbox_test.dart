@@ -67,7 +67,7 @@ void main() {
 
       expect(drained.map((m) => m.body), ['first', 'second']);
       expect(drained.first.receivedAt, DateTime(2026, 10, 13, 10, 25));
-      // Draining doesn't remove; booking does, one message at a time.
+      // Draining doesn't remove; booking does, once a message is settled.
       expect(await inbox.drain(), hasLength(2));
       await inbox.remove('1760000000000001-9');
       expect((await inbox.drain()).map((m) => m.body), ['second']);
@@ -149,6 +149,28 @@ void main() {
       expect(drained.single.source, 'sms');
       expect(drained.single.sender, 'KBANK');
       expect(drained.single.body, 'Paid THB 120.00 at CAFE AMAZON');
+    });
+
+    test('dates the SMS when it was sent, not when it arrived', () async {
+      final inbox = CapturedMessageInbox(
+        directory: Directory('${root.path}/inbox'),
+      );
+      // Held back by the carrier: sent a few minutes before it arrives.
+      final sent = DateTime.now().subtract(const Duration(minutes: 9));
+
+      await queueBackgroundSms(
+        address: 'KBANK',
+        body: 'Paid THB 120.00',
+        timestamp: sent.millisecondsSinceEpoch,
+        inbox: inbox,
+        storage: await settings(enabled: true),
+      );
+
+      final queued = (await inbox.drain()).single;
+      expect(
+        queued.receivedAt.millisecondsSinceEpoch,
+        sent.millisecondsSinceEpoch,
+      );
     });
 
     test('keeps nothing while capture is off', () async {
@@ -254,7 +276,7 @@ void main() {
           await inbox.drain(),
           draftFor: _draft,
           isBooked: saved.contains,
-          add: (draft) async => saved.add(draft.id),
+          add: (drafts) async => saved.addAll(drafts.map((d) => d.id)),
           remove: (_) async => throw const FileSystemException('killed'),
           ledger: await store.load(),
           saveLedger: store.save,
@@ -267,7 +289,7 @@ void main() {
           await inbox.drain(),
           draftFor: _draft,
           isBooked: saved.contains,
-          add: (_) async => booked++,
+          add: (drafts) async => booked += drafts.length,
           remove: inbox.remove,
           ledger: await store.load(),
           saveLedger: store.save,
@@ -302,7 +324,7 @@ void main() {
           await inbox.drain(),
           draftFor: _draft,
           isBooked: saved.contains,
-          add: (draft) async => saved.add(draft.id),
+          add: (drafts) async => saved.addAll(drafts.map((d) => d.id)),
           remove: (_) async => throw const FileSystemException('killed'),
           ledger: await store.load(),
           saveLedger: (_) async => throw const FileSystemException('killed'),
@@ -317,7 +339,7 @@ void main() {
           await inbox.drain(),
           draftFor: _draft,
           isBooked: saved.contains,
-          add: (draft) async => booked.add(draft.id),
+          add: (drafts) async => booked.addAll(drafts.map((d) => d.id)),
           remove: inbox.remove,
           ledger: await store.load(),
           saveLedger: store.save,

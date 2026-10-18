@@ -33,11 +33,29 @@ class _TransactionCaptureScreenState
   );
   bool _notificationsGranted = false;
   bool _loading = true;
+  late final AppLifecycleListener _lifecycle;
 
   @override
   void initState() {
     super.initState();
+    // Notification access is switched on in the system's settings; some
+    // devices report back before the user has done so.
+    _lifecycle = AppLifecycleListener(onResume: _refreshNotificationAccess);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refreshNotificationAccess() async {
+    final granted = await ref
+        .read(transactionCaptureServiceProvider)
+        .notificationsGranted();
+    if (!mounted || granted == _notificationsGranted) return;
+    setState(() => _notificationsGranted = granted);
   }
 
   Future<void> _load() async {

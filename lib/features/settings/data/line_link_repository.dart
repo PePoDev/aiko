@@ -3,16 +3,19 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/connectivity/network_status.dart';
 import '../../../core/firebase/firebase_backend.dart';
 import '../../../core/network/network_errors.dart';
 import '../../../core/storage/device_values.dart';
 
 /// Whether the signed-in user's LINE chat is linked. Disposed when no screen
 /// shows it, and reset on sign-out (`invalidateUserSessionState`), so another
-/// user never sees the previous user's status.
-final lineLinkedProvider = FutureProvider.autoDispose<LineLinkStatus>(
-  (ref) => LineLinkRepository(device: ref.watch(deviceValuesProvider)).status(),
-);
+/// user never sees the previous user's status. Checked again when the device
+/// comes back online (offline it is the last status seen, or unknown).
+final lineLinkedProvider = FutureProvider.autoDispose<LineLinkStatus>((ref) {
+  refreshWhenBackOnline(ref);
+  return LineLinkRepository(device: ref.watch(deviceValuesProvider)).status();
+});
 
 /// What the Profile screen can say about LINE.
 enum LineLinkStatus {

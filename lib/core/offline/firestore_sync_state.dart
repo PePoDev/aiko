@@ -60,6 +60,10 @@ class FirestoreSyncState {
   final _servedEarly = <String>{};
   final _pendingCollections = <String>{};
   var _writesInFlight = 0;
+  // Writes queued before this session ([trackQueuedWrites]); the number of
+  // the latest call while they count, null once they don't.
+  int? _queuedWrites;
+  var _queuedCalls = 0;
   var _generation = 0;
   var _deviceOffline = false;
   DateTime? _serverUnreachableAt;
@@ -116,6 +120,7 @@ class FirestoreSyncState {
     _servedEarly.clear();
     _pendingCollections.clear();
     _writesInFlight = 0;
+    _queuedWrites = null;
     _generation++;
     _uid = null;
     _lastSyncedAt = null;
@@ -145,6 +150,11 @@ class FirestoreSyncState {
       _pendingCollections.add(collection);
     } else {
       _pendingCollections.remove(collection);
+    }
+    // Every listener has the server's data and no local changes: the writes
+    // queued before this session have landed (or will in a moment).
+    if (_pendingCollections.isEmpty && _listened.every(_live.contains)) {
+      _queuedWrites = null;
     }
     final waiter = _firstSnapshot[collection];
     if (waiter != null && !waiter.isCompleted) waiter.complete();
@@ -340,12 +350,33 @@ class FirestoreSyncState {
     write.then<void>((_) => done(), onError: (Object _) => done());
   }
 
+  /// Follows the writes the SDK had queued before this session (an earlier
+  /// launch, another browser tab) until [queued] (`waitForPendingWrites`)
+  /// completes, or until every listener reports the server's data with no
+  /// local changes, whichever comes first. On the web, a tab that didn't
+  /// queue those writes may never see `waitForPendingWrites` complete for
+  /// them, while its listeners do see them land.
+  void trackQueuedWrites(Future<void> queued) {
+    final generation = _generation;
+    final call = _queuedWrites = ++_queuedCalls;
+    _notify();
+    void done() {
+      if (generation != _generation || _queuedWrites != call) return;
+      _queuedWrites = null;
+      _notify();
+    }
+
+    queued.then<void>((_) => done(), onError: (Object _) => done());
+  }
+
   /// Whether changes made while signed in are still waiting to upload: writes
-  /// handed to the SDK and not yet acknowledged, or (writes from earlier
-  /// sessions, edits by other code) documents the listeners report as having
-  /// local changes.
+  /// handed to the SDK and not yet acknowledged, writes queued before this
+  /// session ([trackQueuedWrites]), or documents the listeners report as
+  /// having local changes.
   bool get hasPendingWrites =>
-      _writesInFlight > 0 || _pendingCollections.isNotEmpty;
+      _writesInFlight > 0 ||
+      _queuedWrites != null ||
+      _pendingCollections.isNotEmpty;
 
   /// Whether every listened collection is confirmed by the server and nothing
   /// waits to upload.

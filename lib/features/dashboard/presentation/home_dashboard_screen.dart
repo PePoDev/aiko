@@ -628,9 +628,10 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
         child: Text(context.l10n.dashAnalyticsFailed),
       ),
       data: (transactions) {
-        final categories =
-            categoriesAsync.whenOrNull(data: (items) => items) ??
-            const <Category>[];
+        // The last list loaded, also while it loads again or after a failed
+        // reload; null until one has loaded.
+        final loadedCategories = categoriesAsync.value;
+        final categories = loadedCategories ?? const <Category>[];
         final currency =
             ref.watch(profileProvider).value?.baseCurrency ??
             kDefaultBaseCurrency;
@@ -659,6 +660,18 @@ class _OverviewAnalyticsWidget extends ConsumerWidget {
               currency: currency,
             ),
           ),
+          // Without the categories every slice would read "no category".
+          _AnalyticsWidgetKind.categoryBudgets when loadedCategories == null =>
+            FinanceCard(
+              title: kind.title(context.l10n),
+              icon: Icons.pie_chart_outline,
+              accentColor: AikoColors.premiumPurple,
+              child: Text(
+                categoriesAsync.hasError && !categoriesAsync.isLoading
+                    ? context.l10n.dashAnalyticsFailed
+                    : context.l10n.dashLoadingAnalytics,
+              ),
+            ),
           _AnalyticsWidgetKind.categoryBudgets => _CategoryBudgetCard(
             transactions: transactions,
             categories: categories,

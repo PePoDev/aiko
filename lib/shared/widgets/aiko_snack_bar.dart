@@ -13,6 +13,7 @@ SnackBar aikoSnackBar(
   String message, {
   AikoSnackTone tone = AikoSnackTone.info,
   SnackBarAction? action,
+  Duration duration = const Duration(milliseconds: 4000),
 }) {
   // The theme's snack bar background is dark in both themes, so the icons
   // use the dark-mode status colours.
@@ -25,6 +26,7 @@ SnackBar aikoSnackBar(
   };
   return SnackBar(
     action: action,
+    duration: duration,
     content: Row(
       children: [
         if (icon != null) ...[
@@ -42,11 +44,13 @@ SnackBar aikoSnackBar(
 ///
 /// The app's [ScaffoldMessenger] shows a snack bar on every [Scaffold] that
 /// isn't inside another one. A page opened with `openAikoPage` in the
-/// expanded layout is a dialog over the shell, so a snack bar it shows
-/// through that messenger appears twice: in the dialog and behind it. Show
-/// the page's own messages with `messengerKey.currentState` instead; they
-/// appear over [body]. Messages meant to outlive the page (e.g. "Saved"
-/// right before it closes) still go to the app's messenger.
+/// expanded layout is a dialog over the shell, so a snack bar shown through
+/// that messenger would appear twice: in the dialog and behind it. Show the
+/// page's own messages with `messengerKey.currentState` instead; they appear
+/// over [body]. Messages meant to outlive the page (e.g. "Saved" right before
+/// it closes) still go to the app's messenger. In a dialog, those (and any
+/// other app-wide message, such as one still showing when the page opens)
+/// appear only on the shell behind it; a full-screen page shows them too.
 class AikoPageScaffold extends StatelessWidget {
   const AikoPageScaffold({
     required this.messengerKey,
@@ -61,7 +65,7 @@ class AikoPageScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final page = Scaffold(
       appBar: appBar,
       body: ScaffoldMessenger(
         key: messengerKey,
@@ -74,6 +78,12 @@ class AikoPageScaffold extends StatelessWidget {
         ),
       ),
     );
+    // A dialog: the shell's Scaffold behind it already shows the app's snack
+    // bars, so this messenger, which shows none, keeps them out of the page.
+    if (ModalRoute.of(context) is PopupRoute) {
+      return ScaffoldMessenger(child: page);
+    }
+    return page;
   }
 }
 

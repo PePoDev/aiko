@@ -10,6 +10,7 @@ import '../../../core/notifications/transaction_reminder_service.dart';
 import '../../../l10n/domain_labels.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
+import '../../../shared/widgets/aiko_snack_bar.dart' show AikoPageScaffold;
 import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../accounts/domain/account.dart';
@@ -47,6 +48,9 @@ class _TransactionDetailScreenState
     extends ConsumerState<TransactionDetailScreen> {
   late FinanceTransaction _transaction;
   final _attachmentRepository = TransactionAttachmentRepository();
+
+  /// The page's own snack bars (see [AikoPageScaffold]).
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
 
   @override
   void initState() {
@@ -113,6 +117,7 @@ class _TransactionDetailScreenState
       if (!mounted) {
         return;
       }
+      // The app's messenger: the message outlives the page.
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(context.l10n.txDeleted)));
@@ -121,9 +126,8 @@ class _TransactionDetailScreenState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(context.l10n.txDeleteFailed)));
+      (_messengerKey.currentState ?? ScaffoldMessenger.of(context))
+          .showSnackBar(SnackBar(content: Text(context.l10n.txDeleteFailed)));
     }
   }
 
@@ -183,7 +187,8 @@ class _TransactionDetailScreenState
     final attachments =
         ref.watch(_attachmentsProvider(attachmentsOf)).value ?? const [];
 
-    return Scaffold(
+    return AikoPageScaffold(
+      messengerKey: _messengerKey,
       appBar: AppBar(
         title: Text(context.l10n.txDetailsTitle),
         actions: [

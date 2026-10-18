@@ -59,3 +59,12 @@ final deviceOnlineProvider = StreamProvider<bool>((ref) async* {
   yield await monitor.isOnline();
   yield* changes;
 }, retry: (_, _) => null);
+
+/// Builds the provider [ref] belongs to again when the device comes back
+/// online, so a value it read offline (from a cache, or unknown) is read
+/// again. Call it from the provider's build.
+void refreshWhenBackOnline(Ref ref) {
+  ref.listen(deviceOnlineProvider, (previous, next) {
+    if (previous?.value == false && next.value == true) ref.invalidateSelf();
+  });
+}

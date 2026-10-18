@@ -5,7 +5,8 @@ import '../../../core/storage/local_file_cache.dart';
 import '../../../l10n/domain_labels.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
-import '../../../shared/widgets/aiko_snack_bar.dart' show AikoPageScaffold;
+import '../../../shared/widgets/aiko_snack_bar.dart'
+    show AikoPageScaffold, AikoSnackTone, aikoSnackBar;
 import '../../../shared/widgets/discard_changes_guard.dart';
 import '../../../shared/widgets/fx_rates_note.dart' show ratesAsOfLabel;
 import '../../categories/presentation/category_names.dart';
@@ -543,7 +544,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _selectedDate = date;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    _formMessenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
@@ -578,7 +579,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _formMessenger.showSnackBar(
         SnackBar(
           content: Text(context.l10n.txCameraUnavailable),
           behavior: SnackBarBehavior.floating,
@@ -594,7 +595,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     void showUnreadable() {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _formMessenger.showSnackBar(
         SnackBar(
           content: Text(context.l10n.txCapturedImageUnreadable),
           behavior: SnackBarBehavior.floating,
@@ -678,7 +679,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     } catch (_) {
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
+      _formMessenger.showSnackBar(
         SnackBar(
           content: Text(context.l10n.txReceiptScanFailed),
           behavior: SnackBarBehavior.floating,
@@ -704,7 +705,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ReceiptOcrFailure.failed => context.l10n.txReceiptScanFailed,
         null => context.l10n.txReceiptLimitedFields,
       };
-      ScaffoldMessenger.of(context).showSnackBar(
+      _formMessenger.showSnackBar(
         SnackBar(
           content: Text(message),
           behavior: SnackBarBehavior.floating,
@@ -804,9 +805,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         currency: draft.amount.currency,
       );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(context.l10n.txVoiceParseFailed)));
+      _formMessenger.showSnackBar(
+        SnackBar(content: Text(context.l10n.txVoiceParseFailed)),
+      );
     }
   }
 
@@ -1168,7 +1169,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _formMessenger.showSnackBar(
         SnackBar(
           content: Text(context.l10n.txFilePickerUnavailable),
           behavior: SnackBarBehavior.floating,
@@ -1207,7 +1208,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _formMessenger.showSnackBar(
         SnackBar(
           content: Text(context.l10n.txGalleryUnavailable),
           behavior: SnackBarBehavior.floating,
@@ -1308,7 +1309,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _attachments.add(newAttachment);
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    _formMessenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
@@ -1738,7 +1739,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   void _showSaveError() {
-    ScaffoldMessenger.of(context).showSnackBar(
+    _formMessenger.showSnackBar(
       SnackBar(
         content: Text(context.l10n.txSaveFailed),
         behavior: SnackBarBehavior.floating,
@@ -1748,13 +1749,22 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   /// Says the transaction was saved, or, when [unsavedAttachments] of its
-  /// new attachments couldn't be kept, that those need attaching again.
+  /// new attachments couldn't be kept, that those need attaching again. On
+  /// the app's messenger: the form closes right after.
   void _showSaveSuccess(String message, {int unsavedAttachments = 0}) {
+    final messenger = ScaffoldMessenger.of(context);
     if (unsavedAttachments > 0) {
-      _showFormError(context.l10n.filesSaveFailed(unsavedAttachments));
+      messenger.showSnackBar(
+        aikoSnackBar(
+          context.l10n.filesSaveFailed(unsavedAttachments),
+          tone: AikoSnackTone.warning,
+          // Long enough to read before acting on it.
+          duration: const Duration(seconds: 8),
+        ),
+      );
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [

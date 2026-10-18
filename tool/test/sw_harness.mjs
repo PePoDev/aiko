@@ -141,13 +141,19 @@ export async function dispatch(worker, type, data = {}) {
   await Promise.all(waits);
 }
 
-/** Dispatches a fetch event; resolves with the response, or null if not handled. */
-export async function dispatchFetch(worker, request, { preloadResponse } = {}) {
+/**
+ * Dispatches a fetch event; resolves with the response, or null if not
+ * handled. [clientId] is the page that sends it; [resultingClientId] the
+ * page (navigation) or worker (worker script) it creates.
+ */
+export async function dispatchFetch(worker, request, { preloadResponse, clientId = '', resultingClientId = '' } = {}) {
   let responded = null;
   const waits = [];
   worker.listeners.fetch({
     request,
     preloadResponse,
+    clientId,
+    resultingClientId,
     respondWith: (promise) => (responded = Promise.resolve(promise)),
     waitUntil: (promise) => waits.push(promise),
   });
@@ -167,6 +173,7 @@ export function manifestFor(files, extra = {}) {
     version: sha256(JSON.stringify(files)).slice(0, 16),
     engineRevision: 'rev2',
     firebaseSdkVersion: '12.19.0',
+    cdnFiles: { firebasejs: null },
     files: Object.fromEntries(Object.entries(files).map(([path, body]) => [path, sha256(body)])),
     ...extra,
   };

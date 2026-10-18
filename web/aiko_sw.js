@@ -7,30 +7,38 @@
 //   on install. Files unchanged since the previous build are copied over
 //   instead of downloaded again.
 // - aiko-cdn: versioned files from Google's CDN (CanvasKit, the Firebase JS
-//   SDK) and fallback fonts, cached the first time the app loads them.
+//   SDK) and fallback fonts, cached the first time the app loads them and,
+//   for a new build, while it installs.
 // - aiko-runtime: other files from this site fetched while online (such as a
 //   locally served CanvasKit), so they work offline too.
 //
 // Strategies
-// - Navigations and files Hosting serves `no-cache` (everything outside
-//   assets/assets/): network first; the cached copy when offline or when the
-//   network takes longer than NETWORK_TIMEOUT_MS.
-// - assets/assets/** (served with max-age): from the cache, refreshed in the
-//   background when they aren't part of the build's precache.
+// - Navigations: network first; the cached app when offline or when the
+//   network takes longer than NETWORK_TIMEOUT_MS. The page then loads all
+//   its files from one build: from the precache when it came from there or
+//   is the precached build (its aiko-build tag says which), otherwise (a
+//   newer deploy) from the network only.
+// - Files of a page this worker didn't load (it restarted or took the page
+//   over): network first like navigations for files Hosting serves
+//   `no-cache`; the cache for assets/assets/** (served with max-age),
+//   refreshed in the background when they aren't part of the precache.
 // - CDN files: cache first; only successful CORS responses are stored.
 // - Everything else is left to the browser: other hosts (Firebase and other
 //   APIs), non-GET requests, range requests and Hosting's /__/ URLs.
 //
 // Updates: a new build changes the manifest below and so this file; the
 // browser installs the new worker, which takes over right away and deletes
-// the previous build's cache. Running tabs keep working: they load files
-// network first, and nothing reloads them.
+// the previous build's cache. It installs only once every file the build
+// needs is cached, CDN files included; otherwise the current build stays and
+// the browser tries again on its next update check. Running tabs keep
+// working: nothing reloads them.
 'use strict';
 
 // tool/web_precache.mjs replaces `null` with the build's manifest:
-// {version, engineRevision, firebaseSdkVersion, files: {path: sha256}}.
-// Without one (development, or a build that skipped the script) the worker
-// removes itself and its caches, so the app behaves as if it had none.
+// {version, engineRevision, firebaseSdkVersion, cdnFiles: {firebasejs},
+// files: {path: sha256}}. Without one (development, or a build that skipped
+// the script) the worker removes itself and its caches, so the app behaves
+// as if it had none.
 const PRECACHE = /* @aiko-precache */ null;
 
 const CACHE_PREFIX = 'aiko-';
@@ -49,6 +57,7 @@ const OFFLINE_HINT_MS = 10000;
 const INSTALL_CONCURRENCY = 4;
 const MAX_FONT_ENTRIES = 80;
 const MAX_RUNTIME_ENTRIES = 40;
+const MAX_PAGE_SOURCES = 50;
 const MATCH = { ignoreVary: true };
 
 const SCOPE = new URL(self.registration.scope);
@@ -57,17 +66,26 @@ const PRECACHE_URLS = new Set(
 );
 // Versioned CDN files: https://www.gstatic.com/<kind>/<version>/<file>.
 const CDN_VERSIONED = /^https:\/\/www\.gstatic\.com\/(flutter-canvaskit|firebasejs)\/([^/?#]+)\/([^?#]+)$/;
+// index.html's build tag, written by tool/web_precache.mjs.
+const BUILD_META = /<meta name="aiko-build" content="([^"]*)">/;
 
 let offlineUntil = 0;
+// Where each page (client id) loads its files from: a promise of 'precache'
+// (this worker's build) or 'network' (another build), or of null when that
+// is unknown. Kept in memory only, so pages a restarted worker doesn't know
+// get the per-file strategies.
+const pageSources = new Map();
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       if (PRECACHE) {
         await precacheBuild();
-        // Best effort: an offline start right after this update finds the
-        // CDN files of the new build too.
-        await Promise.all([prefetchCdnUpdates(), refreshRuntime()]);
+        // An offline start right after this update must find every file of
+        // the new build. If one can't be downloaded, the install fails: the
+        // current build stays, and the browser tries again later.
+        const [, runtime] = await Promise.all([cacheCdnFiles(), fetchRuntimeUpdates()]);
+        await storeRuntimeUpdates(runtime);
       }
       await self.skipWaiting();
     })(),
@@ -96,7 +114,13 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  switch (routeFor(event.request)) {
+  const route = routeFor(event.request);
+  // A worker the page starts (such as the database's) loads its files from
+  // where the page does.
+  if (route && route !== 'navigate' && event.resultingClientId && pageSources.has(event.clientId)) {
+    rememberSource(event.resultingClientId, pageSources.get(event.clientId));
+  }
+  switch (route) {
     case 'navigate':
       event.respondWith(handleNavigation(event));
       break;
@@ -153,22 +177,65 @@ async function handleNavigation(event) {
     .catch(() => undefined)
     .then((response) => response || fetch(event.request));
   // Every route is the single-page app, so any navigation can fall back to it.
-  return networkFirst(network, () => matchPrecache(new URL('index.html', SCOPE).href));
+  const { response, fromNetwork } = await networkFirst(network, () =>
+    matchPrecache(new URL('index.html', SCOPE).href),
+  );
+  if (event.resultingClientId) {
+    rememberSource(event.resultingClientId, fromNetwork ? sourceOfPage(response.clone()) : 'precache');
+  }
+  return response;
 }
 
-function handleNetworkFirst(event) {
+/**
+ * Where the rest of a page that came from the network loads from: the
+ * precache when the page is this worker's build, otherwise the network, so
+ * one page never runs files of two builds. Null when it can't be read.
+ */
+async function sourceOfPage(response) {
+  if (response.status !== 200 || response.type !== 'basic') return null;
+  try {
+    const build = BUILD_META.exec(await response.text())?.[1];
+    return build === PRECACHE.version ? 'precache' : 'network';
+  } catch (_) {
+    return null;
+  }
+}
+
+function rememberSource(clientId, source) {
+  pageSources.delete(clientId);
+  pageSources.set(clientId, Promise.resolve(source));
+  for (const id of pageSources.keys()) {
+    if (pageSources.size <= MAX_PAGE_SOURCES) break;
+    pageSources.delete(id);
+  }
+}
+
+/** The source (see [pageSources]) of the page that sent [event]'s request. */
+async function sourceOf(event) {
+  return (await pageSources.get(event.clientId)) ?? null;
+}
+
+async function handleNetworkFirst(event) {
   const url = event.request.url;
+  const source = await sourceOf(event);
+  // A page of another build: that build's files, never copies of this one.
+  if (source === 'network') return fetch(event.request);
+  if (source === 'precache') {
+    const precached = await matchPrecache(url);
+    if (precached) return precached;
+  }
   const network = fetch(event.request).then((response) => {
     if (!precacheKey(url) && isCacheableSameOrigin(response)) {
       extend(event, putRuntime(url, response.clone()));
     }
     return response;
   });
-  return networkFirst(network, () => matchCached(url));
+  return (await networkFirst(network, () => matchCached(url))).response;
 }
 
 async function handleStaleWhileRevalidate(event) {
   const url = event.request.url;
+  if ((await sourceOf(event)) === 'network') return fetch(event.request);
   // Precached files change only with a new build, which brings a new cache.
   const precached = await matchPrecache(url);
   if (precached) return precached;
@@ -201,16 +268,16 @@ async function handleCdn(event) {
 }
 
 /**
- * Resolves with the network response, unless it fails or takes longer than
- * NETWORK_TIMEOUT_MS and [fallback] finds a cached copy. Without a cached
- * copy it waits for the network.
+ * Resolves with {response, fromNetwork}: the network response, unless it
+ * fails or takes longer than NETWORK_TIMEOUT_MS and [fallback] finds a cached
+ * copy. Without a cached copy it waits for the network.
  */
 async function networkFirst(network, fallback) {
   const wait = Date.now() < offlineUntil ? 0 : NETWORK_TIMEOUT_MS;
   const outcome = await settleWithin(network, wait);
   if (outcome.response) {
     offlineUntil = 0;
-    return outcome.response;
+    return { response: outcome.response, fromNetwork: true };
   }
   network.then(
     () => (offlineUntil = 0),
@@ -219,9 +286,9 @@ async function networkFirst(network, fallback) {
   const cached = await fallback();
   if (cached) {
     if (wait > 0) offlineUntil = Date.now() + OFFLINE_HINT_MS;
-    return cached;
+    return { response: cached, fromNetwork: false };
   }
-  return network;
+  return { response: await network, fromNetwork: true };
 }
 
 function settleWithin(promise, ms) {
@@ -298,61 +365,96 @@ async function fetchVerified(url, hash) {
 }
 
 /**
- * Fetches the new build's CanvasKit and Firebase SDK files for every variant
- * this browser cached of the previous versions (the CDN URL names the
- * version; which files a browser loads depends on the browser).
+ * Caches this build's CDN files that aren't cached yet (see [currentCdnUrls]).
+ * Throws when one can't be downloaded.
  */
-async function prefetchCdnUpdates() {
-  try {
-    const cache = await caches.open(CDN_CACHE);
-    const wanted = new Set();
-    for (const request of await cache.keys()) {
-      const match = CDN_VERSIONED.exec(request.url);
-      if (!match) continue;
-      const [, kind, version, file] = match;
-      const current = currentCdnVersion(kind);
-      if (current && current !== version) wanted.add(`https://www.gstatic.com/${kind}/${current}/${file}`);
+async function cacheCdnFiles() {
+  const cache = await caches.open(CDN_CACHE);
+  for (const urls of (await currentCdnUrls(cache)).values()) {
+    for (const url of urls) {
+      if (!(await cache.match(url, MATCH))) await cacheCdnUrl(cache, url);
     }
-    for (const url of wanted) {
-      if (!(await cache.match(url, MATCH))) await cacheCdnUrl(cache, url).catch(() => {});
-    }
-  } catch (_) {
-    // Loaded on the next online start instead.
   }
 }
 
-/** Refreshes runtime-cached files from this site to the new build's copies. */
-async function refreshRuntime() {
-  try {
-    const cache = await caches.open(RUNTIME_CACHE);
-    for (const request of await cache.keys()) {
-      if (precacheKey(request.url)) {
-        await cache.delete(request);
-        continue;
-      }
-      try {
-        const response = await fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' });
-        if (isCacheableSameOrigin(response)) await cache.put(request.url, response);
-      } catch (_) {
-        // Keep the copy we have.
-      }
+/**
+ * The CDN files this build loads in this browser, by kind: CanvasKit at this
+ * build's engine revision for each CanvasKit file the browser cached (which
+ * files depends on the browser), and the Firebase JS SDK files the manifest
+ * lists at this build's SDK version (without a list, those the browser
+ * cached). A kind the browser never loaded is left out: builds without a
+ * Firebase project don't load the SDK.
+ */
+async function currentCdnUrls(cache) {
+  const byKind = new Map();
+  for (const request of await cache.keys()) {
+    const match = CDN_VERSIONED.exec(request.url);
+    if (!match) continue;
+    const [, kind, , file] = match;
+    const version = currentCdnVersion(kind);
+    if (!version) continue;
+    if (!byKind.has(kind)) byKind.set(kind, new Set());
+    const listed = kind === 'firebasejs' ? PRECACHE.cdnFiles?.firebasejs : null;
+    for (const name of listed ?? [file]) byKind.get(kind).add(`https://www.gstatic.com/${kind}/${version}/${name}`);
+  }
+  return byKind;
+}
+
+/**
+ * Downloads this build's copies of the files from this site cached at
+ * runtime. Throws when the network fails, so the current build keeps its
+ * copies; [storeRuntimeUpdates] saves them once the rest is cached.
+ */
+async function fetchRuntimeUpdates() {
+  const cache = await caches.open(RUNTIME_CACHE);
+  const updates = [];
+  for (const request of await cache.keys()) {
+    // Now part of the precache.
+    if (precacheKey(request.url)) {
+      updates.push({ request, response: null });
+      continue;
     }
-  } catch (_) {
-    // Nothing to refresh.
+    const response = await fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' });
+    if (isCacheableSameOrigin(response)) {
+      updates.push({ request, response });
+    } else if (response.status === 404 || response.status === 410) {
+      updates.push({ request, response: null });
+    } else {
+      throw new Error(`Refresh ${request.url}: HTTP ${response.status}`);
+    }
+  }
+  return updates;
+}
+
+async function storeRuntimeUpdates(updates) {
+  const cache = await caches.open(RUNTIME_CACHE);
+  for (const { request, response } of updates) {
+    if (response) {
+      await cache.put(request.url, response);
+    } else {
+      await cache.delete(request);
+    }
   }
 }
 
-/** Drops CDN files of versions this build no longer uses and old fonts. */
+/**
+ * Drops CDN files of versions this build no longer uses, once all of this
+ * build's files of that kind are cached, and old fonts.
+ */
 async function pruneCdn() {
   const cache = await caches.open(CDN_CACHE);
+  const complete = new Set();
+  for (const [kind, urls] of await currentCdnUrls(cache)) {
+    const cached = await Promise.all([...urls].map((url) => cache.match(url, MATCH)));
+    if (cached.every(Boolean)) complete.add(kind);
+  }
   const fonts = [];
   for (const request of await cache.keys()) {
     const match = CDN_VERSIONED.exec(request.url);
-    if (match) {
-      const current = currentCdnVersion(match[1]);
-      if (current && match[2] !== current) await cache.delete(request);
-    } else {
+    if (!match) {
       fonts.push(request);
+    } else if (complete.has(match[1]) && match[2] !== currentCdnVersion(match[1])) {
+      await cache.delete(request);
     }
   }
   await deleteOldest(cache, fonts, MAX_FONT_ENTRIES);
@@ -369,6 +471,11 @@ async function cacheLoadedUrls(urls) {
     try {
       const route = typeof href === 'string' ? routeFor(new Request(href)) : null;
       if (route === 'cdn') {
+        // A page of an earlier build (this worker took it over) lists that
+        // build's versions, which activate just dropped.
+        const versioned = CDN_VERSIONED.exec(href);
+        const current = versioned && currentCdnVersion(versioned[1]);
+        if (current && versioned[2] !== current) continue;
         if (!(await cdn.match(href, MATCH))) await cacheCdnUrl(cdn, href);
       } else if (route && !precacheKey(href) && !(await runtime.match(href, MATCH))) {
         const response = await fetch(href, { credentials: 'same-origin' });
@@ -380,9 +487,11 @@ async function cacheLoadedUrls(urls) {
   }
 }
 
+/** Downloads and caches a CDN file; throws unless that worked. */
 async function cacheCdnUrl(cache, url) {
   const response = await fetch(url, { mode: 'cors', credentials: 'omit' });
-  if (isCacheableCors(response)) await putCdn(cache, url, response);
+  if (!isCacheableCors(response)) throw new Error(`CDN ${url}: HTTP ${response.status} (${response.type})`);
+  await putCdn(cache, url, response);
 }
 
 async function putCdn(cache, url, response) {

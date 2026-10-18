@@ -50,8 +50,6 @@ For hot reload, keep the emulators running and run the app separately:
 flutter run -d chrome --web-port=8082 --dart-define-from-file=.env
 ```
 
-The VS Code launch configurations in `.vscode/launch.json` pass `--dart-define-from-file=.env` for you.
-
 To try the web app offline, add the service-worker precache after the build, then start the emulators: `flutter build web …` (as above), `npm run web:precache`, `npm run firebase:start`. Open the app once online, then go offline (browser dev tools → Network → Offline) and reload. `flutter run -d chrome` has no working service worker (it removes itself), so it can't start offline ([Architecture → Web offline loading](architecture.md#web-offline-loading)).
 
 ### 2. Local-only mode

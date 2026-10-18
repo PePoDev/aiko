@@ -21,14 +21,15 @@ void startFileUploads() {
 /// deletes, the attachments kept on this device for them and the cached
 /// copies of their files. Before deleting the account, call
 /// [FileSyncQueue.suspend] (and [FileSyncQueue.resume] afterwards) so that
-/// no upload runs meanwhile.
-Future<void> forgetFilesOf(String userId) async {
-  final queue = FileSyncQueue.instance;
+/// no upload runs meanwhile (`AccountFileJobs`). [queue] defaults to the
+/// app's.
+Future<void> forgetFilesOf(String userId, {FileSyncQueue? queue}) async {
+  final jobs = queue ?? FileSyncQueue.instance;
   final db = await LocalFileCache.database();
   await db.transaction((txn) async {
     await TransactionAttachmentRepository().forgetOwner(userId, txn: txn);
     await LocalFileCache.removeUnder('avatars/$userId/', txn: txn);
-    await queue.clearOwner(userId, txn: txn);
+    await jobs.clearOwner(userId, txn: txn);
   });
-  queue.notifyChanged();
+  jobs.notifyChanged();
 }

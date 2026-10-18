@@ -229,7 +229,7 @@ The function sends headers at once and an SSE `: ping` every 15 s; the app allow
 
 ## Account Deletion
 
-Profile deletion needs a connection: the app checks the server, takes the account's queued uploads off the queue and lets pending writes upload, then calls the authenticated `deleteAccount` callable. It requires a sign-in from the last five minutes (otherwise the app asks you to sign in again), deletes the user's Firestore subtree, Storage objects and LINE mapping, then deletes the Firebase Auth identity. It is immediate and permanent; no grace period. Privileged server code always derives the UID from verified authentication.
+Profile deletion needs a connection: the app checks the server, pauses the upload queue (letting a running upload finish) and lets pending writes upload, then calls the authenticated `deleteAccount` callable. It requires a sign-in from the last five minutes (otherwise the app asks you to sign in again), deletes the user's Firestore subtree, Storage objects and LINE mapping, then deletes the Firebase Auth identity. It is immediate and permanent; no grace period. Privileged server code always derives the UID from verified authentication.
 
 ## Database Schema
 

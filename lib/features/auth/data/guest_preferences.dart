@@ -18,21 +18,21 @@ import '../../transactions/domain/transaction_rule.dart';
 /// device storage under their plain keys; signed in, in the account.
 ///
 /// [claim] moves them into the account a guest signs in to and clears them
-/// from the device, so the next person to use the app without an account
-/// starts afresh.
+/// from the device (the language stays), so the next person to use the app
+/// without an account starts afresh.
 class GuestPreferences {
   /// [device], [account] and [signedInUserId] default to device storage,
   /// the signed-in user's synced preferences and the Firebase user.
   GuestPreferences({
     SecureStorageService? device,
-    SecureStorageService? account,
+    SyncedPreferences? account,
     String? Function()? signedInUserId,
   }) : _device = device ?? FlutterSecureStorageService(),
        _account = account ?? SyncedPreferences(),
        _signedInUserId = signedInUserId ?? (() => FirebaseBackend.userId);
 
   final SecureStorageService _device;
-  final SecureStorageService _account;
+  final SyncedPreferences _account;
   final String? Function() _signedInUserId;
 
   /// The travel mode preference (`storedTravelProvider`).
@@ -51,10 +51,12 @@ class GuestPreferences {
   ];
 
   /// Moves this device's preferences into the account [userId], once it is
-  /// signed in. The account's own language and trip stay; rules, lesson
+  /// signed in. The account's own language and trip stay, and so do ones
+  /// that can't be read yet (offline, nothing cached); rules, lesson
   /// progress and dismissals are added to the account's. [categoryId] gives
   /// the account's id for a category a guest rule names (default categories
-  /// become the account's clones). Never throws: whatever can't be moved
+  /// become the account's clones). The device keeps its language (Welcome
+  /// and the login screen use it). Never throws: whatever can't be moved
   /// stays on the device for the next try.
   Future<void> claim(
     String userId, {
@@ -65,20 +67,25 @@ class GuestPreferences {
         categoryId ??
         (id) =>
             CategoryDefaults.categoryIdForUser(userId: userId, categoryId: id);
-    await _step([AppLocaleController.languageKey], () async {
+    await _step(const [], name: AppLocaleController.languageKey, () async {
       final language = await _device.read(AppLocaleController.languageKey);
-      if (language == null) return;
-      if (await _account.read(AppLocaleController.languageKey) == null) {
+      if (language == null) return true;
+      final current = await _account.readState(AppLocaleController.languageKey);
+      if (current.known && current.value == null) {
         await _account.write(AppLocaleController.languageKey, language);
       }
+      return true;
     });
     await _step([travelKey], () async {
       final travel = await _device.read(travelKey);
-      if (travel == null || !_hasTrip(travel)) return;
-      final current = await _account.read(travelKey);
-      if (current == null || !_hasTrip(current)) {
+      if (travel == null || !_hasTrip(travel)) return true;
+      final current = await _account.readState(travelKey);
+      if (!current.known) return false;
+      final trip = current.value;
+      if (trip == null || !_hasTrip(trip)) {
         await _account.write(travelKey, travel);
       }
+      return true;
     });
     await _step(
       [TransactionRuleStore.storageKey, TransactionRuleStore.legacyKey],
@@ -96,6 +103,7 @@ class GuestPreferences {
             ),
           );
         }
+        return true;
       },
     );
     await _step(
@@ -107,6 +115,7 @@ class GuestPreferences {
         for (final MapEntry(:key, :value) in progress.entries) {
           await account.record(key, value);
         }
+        return true;
       },
     );
     await _step(
@@ -115,11 +124,11 @@ class GuestPreferences {
         NotificationDismissalStore.legacyKey,
       ],
       () async {
-        final dismissed = await NotificationDismissalStore(_device).load();
-        final account = NotificationDismissalStore(_account);
-        for (final id in dismissed) {
-          await account.dismiss(id, dismissed);
-        }
+        // One write, dropping none of the account's own dismissals.
+        await NotificationDismissalStore(
+          _account,
+        ).addFrom(NotificationDismissalStore(_device));
+        return true;
       },
     );
   }
@@ -135,16 +144,23 @@ class GuestPreferences {
     }
   }
 
-  /// Runs one preference's [move]; the device copy ([keys]) goes once it
-  /// has been handed to the account.
-  Future<void> _step(List<String> keys, Future<void> Function() move) async {
+  /// Runs one preference's [move] ([name] in logs, else the first of
+  /// [keys]); the device copy ([keys]) goes once it has been handed to the
+  /// account, unless [move] returns false: it waits for the next try.
+  Future<void> _step(
+    List<String> keys,
+    Future<bool> Function() move, {
+    String? name,
+  }) async {
     try {
-      await move();
+      if (!await move()) return;
       for (final key in keys) {
         await _device.delete(key);
       }
     } catch (error) {
-      debugPrint('[auth] guest preference ${keys.first} not claimed: $error');
+      debugPrint(
+        '[auth] guest preference ${name ?? keys.first} not claimed: $error',
+      );
     }
   }
 

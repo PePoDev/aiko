@@ -247,10 +247,14 @@ class SyncedPreferences implements SecureStorageService, PreferenceItemStorage {
   }
 
   @override
-  Future<String?> read(String key) async {
+  Future<String?> read(String key) async => (await readState(key)).value;
+
+  /// Like [read], telling "no value" apart from "can't tell" ([known] is
+  /// false signed in and offline, with nothing cached or copied here).
+  Future<({String? value, bool known})> readState(String key) async {
     final uid = _uid;
-    if (uid == null) return _local.read(key);
-    final data = await _readDocument(
+    if (uid == null) return (value: await _local.read(key), known: true);
+    final read = await _readDocumentState(
       uid,
       key,
       fromCopy: (copy) => {'value': copy},
@@ -259,8 +263,8 @@ class SyncedPreferences implements SecureStorageService, PreferenceItemStorage {
         _ => null,
       },
     );
-    final value = data?['value'];
-    return value is String ? value : null;
+    final value = read.data?['value'];
+    return (value: value is String ? value : null, known: read.known);
   }
 
   @override
@@ -370,20 +374,8 @@ class SyncedPreferences implements SecureStorageService, PreferenceItemStorage {
   }
 
   /// The preference document [key]: the SDK cache, then this device's copy,
-  /// then (briefly) the server. Null when it doesn't exist or nobody can say.
-  Future<Map<String, dynamic>?> _readDocument(
-    String uid,
-    String key, {
-    required Map<String, dynamic> Function(String copy) fromCopy,
-    required String? Function(Map<String, dynamic> data) toCopy,
-  }) async => (await _readDocumentState(
-    uid,
-    key,
-    fromCopy: fromCopy,
-    toCopy: toCopy,
-  )).data;
-
-  /// [_readDocument], telling "doesn't exist" apart from "nobody can say".
+  /// then (briefly) the server. Tells "doesn't exist" apart from "nobody can
+  /// say".
   Future<DocumentRead> _readDocumentState(
     String uid,
     String key, {

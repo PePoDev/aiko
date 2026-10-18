@@ -194,6 +194,44 @@ void main() {
       expect(await device().load(), {'goal:g1:100', 'bill:cc1:2026-06-23'});
     });
 
+    test('adding another store\'s dismissals drops none of these, and an '
+        'untimed one counts from now', () async {
+      final storage = MemorySecureStorageService();
+      // Untimed (the earlier format), and one dismissed months ago.
+      await storage.write(
+        NotificationDismissalStore.legacyKey,
+        '["bill:cc1:2025-12-23"]',
+      );
+      await NotificationDismissalStore(
+        storage,
+        clock: () => DateTime.utc(2026, 1, 5),
+      ).dismiss('budget:food:75:2026-01-01', ['bill:cc1:2025-12-23']);
+      var now = DateTime.utc(2026, 6, 20);
+      final guestStorage = MemorySecureStorageService();
+      await guestStorage.write(
+        NotificationDismissalStore.legacyKey,
+        '["goal:g1:50"]',
+      );
+      final guest = NotificationDismissalStore(guestStorage, clock: () => now);
+      await guest.dismiss('goal:g1:100', ['goal:g1:50']);
+      final store = NotificationDismissalStore(storage, clock: () => now);
+
+      await store.addFrom(guest);
+
+      expect(await store.load(), {
+        'bill:cc1:2025-12-23',
+        'budget:food:75:2026-01-01',
+        'goal:g1:50',
+        'goal:g1:100',
+      });
+      now = DateTime.utc(2026, 7, 1);
+      expect(await store.dismiss('goal:g1:75', const []), {
+        'goal:g1:50',
+        'goal:g1:75',
+        'goal:g1:100',
+      });
+    });
+
     test('unreadable storage reads as nothing dismissed', () async {
       final storage = MemorySecureStorageService();
       await storage.write(NotificationDismissalStore.storageKey, 'not json');

@@ -314,6 +314,25 @@ void main() {
       expect(stopwatch.elapsedMilliseconds, lessThan(2000));
     });
 
+    test('readState tells "no value" apart from "can\'t tell"', () async {
+      expect(await prefs.readState('aiko_language_code'), (
+        value: null,
+        known: false,
+      ));
+
+      await prefs.delete('aiko_language_code');
+      expect(await prefs.readState('aiko_language_code'), (
+        value: null,
+        known: true,
+      ));
+
+      await prefs.write('aiko_language_code', 'th');
+      expect(await prefs.readState('aiko_language_code'), (
+        value: 'th',
+        known: true,
+      ));
+    });
+
     test(
       'a copy that remembers the preference is gone answers at once',
       () async {

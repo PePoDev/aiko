@@ -430,33 +430,36 @@ class AuthRepository {
       rethrow;
     }
     // Files waiting to upload would be put back after the server deleted
-    // everything: take them off the queue first (a running upload finishes,
+    // everything: stop the upload queue first (a running upload finishes,
     // and its record joins the pending writes checked next).
     final fileJobs = _fileJobs;
-    final heldFiles = await fileJobs.hold(uid);
-    if (heldFiles == null) throw const NeedsConnectionException();
+    if (!await fileJobs.hold()) throw const NeedsConnectionException();
     try {
       // Changes still queued on this device would be uploaded after the
       // server deleted everything, re-creating documents: upload them first.
       if (await hasPendingWrites(timeout: const Duration(seconds: 15))) {
         throw const NeedsConnectionException();
       }
-      await FirebaseBackend.functions
-          .httpsCallable('deleteAccount')
-          .call<void>();
-    } catch (error) {
-      // Not deleted: the files upload after all.
-      await fileJobs.release(heldFiles);
-      if (error is FirebaseFunctionsException && isNetworkError(error)) {
-        throw const NeedsConnectionException();
+      try {
+        await FirebaseBackend.functions
+            .httpsCallable('deleteAccount')
+            .call<void>();
+      } on FirebaseFunctionsException catch (error) {
+        if (isNetworkError(error)) throw const NeedsConnectionException();
+        rethrow;
       }
-      rethrow;
+      // The account is gone, and so are its files on this device: the jobs
+      // (also those queued meanwhile, such as a finished upload deleting the
+      // photo it replaced), attachments and cached copies.
+      await fileJobs.forget(uid);
+      // A deleted account is no longer "known": the next launch shows Welcome.
+      await _storage.delete(_knownAccountKey);
+      await signOut();
+    } finally {
+      // Not deleted: the files upload after all. Deleted: the next account's
+      // files do.
+      fileJobs.release();
     }
-    // Queued meanwhile (a finished upload deleting the photo it replaced).
-    await fileJobs.drop(uid);
-    // A deleted account is no longer "known": the next launch shows Welcome.
-    await _storage.delete(_knownAccountKey);
-    await signOut();
   }
 
   Future<AuthSession?> restoreSession() async {

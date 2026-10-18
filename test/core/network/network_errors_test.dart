@@ -16,7 +16,8 @@ void main() {
       isTrue,
     );
     // Callables: Android reports `unavailable` with a bare message, the web
-    // (JS SDK 12) `internal` with "internal [0]" (no HTTP response).
+    // (JS SDK 12) `internal` with "internal [0]" (no HTTP response), iOS
+    // `unknown` with the system's description of the URL error.
     expect(
       isNetworkError(
         FirebaseFunctionsException(code: 'unavailable', message: 'UNAVAILABLE'),
@@ -26,6 +27,21 @@ void main() {
     expect(
       isNetworkError(
         FirebaseFunctionsException(code: 'internal', message: 'internal [0]'),
+      ),
+      isTrue,
+    );
+    expect(
+      isNetworkError(
+        FirebaseFunctionsException(code: 'internal', message: 'internal [0]  '),
+      ),
+      isTrue,
+    );
+    expect(
+      isNetworkError(
+        FirebaseFunctionsException(
+          code: 'unknown',
+          message: 'The Internet connection appears to be offline.',
+        ),
       ),
       isTrue,
     );
@@ -127,6 +143,29 @@ void main() {
     expect(
       isNetworkError(
         FirebaseFunctionsException(code: 'internal', message: 'INTERNAL [500]'),
+      ),
+      isFalse,
+    );
+    // A status the SDK doesn't know (a gateway's 502): Android and the web.
+    expect(
+      isNetworkError(
+        FirebaseFunctionsException(code: 'unknown', message: 'UNKNOWN'),
+      ),
+      isFalse,
+    );
+    expect(
+      isNetworkError(
+        FirebaseFunctionsException(code: 'unknown', message: 'unknown [502]'),
+      ),
+      isFalse,
+    );
+    // A server timeout answered by the web SDK with its status.
+    expect(
+      isNetworkError(
+        FirebaseFunctionsException(
+          code: 'deadline-exceeded',
+          message: 'deadline-exceeded [504]',
+        ),
       ),
       isFalse,
     );

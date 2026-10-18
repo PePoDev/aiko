@@ -39,26 +39,33 @@ bool isNetworkError(Object error) {
 /// error the function raises carries its own message ("Provider request
 /// failed."); the SDK's own failures carry none, or just the code:
 ///
-/// - Web (Firebase JS SDK 12): no HTTP response at all is status 0, reported
-///   as `internal` with the message "internal [0]" ("<description>
-///   [<status>]"). A server crash has a status ("INTERNAL [500]").
+/// - Web (Firebase JS SDK 12): the message is `<code> [<status>]`, and no
+///   HTTP response at all is status 0 (`internal` / "internal [0]"). A
+///   server crash has a status ("internal [500]").
 /// - Android: an IOException becomes `unavailable` / "UNAVAILABLE". A server
 ///   crash is `internal` / "INTERNAL", so a bare `internal` is not offline.
+/// - iOS: a URL loading failure (no connection, host not found, connection
+///   lost) is not a Functions error, so FlutterFire reports `unknown` with
+///   the system's description. The functions never raise `unknown`; the
+///   other SDKs use it for an HTTP status they don't know ("UNKNOWN",
+///   "unknown [502]"), which is an answer.
 /// - Every platform: the client's own timeout is `deadline-exceeded` with a
 ///   bare message ("deadline-exceeded", "DEADLINE_EXCEEDED", "DEADLINE
 ///   EXCEEDED"). The request may have reached the server.
 bool isCallableTransportFailure(FirebaseFunctionsException error) {
   final message = (error.message ?? '').trim();
-  if (_noResponseStatus.hasMatch(message)) return true;
-  if (error.code != 'unavailable' && error.code != 'deadline-exceeded') {
-    return false;
-  }
+  final status = _httpStatus.firstMatch(message)?.group(1);
+  if (status != null) return status == '0';
   final bare = message.toLowerCase().replaceAll(RegExp(r'[\s_]+'), '-');
-  return bare.isEmpty || bare == error.code;
+  return switch (error.code) {
+    'unavailable' || 'deadline-exceeded' => bare.isEmpty || bare == error.code,
+    'unknown' => bare.isNotEmpty && bare != error.code,
+    _ => false,
+  };
 }
 
-/// The JS SDK's "<description> [0]": the request got no HTTP response.
-final _noResponseStatus = RegExp(r'\[0\]$');
+/// The JS SDK's `<description> [<status>]`; status 0 is no HTTP response.
+final _httpStatus = RegExp(r'\[(\d{1,3})\]$');
 
 /// Whether a feature that runs on Aiko cloud (Ask Aiko, receipt reading,
 /// live prices) needs the user to sign in first: a cloud build with nobody

@@ -705,11 +705,7 @@ class _SignInNotice extends StatelessWidget {
       color: AikoColors.paleBlue,
       child: Row(
         children: [
-          const Icon(
-            Icons.lock_outline,
-            size: 16,
-            color: AikoColors.deepBlue,
-          ),
+          const Icon(Icons.lock_outline, size: 16, color: AikoColors.deepBlue),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

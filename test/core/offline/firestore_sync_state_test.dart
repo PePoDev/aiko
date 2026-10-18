@@ -147,16 +147,32 @@ void main() {
       expect(query.sources, [Source.cache]);
     });
 
-    test('an empty cache asks the server before any snapshot arrived '
-        '(not downloaded yet)', () async {
-      final sync = state(firstSnapshotWait: Duration.zero)
-        ..beginListening('uid', collections);
+    test('an empty cache asks the server when the listener still has '
+        'nothing after the wait (not downloaded yet)', () async {
+      final sync = state(
+        firstSnapshotWait: Duration.zero,
+        serverWait: const Duration(milliseconds: 20),
+      )..beginListening('uid', collections);
       final query = _FakeQuery(server: ['a']);
 
       final result = await sync.readQuery('accounts', query);
 
       expect(result.docs.map((doc) => doc.id), ['a']);
       expect(query.sources, [Source.cache, Source.server]);
+    });
+
+    test('an empty cache waits for a listener that is still downloading '
+        'instead of sending a second, separately billed query', () async {
+      final sync = state(firstSnapshotWait: Duration.zero)
+        ..beginListening('uid', collections);
+      final query = _FakeQuery(server: ['a']);
+
+      final read = sync.readQuery('accounts', query);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      sync.markSnapshot('accounts', fromCache: false);
+
+      expect((await read).docs, isEmpty);
+      expect(query.sources, [Source.cache, Source.cache]);
     });
 
     test('an empty cache is the answer once the listener delivered', () async {
@@ -200,8 +216,10 @@ void main() {
     });
 
     test('server errors fall back to the cache', () async {
-      final sync = state(firstSnapshotWait: Duration.zero)
-        ..beginListening('uid', collections);
+      final sync = state(
+        firstSnapshotWait: Duration.zero,
+        serverWait: const Duration(milliseconds: 20),
+      )..beginListening('uid', collections);
       final query = _FakeQuery(
         serverError: FirebaseException(plugin: 'test', code: 'unavailable'),
       );

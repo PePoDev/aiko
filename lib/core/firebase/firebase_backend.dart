@@ -63,6 +63,16 @@ class FirebaseBackend {
     }
     await Firebase.initializeApp(options: options);
     _ready = true;
+    // Before anything touches Firestore, the emulator setup included: on web
+    // useFirestoreEmulator creates the Firestore instance, and settings
+    // applied after that never turn on the persistent cache, so offline
+    // changes would live only in memory and be lost on reload.
+    firestore.settings = kIsWeb
+        ? const Settings(
+            persistenceEnabled: true,
+            webPersistentTabManager: WebPersistentMultipleTabManager(),
+          )
+        : const Settings(persistenceEnabled: true);
     if (config.usesEmulators) {
       if (!kIsWeb) {
         await auth!.useAuthEmulator(config.firebaseEmulatorHost, 9099);
@@ -72,15 +82,7 @@ class FirebaseBackend {
       functions.useFunctionsEmulator(config.firebaseEmulatorHost, 5001);
     }
     await auth!.authStateChanges().first;
-    if (kIsWeb) {
-      await auth!.setPersistence(Persistence.LOCAL);
-      firestore.settings = const Settings(
-        persistenceEnabled: true,
-        webPersistentTabManager: WebPersistentMultipleTabManager(),
-      );
-    } else {
-      firestore.settings = const Settings(persistenceEnabled: true);
-    }
+    if (kIsWeb) await auth!.setPersistence(Persistence.LOCAL);
   }
 
   static CollectionReference<Map<String, dynamic>> collection(String name) {

@@ -228,6 +228,14 @@ class FirestoreSyncState {
     _noteRead(collection);
     final cached = await query.get(_cache);
     if (cached.docs.isNotEmpty || !_mayAskServer(collection)) return cached;
+    // The collection's listener is still downloading it (a large ledger on a
+    // slow network): wait for that instead of sending a second query, which
+    // the server would bill again for every document.
+    final waiter = _firstSnapshot[collection];
+    if (waiter != null && !waiter.isCompleted) {
+      await Future.any([waiter.future, Future<void>.delayed(serverWait)]);
+      if (waiter.isCompleted) return query.get(_cache);
+    }
     // Nothing cached, and nothing says the cache is complete (new device,
     // listener not caught up): ask the server so callers don't mistake "not
     // downloaded yet" for "doesn't exist".

@@ -192,7 +192,33 @@ void main() {
     expect(ChatFailure.badResponse.isRetryable, isTrue);
     expect(ChatFailure.offline.isRetryable, isFalse);
     expect(ChatFailure.signInExpired.isRetryable, isFalse);
+    expect(ChatFailure.signInRequired.isRetryable, isFalse);
     expect(ChatFailure.forbidden.isRetryable, isFalse);
+  });
+
+  test('a guest is asked to sign in and nothing is sent', () async {
+    final engine = _ScriptedEngine([]);
+    final container = ProviderContainer(
+      overrides: [
+        aikoChatOfflineProvider.overrideWithValue(false),
+        aikoChatNeedsSignInProvider.overrideWithValue(true),
+        aikoChatEngineProvider.overrideWithValue(engine),
+        profileRepositoryProvider.overrideWithValue(
+          const _NoProfileRepository(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.read(aikoChatControllerProvider.notifier).send('Hi');
+    await _settle();
+
+    final state = container.read(aikoChatControllerProvider);
+    expect(state.needsSignIn, isTrue);
+    expect(state.isStreaming, isFalse);
+    expect(state.lastError?.message, currentL10n().netChatNeedsSignIn);
+    expect(state.lastError?.retryable, isFalse);
+    expect(engine.requests, isEmpty);
   });
 
   test('local-only mode fails without a retry', () async {

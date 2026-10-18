@@ -24,6 +24,8 @@ void main() {
   test('offline says offline, not "limited fields"', () async {
     for (final error in <Object>[
       FirebaseFunctionsException(code: 'unavailable', message: 'UNAVAILABLE'),
+      // The web with no response at all (Firebase JS SDK 12).
+      FirebaseFunctionsException(code: 'internal', message: 'internal [0]'),
       http.ClientException('Failed to fetch'),
       TimeoutException('no answer'),
     ]) {
@@ -41,6 +43,19 @@ void main() {
       ),
     );
     expect(autofill.failure, ReceiptOcrFailure.failed);
+  });
+
+  test('the OCR provider failing is a failed scan, not offline', () async {
+    for (final error in <Object>[
+      FirebaseFunctionsException(
+        code: 'unavailable',
+        message: 'Provider request failed.',
+      ),
+      FirebaseFunctionsException(code: 'internal', message: 'INTERNAL'),
+    ]) {
+      final autofill = await scan(() async => throw error);
+      expect(autofill.failure, ReceiptOcrFailure.failed, reason: '$error');
+    }
   });
 
   test('a local-only build needs the cloud', () async {

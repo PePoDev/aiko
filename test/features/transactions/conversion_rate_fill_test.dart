@@ -22,7 +22,20 @@ void main() {
         quote: FxQuote.live(Decimal.parse('0.03')),
         current: (text: '0.0275', note: null),
       );
-      expect(fill.text, '0.0300');
+      expect(fill.text, '0.03');
+    });
+
+    test('keeps the full rate, not four decimals', () {
+      final fill = fillConversionRate(
+        quote: FxQuote.live(Decimal.parse('0.004955')),
+        current: empty,
+      );
+      expect(fill.text, '0.004955');
+      final saved = fillConversionRate(
+        quote: FxQuote.saved(Decimal.parse('0.0049553321'), savedAt),
+        current: empty,
+      );
+      expect(saved.text, '0.0049553321');
     });
 
     test('a saved rate fills an empty field and says how old it is', () {
@@ -60,6 +73,28 @@ void main() {
           current: typed,
         ),
         typed,
+      );
+    });
+  });
+
+  group('formatConversionRate', () {
+    test('four decimals from 1 up, four significant digits below', () {
+      expect(formatConversionRate(Decimal.parse('36.5')), '36.5000');
+      expect(formatConversionRate(Decimal.parse('0.004955')), '0.004955');
+      expect(formatConversionRate(Decimal.parse('0.0275')), '0.02750');
+    });
+  });
+
+  group('convertAtRate', () {
+    test('converts with the full rate and rounds to cents', () {
+      // ¥150,000 at 0.004955 is £743.25, not £750.00 at a rounded 0.0050.
+      expect(
+        convertAtRate(Decimal.parse('150000'), Decimal.parse('0.004955')),
+        Decimal.parse('743.25'),
+      );
+      expect(
+        convertAtRate(Decimal.parse('100'), Decimal.parse('36.3636363636')),
+        Decimal.parse('3636.36'),
       );
     });
   });

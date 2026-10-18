@@ -1003,6 +1003,7 @@ final portfolioAllocationProvider =
       final valued = valueHoldingsIn(holdings, CurrencyConverter.from(rates));
       final result = const AllocationService().build(
         valued.holdings,
+        baseCurrency: baseCurrency,
         leftOut: valued.excludedHoldings,
         ratesAsOf: valued.ratesAsOf,
       );

@@ -69,6 +69,10 @@ enum ChatFailure {
   /// Local-only build: chat needs Aiko cloud.
   offline,
 
+  /// Nobody is signed in (a guest on a cloud build): Aiko cloud only answers
+  /// signed-in users, so nothing was sent.
+  signInRequired,
+
   /// No connection (the request never reached Aiko).
   network,
 
@@ -85,6 +89,7 @@ extension ChatFailureRetry on ChatFailure {
   /// local-only mode need the user to act elsewhere first.
   bool get isRetryable => switch (this) {
     ChatFailure.signInExpired ||
+    ChatFailure.signInRequired ||
     ChatFailure.forbidden ||
     ChatFailure.offline => false,
     ChatFailure.rateLimited ||
@@ -119,11 +124,14 @@ class HttpChatEngine {
   /// Opening the connection (Android and iOS; the browser has its own).
   final Duration connectTimeout;
 
-  /// Until Aiko starts answering. Generous: Aiko may look up data before
-  /// the first words, and only starts sending then.
+  /// Until the response starts. Aiko cloud sends its headers as soon as it
+  /// has checked the sign-in and starts on the answer, so this only measures
+  /// whether it can be reached.
   final Duration responseTimeout;
 
-  /// The longest gap between two parts of an answer.
+  /// The longest gap between two parts of an answer. While Aiko looks data
+  /// up before the first words, the server sends a keep-alive comment every
+  /// 15 s.
   final Duration idleTimeout;
 
   /// [locale] (for example `th`) tells Aiko which language to answer in.
@@ -140,6 +148,15 @@ class HttpChatEngine {
 
     unawaited(() async {
       final buffer = StringBuffer();
+      if (cloudFeatureNeedsSignIn()) {
+        // Nothing is sent for a guest: the server would refuse it anyway.
+        controller.add(
+          const ChatReplyError(ChatFailure.signInRequired, retryable: false),
+        );
+        await controller.close();
+        if (_client == null) client.close();
+        return;
+      }
       try {
         final request = http.Request('POST', Uri.parse(functionUrl))
           ..headers['Content-Type'] = 'application/json'

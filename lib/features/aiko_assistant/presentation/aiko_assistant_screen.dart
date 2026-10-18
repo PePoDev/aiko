@@ -188,6 +188,7 @@ class _AikoAssistantScreenState extends ConsumerState<AikoAssistantScreen> {
             onChanged: (_) => setState(() {}),
           ),
           if (state.offline) const _OfflineNotice(),
+          if (state.needsSignIn) const _SignInNotice(),
         ],
       ),
     );
@@ -685,6 +686,36 @@ class _OfflineNotice extends StatelessWidget {
               context.l10n.chatNeedsCloud,
               style: TextStyle(fontSize: 12, color: AikoColors.deepBlue),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// For a guest: Ask Aiko needs an account, with a way to sign in.
+class _SignInNotice extends StatelessWidget {
+  const _SignInNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+      color: AikoColors.paleBlue,
+      child: Row(
+        children: [
+          const Icon(Icons.lock_outline, size: 16, color: AikoColors.deepBlue),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              context.l10n.netChatNeedsSignIn,
+              style: const TextStyle(fontSize: 12, color: AikoColors.deepBlue),
+            ),
+          ),
+          TextButton(
+            onPressed: () => context.push('/auth'),
+            child: Text(context.l10n.authLogIn),
           ),
         ],
       ),

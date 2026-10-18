@@ -708,12 +708,15 @@ class AssetAllocationScreen extends ConsumerWidget {
               for (final holding in allocation.leftOut)
                 '${holding.symbol} (${holding.currency})',
             ];
+            // With every holding left out there is no total and no mix to
+            // chart, only the note naming them.
+            final nothingCounted = allocation.nothingCounted;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 AikoMetricCard(
                   label: context.l10n.allocationTotalPortfolio,
-                  value: allocation.total.format(),
+                  value: nothingCounted ? '—' : allocation.total.format(),
                   icon: Icons.pie_chart_outline,
                   accentColor: AikoColors.analyticsTeal,
                 ),
@@ -728,40 +731,42 @@ class AssetAllocationScreen extends ConsumerWidget {
                       ratesAsOf: allocation.ratesAsOf,
                     ),
                   ),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: AikoDonutChart(
-                      values: allocation.slices
-                          .map((s) => s.value.amount.toDouble())
-                          .toList(),
-                      colors: [
-                        for (var i = 0; i < allocation.slices.length; i++)
-                          _allocationPalette[i % _allocationPalette.length],
-                      ],
-                      centerLabel: context.l10n.holdingsCount(
-                        allocation.holdingCount,
+                if (!nothingCounted) ...[
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: AikoDonutChart(
+                        values: allocation.slices
+                            .map((s) => s.value.amount.toDouble())
+                            .toList(),
+                        colors: [
+                          for (var i = 0; i < allocation.slices.length; i++)
+                            _allocationPalette[i % _allocationPalette.length],
+                        ],
+                        centerLabel: context.l10n.holdingsCount(
+                          allocation.holdingCount,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                AikoDataListCard(
-                  title: context.l10n.allocationTitle,
-                  rows: [
-                    for (var i = 0; i < allocation.slices.length; i++)
-                      AikoDataRow(
-                        label: investmentAssetClassLabel(
-                          allocation.slices[i].assetClass,
-                          context.l10n,
+                  AikoDataListCard(
+                    title: context.l10n.allocationTitle,
+                    rows: [
+                      for (var i = 0; i < allocation.slices.length; i++)
+                        AikoDataRow(
+                          label: investmentAssetClassLabel(
+                            allocation.slices[i].assetClass,
+                            context.l10n,
+                          ),
+                          value:
+                              '${allocation.slices[i].percent.toStringAsFixed(1)}%',
+                          subtitle: allocation.slices[i].value.format(),
+                          color:
+                              _allocationPalette[i % _allocationPalette.length],
                         ),
-                        value:
-                            '${allocation.slices[i].percent.toStringAsFixed(1)}%',
-                        subtitle: allocation.slices[i].value.format(),
-                        color:
-                            _allocationPalette[i % _allocationPalette.length],
-                      ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ],
             );
           },

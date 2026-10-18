@@ -511,12 +511,16 @@
       }
     }
   },
+  "netRateFetching": "Getting the exchange rate. Please save again in a moment.",
   "netChatTimedOut": "Aiko is taking too long to answer. Your connection may be slow; tap retry to try again.",
   "netChatCutOff": "This answer was cut off before it finished. Tap retry for the full answer.",
   "netChatAnswerIncomplete": "(Answer cut off)",
+  "netChatNeedsSignIn": "Sign in to chat with Aiko. Nothing you ask is sent until you do.",
   "netReceiptOffline": "You're offline, so Aiko couldn't read the receipt. The photo is attached; enter the details yourself or scan again when you're back online.",
   "netReceiptNeedsCloud": "Receipt photo attached. Reading receipts needs Aiko cloud, so please enter the details yourself.",
+  "netReceiptNeedsSignIn": "Receipt photo attached. Sign in to have Aiko read receipts; for now, please enter the details yourself.",
   "netPricesOffline": "You're offline, so live prices can't refresh. Holdings show their last saved prices.",
+  "netPricesNeedSignIn": "Sign in to refresh live prices. Until then, edit a holding to update its price.",
   "netPricesUpdatedAt": "Prices last updated {time}.",
   "@netPricesUpdatedAt": {
     "placeholders": {

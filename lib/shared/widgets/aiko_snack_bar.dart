@@ -37,6 +37,46 @@ SnackBar aikoSnackBar(
   );
 }
 
+/// A page [Scaffold] with snack bars of its own, shown once and inside the
+/// page.
+///
+/// The app's [ScaffoldMessenger] shows a snack bar on every [Scaffold] that
+/// isn't inside another one. A page opened with `openAikoPage` in the
+/// expanded layout is a dialog over the shell, so a snack bar it shows
+/// through that messenger appears twice: in the dialog and behind it. Show
+/// the page's own messages with `messengerKey.currentState` instead; they
+/// appear over [body]. Messages meant to outlive the page (e.g. "Saved"
+/// right before it closes) still go to the app's messenger.
+class AikoPageScaffold extends StatelessWidget {
+  const AikoPageScaffold({
+    required this.messengerKey,
+    required this.body,
+    this.appBar,
+    super.key,
+  });
+
+  final GlobalKey<ScaffoldMessengerState> messengerKey;
+  final PreferredSizeWidget? appBar;
+  final Widget body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: appBar,
+      body: ScaffoldMessenger(
+        key: messengerKey,
+        // Only hosts the page's snack bars, over the body.
+        child: Scaffold(
+          primary: false,
+          backgroundColor: Colors.transparent,
+          resizeToAvoidBottomInset: false,
+          body: body,
+        ),
+      ),
+    );
+  }
+}
+
 /// Shows [aikoSnackBar] in the nearest [ScaffoldMessenger].
 void showAikoSnackBar(
   BuildContext context,

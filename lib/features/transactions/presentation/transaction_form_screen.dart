@@ -5,6 +5,7 @@ import '../../../core/storage/local_file_cache.dart';
 import '../../../l10n/domain_labels.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/layout/adaptive_presentation.dart';
+import '../../../shared/widgets/aiko_snack_bar.dart' show AikoPageScaffold;
 import '../../../shared/widgets/discard_changes_guard.dart';
 import '../../../shared/widgets/fx_rates_note.dart' show ratesAsOfLabel;
 import '../../categories/presentation/category_names.dart';
@@ -116,6 +117,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   // it); null when it is live, typed or the stored pair's own.
   FxQuote? _rateNote;
   FxQuote? _toRateNote;
+
+  /// The form's own snack bars (see [AikoPageScaffold]): shown once, inside
+  /// the form, also when it is a dialog in the expanded layout.
+  final _formMessengerKey = GlobalKey<ScaffoldMessengerState>();
+  ScaffoldMessengerState get _formMessenger =>
+      _formMessengerKey.currentState ?? ScaffoldMessenger.of(context);
   DateTime _selectedDate = DateTime.now();
   String? _selectedCategoryId;
   String? _selectedAccountId;
@@ -693,6 +700,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       final message = switch (autofill.failure) {
         ReceiptOcrFailure.offline => context.l10n.netReceiptOffline,
         ReceiptOcrFailure.needsCloud => context.l10n.netReceiptNeedsCloud,
+        ReceiptOcrFailure.needsSignIn => context.l10n.netReceiptNeedsSignIn,
         ReceiptOcrFailure.failed => context.l10n.txReceiptScanFailed,
         null => context.l10n.txReceiptLimitedFields,
       };
@@ -834,7 +842,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   /// (fetched, typed or stored) unless [refresh], so it's safe to call from
   /// every relevant change/build; on failure the pair stays marked so it
   /// isn't retried in a loop. Returns the quote, or null when nothing was
-  /// asked.
+  /// asked or the pair changed before it arrived.
   Future<FxQuote?> _maybeAutofillRate(
     String? accountCurrency, {
     bool refresh = false,
@@ -860,7 +868,23 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         : _exchangeRateController;
     final fetching = destination ? _isFetchingToRate : _isFetchingRate;
     final filledPair = destination ? _fetchedToRatePair : _fetchedRatePair;
-    if (fetching || (!refresh && filledPair == pair)) {
+    if (fetching) {
+      if (filledPair != pair) {
+        // The pair changed while a fetch (e.g. a refresh) runs for the old
+        // one: its rate must not stay in the field meanwhile. When that
+        // fetch ends it sees the change and fetches this pair.
+        setState(() {
+          controller.clear();
+          if (destination) {
+            _toRateNote = null;
+          } else {
+            _rateNote = null;
+          }
+        });
+      }
+      return null;
+    }
+    if (!refresh && filledPair == pair) {
       return null;
     }
 
@@ -918,6 +942,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       unawaited(
         _autofillRate(latestCurrency, destination: destination, refresh: false),
       );
+      return null;
     }
     return quote;
   }
@@ -929,7 +954,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     bool destination = false,
   }) async {
     final l10n = context.l10n;
-    final messenger = ScaffoldMessenger.of(context);
     final controller = destination
         ? _toExchangeRateController
         : _exchangeRateController;
@@ -944,7 +968,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     final message = switch (quote.failure) {
       _ when quote.isLive => l10n.netRateRefreshed(
         from,
-        rate!.toStringAsFixed(4),
+        formatConversionRate(rate!),
         accountCurrency,
       ),
       FxRateFailure.offline when wasEmpty && savedAt != null =>
@@ -952,7 +976,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       FxRateFailure.offline => l10n.netRateRefreshOffline,
       _ => l10n.netRateRefreshFailed,
     };
-    messenger.showSnackBar(
+    _formMessenger.showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
@@ -1011,7 +1035,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
     setState(() {
-      rateController.text = rate.toStringAsFixed(4);
+      // As typed: the amount is converted with the full rate.
+      rateController.text = rate.toString();
       // A manual rate sticks — don't let an auto-fetch overwrite it.
       if (destination) {
         _fetchedToRatePair = '$_selectedCurrency>$accountCurrency';
@@ -1335,7 +1360,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   void _showFormError(String message, {Color color = AikoColors.dangerRed}) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    _formMessenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
@@ -1436,6 +1461,15 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     var effectiveAmount = amount;
     var effectiveCurrency = _selectedCurrency;
     if (accountCurrency != null && accountCurrency != _selectedCurrency) {
+      // The field may still hold another pair's rate while one is fetched.
+      if (_isFetchingRate ||
+          _fetchedRatePair != '$_selectedCurrency>$accountCurrency') {
+        _showFormError(
+          context.l10n.netRateFetching,
+          color: AikoColors.warningOrange,
+        );
+        return;
+      }
       final rate = Decimal.tryParse(_exchangeRateController.text.trim());
       if (rate == null || rate <= Decimal.zero) {
         _showFormError(
@@ -1444,7 +1478,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         );
         return;
       }
-      effectiveAmount = amount * rate;
+      effectiveAmount = convertAtRate(amount, rate);
       effectiveCurrency = accountCurrency;
     }
 
@@ -1486,6 +1520,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       var inAmount = amount;
       var inCurrency = _selectedCurrency;
       if (toCurrency != null && toCurrency != _selectedCurrency) {
+        if (_isFetchingToRate ||
+            _fetchedToRatePair != '$_selectedCurrency>$toCurrency') {
+          _showFormError(
+            context.l10n.netRateFetching,
+            color: AikoColors.warningOrange,
+          );
+          return;
+        }
         final rate = Decimal.tryParse(_toExchangeRateController.text.trim());
         if (rate == null || rate <= Decimal.zero) {
           _showFormError(
@@ -1494,7 +1536,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           );
           return;
         }
-        inAmount = amount * rate;
+        inAmount = convertAtRate(amount, rate);
         inCurrency = toCurrency;
       }
       await _submitTransferPair(
@@ -1902,7 +1944,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     return AikoDiscardChangesGuard(
       hasUnsavedChanges: _hasUnsavedChanges,
-      child: Scaffold(
+      child: AikoPageScaffold(
+        messengerKey: _formMessengerKey,
         appBar: AppBar(
           title: Text(
             widget.initialTransaction == null
@@ -2620,7 +2663,8 @@ class _CurrencyConversionPrompt extends StatelessWidget {
             final rate = Decimal.tryParse(exchangeRateController.text.trim());
             final amount = parseAmountInput(amountController.text);
             final preview = (rate != null && amount != null)
-                ? '≈ ${(amount * rate).toStringAsFixed(2)} $accountCurrency'
+                ? '≈ ${convertAtRate(amount, rate).toStringAsFixed(2)} '
+                      '$accountCurrency'
                 : null;
 
             return Row(
@@ -2651,7 +2695,7 @@ class _CurrencyConversionPrompt extends StatelessWidget {
                             onTap: onEditRate,
                             child: Text(
                               // l10n-ignore: a number and a currency code.
-                              '${rate?.toStringAsFixed(4) ?? '—'} $accountCurrency',
+                              '${rate == null ? '—' : formatConversionRate(rate)} $accountCurrency',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: primary,
                                 fontWeight: FontWeight.w700,

@@ -1,3 +1,5 @@
+import 'package:decimal/decimal.dart';
+
 import '../../../core/money/exchange_rates.dart';
 
 /// How the transaction form shows one conversion leg's rate: the text in the
@@ -15,15 +17,30 @@ typedef ConversionRateFill = ({String text, FxQuote? note});
 ///
 /// A refresh that fails keeps a rate the field already shows (typed by the
 /// user, or fetched earlier).
+///
+/// The field keeps the rate's full precision, since the amount is converted
+/// with it: 1 JPY = 0.004955 GBP rounded to 0.0050 would be 1% off.
 ConversionRateFill fillConversionRate({
   required FxQuote quote,
   required ConversionRateFill current,
 }) {
   final rate = quote.rate;
   if (rate != null && quote.isLive) {
-    return (text: rate.toStringAsFixed(4), note: null);
+    return (text: rate.toString(), note: null);
   }
   if (current.text.trim().isNotEmpty) return current;
-  if (rate != null) return (text: rate.toStringAsFixed(4), note: quote);
+  if (rate != null) return (text: rate.toString(), note: quote);
   return (text: '', note: quote);
 }
+
+/// [rate] for display: four decimals (36.5000), or four significant digits
+/// for a rate below 1 (0.004955 rather than 0.0050).
+String formatConversionRate(Decimal rate) =>
+    rate >= Decimal.one || rate <= Decimal.zero
+    ? rate.toStringAsFixed(4)
+    : rate.toStringAsPrecision(4);
+
+/// [amount] in the account's currency at [rate], rounded to cents like the
+/// "Saves as" preview.
+Decimal convertAtRate(Decimal amount, Decimal rate) =>
+    (amount * rate).round(scale: 2);

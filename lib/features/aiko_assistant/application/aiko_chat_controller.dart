@@ -25,6 +25,7 @@ class ChatState {
     this.isStreaming = false,
     this.lastError,
     this.offline = false,
+    this.needsSignIn = false,
   });
 
   final List<ChatMessage> messages;
@@ -34,6 +35,10 @@ class ChatState {
   /// True when Firebase isn't configured, so Aiko answers on-device using the
   /// rule-based engine instead of the cloud function.
   final bool offline;
+
+  /// True for a guest (a cloud build with nobody signed in): chat needs an
+  /// account, and nothing is sent until they sign in.
+  final bool needsSignIn;
 
   bool get isEmpty => messages.length <= 1 && !messages.any((m) => m.isUser);
 
@@ -51,6 +56,7 @@ class ChatState {
       isStreaming: isStreaming ?? this.isStreaming,
       lastError: clearError ? null : (lastError ?? this.lastError),
       offline: offline ?? this.offline,
+      needsSignIn: needsSignIn,
     );
   }
 }
@@ -64,6 +70,21 @@ final aikoChatOfflineProvider = Provider<bool>(
   (ref) => !FirebaseBackend.isConfigured,
 );
 
+/// True for a guest (a cloud build with nobody signed in): Aiko cloud only
+/// answers signed-in users, so the chat asks them to sign in instead of
+/// sending their question and financial snapshot. Follows sign-in and
+/// sign-out.
+final aikoChatNeedsSignInProvider = Provider<bool>((ref) {
+  final auth = FirebaseBackend.auth;
+  if (auth == null) return false;
+  final needsSignIn = cloudFeatureNeedsSignIn();
+  final subscription = auth.authStateChanges().listen((user) {
+    if ((user == null) != needsSignIn) ref.invalidateSelf();
+  });
+  ref.onDispose(subscription.cancel);
+  return needsSignIn;
+});
+
 final aikoChatControllerProvider =
     NotifierProvider<AikoChatController, ChatState>(AikoChatController.new);
 
@@ -74,10 +95,15 @@ class AikoChatController extends Notifier<ChatState> {
   @override
   ChatState build() {
     final offline = ref.watch(aikoChatOfflineProvider);
+    final needsSignIn = !offline && ref.watch(aikoChatNeedsSignInProvider);
     ref.onDispose(() {
       _subscription?.cancel();
     });
-    return ChatState(offline: offline, messages: const [_greeting]);
+    return ChatState(
+      offline: offline,
+      needsSignIn: needsSignIn,
+      messages: const [_greeting],
+    );
   }
 
   void send(String text) {
@@ -132,6 +158,13 @@ class AikoChatController extends Notifier<ChatState> {
     if (state.offline) {
       // ponytail: chat needs the cloud engine; on-device answering is gone.
       _handleEvent(const ChatReplyError(ChatFailure.offline, retryable: false));
+      return;
+    }
+    if (state.needsSignIn) {
+      // Nothing about the guest's money leaves the device.
+      _handleEvent(
+        const ChatReplyError(ChatFailure.signInRequired, retryable: false),
+      );
       return;
     }
     final context = await buildAikoFinancialContext(ref);
@@ -235,6 +268,7 @@ class AikoChatController extends Notifier<ChatState> {
     if (error is ChatFailure) {
       return switch (error) {
         ChatFailure.signInExpired => l10n.chatErrorSignInExpired,
+        ChatFailure.signInRequired => l10n.netChatNeedsSignIn,
         ChatFailure.forbidden => l10n.chatErrorForbidden,
         ChatFailure.rateLimited => l10n.chatErrorRateLimited,
         ChatFailure.unavailable => l10n.chatErrorUnavailable,

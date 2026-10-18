@@ -45,6 +45,34 @@ void main() {
       },
     );
 
+    test('skips the keep-alive comments sent before the first words', () async {
+      final client = MockClient.streaming((request, stream) async {
+        return http.StreamedResponse(
+          Stream.fromIterable([
+            utf8.encode(': ok\n\n'),
+            utf8.encode(': ping\n\n'),
+            utf8.encode('data: {"delta":"Hi"}\n\n'),
+            utf8.encode('data: {"done":true}\n\n'),
+          ]),
+          200,
+          headers: {'content-type': 'text/event-stream'},
+        );
+      });
+      final engine = HttpChatEngine(
+        functionUrl: 'https://example.test/functions/v1/aiko-chat',
+        client: client,
+      );
+
+      final events = await engine
+          .streamReply(
+            history: const [ChatMessage(role: 'user', content: 'x')],
+          )
+          .toList();
+
+      expect(events.whereType<ChatReplyError>(), isEmpty);
+      expect(events.whereType<ChatReplyDone>().single.fullText, 'Hi');
+    });
+
     test('surfaces 401 as a non-retryable error', () async {
       final client = MockClient((_) async => http.Response('nope', 401));
       final engine = HttpChatEngine(

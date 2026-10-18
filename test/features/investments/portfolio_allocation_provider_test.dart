@@ -99,6 +99,8 @@ void main() {
     expect(allocation.holdingCount, 0);
     expect(allocation.hasHoldings, isTrue);
     expect(allocation.leftOut, hasLength(1));
+    // Nothing counted: the (zero) total is in the base currency, not USD.
+    expect(allocation.total, Money.zero('THB'));
   });
 
   test('saved rates say how old they are', () async {

@@ -200,7 +200,8 @@ class FileSyncQueue {
     FirebaseRemoteFileStore.configureRetries(FirebaseBackend.storage);
     followUser(auth.authStateChanges().map((user) => user?.uid));
     WidgetsBinding.instance.addObserver(_ResumeObserver(this));
-    followNetwork(const PlatformNetworkMonitor().onlineChanges);
+    const network = PlatformNetworkMonitor();
+    followNetwork(network.onlineChanges, initiallyOnline: network.isOnline());
   }
 
   /// Follows who is signed in ([users]: their ids, null when signed out). A
@@ -217,9 +218,22 @@ class FileSyncQueue {
   /// Runs a pass with a fresh backoff whenever [online] reports the device
   /// back online, instead of waiting for the backoff timer. Back from
   /// offline, an upload still running is cancelled and starts again at once,
-  /// instead of waiting out Storage's own retries.
-  StreamSubscription<bool> followNetwork(Stream<bool> online) {
+  /// instead of waiting out Storage's own retries. [initiallyOnline] is the
+  /// status before the first change (the web reports changes only), so an
+  /// app that started offline counts as coming back too.
+  StreamSubscription<bool> followNetwork(
+    Stream<bool> online, {
+    Future<bool>? initiallyOnline,
+  }) {
     bool? wasOnline;
+    if (initiallyOnline != null) {
+      unawaited(
+        initiallyOnline.then<void>((isOnline) {
+          // A change reported first is newer.
+          wasOnline ??= isOnline;
+        }, onError: (Object _) {}),
+      );
+    }
     return online.listen((isOnline) {
       if (isOnline && wasOnline == false && _running != null) {
         if (remote.cancelUploads()) _restartJob = true;

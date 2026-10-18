@@ -372,6 +372,39 @@ void main() {
       },
     );
 
+    test('also starts again when the app started offline (the web reports '
+        'changes only)', () async {
+      final network = StreamController<bool>();
+      addTearDown(network.close);
+      uploads.followNetwork(
+        network.stream,
+        initiallyOnline: Future.value(false),
+      );
+      await startUploading();
+
+      network.add(true);
+      await pumpEventQueue();
+
+      expect(remote.cancelled, 1);
+      expect(remote.calls, ['put users/uid-1/a', 'put users/uid-1/a']);
+    });
+
+    test('not when the app started online', () async {
+      final network = StreamController<bool>();
+      addTearDown(network.close);
+      uploads.followNetwork(
+        network.stream,
+        initiallyOnline: Future.value(true),
+      );
+      await startUploading();
+
+      network.add(true);
+      await pumpEventQueue();
+
+      expect(remote.cancelled, 0);
+      expect(remote.calls, ['put users/uid-1/a']);
+    });
+
     test('is cancelled when its owner signs out; the job waits for them, '
         'unchanged', () async {
       users.add('uid-1');

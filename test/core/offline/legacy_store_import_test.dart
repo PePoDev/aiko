@@ -337,6 +337,33 @@ void main() {
     expect(coffee.amount, '65.5');
   });
 
+  test('an old database that fails to import stops startup a few times, '
+      'then lets the app start', () async {
+    // Not a database: every read of it fails.
+    await File(legacyPath).writeAsString('not a database, just text ' * 100);
+
+    for (var i = 0; i < LegacyStoreImport.maxBlockingFailures; i++) {
+      await expectLater(importer().run(), throwsA(anything));
+    }
+    expect(await importer().run(), 0);
+    expect(await importer().run(), 0);
+    // Kept for the retry at the next start.
+    expect(await factory.databaseExists(legacyPath), isTrue);
+  });
+
+  test(
+    'a failed import leaves nothing that would hide the old records',
+    () async {
+      await File(legacyPath).writeAsString('not a database, just text ' * 100);
+      await expectLater(importer().run(), throwsA(anything));
+      await File(legacyPath).delete();
+      await createLegacy(_latestSchema, _latestRows);
+
+      expect(await importer().run(), 8);
+      expect((await records.get<OfflineProfile>()).single.baseCurrency, 'JPY');
+    },
+  );
+
   test('without an old database nothing happens', () async {
     expect(await importer().run(), 0);
     expect(await target.rows('accounts'), isEmpty);

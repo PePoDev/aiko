@@ -2,6 +2,7 @@ import '../../../core/offline/offline_store.dart';
 import '../../../core/offline/offline_user_context.dart';
 import '../../../core/offline/records/records.dart';
 import '../domain/category.dart';
+import '../domain/category_defaults.dart';
 
 class CategoryGroupRepository {
   const CategoryGroupRepository({
@@ -26,20 +27,29 @@ class CategoryGroupRepository {
     );
 
     final domain = groups.map((group) => group.toDomain()).toList();
-    domain.sort(_compareGroups);
+    domain.sort(compareGroups);
     return domain;
   }
 
+  /// Saves [group]. A custom group can't take the name of another group,
+  /// default groups included (a guest's list holds only the defaults they
+  /// edited). Only a new name is checked: a group that already shares its
+  /// name (made on two devices while offline, or brought in from a guest)
+  /// can still be edited.
   Future<CategoryGroup> save(CategoryGroup group) async {
     // Built-in clones keep canonical identity and only their budget is edited.
     if (!group.isSystem) {
       final currentList = await list();
-      final duplicate = currentList.any(
-        (item) =>
-            item.id != group.id &&
-            item.name.toLowerCase() == group.name.toLowerCase(),
-      );
-      if (duplicate) {
+      final name = group.name.toLowerCase();
+      final stored = currentList.where((item) => item.id == group.id);
+      final renamed = stored.isEmpty || stored.first.name.toLowerCase() != name;
+      final taken = {
+        for (final item in currentList)
+          if (item.id != group.id) item.name.toLowerCase(),
+        for (final template in CategoryGroupDefaults.all)
+          template.name.toLowerCase(),
+      };
+      if (renamed && taken.contains(name)) {
         throw ArgumentError('A group with this name already exists.');
       }
     }
@@ -73,7 +83,8 @@ class CategoryGroupRepository {
     }
   }
 
-  int _compareGroups(CategoryGroup a, CategoryGroup b) {
+  /// The order groups are listed in.
+  static int compareGroups(CategoryGroup a, CategoryGroup b) {
     final bySort = a.sortOrder.compareTo(b.sortOrder);
     if (bySort != 0) {
       return bySort;

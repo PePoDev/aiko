@@ -26,6 +26,7 @@ import '../../../theme/aiko_colors.dart';
 import '../../../theme/aiko_status_colors.dart';
 import '../application/profile_avatar_service.dart';
 import '../data/line_link_repository.dart';
+import '../data/profile_repository.dart';
 import '../domain/profile.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/data/connection_errors.dart';
@@ -50,6 +51,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _emailController = TextEditingController();
 
   late Profile _draft;
+
+  /// What the form was filled from (then last saved): Save writes only what
+  /// changed since, so a form filled before the real profile arrived can't
+  /// put its stand-in values over it.
+  late Profile _formBase;
 
   /// A photo picked but not saved yet; it replaces the saved avatar on Save.
   PendingAvatar? _pendingAvatar;
@@ -79,6 +85,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _populateFrom(Profile profile) {
     if (_initialised) return;
     _draft = profile;
+    _formBase = profile;
     _displayNameController.text = profile.displayName;
     _fullNameController.text = profile.fullName ?? '';
     _phoneController.text = profile.phoneNumber ?? '';
@@ -136,17 +143,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         avatarPath = null;
         avatarUrl = null;
       }
-      final next = current.copyWith(
+      final edited = current.copyWith(
         displayName: _displayNameController.text.trim(),
         fullName: () => _nullIfBlank(_fullNameController.text),
         phoneNumber: () => _nullIfBlank(_phoneController.text),
         gender: _draft.gender,
         dateOfBirth: () => _draft.dateOfBirth,
-        avatarPath: () => avatarPath,
-        avatarUrl: () => avatarUrl,
         baseCurrency: _draft.baseCurrency,
       );
+      // Only what was changed on this form goes over the stored profile: the
+      // form may have been filled before the real profile reached this device.
+      final next = withProfileChanges(
+        stored,
+        profileChanges(_formBase, edited),
+      ).copyWith(avatarPath: () => avatarPath, avatarUrl: () => avatarUrl);
       await repo.save(next);
+      _formBase = edited;
       if (committed != null) await _avatarService.queueUpload(committed);
       if (pending == null && _photoRemoved && stored.hasAvatar) {
         // "Remove photo" takes effect now that it's saved; the cloud copy is
@@ -421,7 +433,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     // watches sign-outs), so hold on to the container, not this widget's ref.
     final container = ProviderScope.containerOf(context, listen: false);
     setState(() => _isSigningOut = true);
-    if (await _authRepository.hasPendingWrites()) {
+    // Files (attachments, the photo) wait in their own upload queue.
+    if (await _authRepository.hasUnsyncedChanges()) {
       if (!mounted) return;
       if (!await _confirmLogoutWithPendingChanges()) {
         if (mounted) setState(() => _isSigningOut = false);

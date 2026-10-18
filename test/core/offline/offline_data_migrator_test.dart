@@ -5,9 +5,11 @@ import 'package:aiko/core/offline/offline_store.dart';
 import 'package:aiko/core/offline/records/records.dart';
 import 'package:aiko/core/storage/local_record_store.dart';
 import 'package:aiko/features/categories/domain/category_defaults.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../storage/offline_firestore.dart';
 import 'record_store_harness.dart';
 
 const _localUserId = 'local:test-user';
@@ -145,6 +147,201 @@ void main() {
       expect(claimed.every((row) => row['user_id'] == _realUserId), isTrue);
     });
 
+    CollectionReference<Map<String, dynamic>> cloud(String collection) =>
+        firestore.collection('users').doc(_realUserId).collection(collection);
+
+    String groceriesCloneId() => CategoryDefaults.cloneIdForUser(
+      userId: _realUserId,
+      templateId: CategoryDefaults.groceriesId,
+    );
+
+    /// The account's clone of Groceries, stamped by an older app version.
+    Future<void> accountGroceries({String? budget}) => cloud('categories')
+        .doc(groceriesCloneId())
+        .set(
+          RecordCodecs.categories.toRow(
+            CategoryDefaults.cloneForUser(
+              userId: _realUserId,
+              template: CategoryDefaults.byId[CategoryDefaults.groceriesId]!,
+            ).toOffline(userId: _realUserId).withBudget(budget),
+          ),
+        );
+
+    OfflineCategory guestCategory(
+      String id,
+      String name, {
+      String? groupId,
+      String? budget,
+    }) => OfflineCategory(
+      id: id,
+      userId: _localUserId,
+      name: name,
+      type: 'expense',
+      categoryGroup: 'custom',
+      groupId: groupId,
+      budgetAmount: budget,
+      budgetCurrency: budget == null ? null : 'THB',
+    );
+
+    test('a guest budget on a default goes on the account\'s clone, budget '
+        'fields only, apart from the guest\'s own categories', () async {
+      await accountGroceries();
+      final store = _ClaimStore(local, firestore: firestore);
+      await store.commit(
+        RecordBatch()..addAll([
+          guestCategory(
+            CategoryDefaults.groceriesId,
+            'Groceries',
+            budget: '3000',
+          ),
+          guestCategory('pets', 'Pets'),
+        ]),
+        localOnly: true,
+      );
+
+      await OfflineDataMigrator(
+        store: store,
+        firestore: firestore,
+      ).claimAnonymousData(_realUserId);
+      await pumpEventQueue();
+
+      // Separate batches: a refused budget can't hold up "Pets".
+      expect(store.remoteBatchSizes, [1, 1]);
+      final clone = (await cloud(
+        'categories',
+      ).doc(groceriesCloneId()).get()).data()!;
+      expect(clone['budget_amount'], '3000');
+      expect(clone['created_at'], '2026-01-05T00:00:00.000Z');
+      expect(clone['template_id'], CategoryDefaults.groceriesId);
+      expect((await cloud('categories').doc('pets').get()).exists, isTrue);
+      expect(await local.rows('categories'), isEmpty);
+    });
+
+    test('a budget the account set on a default stays', () async {
+      await accountGroceries(budget: '5000');
+      final store = _ClaimStore(local, firestore: firestore);
+      await store.commit(
+        RecordBatch()..upsert(
+          guestCategory(
+            CategoryDefaults.groceriesId,
+            'Groceries',
+            budget: '3000',
+          ),
+        ),
+        localOnly: true,
+      );
+
+      await OfflineDataMigrator(
+        store: store,
+        firestore: firestore,
+      ).claimAnonymousData(_realUserId);
+      await pumpEventQueue();
+
+      final clone = (await cloud(
+        'categories',
+      ).doc(groceriesCloneId()).get()).data()!;
+      expect(clone['budget_amount'], '5000');
+      expect(store.remoteBatchSizes, isEmpty);
+      expect(await local.rows('categories'), isEmpty);
+    });
+
+    test('while the account\'s clone can\'t be read, the guest budget waits '
+        'for a later claim', () async {
+      final store = _ClaimStore(local, firestore: firestore);
+      await store.commit(
+        RecordBatch()..addAll([
+          guestCategory(
+            CategoryDefaults.groceriesId,
+            'Groceries',
+            budget: '3000',
+          ),
+          guestCategory('pets', 'Pets'),
+        ]),
+        localOnly: true,
+      );
+
+      await OfflineDataMigrator(
+        store: store,
+        // Reads of single documents never answer.
+        firestore: OfflineFirestore(),
+        serverTimeout: const Duration(milliseconds: 20),
+      ).claimAnonymousData(_realUserId);
+      await pumpEventQueue();
+
+      expect(
+        (await cloud('categories').doc(groceriesCloneId()).get()).exists,
+        isFalse,
+      );
+      expect((await cloud('categories').doc('pets').get()).exists, isTrue);
+      final left = await store.get<OfflineCategory>(localOnly: true);
+      expect(left.single.id, CategoryDefaults.groceriesId);
+      expect(left.single.userId, _localUserId);
+    });
+
+    test('a custom category or group named like the account\'s becomes that '
+        'one', () async {
+      await cloud('category_groups')
+          .doc('account-kids')
+          .set(
+            RecordCodecs.categoryGroups.toRow(
+              OfflineCategoryGroup(
+                id: 'account-kids',
+                userId: _realUserId,
+                name: 'Kids',
+                icon: 'child',
+                color: '#000000',
+                sortOrder: 1,
+              ),
+            ),
+          );
+      await cloud('categories')
+          .doc('account-pets')
+          .set(
+            RecordCodecs.categories.toRow(
+              guestCategory('account-pets', 'Pets').withOwner(_realUserId),
+            ),
+          );
+      final store = _ClaimStore(local, firestore: firestore);
+      await store.commit(
+        RecordBatch()..addAll([
+          OfflineCategoryGroup(
+            id: 'guest-kids',
+            userId: _localUserId,
+            name: 'kids',
+            icon: 'child',
+            color: '#000000',
+            sortOrder: 1,
+          ),
+          guestCategory('guest-pets', 'pets', groupId: 'guest-kids'),
+          guestCategory('guest-toys', 'Toys', groupId: 'guest-kids'),
+          _tx('t', categoryId: 'guest-pets'),
+        ]),
+        localOnly: true,
+      );
+      final migrator = OfflineDataMigrator(store: store, firestore: firestore);
+
+      await migrator.claimAnonymousData(_realUserId);
+      await pumpEventQueue();
+
+      expect(
+        migrator.claimedCategoryId(_realUserId, 'guest-pets'),
+        'account-pets',
+      );
+      expect(
+        (await cloud('categories').doc('guest-pets').get()).exists,
+        isFalse,
+      );
+      expect(
+        (await cloud('category_groups').doc('guest-kids').get()).exists,
+        isFalse,
+      );
+      final toys = (await cloud('categories').doc('guest-toys').get()).data()!;
+      expect(toys['group_id'], 'account-kids');
+      expect((await cloudTransactions()).single['category_id'], 'account-pets');
+      expect(await local.rows('categories'), isEmpty);
+      expect(await local.rows('category_groups'), isEmpty);
+    });
+
     test('rows the server rejects are put back for the next claim', () async {
       final store = _ClaimStore(local, firestore: firestore)
         ..rejectRemote = true;
@@ -178,6 +375,22 @@ void main() {
 
 extension on RecordBatch {
   void addAll(Iterable<OfflineRecord> records) => records.forEach(upsert);
+}
+
+extension on OfflineCategory {
+  OfflineCategory withOwner(String userId) => RecordCodecs.categories.fromRow({
+    ...RecordCodecs.categories.toRow(this),
+    'user_id': userId,
+  });
+
+  /// As stored by an older app version: stamped, with [budget] if given.
+  OfflineCategory withBudget(String? budget) =>
+      RecordCodecs.categories.fromRow({
+        ...RecordCodecs.categories.toRow(this),
+        'created_at': '2026-01-05T00:00:00.000Z',
+        'budget_amount': budget,
+        'budget_currency': budget == null ? null : 'THB',
+      });
 }
 
 /// The real store over [local] (and [firestore] when signed in) that notes

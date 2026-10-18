@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderOrFamily;
 import 'package:go_router/go_router.dart';
 
+import '../../../app/locale_controller.dart';
 import '../../../app/providers.dart';
 import '../../../app/user_session.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/widgets/aiko_idea_widgets.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../aiko_character/presentation/aiko_art_fallback.dart';
+import '../../learning_hub/application/lesson_progress.dart';
 import '../../onboarding/application/complete_onboarding.dart';
+import '../../transactions/data/transaction_rule_store.dart';
+import '../../travel_mode/application/travel_mode_provider.dart';
 import '../data/auth_repository.dart';
 import 'auth_error_message.dart';
 
@@ -394,6 +399,16 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     // Nothing from a previous user (data, Ask Aiko chat, LINE status) stays.
     invalidateUserData(container.invalidate);
+    // The account's preferences, with the ones set here as a guest moved in.
+    for (final provider in <ProviderOrFamily>[
+      appLocaleControllerProvider,
+      transactionRulesProvider,
+      storedTravelProvider,
+      notificationDismissalsProvider,
+      lessonProgressProvider,
+    ]) {
+      container.invalidate(provider);
+    }
     if (!mounted) return;
     context.go('/home');
   }

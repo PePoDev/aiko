@@ -7,6 +7,11 @@ import '../offline/firestore_sync_state.dart';
 import '../offline/offline_store.dart';
 import 'secure_storage_service.dart';
 
+/// What a read of an itemized preference learned: its [items] (null when
+/// never written), and whether this device could tell at all ([known] is
+/// false signed in and offline, with nothing cached).
+typedef PreferenceItemsRead = ({Map<String, String>? items, bool known});
+
 /// Storage that keeps a preference as independent items (item key → value),
 /// for lists that several devices may change while offline: a change writes
 /// only its own items, so changes to different items all survive.
@@ -15,14 +20,24 @@ abstract interface class PreferenceItemStorage {
   /// in and offline, this device can't tell).
   Future<Map<String, String>?> readItems(String key);
 
+  /// Like [readItems], telling "never written" apart from "can't tell".
+  Future<PreferenceItemsRead> readItemsState(String key);
+
   /// Sets the items of [changes] that have a value and removes those mapped
   /// to null, leaving every other item of [key] as it is.
   Future<void> writeItems(String key, Map<String, String?> changes);
+
+  /// Changes to [key] kept on this device until a read can tell whether its
+  /// items were ever written ([ItemizedPreference.write]); null when none.
+  Future<Map<String, String?>?> readDeferred(String key);
+
+  /// Replaces the changes kept for [key]; null drops them.
+  Future<void> writeDeferred(String key, Map<String, String?>? changes);
 }
 
 /// [PreferenceItemStorage] over device storage: the items are one JSON object
 /// stored under the key. Only this device writes it, so read-modify-write is
-/// safe.
+/// safe, and it always knows whether the items exist.
 class DevicePreferenceItems implements PreferenceItemStorage {
   const DevicePreferenceItems(this._storage);
 
@@ -36,11 +51,21 @@ class DevicePreferenceItems implements PreferenceItemStorage {
   }
 
   @override
+  Future<PreferenceItemsRead> readItemsState(String key) async =>
+      (items: await readItems(key), known: true);
+
+  @override
   Future<void> writeItems(String key, Map<String, String?> changes) async {
     final items = {...?await readItems(key)};
     applyPreferenceItemChanges(items, changes);
     await _storage.write(key, jsonEncode(items));
   }
+
+  @override
+  Future<Map<String, String?>?> readDeferred(String key) async => null;
+
+  @override
+  Future<void> writeDeferred(String key, Map<String, String?>? changes) async {}
 }
 
 /// The items stored as a JSON object in [raw]; null when it isn't one. Values
@@ -83,6 +108,12 @@ void applyPreferenceItemChanges(
 /// are first written they are read from it ([legacyItems] converts its value),
 /// and the first write carries them over. The legacy value is left in place
 /// for app versions that still read it.
+///
+/// Carrying over needs to know that the items were never written: another
+/// device may have written (and since changed) them already. While this
+/// device can't tell (signed in and offline, nothing cached), changes wait on
+/// the device and show on top of the legacy items; the first read or write
+/// that can tell writes them.
 class ItemizedPreference {
   ItemizedPreference(
     SecureStorageService storage, {
@@ -101,20 +132,54 @@ class ItemizedPreference {
   final Map<String, String> Function(String legacyValue)? legacyItems;
 
   /// The current items (empty when there are none).
-  Future<Map<String, String>> read() async =>
-      await _items.readItems(key) ?? await _legacy();
+  Future<Map<String, String>> read() async {
+    final stored = await _items.readItemsState(key);
+    final deferred = await _items.readDeferred(key);
+    if (deferred == null) return stored.items ?? await _legacy();
+    if (stored.known) {
+      return _writeKnown(stored.items, deferred, hadDeferred: true);
+    }
+    return _withChanges(await _legacy(), deferred);
+  }
 
   /// Writes [changes] (null removes an item) and returns the items after them.
   Future<Map<String, String>> write(Map<String, String?> changes) async {
-    final stored = await _items.readItems(key);
+    final stored = await _items.readItemsState(key);
+    final deferred = await _items.readDeferred(key);
+    final pending = {...?deferred, ...changes};
+    if (stored.known) {
+      return _writeKnown(stored.items, pending, hadDeferred: deferred != null);
+    }
+    // Whether the items exist is unknown: carrying the legacy items over now
+    // could bring back items another device removed (or undo its edits),
+    // and writing only the changes would hide the legacy items for good.
+    await _items.writeDeferred(key, pending);
+    return _withChanges(await _legacy(), pending);
+  }
+
+  /// Writes [changes] now that it is known whether the items exist ([stored]
+  /// is null when they were never written), then drops deferred changes.
+  Future<Map<String, String>> _writeKnown(
+    Map<String, String>? stored,
+    Map<String, String?> changes, {
+    required bool hadDeferred,
+  }) async {
     final current = stored ?? await _legacy();
-    final next = {...current};
-    applyPreferenceItemChanges(next, changes);
     // The first write carries the legacy items over.
     final toWrite = stored == null
         ? <String, String?>{...current, ...changes}
         : changes;
     if (toWrite.isNotEmpty) await _items.writeItems(key, toWrite);
+    if (hadDeferred) await _items.writeDeferred(key, null);
+    return _withChanges(current, changes);
+  }
+
+  static Map<String, String> _withChanges(
+    Map<String, String> items,
+    Map<String, String?> changes,
+  ) {
+    final next = {...items};
+    applyPreferenceItemChanges(next, changes);
     return next;
   }
 
@@ -219,16 +284,55 @@ class SyncedPreferences implements SecureStorageService, PreferenceItemStorage {
       throw UnsupportedError('Delete named preferences explicitly.');
 
   @override
-  Future<Map<String, String>?> readItems(String key) async {
+  Future<Map<String, String>?> readItems(String key) async =>
+      (await readItemsState(key)).items;
+
+  @override
+  Future<PreferenceItemsRead> readItemsState(String key) async {
     final uid = _uid;
-    if (uid == null) return DevicePreferenceItems(_local).readItems(key);
-    final data = await _readDocument(
+    if (uid == null) return DevicePreferenceItems(_local).readItemsState(key);
+    final read = await _readDocumentState(
       uid,
       key,
       fromCopy: (copy) => {'items': decodePreferenceItems(copy) ?? {}},
       toCopy: (data) => jsonEncode(_itemsOf(data)),
     );
-    return data == null ? null : _itemsOf(data);
+    final data = read.data;
+    return (items: data == null ? null : _itemsOf(data), known: read.known);
+  }
+
+  String _deferredKey(String uid, String key) => '$uid:$key:deferred';
+
+  @override
+  Future<Map<String, String?>?> readDeferred(String key) async {
+    final uid = _uid;
+    if (uid == null) return null;
+    try {
+      final raw = await _local.read(_deferredKey(uid, key));
+      if (raw == null) return null;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      return {
+        for (final MapEntry(key: item, :value) in decoded.entries)
+          if (item is String && (value == null || value is String))
+            item: value as String?,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> writeDeferred(String key, Map<String, String?>? changes) async {
+    final uid = _uid;
+    if (uid == null) return;
+    final deferredKey = _deferredKey(uid, key);
+    if (changes != null) return _local.write(deferredKey, jsonEncode(changes));
+    try {
+      await _local.delete(deferredKey);
+    } catch (_) {
+      // Written already: writing the same changes again changes nothing.
+    }
   }
 
   @override
@@ -272,20 +376,33 @@ class SyncedPreferences implements SecureStorageService, PreferenceItemStorage {
     String key, {
     required Map<String, dynamic> Function(String copy) fromCopy,
     required String? Function(Map<String, dynamic> data) toCopy,
+  }) async => (await _readDocumentState(
+    uid,
+    key,
+    fromCopy: fromCopy,
+    toCopy: toCopy,
+  )).data;
+
+  /// [_readDocument], telling "doesn't exist" apart from "nobody can say".
+  Future<DocumentRead> _readDocumentState(
+    String uid,
+    String key, {
+    required Map<String, dynamic> Function(String copy) fromCopy,
+    required String? Function(Map<String, dynamic> data) toCopy,
   }) async {
     final doc = _doc(uid, key);
     var result = await _sync.readCachedDocument(_collection, doc);
     if (!result.known) {
       final copy = await _readCopy(uid, key);
-      if (copy == _missing) return null;
-      if (copy != null) return fromCopy(copy);
+      if (copy == _missing) return const DocumentRead.missing();
+      if (copy != null) return DocumentRead.found(fromCopy(copy));
       result = await _sync.readServerDocument(_collection, doc);
-      if (!result.known) return null;
+      if (!result.known) return const DocumentRead.unknown();
     }
     final data = result.data;
     final copy = data == null ? null : toCopy(data);
     await _writeCopy(uid, key, copy ?? _missing);
-    return data;
+    return result;
   }
 
   Future<String?> _readCopy(String uid, String key) async {

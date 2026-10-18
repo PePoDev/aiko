@@ -1,3 +1,4 @@
+import 'package:aiko/core/money/money.dart';
 import 'package:aiko/core/offline/records/records.dart';
 import 'package:aiko/features/auth/data/defaults_seeder.dart';
 import 'package:aiko/features/categories/domain/category_defaults.dart';
@@ -97,6 +98,84 @@ void main() {
       expect(profile.row['display_name'], 'Nok');
       expect(profile.row['base_currency'], 'USD');
       expect(profile.row['preferred_theme'], 'dark');
+    });
+
+    test('an account made from a guest gets the same timezone as one made '
+        'directly', () {
+      final guest = OfflineProfile(
+        id: 'local:abc',
+        displayName: 'Nok',
+        email: '',
+        baseCurrency: 'THB',
+        country: 'TH',
+        timezone: 'UTC',
+      );
+
+      final direct = defaultSeedDocs(uid, email).first.row['timezone'];
+      final fromGuest = defaultSeedDocs(
+        uid,
+        email,
+        guestProfile: guest,
+      ).first.row['timezone'];
+
+      expect(direct, defaultProfileTimezone());
+      expect(fromGuest, direct);
+      // A profile saved without one gets it too.
+      expect(
+        OfflineProfile(
+          id: 'local:abc',
+          displayName: 'Nok',
+          email: '',
+          baseCurrency: 'THB',
+          country: 'TH',
+        ).timezone,
+        direct,
+      );
+    });
+
+    test('defaults a guest gave a budget start with it', () {
+      final groceries = CategoryDefaults.byId[CategoryDefaults.groceriesId]!
+          .copyWith(monthlyLimit: Money.parse('3000', 'THB'));
+      final food = CategoryGroupDefaults
+          .byId[CategoryGroupDefaults.foodAndDrinkId]!
+          .copyWith(budgetLimit: Money.parse('8000', 'THB'));
+
+      final docs = defaultSeedDocs(
+        uid,
+        email,
+        guestDefaults: GuestDefaults(categories: [groceries], groups: [food]),
+      );
+
+      Map<String, dynamic> row(String collection, String id) => docs
+          .singleWhere((doc) => doc.collection == collection && doc.id == id)
+          .row;
+      final category = row(
+        'categories',
+        CategoryDefaults.cloneIdForUser(
+          userId: uid,
+          templateId: CategoryDefaults.groceriesId,
+        ),
+      );
+      expect(category['budget_amount'], '3000');
+      expect(category['user_id'], uid);
+      expect(category['template_id'], CategoryDefaults.groceriesId);
+      expect(category['created_at'], isNull);
+      final group = row(
+        'category_groups',
+        CategoryGroupDefaults.cloneIdForUser(
+          userId: uid,
+          templateId: CategoryGroupDefaults.foodAndDrinkId,
+        ),
+      );
+      expect(group['budget_amount'], '8000');
+      final other = row(
+        'categories',
+        CategoryDefaults.cloneIdForUser(
+          userId: uid,
+          templateId: CategoryDefaults.coffeeId,
+        ),
+      );
+      expect(other['budget_amount'], isNull);
     });
 
     test('a guest who never named themselves gets the email name', () {
@@ -248,6 +327,36 @@ void main() {
         ).doc(missingId).get()).exists,
         isTrue,
       );
+    });
+
+    test('online, a default created after it was looked up is not '
+        'replaced', () async {
+      final docs = defaultSeedDocs(uid, email);
+      final cloneId = CategoryDefaults.cloneIdForUser(
+        userId: uid,
+        templateId: CategoryDefaults.all.first.id,
+      );
+      // Looked up as missing; meanwhile a budget is set on it.
+      final seeder = DefaultsSeeder(
+        firestore: firestore,
+        exists: (doc) async => false,
+      );
+      final clone = docs.singleWhere((doc) => doc.id == cloneId);
+      await collection(
+        firestore,
+        'categories',
+      ).doc(cloneId).set({...clone.row, 'budget_amount': '500'});
+
+      final complete = await seeder.seed(uid, docs);
+      await pumpEventQueue();
+
+      expect(complete, isTrue);
+      expect(await storedCount(firestore), defaultCount);
+      final stored = await collection(
+        firestore,
+        'categories',
+      ).doc(cloneId).get();
+      expect(stored['budget_amount'], '500');
     });
 
     test('a new account is seeded without looking anything up', () async {

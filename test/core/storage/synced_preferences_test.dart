@@ -184,6 +184,103 @@ void main() {
     });
   });
 
+  group('ItemizedPreference, while the device cannot tell whether the items '
+      'exist', () {
+    Map<String, String> legacyList(String raw) => {
+      for (final id in jsonDecode(raw) as List) id as String: '',
+    };
+
+    test('a change waits on the device, shown over the legacy items, and '
+        'goes out alone once the items turn out to exist', () async {
+      final storage = _UnsureItems();
+      await storage.write('ids_v1', jsonEncode(['r', 's']));
+      // Another device moved to the items and removed `r`.
+      storage.items['ids_v2'] = {'s': ''};
+      storage.known = false;
+      final preference = ItemizedPreference(
+        storage,
+        key: 'ids_v2',
+        legacyKey: 'ids_v1',
+        legacyItems: legacyList,
+      );
+
+      final next = await preference.write({'t': ''});
+
+      expect(next.keys, unorderedEquals(['r', 's', 't']));
+      expect(storage.written, isEmpty);
+      expect((await preference.read()).keys, unorderedEquals(['r', 's', 't']));
+
+      storage.known = true;
+      expect((await preference.read()).keys, unorderedEquals(['s', 't']));
+      expect(storage.written, [
+        {'t': ''},
+      ]);
+      expect(await storage.readDeferred('ids_v2'), isNull);
+    });
+
+    test('once the items turn out to be missing, the legacy items are carried '
+        'over with the waiting changes', () async {
+      final storage = _UnsureItems();
+      await storage.write('ids_v1', jsonEncode(['r', 's']));
+      storage.known = false;
+      final preference = ItemizedPreference(
+        storage,
+        key: 'ids_v2',
+        legacyKey: 'ids_v1',
+        legacyItems: legacyList,
+      );
+      await preference.write({'r': null});
+      await preference.write({'t': ''});
+
+      storage.known = true;
+      final next = await preference.write({'u': ''});
+
+      expect(next.keys, unorderedEquals(['s', 't', 'u']));
+      expect(storage.items['ids_v2']!.keys, unorderedEquals(['s', 't', 'u']));
+      expect(await storage.readDeferred('ids_v2'), isNull);
+    });
+
+    test('signed in and offline, the waiting changes are kept for this user '
+        'and written once the server can be asked', () async {
+      final device = MemorySecureStorageService();
+      final offline = SyncedPreferences(
+        local: device,
+        firestore: OfflineFirestore(),
+        userId: () => _uid,
+        sync: _sync(),
+      );
+      await ItemizedPreference(offline, key: 'rules').write({'r1': 'rule'});
+
+      expect(jsonDecode((await device.read('$_uid:rules:deferred'))!), {
+        'r1': 'rule',
+      });
+      expect(await ItemizedPreference(offline, key: 'rules').read(), {
+        'r1': 'rule',
+      });
+
+      final firestore = FakeFirebaseFirestore();
+      await firestore
+          .collection('users')
+          .doc(_uid)
+          .collection('preferences')
+          .doc('rules')
+          .set({
+            'items': {'r0': 'other device'},
+          });
+      final online = SyncedPreferences(
+        local: device,
+        firestore: firestore,
+        userId: () => _uid,
+        sync: _sync(),
+      );
+      expect(await ItemizedPreference(online, key: 'rules').read(), {
+        'r0': 'other device',
+        'r1': 'rule',
+      });
+      expect(await device.read('$_uid:rules:deferred'), isNull);
+    });
+  });
+
   group('offline, with documents the cache has never seen', () {
     late OfflineFirestore firestore;
     late MemorySecureStorageService device;
@@ -250,4 +347,42 @@ void main() {
       },
     );
   });
+}
+
+/// Item storage that can be told it doesn't know whether items exist, as a
+/// signed-in device offline with nothing cached; notes every items write.
+class _UnsureItems extends MemorySecureStorageService
+    implements PreferenceItemStorage {
+  final items = <String, Map<String, String>>{};
+  final written = <Map<String, String?>>[];
+  final _deferred = <String, Map<String, String?>>{};
+  var known = true;
+
+  @override
+  Future<Map<String, String>?> readItems(String key) async =>
+      (await readItemsState(key)).items;
+
+  @override
+  Future<PreferenceItemsRead> readItemsState(String key) async => known
+      ? (items: items[key] == null ? null : {...items[key]!}, known: true)
+      : (items: null, known: false);
+
+  @override
+  Future<void> writeItems(String key, Map<String, String?> changes) async {
+    written.add(changes);
+    applyPreferenceItemChanges(items.putIfAbsent(key, () => {}), changes);
+  }
+
+  @override
+  Future<Map<String, String?>?> readDeferred(String key) async =>
+      _deferred[key];
+
+  @override
+  Future<void> writeDeferred(String key, Map<String, String?>? changes) async {
+    if (changes == null) {
+      _deferred.remove(key);
+    } else {
+      _deferred[key] = changes;
+    }
+  }
 }

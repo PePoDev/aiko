@@ -1,13 +1,14 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show debugPrint, immutable;
 
 import '../../../core/config/app_config.dart';
 import '../../../core/firebase/firebase_backend.dart';
 import '../../../core/offline/offline_store.dart';
 import '../../../core/offline/records/records.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../categories/domain/category.dart';
 import '../../categories/domain/category_defaults.dart';
 
 /// One document an account starts with, at `users/{uid}/{collection}/{id}`.
@@ -26,11 +27,15 @@ class DefaultSeedDoc {
 /// on another device, never duplicates a default.
 ///
 /// [guestProfile] (set up before signing up, without an account) becomes the
-/// new account's profile, under its id and [email].
+/// new account's profile, under its id and [email]. [guestDefaults] are the
+/// defaults a guest gave a budget (stored under their template ids): their
+/// clones start with it, so claiming the guest's records right after seeding
+/// has nothing to change, whichever write lands first.
 List<DefaultSeedDoc> defaultSeedDocs(
   String uid,
   String email, {
   OfflineProfile? guestProfile,
+  GuestDefaults guestDefaults = const GuestDefaults(),
 }) {
   final emailName = email.contains('@') ? email.split('@').first : email;
   final Map<String, dynamic> profile;
@@ -41,7 +46,7 @@ List<DefaultSeedDoc> defaultSeedDocs(
       'display_name': emailName,
       'base_currency': kDefaultBaseCurrency,
       'country': kDefaultCountry,
-      'timezone': 'Asia/Bangkok',
+      'timezone': defaultProfileTimezone(),
       'preferred_theme': 'system',
       'aiko_character_visibility': 'full',
       'aiko_personality_setting': 'supportive',
@@ -64,29 +69,63 @@ List<DefaultSeedDoc> defaultSeedDocs(
       'display_name': guestName.isEmpty || placeholderNames.contains(guestName)
           ? emailName
           : guestName,
+      // Guests never choose one; an account made directly gets the same.
+      'timezone': defaultProfileTimezone(),
       'updated_at': DateTime.now().toUtc().toIso8601String(),
       'version': 1,
     };
   }
+  final guestGroups = {
+    for (final group in guestDefaults.groups)
+      if (group.effectiveTemplateId case final String templateId)
+        templateId: group,
+  };
+  final guestCategories = {
+    for (final category in guestDefaults.categories)
+      if (category.effectiveTemplateId case final String templateId)
+        templateId: category,
+  };
   return [
     DefaultSeedDoc(RecordCodecs.profiles.collection, uid, profile),
     for (final template in CategoryGroupDefaults.all)
       _clone(
         RecordCodecs.categoryGroups,
-        CategoryGroupDefaults.cloneForUser(
-          userId: uid,
-          template: template,
-        ).toOffline(userId: uid),
+        switch (guestGroups[template.id]) {
+          final CategoryGroup group => CategoryGroupDefaults.normalizeForUser(
+            group,
+            userId: uid,
+          ),
+          null => CategoryGroupDefaults.cloneForUser(
+            userId: uid,
+            template: template,
+          ),
+        }.toOffline(userId: uid),
       ),
     for (final template in CategoryDefaults.all)
       _clone(
         RecordCodecs.categories,
-        CategoryDefaults.cloneForUser(
-          userId: uid,
-          template: template,
-        ).toOffline(userId: uid),
+        switch (guestCategories[template.id]) {
+          final Category category => CategoryDefaults.normalizeForUser(
+            category,
+            userId: uid,
+          ),
+          null => CategoryDefaults.cloneForUser(
+            userId: uid,
+            template: template,
+          ),
+        }.toOffline(userId: uid),
       ),
   ];
+}
+
+/// The default categories and groups a guest gave a budget, as stored on the
+/// device (under their template ids).
+@immutable
+class GuestDefaults {
+  const GuestDefaults({this.categories = const [], this.groups = const []});
+
+  final List<Category> categories;
+  final List<CategoryGroup> groups;
 }
 
 DefaultSeedDoc _clone<T extends OfflineRecord>(
@@ -117,10 +156,12 @@ DefaultsSeedPlan planDefaultsSeed(List<bool?> exists) => DefaultsSeedPlan(
   complete: !exists.contains(null),
 );
 
-/// Creates the default documents an account is missing, in one batch handed
-/// to the Firestore SDK: the SDK applies it to the device cache at once and
-/// uploads it when online, so seeding works offline (unlike a transaction,
-/// which needs the server).
+/// Creates the default documents an account is missing. Online, they are
+/// checked again and created in one transaction, so a default created
+/// meanwhile (a budget set on it, here or on another device) is never
+/// replaced. Offline (and for a brand-new account) they go in one batch
+/// handed to the Firestore SDK, which applies it to the device cache at once
+/// and uploads it when online, so seeding works offline.
 class DefaultsSeeder {
   /// [firestore] defaults to the app's; [exists] replaces the existence
   /// lookup in tests.
@@ -155,14 +196,67 @@ class DefaultsSeeder {
         ? List<bool?>.filled(docs.length, false)
         : await Future.wait(refs.map(_exists ?? documentExists));
     final plan = planDefaultsSeed(exists);
-    if (plan.create.isNotEmpty) {
-      final batch = firestore.batch();
-      for (final index in plan.create) {
-        batch.set(refs[index], docs[index].row);
-      }
-      await OfflineStore.acceptWrite(batch.commit());
+    if (plan.create.isEmpty) return plan.complete;
+    // The server said these are missing, so it is likely reachable.
+    if (!isNewUser && await _createInTransaction(firestore, refs, docs, plan)) {
+      return plan.complete;
     }
+    // Offline: skip any created on this device since it was looked up (a
+    // budget saved meanwhile). Nothing is awaited between this check and
+    // handing the batch over, so a later save also reaches the SDK later.
+    final missing = isNewUser
+        ? plan.create
+        : [
+            for (final (i, cached) in (await Future.wait([
+              for (final index in plan.create) _isCached(refs[index]),
+            ])).indexed)
+              if (!cached) plan.create[i],
+          ];
+    if (missing.isEmpty) return plan.complete;
+    final batch = firestore.batch();
+    for (final index in missing) {
+      batch.set(refs[index], docs[index].row);
+    }
+    await OfflineStore.acceptWrite(batch.commit());
     return plan.complete;
+  }
+
+  /// Creates the planned documents that are still missing in one
+  /// transaction. False when it couldn't run (offline, or no answer in
+  /// [serverTimeout]); nothing was written then.
+  Future<bool> _createInTransaction(
+    FirebaseFirestore firestore,
+    List<DocumentReference<Map<String, dynamic>>> refs,
+    List<DefaultSeedDoc> docs,
+    DefaultsSeedPlan plan,
+  ) async {
+    try {
+      await firestore.runTransaction<void>((transaction) async {
+        final snapshots = [
+          for (final index in plan.create) await transaction.get(refs[index]),
+        ];
+        for (final (i, snapshot) in snapshots.indexed) {
+          if (snapshot.exists) continue;
+          final index = plan.create[i];
+          transaction.set(refs[index], docs[index].row);
+        }
+      }, timeout: serverTimeout);
+      return true;
+    } catch (error) {
+      debugPrint('[auth] seeding in a transaction failed: $error');
+      return false;
+    }
+  }
+
+  /// Whether this device has [doc] (cached, or being created here).
+  static Future<bool> _isCached(
+    DocumentReference<Map<String, dynamic>> doc,
+  ) async {
+    try {
+      return (await doc.get(const GetOptions(source: Source.cache))).exists;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Whether [doc] exists: true when this device has it (cached, or being

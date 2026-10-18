@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/firebase/firebase_backend.dart';
 import '../../../core/offline/offline_user_context.dart';
 import '../../../core/storage/secure_storage_service.dart';
+import 'guest_preferences.dart';
 
 /// A cloud build used without an account ("guest"): the app runs on the
 /// local record store under the anonymous local owner, offline included,
@@ -40,11 +41,20 @@ abstract final class GuestMode {
 
   /// Starts using the app without an account. A previous account's owner id
   /// is replaced by an anonymous one first, so guest records never mix with
-  /// it.
+  /// it; a new owner starts without earlier guest preferences too. Entering
+  /// again as the same guest keeps their records and preferences.
   static Future<void> enter(SecureStorageService storage) async {
     // Active for this run even if storing the choice fails.
     _active = true;
+    final context = OfflineUserContext(
+      storage: storage,
+      signedInUserId: () => null,
+    );
+    final before = await context.resolveUserId();
     await OfflineUserContext.leaveSignedInOwner(storage);
+    if (await context.resolveUserId() != before) {
+      await GuestPreferences(device: storage).clear();
+    }
     await storage.write(_key, 'true');
   }
 

@@ -98,7 +98,7 @@ On `main`, after the gates pass, `.github/workflows/deploy-pages.yml` builds the
 One-time setup:
 
 1. **Settings → Pages → Build and deployment → Source: GitHub Actions.** Pages needs a public repository (or a paid plan for a private one).
-2. **Custom domain** `aiko.pepo.dev`. It is also in `web/CNAME`, which the build copies to the site root; an Actions deployment takes the domain from this setting, so keep both. At the DNS provider for `pepo.dev`, add `CNAME aiko → pepodev.github.io`. Once GitHub has issued the certificate, tick **Enforce HTTPS** (`.dev` domains only work over HTTPS).
+2. **Custom domain** `aiko.pepo.dev`. It is also in `web/CNAME`, which the build copies to the site root; an Actions deployment takes the domain from this setting, so keep both. At the DNS provider for `pepo.dev`, add `CNAME aiko → pepodev.github.io`; on Cloudflare, make it **DNS only** (grey cloud). Proxied, Cloudflare rewrites `index.html` (Rocket Loader), so it no longer matches the service worker's precache hash and the app can't open offline, and GitHub can't issue its certificate. Once GitHub has issued the certificate, tick **Enforce HTTPS** (`.dev` domains only work over HTTPS).
 3. With Firebase configured, add `aiko.pepo.dev` under **Authentication → Settings → Authorized domains**.
 
 GitHub Pages can't set headers: every file is served with `Cache-Control: max-age=600`, so a release can take up to 10 minutes to reach returning visitors (browsers always recheck the service worker itself). The app uses hash URLs (`/#/home`), so no rewrite is needed. Roll back by re-running CI on an earlier commit.

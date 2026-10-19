@@ -81,7 +81,7 @@ Open **http://localhost:8080**. Emulator UI: **http://127.0.0.1:4000**. Create a
 
 **Production configuration:** register web, Android and iOS apps in one Firebase project. Enable Email/Password and Google Auth; configure authorized web domains, Android signing SHA fingerprints, and the iOS reversed Google client-ID URL scheme. Supply each platform's `FIREBASE_PROJECT_ID`, `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_AUTH_DOMAIN`, and optional `FIREBASE_REGION` (keep `us-central1`, where Functions deploy). Leave `FIREBASE_EMULATOR_HOST` unset. Native Google login also uses `GOOGLE_WEB_CLIENT_ID` and `GOOGLE_IOS_CLIENT_ID`. These client configuration values are public; provider secrets and Admin credentials never belong in the Flutter build.
 
-**Deployment:** GitHub Actions (`.github/workflows/ci.yml`) runs the quality gates on every push and publishes a Firebase Hosting preview channel for non-`main` branches. On `main`, after the gates pass, it deploys Firebase rules/indexes (plus Storage/Functions when enabled) and the live web app to Firebase Hosting; every web build runs `npm run test:web` and `npm run web:precache`. One-time Firebase and GitHub setup: [Deployment](docs/deployment.md). Test rules/functions locally first. See [Firebase migration and verification](docs/firebase.md) for data import, service configuration, and platform limits.
+**Deployment:** GitHub Actions (`.github/workflows/ci.yml`) runs the quality gates on every push and publishes a Firebase Hosting preview channel for non-`main` branches. On `main`, after the gates pass, it publishes the web app to GitHub Pages at https://aiko.pepo.dev (custom domain in `web/CNAME`) and deploys Firebase rules/indexes (plus Storage/Functions when enabled) and the live web app to Firebase Hosting; every web build runs `npm run test:web` and `npm run web:precache`. One-time Firebase and GitHub setup: [Deployment](docs/deployment.md). Test rules/functions locally first. See [Firebase migration and verification](docs/firebase.md) for data import, service configuration, and platform limits.
 
 ---
 
@@ -106,7 +106,7 @@ firebase/         # Firestore/Storage rules, Functions, emulator tests, legacy i
 web/              # Flutter web entrypoint, bootstrap, service worker (aiko_sw.js), SQLite worker assets
 tool/             # Emulator startup helpers, docs link check, web precache script + node tests
 docs/             # How-it-works documentation; index: docs/README.md
-.github/          # CI quality gates; Firebase Hosting and backend deploy workflows
+.github/          # CI quality gates; GitHub Pages, Firebase Hosting and backend deploy workflows
 landing/          # standalone Aiko landing page
 screenshots/      # product/idea screenshots and visual references
 assets/           # icons/ (app icon, aiko_*.svg marks), images/aiko/ (6 expressions), rive/ (character slot)

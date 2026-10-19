@@ -27,7 +27,7 @@ Aiko tests **logic, not widgets**. Test services, `Money`/`Decimal` math, predic
 | Firebase rules and functions | Functions unit tests, the emulator suite through `emulators:exec`, then the service-worker tests (`npm run test:web`, run even when the earlier steps fail) |
 | Docs links | `npm run docs:check`; reported on every push but does not block deploys |
 
-The web build (`.github/workflows/deploy-web.yml`, for previews and the live site) runs `npm run test:web` again right before `npm run web:precache`; a failure stops that deploy. Previews deploy in parallel. `main` deploys only after the Flutter and Firebase jobs pass. Until the `FIREBASE_PROJECT_ID` variable is set, every deploy job is skipped and CI runs only these checks ([Deployment](deployment.md)). Run the same commands locally before pushing.
+The web builds (`.github/workflows/deploy-web.yml` for previews and the live Firebase site, `deploy-pages.yml` for GitHub Pages) run `npm run test:web` again right before `npm run web:precache`; a failure stops that deploy. Previews deploy in parallel. `main` deploys only after the Flutter and Firebase jobs pass. Until the `FIREBASE_PROJECT_ID` variable is set, every deploy job is skipped and CI runs only these checks ([Deployment](deployment.md)). Run the same commands locally before pushing.
 
 ## What is covered
 

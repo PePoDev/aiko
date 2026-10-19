@@ -5,14 +5,15 @@ GitHub Actions builds the Flutter web app and publishes it to Firebase Hosting i
 | Push to | `.github/workflows/ci.yml` does |
 | --- | --- |
 | Any branch except `main` | Quality gates, plus a **preview channel** for that branch, deployed in parallel. The URL appears as a `Hosting (preview)` check (Details link) on the commit, branch and any pull request, and in the run summary. |
-| `main` | Quality gates. If they pass: deploy Firebase rules/indexes, then the **live site** (`https://<project>.web.app`). |
+| `main` | Quality gates. If they pass: deploy **GitHub Pages** (`https://aiko.pepo.dev`, [GitHub Pages](#github-pages)) and Firebase rules/indexes, then the **live Firebase site** (`https://<project>.web.app`). |
 
-Quality gates: `dart format`, `flutter analyze`, `flutter test`, Functions unit tests, the rules/storage/functions emulator tests, and the service-worker tests (`npm run test:web`) ([Testing](testing.md)). Each web build runs the service-worker tests again before writing its precache. Re-run any branch from **Actions → CI → Run workflow**. Previews deploy even when a gate fails, so you can see the change; the live site never does. Until the `FIREBASE_PROJECT_ID` variable is set ([GitHub settings](#3-github-settings)), CI runs the quality gates only and skips every deploy; once it is set, a missing secret or variable fails the deploy with its name.
+Quality gates: `dart format`, `flutter analyze`, `flutter test`, Functions unit tests, the rules/storage/functions emulator tests, and the service-worker tests (`npm run test:web`) ([Testing](testing.md)). Each web build runs the service-worker tests again before writing its precache. Re-run any branch from **Actions → CI → Run workflow**. Previews deploy even when a gate fails, so you can see the change; the live site never does. Until the `FIREBASE_PROJECT_ID` variable is set ([GitHub settings](#3-github-settings)), CI skips every Firebase deploy (GitHub Pages still deploys, as a local-only build); once it is set, a missing secret or variable fails the deploy with its name.
 
 ```mermaid
 flowchart LR
   push[git push] --> gates[Quality gates]
   push -->|branch ≠ main| preview[Build web → preview channel]
+  gates -->|main, all green| pages[Build web → GitHub Pages]
   gates -->|main, all green| rules[Deploy rules and indexes]
   rules --> live[Build web → live site]
 ```
@@ -89,6 +90,18 @@ Both require the Blaze plan. Then:
 4. Set `FIREBASE_DEPLOY_ONLY` to `firestore,storage,functions`. Functions deploy in a separate `--force` call so CI can set the Artifact Registry cleanup policy and remove functions deleted from the `aiko` codebase. Rules and indexes deploy without `--force`, so indexes created in the console are kept. Hosting is not a valid value here; the web job deploys it after building the app.
 
 **Deploy Functions with or before the app.** On `main`, CI deploys Functions (when listed in `FIREBASE_DEPLOY_ONLY`) before the live site, which is the right order. If you deploy by hand, run `firebase deploy --only functions` first. A release can change a function's contract: the app now sends receipts to `ocrScanner` as `imageBase64`, which older `ocrScanner` versions reject, while the new function still accepts the old `imageBytes` from apps already open ([Backend](backend.md#ocrscanner-and-marketfeed)). The app also gives `aikoChat` 60 s to respond and 45 s between chunks; the current function answers at once and sends a keep-alive every 15 s, but an older one sends nothing until the first words, so against it answers that need more than 60 s of tool rounds are cut off. Preview channels call the production Functions, so a preview of such a change works only once `main` has deployed them.
+
+## GitHub Pages
+
+On `main`, after the gates pass, `.github/workflows/deploy-pages.yml` builds the web app like the Hosting job below (SQLite worker, `flutter build web --release`, service-worker precache, no `canvaskit/`) and publishes it to GitHub Pages at **https://aiko.pepo.dev**. With the `FIREBASE_*` variables it is a cloud build; without them it is a local-only build whose data stays in the visitor's browser.
+
+One-time setup:
+
+1. **Settings → Pages → Build and deployment → Source: GitHub Actions.** Pages needs a public repository (or a paid plan for a private one).
+2. **Custom domain** `aiko.pepo.dev`. It is also in `web/CNAME`, which the build copies to the site root; an Actions deployment takes the domain from this setting, so keep both. At the DNS provider for `pepo.dev`, add `CNAME aiko → pepodev.github.io`. Once GitHub has issued the certificate, tick **Enforce HTTPS** (`.dev` domains only work over HTTPS).
+3. With Firebase configured, add `aiko.pepo.dev` under **Authentication → Settings → Authorized domains**.
+
+GitHub Pages can't set headers: every file is served with `Cache-Control: max-age=600`, so a release can take up to 10 minutes to reach returning visitors (browsers always recheck the service worker itself). The app uses hash URLs (`/#/home`), so no rewrite is needed. Roll back by re-running CI on an earlier commit.
 
 ## Hosting configuration
 

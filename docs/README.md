@@ -12,7 +12,7 @@ Start with the project [README](../README.md) for the product, brand, rules and 
 | [Backend](backend.md) | Use or change the Cloud Functions API, the AI chat pipeline and Security Rules |
 | [Security and privacy](security.md) | Know the trust boundaries, secrets, on-device data and what leaves the device |
 | [Testing](testing.md) | Run the suites, see what they cover, write new tests |
-| [Deployment](deployment.md) | Set up Firebase Hosting and CI, configure secrets, enable Storage and Functions |
+| [Deployment](deployment.md) | Set up GitHub Pages, Firebase Hosting and CI, configure secrets, enable Storage and Functions |
 | [Cost](cost.md) | See what each action costs in Firebase, the optimizations in place, and the guardrails to set |
 | [Design system implementation](design-system.md) | Find the theme token or shared widget for a design rule; how one UI adapts to web and mobile |
 | [Localization](localization.md) | Add strings or languages |

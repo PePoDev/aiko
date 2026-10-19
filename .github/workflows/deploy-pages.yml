@@ -1,0 +1,71 @@
+name: Deploy GitHub Pages
+
+# Called by ci.yml on `main` once the quality gates pass. Builds the Flutter
+# web app and publishes it to GitHub Pages at the custom domain in web/CNAME
+# (aiko.pepo.dev). With the FIREBASE_* repository variables set this is the
+# same cloud build as deploy-web.yml; without them it is a local-only build
+# (data stays in the browser). See docs/deployment.md#github-pages.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  pages:
+    name: GitHub Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      # Public client config (see README), so repository variables. Unset
+      # values are dropped below; with none set the build is local-only.
+      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+      FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+      FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
+      FIREBASE_STORAGE_BUCKET: ${{ vars.FIREBASE_STORAGE_BUCKET }}
+      FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
+      FIREBASE_REGION: ${{ vars.FIREBASE_REGION }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-flutter
+
+      - name: Prepare SQLite web worker
+        run: dart run sqflite_common_ffi_web:setup
+
+      - name: Build Flutter web
+        run: |
+          jq -n 'env | with_entries(select((.key | test("^FIREBASE_(PROJECT_ID|API_KEY|APP_ID|MESSAGING_SENDER_ID|STORAGE_BUCKET|AUTH_DOMAIN|REGION)$")) and .value != ""))' \
+            > "$RUNNER_TEMP/dart_defines.json"
+          echo "Defines: $(jq -c 'keys' "$RUNNER_TEMP/dart_defines.json")"
+          flutter build web --release --dart-define-from-file="$RUNNER_TEMP/dart_defines.json"
+          # Like Firebase Hosting (firebase.json), skip canvaskit/: the app
+          # loads CanvasKit from Google's CDN.
+          rm -rf build/web/canvaskit
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+
+      # The precache that lets the app open offline after one visit
+      # (docs/architecture.md#web-offline-loading).
+      - name: Service worker precache
+        run: |
+          npm run test:web
+          npm run web:precache
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/web
+
+      - name: Deploy
+        id: deploy
+        uses: actions/deploy-pages@v5

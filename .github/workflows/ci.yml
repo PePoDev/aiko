@@ -1,8 +1,9 @@
 name: CI
 
 # Every push runs the quality gates. Other branches also get a Firebase Hosting
-# preview channel right away; `main` deploys Firebase rules and the live site
-# only after the gates pass. One-time setup: docs/deployment.md.
+# preview channel right away; `main` deploys GitHub Pages (aiko.pepo.dev),
+# Firebase rules and the live site only after the gates pass. One-time setup:
+# docs/deployment.md.
 on:
   push:
     branches: ['**']
@@ -74,6 +75,16 @@ jobs:
           node-version: 22
       - name: Check links, anchors and file paths in docs
         run: npm run docs:check
+
+  pages:
+    name: GitHub Pages
+    needs: [app, backend]
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/deploy-pages.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
 
   preview:
     name: Preview

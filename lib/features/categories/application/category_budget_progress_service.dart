@@ -117,7 +117,9 @@ class CategoryBudgetProgressService {
     final existedBefore = createdAt != null
         ? createdAt.isBefore(periodStart)
         : transactions.any(
-            (t) => t.categoryId == category.id && t.date.isBefore(periodStart),
+            (t) =>
+                t.date.isBefore(periodStart) &&
+                t.categoryShares.any((s) => s.categoryId == category.id),
           );
     if (!existedBefore) return null;
     final previous = budgetPeriodWindow(
@@ -150,11 +152,13 @@ class CategoryBudgetProgressService {
     Money running = Money.zero(target);
     for (final t in transactions) {
       if (t.type != TransactionType.expense) continue;
-      if (t.categoryId != categoryId) continue;
       if (t.status != TransactionStatus.posted) continue;
       if (t.amount.currency != target) continue;
       if (t.date.isBefore(start) || t.date.isAfter(end)) continue;
-      running += t.amount;
+      // A split expense counts only its part in this category.
+      for (final share in t.categoryShares) {
+        if (share.categoryId == categoryId) running += share.amount;
+      }
     }
     return running;
   }
@@ -164,7 +168,9 @@ class CategoryBudgetProgressService {
     String categoryId,
   ) {
     for (final t in transactions) {
-      if (t.categoryId == categoryId) return t.amount.currency;
+      if (t.categoryShares.any((s) => s.categoryId == categoryId)) {
+        return t.amount.currency;
+      }
     }
     return 'USD';
   }

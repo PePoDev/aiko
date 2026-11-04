@@ -28,3 +28,17 @@ test('net worth adds signed balances: debts are already negative',()=>{
  ],[],[]);
  assert.deepEqual(result.net_worth_by_currency,{THB:'550.05',USD:'20'});
 });
+test('split expenses count each part in its own category',()=>{
+ const range={start_date:'2026-09-01',end_date:'2026-09-30'};
+ const txs=[
+  {date:'2026-09-02',type:'expense',currency:'THB',amount:'100',category_id:'food',
+   splits:[{category_id:'food',amount:'70'},{category_id:'home',amount:'30'}]},
+  {date:'2026-09-03',type:'expense',currency:'THB',amount:'5',category_id:'food'},
+ ];
+ const categories=[{id:'food',name:'Food'},{id:'home',name:'Home'}];
+ assert.deepEqual(summarize('aiko_spending_by_category',range,[],txs,categories),
+  [{category:'Food',currency:'THB',total:'75'},{category:'Home',currency:'THB',total:'30'}]);
+ const budgets=[{id:'home',name:'Home',is_active:true,budget_enabled:true,budget_amount:'50',budget_currency:'THB'}];
+ assert.equal(summarize('aiko_budget_status',range,[],txs,budgets)[0].spent,'30');
+ assert.equal(summarize('aiko_recent_transactions',{},[],txs,categories).find(t=>t.amount==='100').category,'Food + Home');
+});

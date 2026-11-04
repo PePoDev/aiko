@@ -59,6 +59,58 @@
   "discardChangesKeepEditing": "Keep editing",
   "discardChangesDiscard": "Discard",
   "languageTitle": "Language",
+  "appLockSettingsTitle": "App lock",
+  "appLockOff": "Off",
+  "appLockOnPin": "On, with a PIN",
+  "appLockOnBiometric": "On, with a PIN, fingerprint or face",
+  "appLockIntro": "Aiko asks for a PIN when it opens and after a minute in the background. The PIN stays on this device; your other devices keep their own lock.",
+  "appLockNewPin": "New PIN (4–6 digits)",
+  "appLockConfirmPin": "Enter the new PIN again",
+  "appLockCurrentPin": "Current PIN",
+  "appLockPinInvalid": "A PIN is 4 to 6 digits.",
+  "appLockPinMismatch": "The two PINs don't match.",
+  "appLockTurnOn": "Turn on app lock",
+  "appLockChangePin": "Change PIN",
+  "appLockTurnOff": "Turn off app lock",
+  "appLockUseBiometrics": "Unlock with fingerprint or face",
+  "appLockBiometricReason": "Unlock Aiko",
+  "appLockBiometricFailed": "Couldn't confirm it's you. Use your PIN.",
+  "appLockTurnedOn": "App lock is on",
+  "appLockPinChanged": "PIN changed",
+  "appLockTurnedOff": "App lock is off",
+  "appLockSaveFailed": "Couldn't save the app lock on this device. Try again.",
+  "appLockLockedTitle": "Aiko is locked",
+  "appLockEnterPin": "Enter your PIN",
+  "appLockDigitsEntered": "{count} digits entered",
+  "@appLockDigitsEntered": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "appLockWrongPin": "Wrong PIN. Tries left before a short wait: {count}",
+  "@appLockWrongPin": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "appLockWait": "Too many wrong PINs. Try again at {time}.",
+  "@appLockWait": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "appLockUnlock": "Unlock",
+  "appLockErase": "Delete last digit",
+  "appLockForgot": "Forgot PIN?",
+  "appLockForgotSignedIn": "Sign out to remove the lock from this device. Your data stays in your account; sign in again to see it.",
+  "appLockForgotLocal": "Without the PIN, the lock can only be removed by clearing Aiko's data on this device (the browser's site data, or the app's storage in system settings). That also deletes everything stored only on this device.",
+  "appLockSignOut": "Sign out",
   "languageSystemDefault": "System default",
   "languageFollowDevice": "Follow device language ({language})",
   "@languageFollowDevice": {
@@ -722,6 +774,47 @@
   "txDeleteFailed": "Unable to delete transaction right now.",
   "txDetailsTitle": "Transaction details",
   "txDeleteTooltip": "Delete transaction",
+  "txDuplicateAction": "Copy as a new transaction",
+  "txDuplicateTitle": "Possible duplicate",
+  "txDuplicateBody": "You already saved {item} for {amount} on {date}. Save this one too?",
+  "@txDuplicateBody": {
+    "placeholders": {
+      "item": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "txDuplicateSaveAnyway": "Save anyway",
+  "txSplitAction": "Split across categories",
+  "txSplitTitle": "Split between categories",
+  "txSplitAmount": "Amount for this category",
+  "txSplitRemove": "Remove this part",
+  "txSplitAdd": "Add a category",
+  "txSplitBalanced": "Adds up to the amount",
+  "txSplitRemaining": "{amount} left to assign",
+  "@txSplitRemaining": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "txSplitOver": "{amount} more than the amount",
+  "@txSplitOver": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "txSplitIncomplete": "Pick a category and an amount above 0 for every part.",
+  "txSplitMismatch": "The parts must add up to the amount.",
   "txSplits": "Splits",
   "rulesCreated": "{name} rule created",
   "@rulesCreated": {
@@ -1863,6 +1956,47 @@
   "allocationEmptyMessage": "Add investment holdings and Aiko will break down your allocation here.",
   "allocationTotalPortfolio": "Total Portfolio",
   "allocationTitle": "Allocation",
+  "allocationTargetsTitle": "Rebalance targets",
+  "allocationTargetsHint": "Set the share you want in each asset class, adding up to 100%. Aiko flags a class more than 5 points off its target. Leave them all at 0 to turn rebalance alerts off.",
+  "allocationTargetsEdit": "Edit targets",
+  "allocationTargetRow": "Target {target}% · now {actual}%",
+  "@allocationTargetRow": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      },
+      "actual": {
+        "type": "String"
+      }
+    }
+  },
+  "allocationTargetsNone": "No targets set, so rebalance alerts are off.",
+  "allocationTargetsTotal": "Total {total}%",
+  "@allocationTargetsTotal": {
+    "placeholders": {
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "allocationTargetsTotalError": "Targets must add up to 100%, or all be 0.",
+  "allocationTargetsSaved": "Targets saved",
+  "allocationTargetsSaveFailed": "Couldn't save the targets. Try again.",
+  "holdingSellEstimateTitle": "If you sell",
+  "holdingSellQuantity": "Units to sell",
+  "holdingSellPrice": "Price per unit",
+  "holdingSellProceeds": "You'd receive",
+  "holdingSellCostBasis": "What those units cost",
+  "holdingSellGain": "Estimated gain or loss",
+  "holdingSellInvalid": "Enter up to {max} units and a price above 0.",
+  "@holdingSellInvalid": {
+    "placeholders": {
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "holdingSellNote": "An estimate before fees and tax, using your average cost. The Capital gains tax calculator works out the tax.",
   "holdingDetailEmptyMessage": "Add an investment holding and its detail will appear here.",
   "holdingSelectLabel": "Holding",
   "holdingYourHolding": "Your Holding",
@@ -2730,6 +2864,7 @@
   "exportFormat": "Format",
   "exportFormatExcelCsv": "CSV (opens in Excel)",
   "exportFormatHtmlStatement": "HTML statement (print to PDF)",
+  "exportFormatPdfStatement": "PDF statement",
   "exportGenerating": "Generating Report...",
   "exportShare": "Share Export Document",
   "exportPrivacyNote": "Exports are generated completely offline on your device to guarantee absolute privacy.",

@@ -4,6 +4,13 @@ import Decimal from 'decimal.js';
 type Row = Record<string, any>;
 const allowed = new Set(['aiko_account_summary', 'aiko_budget_status', 'aiko_spending_by_category', 'aiko_cashflow_summary', 'aiko_recent_transactions', 'aiko_goal_progress']);
 const number = (value: unknown) => new Decimal(String(value ?? '0'));
+// How a transaction's amount divides between categories: its `splits`
+// (same currency), or the whole amount in `category_id`.
+const shares = (t: Row): {category_id: unknown; amount: unknown}[] =>
+  Array.isArray(t.splits) && t.splits.length > 0
+    ? t.splits.map((s: Row) => ({category_id: s.category_id, amount: s.amount}))
+    : [{category_id: t.category_id, amount: t.amount}];
+const categoryIdsOf = (txs: Row[]) => txs.flatMap(t => shares(t).map(s => s.category_id));
 
 export function summarize(name: string, args: Row, accounts: Row[], transactions: Row[], categories: Row[]): unknown {
   if (!allowed.has(name)) throw new Error('Unknown financial tool.');
@@ -30,7 +37,8 @@ export function summarize(name: string, args: Row, accounts: Row[], transactions
         pct: number(a.goal_target_amount).gt(0) ? number(a.current_balance).div(a.goal_target_amount).toFixed(4) : '0', target_date: a.goal_target_date}));
     case 'aiko_recent_transactions': return [...txs].sort((a,b) => String(b.date).localeCompare(a.date))
       .slice(0, Math.min(50, Math.max(1, Number(args.max_rows) || 20)))
-      .map(t => ({tx_date: t.date, type: t.type, amount: t.amount, currency: t.currency, merchant: t.merchant, category: categoryNames.get(t.category_id) ?? 'Uncategorized'}));
+      .map(t => ({tx_date: t.date, type: t.type, amount: t.amount, currency: t.currency, merchant: t.merchant,
+        category: shares(t).map(s => categoryNames.get(s.category_id) ?? 'Uncategorized').join(' + ')}));
     case 'aiko_cashflow_summary': {
       const totals: Record<string, {income: Decimal; expense: Decimal}> = {};
       for (const tx of txs) {
@@ -43,14 +51,17 @@ export function summarize(name: string, args: Row, accounts: Row[], transactions
     }
     case 'aiko_budget_status': return categories.filter(c => c.is_active && c.budget_enabled && c.budget_amount)
       .slice(0,50).map(c => ({name:c.name, budget_limit:c.budget_amount, currency:c.budget_currency,
-        spent: txs.filter(t => t.type === 'expense' && t.category_id === c.id && t.currency === c.budget_currency)
-          .reduce((sum,t) => sum.plus(number(t.amount)),new Decimal(0)).toFixed()}));
+        spent: txs.filter(t => t.type === 'expense' && t.currency === c.budget_currency)
+          .flatMap(t => shares(t).filter(s => s.category_id === c.id))
+          .reduce((sum,s) => sum.plus(number(s.amount)),new Decimal(0)).toFixed()}));
     default: {
       const totals = new Map<string, {category: string; currency: string; total: Decimal}>();
       for (const tx of txs.filter(t => t.type === 'expense')) {
-        const key = `${tx.category_id}:${tx.currency}`;
-        const total = totals.get(key) ?? {category: categoryNames.get(tx.category_id) ?? 'Uncategorized', currency:tx.currency,total:new Decimal(0)};
-        total.total = total.total.plus(number(tx.amount)); totals.set(key,total);
+        for (const share of shares(tx)) {
+          const key = `${share.category_id}:${tx.currency}`;
+          const total = totals.get(key) ?? {category: categoryNames.get(share.category_id) ?? 'Uncategorized', currency:tx.currency,total:new Decimal(0)};
+          total.total = total.total.plus(number(share.amount)); totals.set(key,total);
+        }
       }
       return [...totals.values()].sort((a,b) => b.total.cmp(a.total)).slice(0,50).map(t => ({...t,total:t.total.toFixed()}));
     }
@@ -101,7 +112,7 @@ export async function financeTool(uid: string, name: string, args: Row, reader =
       return summarize(name, args, await reader.accounts(), [], []);
     case 'aiko_recent_transactions': {
       const txs = await reader.recentTransactions(Math.min(50, Math.max(1, Number(args.max_rows) || 20)));
-      return summarize(name, args, [], txs, await reader.categoriesById(txs.map(t => t.category_id)));
+      return summarize(name, args, [], txs, await reader.categoriesById(categoryIdsOf(txs)));
     }
   }
   if (!validRange(args)) throw new Error('A valid inclusive date range is required.');
@@ -109,6 +120,6 @@ export async function financeTool(uid: string, name: string, args: Row, reader =
   switch (name) {
     case 'aiko_cashflow_summary': return summarize(name, args, [], txs, []);
     case 'aiko_budget_status': return summarize(name, args, [], txs, await reader.budgetedCategories());
-    default: return summarize(name, args, [], txs, await reader.categoriesById(txs.filter(t => t.type === 'expense').map(t => t.category_id)));
+    default: return summarize(name, args, [], txs, await reader.categoriesById(categoryIdsOf(txs.filter(t => t.type === 'expense'))));
   }
 }

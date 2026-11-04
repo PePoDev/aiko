@@ -543,7 +543,11 @@ class _TransactionMonthPageState extends ConsumerState<_TransactionMonthPage> {
         transaction: tx,
         searchState: searchState,
         account: accountsById[tx.accountId],
-        categoryName: categoriesById[tx.categoryId]?.displayName(context.l10n),
+        // Every part of a split, so searching any of its categories finds it.
+        categoryName: tx.categoryShares
+            .map((s) => categoriesById[s.categoryId]?.displayName(context.l10n))
+            .nonNulls
+            .join(' '),
       );
     }).toList()..sort((a, b) => b.date.compareTo(a.date));
 

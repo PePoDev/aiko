@@ -13,6 +13,7 @@ class OfflineTransaction implements OfflineRecord {
     this.merchant,
     this.note,
     this.tags = const [],
+    this.splits = const [],
     this.status = 'posted',
     this.isRecurring = false,
     this.recurringFrequency,
@@ -46,6 +47,11 @@ class OfflineTransaction implements OfflineRecord {
   final String? merchant;
   final String? note;
   final List<String> tags;
+
+  /// Parts of the amount in other categories, in its currency:
+  /// `{category_id, amount (decimal string), note}` each. Empty when the
+  /// whole amount is in [categoryId].
+  final List<Map<String, dynamic>> splits;
   final String status;
 
   /// True when the row is part of a recurring series.
@@ -103,6 +109,11 @@ class TransactionCodec extends RecordCodec<OfflineTransaction> {
     merchant: row['merchant'] as String?,
     note: row['note'] as String?,
     tags: List<String>.from(row['tags'] as List),
+    // Rows saved before splits were stored have none.
+    splits: [
+      for (final split in (row['splits'] as List?) ?? const [])
+        Map<String, dynamic>.from(split as Map),
+    ],
     status: row['status'] as String,
     isRecurring: row['is_recurring'] as bool,
     recurringFrequency: row['recurring_frequency'] as String?,
@@ -130,6 +141,8 @@ class TransactionCodec extends RecordCodec<OfflineTransaction> {
     'merchant': record.merchant,
     'note': record.note,
     'tags': record.tags,
+    // Only split rows carry it, so other documents stay as they were.
+    if (record.splits.isNotEmpty) 'splits': record.splits,
     'status': record.status,
     'is_recurring': record.isRecurring,
     'recurring_frequency': record.recurringFrequency,

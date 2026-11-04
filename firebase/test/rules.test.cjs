@@ -17,6 +17,14 @@ test('finance records require authentication, correct owner, and decimal strings
  await assertFails(setDoc(doc(alice,'users/alice/accounts/cash'),{...account,current_balance:100.1}));
  await assertFails(setDoc(doc(alice,'users/alice/integrations/line'),{connected:true}));
 });
+test('transactions may carry a list of splits',async()=>{
+ const alice=env.authenticatedContext('alice').firestore(), target=doc(alice,'users/alice/transactions/split');
+ const tx={id:'split',user_id:'alice',account_id:'cash',type:'expense',amount:'100',currency:'THB',date:'2026-10-01T00:00:00.000'};
+ await assertSucceeds(setDoc(target,tx));
+ await assertSucceeds(setDoc(target,{...tx,splits:[{category_id:'food',amount:'70',note:null},{category_id:'home',amount:'30',note:null}]}));
+ await assertFails(setDoc(target,{...tx,splits:'food:70'}));
+ await assertFails(setDoc(target,{...tx,splits:Array.from({length:51},(_,i)=>({category_id:`c${i}`,amount:'1'}))}));
+});
 test('default category identity is immutable while its budget stays editable',async()=>{
  const db=env.authenticatedContext('alice').firestore(), target=doc(db,'users/alice/categories/template');
  const category={id:'template',user_id:'alice',template_id:'coffee',name:'Coffee',budget_amount:'20'};

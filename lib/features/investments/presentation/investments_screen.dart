@@ -22,6 +22,7 @@ import '../../../theme/aiko_colors.dart';
 import '../../../theme/aiko_status_colors.dart';
 import '../../dashboard/application/dashboard_summary_builder.dart';
 import '../application/allocation_service.dart';
+import '../application/allocation_targets.dart';
 import '../application/investments_provider.dart';
 import '../application/portfolio_valuation.dart';
 import '../application/price_refresh.dart';
@@ -32,10 +33,6 @@ class InvestmentsScreen extends ConsumerStatefulWidget {
   const InvestmentsScreen({super.key});
 
   static const _allocationService = AllocationService();
-  static const _targetAllocation = [
-    AllocationTarget(assetClass: 'Stocks', targetPercent: 70),
-    AllocationTarget(assetClass: 'Bonds', targetPercent: 30),
-  ];
 
   @override
   ConsumerState<InvestmentsScreen> createState() => _InvestmentsScreenState();
@@ -300,7 +297,9 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
     final valuation = _valuationFor(holdings);
     final alerts = InvestmentsScreen._allocationService.rebalanceAlerts(
       portfolio: valuation.holdings,
-      targets: InvestmentsScreen._targetAllocation,
+      targets:
+          ref.watch(allocationTargetsProvider).value ??
+          AllocationTargetStore.defaults,
     );
     final summary = _PortfolioSummary.fromHoldings(
       l10n: context.l10n,
@@ -1157,14 +1156,7 @@ class _HoldingFormSheetState extends ConsumerState<_HoldingFormSheet> {
       .toUpperCase();
   var _isLoading = false;
 
-  static const _assetClasses = [
-    'Stocks',
-    'Bonds',
-    'Funds',
-    'Crypto',
-    'Cash',
-    'Custom',
-  ];
+  static const _assetClasses = investmentAssetClasses;
 
   bool get _isEditing => widget.initial != null;
 

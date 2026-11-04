@@ -1,4 +1,4 @@
-# Firebase development and migration
+# Firebase development
 
 The web, Android and iOS apps use the same Firebase repositories, document codecs and domain logic. Local Emulator Suite replaces the previous Supabase/Docker backend. The hosted project is configured through CI; see [Deployment](deployment.md).
 
@@ -39,36 +39,6 @@ Browser export/download, file/image/PDF previews and file selection use bytes. C
 - `MARKET_API_URL`, `MARKET_API_KEY`: authenticated HTTP price adapter.
 
 The precise adapter request/response contracts are in `firebase/functions/src/index.ts`. Missing providers return an explicit unavailable error; local emulators do not supply AI or external APIs. No credentials are embedded in the web build. Production Secret Manager values and Functions deployment are set up in [Deployment](deployment.md#storage-and-functions).
-
-## Import an existing export
-
-`firebase/tools/import_legacy.cjs` is a dry-run-first import utility. No live Supabase database was supplied or migrated. Preserve a source backup and verify export counts before any production cutover. The input is a JSON file with `users`, `tables`, and `files`:
-
-```json
-{
-  "users": [{"id":"original-auth-uid", "email":"person@example.com", "email_confirmed_at":"2026-01-01T00:00:00Z", "encrypted_password":"<bcrypt hash>"}],
-  "tables": {
-    "accounts": [{"id":"original-account-id", "user_id":"original-auth-uid", "name":"Cash", "type":"cash", "currency":"USD", "current_balance":"12.34"}]
-  },
-  "files": [{"path":"files/receipt.pdf", "destination":"users/original-auth-uid/receipts/receipt-id/receipt.pdf", "contentType":"application/pdf"}]
-}
-```
-
-Include all original row fields in a real export. Supported tables are profiles, accounts, categories, category_groups, transactions, transaction_splits, investment_holdings and attachments. Export all decimal columns as strings and dates as ISO strings. IDs and references remain stable. Global category templates are omitted because the app supplies them. User-owned template clones are retained. Auth imports preserve BCRYPT passwords; existing login sessions are not transferable and users must sign in again. OAuth providers must be configured and linked again. Existing LINE links must be paired again; source refresh tokens are deliberately not imported.
-
-Attachment metadata is rewritten to `users/{uid}/receipts/{id}/{file_name}`; export the corresponding bytes with a matching `files.destination`. Avatar files can include `profileId` to populate the imported profile's Firebase download URL. Old device paths and obsolete remote avatar URLs are cleared. Client-only rules/language can be set in the app after signing in; they were not source SQL tables.
-
-```sh
-node firebase/tools/import_legacy.cjs /path/to/export/export.json
-# Apply first to emulators, using explicit targets:
-GCLOUD_PROJECT=demo-aiko \
-FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 \
-FIRESTORE_EMULATOR_HOST=127.0.0.1:8081 \
-FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199 \
-node firebase/tools/import_legacy.cjs /path/to/export/export.json --apply
-```
-
-Firestore writes are create-only so a retry cannot overwrite edited records. Review rejected Auth imports before retrying. Validate record/file counts, sign-in, per-user ownership, balances, attachments and category references against the source before configuring production clients. Keep the old source read-only during a coordinated cutover; this utility is not an ongoing bridge between backends.
 
 ## Verification
 

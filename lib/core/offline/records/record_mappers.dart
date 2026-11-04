@@ -226,6 +226,14 @@ extension OfflineTransactionMapper on OfflineTransaction {
       merchant: merchant,
       note: note,
       tags: tags,
+      splits: [
+        for (final split in splits)
+          TransactionSplit(
+            categoryId: split['category_id'] as String,
+            amount: Money.parse(split['amount'].toString(), currency),
+            note: split['note'] as String?,
+          ),
+      ],
       status: _enumByName(
         TransactionStatus.values,
         status,
@@ -270,6 +278,14 @@ extension TransactionOfflineMapper on FinanceTransaction {
       merchant: merchant,
       note: note,
       tags: tags,
+      splits: [
+        for (final split in splits)
+          {
+            'category_id': split.categoryId,
+            'amount': split.amount.amount.toString(),
+            'note': split.note,
+          },
+      ],
       status: status.name,
       isRecurring: isRecurring,
       recurringFrequency: recurringFrequency?.name,

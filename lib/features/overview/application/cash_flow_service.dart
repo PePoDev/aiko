@@ -62,8 +62,11 @@ class CashFlowService {
       if (_inflowTypes.contains(t.type)) {
         income += t.amount.amount;
       } else if (_outflowTypes.contains(t.type)) {
-        final group = groupOf[t.categoryId] ?? CategoryBudgetGroup.custom;
-        byGroup[group] = (byGroup[group] ?? Decimal.zero) + t.amount.amount;
+        for (final share in t.categoryShares) {
+          final group = groupOf[share.categoryId] ?? CategoryBudgetGroup.custom;
+          byGroup[group] =
+              (byGroup[group] ?? Decimal.zero) + share.amount.amount;
+        }
       }
     }
 

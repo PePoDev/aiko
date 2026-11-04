@@ -47,6 +47,38 @@ void main() {
     expect(back.type, 'adjustment');
   });
 
+  test('splits round-trip as maps; legacy rows have none', () {
+    final record = OfflineTransaction(
+      id: 't',
+      userId: 'u',
+      accountId: 'a',
+      type: 'expense',
+      amount: '100',
+      currency: 'THB',
+      date: DateTime(2026, 5, 24),
+      splits: [
+        {'category_id': 'food', 'amount': '70', 'note': null},
+        {'category_id': 'home', 'amount': '30', 'note': 'lamp'},
+      ],
+    );
+    final row = codec.toRow(record);
+    // Rows decoded from JSON hold untyped lists and maps.
+    final decoded = {
+      ...row,
+      'splits': <dynamic>[
+        for (final split in row['splits'] as List) <dynamic, dynamic>{...split},
+      ],
+    };
+    final back = codec.fromRow(decoded).toDomain();
+    expect(back.splits.map((s) => s.categoryId), ['food', 'home']);
+    expect(back.splits.map((s) => s.amount.amount.toString()), ['70', '30']);
+    expect(back.splits.last.note, 'lamp');
+    expect(back.splits.first.amount.currency, 'THB');
+
+    final legacy = Map<String, dynamic>.of(row)..remove('splits');
+    expect(codec.fromRow(legacy).splits, isEmpty);
+  });
+
   test('tags are a list of strings in the row and back', () {
     final row = codec.toRow(transaction(tags: ['food', 'trip']));
     expect(row['tags'], ['food', 'trip']);

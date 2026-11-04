@@ -65,6 +65,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Aiko uses Face ID to unlock the app when you turn it on in Settings.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Aiko uses the camera to scan receipts for transaction entry.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

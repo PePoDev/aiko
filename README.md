@@ -17,7 +17,7 @@
 
 ## What Is Aiko?
 
-Cross-platform (web + iOS + Android) personal finance app: Flutter + Firebase. **Aiko** (calm, anime-style, blue hair) gives friendly, non-judgmental money guidance. A data-first financial OS: 13 transaction types, category-owned budget limits (daily/weekly/monthly/yearly, alert thresholds, rollover) plus group envelopes, goal accounts (SMART target/date/priority, Monte Carlo probability), cash flow + Daily Spending reactions, credit card/loan/asset/liability accounts, portfolio + net worth, a 30-calculator library (Thai tax, Social Security and tax-saving fund rules built in), Ask Aiko chat, monthly report, learning hub (lessons with quizzes), CSV and printable-statement export, multi-currency Travel Mode. Where the code still falls short of this spec: [Known gaps](docs/features.md#known-gaps).
+Cross-platform (web + iOS + Android) personal finance app: Flutter + Firebase. **Aiko** (calm, anime-style, blue hair) gives friendly, non-judgmental money guidance. A data-first financial OS: 13 transaction types, category-owned budget limits (daily/weekly/monthly/yearly, alert thresholds, rollover) plus group envelopes, goal accounts (SMART target/date/priority, Monte Carlo probability), cash flow + Daily Spending reactions, credit card/loan/asset/liability accounts, portfolio + net worth, a 30-calculator library (Thai tax, Social Security and tax-saving fund rules built in), Ask Aiko chat, monthly report, learning hub (lessons with quizzes), CSV, PDF and printable-statement export, multi-currency Travel Mode. Where the code still falls short of this spec: [Known gaps](docs/features.md#known-gaps).
 
 This is a single repo for the Aiko product surface: Flutter app, landing page, Firebase emulators/functions/rules, docs, visual references, and tests. Keep `landing/` and `screenshots/`; Firebase Emulator Suite replaces the former Docker backend workflow.
 
@@ -46,9 +46,9 @@ This is a single repo for the Aiko product surface: Flutter app, landing page, F
 | Web offline | Own service worker (`web/aiko_sw.js`) + bundled fonts |
 | Money | `decimal` (no floating-point) |
 | Charts | `fl_chart` |
-| Security | `flutter_secure_storage` |
+| Security | `flutter_secure_storage`, `crypto` (PIN hash), `local_auth` (fingerprint/face) |
 | IDs | `uuid` |
-| Export | `csv`, `share_plus`, `path_provider` |
+| Export | `csv`, `pdf` (statements), `share_plus`, `path_provider` |
 | Formatting | `intl` (locale-aware) |
 
 ---
@@ -81,7 +81,7 @@ Open **http://localhost:8080**. Emulator UI: **http://127.0.0.1:4000**. Create a
 
 **Production configuration:** register web, Android and iOS apps in one Firebase project. Enable Email/Password and Google Auth; configure authorized web domains, Android signing SHA fingerprints, and the iOS reversed Google client-ID URL scheme. Supply each platform's `FIREBASE_PROJECT_ID`, `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_AUTH_DOMAIN`, and optional `FIREBASE_REGION` (keep `us-central1`, where Functions deploy). Leave `FIREBASE_EMULATOR_HOST` unset. Native Google login also uses `GOOGLE_WEB_CLIENT_ID` and `GOOGLE_IOS_CLIENT_ID`. These client configuration values are public; provider secrets and Admin credentials never belong in the Flutter build.
 
-**Deployment:** GitHub Actions (`.github/workflows/ci.yml`) runs the quality gates on every push and publishes a Firebase Hosting preview channel for non-`main` branches. On `main`, after the gates pass, it publishes the web app to GitHub Pages at https://aiko.pepo.dev (custom domain in `web/CNAME`) and deploys Firebase rules/indexes (plus Storage/Functions when enabled) and the live web app to Firebase Hosting; every web build runs `npm run test:web` and `npm run web:precache`. One-time Firebase and GitHub setup: [Deployment](docs/deployment.md). Test rules/functions locally first. See [Firebase migration and verification](docs/firebase.md) for data import, service configuration, and platform limits.
+**Deployment:** GitHub Actions (`.github/workflows/ci.yml`) runs the quality gates on every push and publishes a Firebase Hosting preview channel for non-`main` branches. On `main`, after the gates pass, it publishes the web app to GitHub Pages at https://aiko.pepo.dev (custom domain in `web/CNAME`) and deploys Firebase rules/indexes (plus Storage/Functions when enabled) and the live web app to Firebase Hosting; every web build runs `npm run test:web` and `npm run web:precache`. One-time Firebase and GitHub setup: [Deployment](docs/deployment.md). Test rules/functions locally first. See [Firebase development](docs/firebase.md) for service configuration, verification and platform limits.
 
 ---
 
@@ -102,7 +102,7 @@ lib/
 ├── l10n/         # en/th .arb sources (AppLocalizations is generated), context.l10n, domain enum labels
 └── theme/        # Design system (colors, typography, themes)
 
-firebase/         # Firestore/Storage rules, Functions, emulator tests, legacy import tool
+firebase/         # Firestore/Storage rules, Functions, emulator tests
 web/              # Flutter web entrypoint, bootstrap, service worker (aiko_sw.js), SQLite worker assets
 tool/             # Emulator startup helpers, docs link check, web precache script + node tests
 docs/             # How-it-works documentation; index: docs/README.md
@@ -190,13 +190,13 @@ Use the SDK cache and shared listeners, not a new listener per widget. Keep file
 ## Core Features
 
 - **🏠 Dashboard** — static fixed-order panels (above) + quick-add. Not user-customizable.
-- **💰 Money Tracking** — 13 transaction types (income, expense, transfer, refund, investment buy/sell, dividend, interest, loan payment, credit card payment, tax payment, fee, adjustment); transfers save linked `transferOut`/`transferIn` legs, edited and deleted together; opening balances and balance edits are signed adjustments, never income or spending. Receipts/attachments, recurring (Once/Daily/Weekly/Monthly/Annually, each with own end date or occurrence cap), reminders. Amount-first quick entry with cloud OCR and typed/dictated voice parsing. Rules auto-apply category and tags by merchant, keyword, amount, account, category or type. Android can auto-capture bank SMS and notifications (opt-in, on-device, works offline; Aiko's own notification listener, never booked twice). Not built yet: splits (modeled, not saved), duplicate detection.
+- **💰 Money Tracking** — 13 transaction types (income, expense, transfer, refund, investment buy/sell, dividend, interest, loan payment, credit card payment, tax payment, fee, adjustment); transfers save linked `transferOut`/`transferIn` legs, edited and deleted together; opening balances and balance edits are signed adjustments, never income or spending. Receipts/attachments, recurring (Once/Daily/Weekly/Monthly/Annually, each with own end date or occurrence cap), reminders. Amount-first quick entry with cloud OCR and typed/dictated voice parsing. Rules auto-apply category and tags by merchant, keyword, amount, account, category or type. Android can auto-capture bank SMS and notifications (opt-in, on-device, works offline; Aiko's own notification listener, never booked twice). Possible duplicates are flagged before saving, and any entry can be copied as a new one. Splits divide one transaction between categories, and budgets and reports count each part in its own category.
 - **📊 Budgeting (in Categories)** — each Category owns an optional budget: daily/weekly/monthly/yearly, rollover of unused budget into the next period, thresholds (default 50/75/90/100%). Groups can hold an envelope budget; every category carries a fixed 50/30/20 bucket (needs/wants/savings/…) used by cash-flow views. Zero-based budgeting isn't built. Safe-to-Spend: `Leftover = Income − Spent − Unspent budgets` for the month; weekly safe = `(Income − Spending) ÷ 4.33` ([Calculations](docs/calculations.md)). Daily Spending compares today's posted expenses with the daily safe amount and shows Aiko's green, orange, or red reaction; with nothing safe to spend it asks for this month's income, or stays calm while nothing is spent.
 - **🎯 Goals (in Accounts)** — goal accounts (`Account.type == goal`) carry SMART target, date, priority. `currentBalance` is saved amount; Chance of Success reads the same row and projects the goal's own average monthly deposits.
 - **📈 Insights & Predictions** — monthly net cash flow + Sankey by budget group, safe-to-spend, monthly report vs. the month before (any month), budget/bill/goal notifications (tap to open, dismiss until the next period), Monte Carlo goal probability. Not built yet: end-of-month forecasts, overrun prediction, net worth projection, retirement readiness.
 - **🤖 Aiko AI Assistant** — streaming chat grounded in an on-device snapshot plus six read-only server tools; monthly report. Debt strategies come only from the chat model.
 - **💳 Credit & Debt** — credit cards (limit or shared limit, statement/due day, APR, rewards, annual fee, minimum payment), loans (principal, rate, term, payment, next due date), upcoming-payment notifications, credit card payoff calculator. Not built yet: statement balances, utilization, snowball/avalanche simulation.
-- **📱 Portfolio, Assets & Tax** — holdings in their own currencies with unrealized gain/loss and base-currency totals, allocation by asset class, rebalance alerts against fixed Stocks 70% / Bonds 30% targets, live prices via `marketFeed` (cloud only, signed in), dividend/interest/tax transactions, asset and liability accounts, receipt/document attachments. Not built yet: realized gains in the UI (a capital-gains service exists), allocation by currency/geography/risk, net worth trends, tax flagging, estimated tax reports.
+- **📱 Portfolio, Assets & Tax** — holdings in their own currencies with unrealized gain/loss and base-currency totals, allocation by asset class, rebalance alerts against targets you set per asset class (Stocks 70% / Bonds 30% until changed), a sell estimate per holding (proceeds, cost basis, gain or loss), live prices via `marketFeed` (cloud only, signed in), dividend/interest/tax transactions, asset and liability accounts, receipt/document attachments. Not built yet: recorded realized gains, allocation by currency/geography/risk, net worth trends, tax flagging, estimated tax reports.
 - **🌍 Travel Mode** — trip with home/local currency and budget, live, saved, reference or manual exchange rate (never assumed 1.0), converter, foreign-fee log with merchants; accounts can use any currency. Exchange rates are cached on the device for offline totals and forms. Not built yet: trip reports.
 - **📤 Export & 📚 Learning Hub** — CSV (plain or Excel-friendly, signed amounts, formula-safe) and a printable HTML statement with per-currency totals; four lessons with quizzes and saved progress, glossary terms inline.
 
@@ -233,9 +233,9 @@ Profile deletion needs a connection: the app checks the server, pauses the uploa
 
 ## Database Schema
 
-`users/{uid}` contains `profiles`, `accounts`, `transactions`, `transaction_splits` (allowed by rules, not written yet), `categories`, `category_groups`, `attachments`, `investment_holdings`, `preferences` (`{value}` or itemized `{items}`), and read-only `integrations`. Field reference: [Data model](docs/data-model.md). Profiles use the UID as document ID; other entities keep their existing IDs and snake_case fields. Money values are decimal strings. Budgets remain category fields, goals remain account fields, recurring/reminder metadata remains on transactions, and attachment metadata references Storage paths. Global server-only `line_links`, `line_pairings`, and `rate_limits` cannot be read by clients. All other unspecified paths are denied.
+`users/{uid}` contains `profiles`, `accounts`, `transactions`, `transaction_splits` (allowed by rules, unused: splits are stored in the transaction), `categories`, `category_groups`, `attachments`, `investment_holdings`, `preferences` (`{value}` or itemized `{items}`), and read-only `integrations`. Field reference: [Data model](docs/data-model.md). Profiles use the UID as document ID; other entities keep their existing IDs and snake_case fields. Money values are decimal strings. Budgets remain category fields, goals remain account fields, recurring/reminder metadata remains on transactions, and attachment metadata references Storage paths. Global server-only `line_links`, `line_pairings`, and `rate_limits` cannot be read by clients. All other unspecified paths are denied.
 
-**Backend changes:** update `firebase/firestore.rules`, `firebase/storage.rules`, Functions and tests together. Run emulator tests and the function build; merging to `main` deploys them through CI once tests pass. `firebase/tools/import_legacy.cjs` imports existing exported users, records and files with stable IDs; dry run is the default. Historical SQL design notes under `docs/superpowers/` describe the replaced backend, not active deployment instructions.
+**Backend changes:** update `firebase/firestore.rules`, `firebase/storage.rules`, Functions and tests together. Run emulator tests and the function build; merging to `main` deploys them through CI once tests pass. Historical SQL design notes under `docs/superpowers/` describe the replaced backend, not active deployment instructions.
 
 ---
 
@@ -433,7 +433,7 @@ Planned tiers. No plan gating exists in code yet; every feature is available to 
 | **Premium** | Unlimited accounts, advanced reports, AI recommendations, forecasting, OCR, CC optimization, portfolio analytics, tax reports, PDF/Excel export, multi-device sync |
 | **Pro** | Double-entry accounting, balance sheets, reconciliation, business reports, invoices, multi-user, advanced tax, estate planning, full Monte Carlo, API access |
 
-**Security:** secure storage for device keys, owner-only Security Rules, server-side secrets, last-write-wins sync, local-only and guest modes, notification capture that broadcasts nothing. Not built yet: remote device logout, AI-use acknowledgement (the old onboarding consent flag was removed), PIN/biometric app lock. Details: [Security and privacy](docs/security.md).
+**Security:** secure storage for device keys, owner-only Security Rules, server-side secrets, last-write-wins sync, local-only and guest modes, notification capture that broadcasts nothing, a per-device PIN app lock with optional fingerprint/face unlock. Not built yet: remote device logout, AI-use acknowledgement (the old onboarding consent flag was removed). Details: [Security and privacy](docs/security.md).
 
 ---
 

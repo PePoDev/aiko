@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
@@ -14,6 +15,7 @@ import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../transactions/domain/transaction.dart';
 import '../application/export_builder.dart';
+import '../application/statement_pdf.dart';
 
 class ExportScreen extends ConsumerStatefulWidget {
   const ExportScreen({super.key});
@@ -25,8 +27,8 @@ class ExportScreen extends ConsumerStatefulWidget {
 class _ExportScreenState extends ConsumerState<ExportScreen> {
   String _dateRange =
       'current_month'; // 'current_month', 'last_month', 'all_time'
-  // 'csv', 'excel' (CSV with a byte-order mark so Excel reads Thai), or
-  // 'html' (a statement to print to PDF from the browser).
+  // 'csv', 'excel' (CSV with a byte-order mark so Excel reads Thai), 'pdf'
+  // (a statement file) or 'html' (a statement to print from the browser).
   String _format = 'csv';
   bool _isExporting = false;
 
@@ -42,9 +44,14 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
 
       final categoriesById = {for (final c in categories) c.id: c};
       final accountNames = {for (final a in accounts) a.id: a.name};
-      String categoryName(FinanceTransaction tx) =>
-          categoriesById[tx.categoryId]?.displayName(l10n) ??
-          l10n.uncategorized;
+      // A split names every part's category.
+      String categoryName(FinanceTransaction tx) => tx.categoryShares
+          .map(
+            (share) =>
+                categoriesById[share.categoryId]?.displayName(l10n) ??
+                l10n.uncategorized,
+          )
+          .join(' + ');
       String accountName(FinanceTransaction tx) =>
           accountNames[tx.accountId] ?? '';
 
@@ -85,6 +92,31 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
             files: [XFile.fromData(bytes, mimeType: 'text/csv')],
             fileNameOverrides: ['aiko_export_$timestamp.csv'],
             text: l10n.exportShareCsvText,
+          ),
+        );
+      } else if (_format == 'pdf') {
+        Future<ByteData> font(String path) =>
+            rootBundle.load('assets/fonts/$path');
+        final bytes = await buildStatementPdf(
+          transactions: filtered,
+          l10n: l10n,
+          categoryName: categoryName,
+          baseCurrency:
+              ref.read(profileProvider).value?.baseCurrency ??
+              kDefaultBaseCurrency,
+          generatedAt: DateTime.now(),
+          fonts: StatementFonts(
+            regular: await font('manrope/Manrope-Regular.ttf'),
+            bold: await font('manrope/Manrope-Bold.ttf'),
+            thai: await font('noto_sans_thai/NotoSansThai-Regular.ttf'),
+            thaiBold: await font('noto_sans_thai/NotoSansThai-Bold.ttf'),
+          ),
+        );
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile.fromData(bytes, mimeType: 'application/pdf')],
+            fileNameOverrides: ['aiko_statement_$timestamp.pdf'],
+            text: l10n.exportShareStatementText,
           ),
         );
       } else {
@@ -195,6 +227,12 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                         value: 'excel',
                         title: Text(context.l10n.exportFormatExcelCsv),
                         secondary: const Icon(Icons.grid_on_outlined),
+                      ),
+                      RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        value: 'pdf',
+                        title: Text(context.l10n.exportFormatPdfStatement),
+                        secondary: const Icon(Icons.picture_as_pdf_outlined),
                       ),
                       RadioListTile<String>(
                         contentPadding: EdgeInsets.zero,

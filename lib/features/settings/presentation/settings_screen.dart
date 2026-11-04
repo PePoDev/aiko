@@ -14,6 +14,7 @@ import '../../../shared/widgets/finance_card.dart';
 import '../../../theme/aiko_colors.dart';
 import '../../auth/data/guest_mode.dart';
 import '../../auth/presentation/guest_sign_in_tile.dart';
+import 'app_lock_sheet.dart';
 import '../domain/profile.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -245,6 +246,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       : profileFailed
                       ? () => ref.invalidate(profileProvider)
                       : null,
+                ),
+                const Divider(),
+                _SettingsRow(
+                  icon: Icons.lock_outline,
+                  title: l10n.appLockSettingsTitle,
+                  subtitle: switch (ref.watch(appLockStatusProvider).value) {
+                    null => l10n.loadingEllipsis,
+                    SecurityStatus.notConfigured => l10n.appLockOff,
+                    SecurityStatus.biometricEnabled => l10n.appLockOnBiometric,
+                    SecurityStatus.pinEnabled ||
+                    SecurityStatus.lockedOut => l10n.appLockOnPin,
+                  },
+                  onTap: () => showAppLockSheet(context),
                 ),
                 const Divider(),
                 _SettingsRow(

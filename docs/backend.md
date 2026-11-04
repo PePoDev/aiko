@@ -10,7 +10,6 @@ The backend is Firebase: Auth, Firestore, Storage, and the Cloud Functions codeb
 | `firebase/functions/src/finance_tools.ts` | Read-only finance tools over the caller's own data (`decimal.js`, never floats) |
 | `firebase/firestore.rules`, `firebase/storage.rules` | Security Rules |
 | `firebase/firestore.indexes.json` | Composite indexes (currently none) |
-| `firebase/tools/import_legacy.cjs` | Dry-run-first importer for legacy exports ([Firebase](firebase.md#import-an-existing-export)) |
 
 Build with `npm run functions:build`. Tests are in [Testing](testing.md).
 

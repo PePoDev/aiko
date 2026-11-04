@@ -1163,12 +1163,16 @@ class _CategoryTotals {
       if (tx.amount.currency.toUpperCase() != baseCurrency.toUpperCase()) {
         continue;
       }
-      final categoryId = tx.categoryId;
-      if (categoryId == null || categoryId.isEmpty) continue;
       if (!_isCategoryTotalable(tx.type)) continue;
-      final existing = amounts[categoryId];
-      amounts[categoryId] = existing == null ? tx.amount : existing + tx.amount;
-      counts[categoryId] = (counts[categoryId] ?? 0) + 1;
+      for (final share in tx.categoryShares) {
+        final categoryId = share.categoryId;
+        if (categoryId == null || categoryId.isEmpty) continue;
+        final existing = amounts[categoryId];
+        amounts[categoryId] = existing == null
+            ? share.amount
+            : existing + share.amount;
+        counts[categoryId] = (counts[categoryId] ?? 0) + 1;
+      }
     }
     return _CategoryTotals(amounts, counts, budgets);
   }

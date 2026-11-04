@@ -36,6 +36,7 @@ import '../domain/transaction_attachment.dart';
 import '../data/transaction_attachment_repository.dart';
 import '../application/amount_input.dart';
 import '../application/conversion_rate_fill.dart';
+import '../application/duplicate_detection.dart';
 import '../application/receipt_ocr_service.dart';
 import '../application/voice_transaction_parser.dart';
 import 'transaction_attachment_section.dart';
@@ -73,9 +74,19 @@ enum ReminderLead {
 }
 
 class TransactionFormScreen extends ConsumerStatefulWidget {
-  const TransactionFormScreen({this.initialTransaction, super.key});
+  const TransactionFormScreen({
+    this.initialTransaction,
+    this.template,
+    super.key,
+  });
 
+  /// The transaction being edited; null for a new one.
   final FinanceTransaction? initialTransaction;
+
+  /// A saved transaction to copy into a new, one-off entry dated now (its
+  /// amount, item, note, category, accounts and tags; not its reminder,
+  /// repeat or files). Ignored when [initialTransaction] is set.
+  final FinanceTransaction? template;
 
   @override
   ConsumerState<TransactionFormScreen> createState() =>
@@ -126,6 +137,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _formMessengerKey.currentState ?? ScaffoldMessenger.of(context);
   DateTime _selectedDate = DateTime.now();
   String? _selectedCategoryId;
+
+  /// The amount divided between categories, each part with its own category
+  /// and amount; empty when the whole amount is in [_selectedCategoryId].
+  final List<_SplitDraft> _splits = [];
   String? _selectedAccountId;
   String? _selectedToAccountId; // For transfer type
   final List<TransactionAttachment> _attachments = [];
@@ -195,6 +210,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _noteController.dispose();
     _tagInputController.dispose();
     _tagFocusNode.dispose();
+    for (final split in _splits) {
+      split.amount.dispose();
+    }
     for (final path in _newAttachmentPaths) {
       LocalFileCache.remove(path).ignore();
     }
@@ -215,6 +233,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _selectedToAccountId,
     _selectedCurrency,
     _tags.join('|'),
+    [
+      for (final split in _splits)
+        '${split.categoryId}:${split.amount.text.trim()}',
+    ].join(','),
     // Loading the saved attachments is not a change.
     [
       for (final attachment in _attachments)
@@ -246,10 +268,15 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     ]) {
       controller.addListener(_onTextEdited);
     }
+    // The split editor shows what's left to assign of the amount.
+    _amountController.addListener(() {
+      if (_splits.isNotEmpty && mounted) setState(() {});
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _initialSnapshot = _snapshot();
     });
-    final transaction = widget.initialTransaction;
+    final copying = widget.initialTransaction == null;
+    final transaction = widget.initialTransaction ?? widget.template;
     if (transaction == null) {
       _selectedCurrency = _baseCurrency;
       return;
@@ -259,6 +286,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     // A linked transfer leg loads the whole pair: From is the outflow's
     // account, To the inflow's, and the amount is what left the source.
+    FinanceTransaction? pairOut;
+    FinanceTransaction? pairIn;
     if (transaction.type.isTransfer) {
       final partners = transferPartnersOf(
         transaction,
@@ -267,22 +296,36 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       if (partners.isNotEmpty) {
         final partner = partners.first;
         final isIn = transaction.type == TransactionType.transferIn;
-        _pairOut = isIn ? partner : transaction;
-        _pairIn = isIn ? transaction : partner;
+        pairOut = isIn ? partner : transaction;
+        pairIn = isIn ? transaction : partner;
       }
     }
-    final primary = _pairOut ?? transaction;
+    // A copy is a new pair: the saved one is only read.
+    if (!copying) {
+      _pairOut = pairOut;
+      _pairIn = pairIn;
+    }
+    final primary = pairOut ?? transaction;
 
     _titleController.text = primary.merchant ?? '';
     _amountController.text = primary.amount.amount.toString();
     _selectedCurrency = _normalizeCurrency(primary.amount.currency);
     _noteController.text = primary.note ?? '';
-    _selectedDate = primary.date;
+    _selectedDate = copying ? DateTime.now() : primary.date;
     _selectedCategoryId = transaction.categoryId;
+    for (final split in transaction.splits) {
+      _splits.add(
+        _newSplit(
+          categoryId: split.categoryId,
+          amount: split.amount.amount.toString(),
+        ),
+      );
+    }
     _selectedAccountId = primary.accountId;
-    _selectedToAccountId = _pairIn?.accountId;
-    final pairOut = _pairOut;
-    final pairIn = _pairIn;
+    _selectedToAccountId = pairIn?.accountId;
+    _tags.addAll(primary.tags);
+    // A copy is a one-off without a reminder or files, and gets today's rate.
+    if (copying) return;
     if (pairOut != null &&
         pairIn != null &&
         pairIn.amount.currency != pairOut.amount.currency &&
@@ -296,7 +339,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _fetchedToRatePair =
           '$_selectedCurrency>${_normalizeCurrency(pairIn.amount.currency)}';
     }
-    _tags.addAll(primary.tags);
     _isRecurring = transaction.isRecurring;
     final frequency = transaction.recurringFrequency;
     if (frequency != null) {
@@ -417,6 +459,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       setState(() {
         _type = newType;
         _selectedCategoryId = null;
+        _clearSplits();
       });
       return;
     }
@@ -434,11 +477,152 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _toRateNote = null;
       _noteController.clear();
       _selectedCategoryId = null;
+      _clearSplits();
       _selectedAccountId = null;
       _selectedToAccountId = null;
       _tags.clear();
       _tagInputController.clear();
     });
+  }
+
+  _SplitDraft _newSplit({String? categoryId, String amount = ''}) =>
+      _SplitDraft(categoryId: categoryId, amount: amount)
+        ..amount.addListener(_onTextEdited);
+
+  /// Divides the amount: the current category keeps all of it for now, and
+  /// an empty second part waits for a category and an amount.
+  void _startSplit() {
+    setState(() {
+      _splits
+        ..add(
+          _newSplit(
+            categoryId: _selectedCategoryId,
+            amount: _amountController.text.trim(),
+          ),
+        )
+        ..add(_newSplit());
+    });
+  }
+
+  void _addSplit() => setState(() => _splits.add(_newSplit()));
+
+  /// Removes part [index]; with one part left the amount is no longer split
+  /// and that part's category becomes the transaction's.
+  void _removeSplitAt(int index) {
+    setState(() {
+      _disposeLater(_splits.removeAt(index));
+      if (_splits.length == 1) {
+        _selectedCategoryId = _splits.single.categoryId ?? _selectedCategoryId;
+        _clearSplits();
+      }
+    });
+  }
+
+  /// Call inside setState.
+  void _clearSplits() {
+    _splits.forEach(_disposeLater);
+    _splits.clear();
+  }
+
+  /// A removed part's field is still mounted until the next frame.
+  void _disposeLater(_SplitDraft split) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => split.amount.dispose());
+  }
+
+  /// What's left to assign of the amount across the parts, in the entered
+  /// currency (negative when the parts add up to more).
+  Decimal _unassigned() {
+    final total = parseAmountInput(_amountController.text.trim());
+    var assigned = Decimal.zero;
+    for (final split in _splits) {
+      assigned += parseAmountInput(split.amount.text.trim()) ?? Decimal.zero;
+    }
+    return (total ?? Decimal.zero) - assigned;
+  }
+
+  Widget _buildSplitEditor(
+    List<Category> categories,
+    List<CategoryGroup> groups,
+  ) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final unassigned = _unassigned();
+    final unassignedText = Money(
+      amount: unassigned.abs(),
+      currency: _selectedCurrency,
+    ).format();
+    final (balanceText, balanceColor) = unassigned == Decimal.zero
+        ? (l10n.txSplitBalanced, AikoColors.successGreen)
+        : unassigned > Decimal.zero
+        ? (l10n.txSplitRemaining(unassignedText), AikoColors.warningOrange)
+        : (l10n.txSplitOver(unassignedText), AikoColors.dangerRed);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          l10n.txSplitTitle,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        for (var i = 0; i < _splits.length; i++) ...[
+          _CategoryPicker(
+            categories: categories,
+            groups: groups,
+            selectedCategoryId: _splits[i].categoryId,
+            transactionType: _type,
+            onSelected: (value) =>
+                setState(() => _splits[i].categoryId = value),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _splits[i].amount,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: l10n.txSplitAmount,
+                    suffixText: _selectedCurrency,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              IconButton(
+                tooltip: l10n.txSplitRemove,
+                onPressed: () => _removeSplitAt(i),
+                icon: const Icon(Icons.remove_circle_outline),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          children: [
+            TextButton.icon(
+              onPressed: _addSplit,
+              icon: const Icon(Icons.add),
+              label: Text(l10n.txSplitAdd),
+            ),
+            // Nothing to divide yet: no balance to show.
+            if (parseAmountInput(_amountController.text.trim()) != null)
+              Text(
+                balanceText,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: balanceColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
   }
 
   void _applyItemSuggestion(FinanceTransaction suggestion) {
@@ -1461,6 +1645,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     final accountCurrency = _accountCurrencyFor(accounts, _selectedAccountId);
     var effectiveAmount = amount;
     var effectiveCurrency = _selectedCurrency;
+    Decimal? appliedRate;
     if (accountCurrency != null && accountCurrency != _selectedCurrency) {
       // The field may still hold another pair's rate while one is fetched.
       if (_isFetchingRate ||
@@ -1481,14 +1666,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       }
       effectiveAmount = convertAtRate(amount, rate);
       effectiveCurrency = accountCurrency;
+      appliedRate = rate;
     }
 
-    // An edited row keeps its stored type (a refund stays a refund, a
-    // transfer leg keeps its direction) unless the user picked another one.
-    final txType =
-        existingTransaction != null &&
-            _type == _formTypeFor(existingTransaction.type)
-        ? existingTransaction.type
+    // An edited or copied row keeps its stored type (a refund stays a refund,
+    // a transfer leg keeps its direction) unless the user picked another one.
+    final typeSource = existingTransaction ?? widget.template;
+    final txType = typeSource != null && _type == _formTypeFor(typeSource.type)
+        ? typeSource.type
         : switch (_type) {
             TransactionType.income => TransactionType.income,
             TransactionType.transfer => TransactionType.transfer,
@@ -1553,6 +1738,55 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
+    final splits = <TransactionSplit>[];
+    if (_splits.isNotEmpty) {
+      final parts = <({String categoryId, Decimal amount})>[];
+      for (final draft in _splits) {
+        final categoryId = draft.categoryId;
+        final value = parseAmountInput(draft.amount.text.trim());
+        if (categoryId == null || value == null || value <= Decimal.zero) {
+          _showFormError(
+            context.l10n.txSplitIncomplete,
+            color: AikoColors.warningOrange,
+          );
+          return;
+        }
+        parts.add((categoryId: categoryId, amount: value));
+      }
+      if (parts.fold(Decimal.zero, (sum, part) => sum + part.amount) !=
+          amount) {
+        _showFormError(
+          context.l10n.txSplitMismatch,
+          color: AikoColors.warningOrange,
+        );
+        return;
+      }
+      // Each part converts like the amount; the last takes the rounding so
+      // the parts still add up to what is saved.
+      var converted = Decimal.zero;
+      for (var i = 0; i < parts.length; i++) {
+        final rate = appliedRate;
+        final value = i == parts.length - 1
+            ? effectiveAmount - converted
+            : rate == null
+            ? parts[i].amount
+            : convertAtRate(parts[i].amount, rate);
+        converted += value;
+        splits.add(
+          TransactionSplit(
+            categoryId: parts[i].categoryId,
+            amount: Money(amount: value, currency: effectiveCurrency),
+          ),
+        );
+      }
+    }
+    // A split's own category is its largest part's, for lists and rules.
+    final categoryId = splits.isEmpty
+        ? _selectedCategoryId
+        : splits
+              .reduce((a, b) => b.amount.amount > a.amount.amount ? b : a)
+              .categoryId;
+
     final savedTx = FinanceTransaction(
       id: txId,
       userId: existingTransaction?.userId ?? '',
@@ -1560,11 +1794,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       type: txType,
       amount: Money(amount: effectiveAmount, currency: effectiveCurrency),
       date: _selectedDate,
-      categoryId: _selectedCategoryId,
+      categoryId: categoryId,
       merchant: itemName.isEmpty ? categoryName : itemName,
       note: _noteController.text.trim(),
       tags: tags,
-      splits: existingTransaction?.splits ?? const [],
+      splits: splits,
       status: existingTransaction?.status ?? TransactionStatus.posted,
       isRecurring: _isRecurring,
       recurringFrequency: _isRecurring ? _recurringFrequency : null,
@@ -1572,6 +1806,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       reminderAt: _reminderAt,
       transferGroupId: existingTransaction?.transferGroupId,
     );
+
+    if (existingTransaction == null) {
+      final match = findLikelyDuplicate(
+        savedTx,
+        ref.read(transactionsProvider).value ?? const [],
+      );
+      if (match != null && !await _confirmLikelyDuplicate(match)) return;
+    }
 
     final saved = await ref
         .read(transactionsProvider.notifier)
@@ -1583,6 +1825,37 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     if (!mounted) return;
     _showSaveSuccess(context.l10n.txSaved, unsavedAttachments: unsaved);
     Navigator.of(context).pop(saved);
+  }
+
+  /// Asks before saving a new entry that looks like [match], an entry
+  /// already saved (see [findLikelyDuplicate]). True to save anyway.
+  Future<bool> _confirmLikelyDuplicate(FinanceTransaction match) async {
+    final l10n = context.l10n;
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.txDuplicateTitle),
+        content: Text(
+          l10n.txDuplicateBody(
+            match.merchant ?? l10n.txUntitled,
+            match.amount.format(),
+            DateFormat.yMMMd(locale).format(match.date),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.txDuplicateSaveAnyway),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
   }
 
   /// Saves a transfer as two linked rows: an outflow leaving the source
@@ -2144,14 +2417,30 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                           CategoryGroupDefaults.unfiledGroupId)
                         group,
                   ];
-                  return _CategoryPicker(
-                    categories: activeCategories,
-                    groups: orderedGroups,
-                    selectedCategoryId: _selectedCategoryId,
-                    transactionType: _type,
-                    onSelected: (value) {
-                      setState(() => _selectedCategoryId = value);
-                    },
+                  if (_splits.isNotEmpty) {
+                    return _buildSplitEditor(activeCategories, orderedGroups);
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _CategoryPicker(
+                        categories: activeCategories,
+                        groups: orderedGroups,
+                        selectedCategoryId: _selectedCategoryId,
+                        transactionType: _type,
+                        onSelected: (value) {
+                          setState(() => _selectedCategoryId = value);
+                        },
+                      ),
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: TextButton.icon(
+                          onPressed: _startSplit,
+                          icon: const Icon(Icons.call_split),
+                          label: Text(context.l10n.txSplitAction),
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),
@@ -5440,4 +5729,13 @@ List<FinanceTransaction> _filteredItemNameSuggestions(
         return name.contains(query) && name != query;
       })
       .toList(growable: false);
+}
+
+/// One part of a split amount being edited in the form.
+class _SplitDraft {
+  _SplitDraft({this.categoryId, String amount = ''})
+    : amount = TextEditingController(text: amount);
+
+  String? categoryId;
+  final TextEditingController amount;
 }

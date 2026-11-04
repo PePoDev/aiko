@@ -25,7 +25,7 @@ users/{uid}/
   category_groups/{id}
   investment_holdings/{id}
   attachments/{id}
-  transaction_splits/{id}     # allowed by rules; not written by the app today
+  transaction_splits/{id}     # allowed by rules; not written (splits live in the transaction)
   preferences/{key}           # {value: string} or {items: {item: string}}
   integrations/line           # read-only to clients
 line_links/{lineUserId}       # server only
@@ -82,6 +82,7 @@ Domain: `FinanceTransaction` (`lib/features/transactions/domain/transaction.dart
 | `category_id` | string? | A default category's per-user clone ID or a custom category ID |
 | `merchant`, `note` | string? | |
 | `tags` | string[] | |
+| `splits` | list? | Present only on a split transaction: `{category_id, amount (decimal string), note}` per part, in the transaction's currency, adding up to `amount`. `category_id` is then the largest part's. At most 50 (Security Rules) |
 | `status` | string | `draft`, `posted` (default), `voided`, `archived` |
 | `is_recurring` | bool | |
 | `recurring_frequency` | string? | `once`, `daily`, `weekly`, `monthly`, `annually` |
@@ -100,7 +101,7 @@ Domain: `FinanceTransaction` (`lib/features/transactions/domain/transaction.dart
 
 Recurring rows are templates. `RecurringProjection` generates display-only future occurrences with IDs like `<id>#preview#<date>`; previews are never saved.
 
-`FinanceTransaction.splits` exists in the domain, and the repository validates that splits sum to the amount, but the transaction codec does not persist splits and no screen creates them yet.
+Splits are stored inline in the transaction document (`splits` above), so a split saves, syncs and deletes with its transaction. `FinanceTransaction.categoryShares` gives each part (or the whole amount in `category_id`); budgets, the monthly report, the cash-flow Sankey and Ask Aiko's server tools count each part in its own category, and the repository rejects parts that don't add up to the amount.
 
 ### `categories`
 
@@ -140,7 +141,7 @@ Domain: `Profile` (`lib/features/settings/domain/profile.dart`). Record: `Offlin
 | `base_currency`, `country`, `timezone` | Defaults `THB`, `TH` (`kDefaultBaseCurrency`, `kDefaultCountry`) and the device's timezone, or `Asia/Bangkok` when it isn't known (`defaultProfileTimezone`), with or without an account |
 | `preferred_theme` | `system`, `light`, `dark` |
 | `aiko_character_visibility`, `aiko_personality_setting` | Defaults `full`, `supportive` |
-| `security_status` | `notConfigured`, `pinEnabled`, `biometricEnabled`, `lockedOut` |
+| `security_status` | `notConfigured`, `pinEnabled`, `biometricEnabled`, `lockedOut`. Kept for compatibility: the app lock is per device (the `aiko_app_lock_*` device keys), so this synced field stays `notConfigured` |
 | `full_name`, `gender`, `date_of_birth`, `phone_number` | Optional personal fields; `gender` defaults to `preferNotToSay` |
 | `avatar_path` | Device cache path of this save's photo, `aiko-cache:avatars/{uid}/{stamp}.{ext}`; other devices fall back to the URL |
 | `avatar_url` | Firebase Storage download URL. Keeps the previous photo's URL until the new upload finishes; a failed upload never clears it. Removing the photo clears both fields |
@@ -148,7 +149,7 @@ Domain: `Profile` (`lib/features/settings/domain/profile.dart`). Record: `Offlin
 
 ### `investment_holdings`
 
-Domain: `InvestmentHolding` (`lib/features/investments/domain/investment_holding.dart`). Record: `OfflineInvestmentHolding`. Fields: `id`, `user_id`, `symbol`, `asset_class`, `quantity`, `average_cost`, `current_price`, `market_value` (decimal strings), `currency`, `target_allocation_percent` (number, optional; no UI sets it yet), `created_at`, `updated_at`, `version`.
+Domain: `InvestmentHolding` (`lib/features/investments/domain/investment_holding.dart`). Record: `OfflineInvestmentHolding`. Fields: `id`, `user_id`, `symbol`, `asset_class`, `quantity`, `average_cost`, `current_price`, `market_value` (decimal strings), `currency`, `target_allocation_percent` (number, optional; unused: targets are per asset class, `allocation_targets_v1`), `created_at`, `updated_at`, `version`.
 
 ### `attachments`
 
@@ -174,6 +175,7 @@ Small synced settings, through `SyncedPreferences` (`lib/core/storage/synced_pre
 | `aiko_language_code` | value | `en` or `th`; absent = follow device | `AppLocaleController` |
 | `transaction_rules_v2` | items | One item per rule id; the value is the `TransactionRule` JSON | `TransactionRuleStore` |
 | `travel_mode_v1` | value | JSON of the active trip and exchange rate. Each foreign fee is the money JSON plus an optional `merchant` (fees saved without one still load) | `TravelModeNotifier` |
+| `allocation_targets_v1` | items | One item per asset class (`Stocks`, `Bonds`, …); the value is its target percent, `0` for none. Never written = Stocks 70 / Bonds 30 | `AllocationTargetStore` |
 | `learning_progress_v2` | items | One item per `<lesson key>:<level>` reached (`read`, `completed`), value empty; a lesson's progress is its highest level, so it never goes back | `LessonProgressStore` |
 | `dismissed_notifications_v2` | items | One item per dismissed notification id; the value is when it was dismissed (ISO). Dismissals of notifications no longer shown are dropped after 60 days | `NotificationDismissalStore` |
 
@@ -191,6 +193,9 @@ These values never sync.
 | --- | --- | --- |
 | Secure storage | `aiko_offline_user_id` | Current owner ID (`local:<uuid>` or uid) |
 | Secure storage | `aiko_known_account` | `true` after a successful sign-in; routes returning users to `/auth` |
+| Secure storage | `aiko_app_lock_pin` | App lock: `<salt>:<SHA-256 of salt and PIN>`; absent = lock off (`AppLockStore`) |
+| Secure storage | `aiko_app_lock_biometric` | `true` when fingerprint/face unlock is on |
+| Secure storage | `aiko_app_lock_failures`, `aiko_app_lock_until` | Wrong PINs in a row, and when PIN checks start again after a lockout (ISO) |
 | Secure storage | `aiko_guest_mode` | `true` while a cloud build is used without an account ([Architecture](architecture.md#guest-mode-and-sign-in)) |
 | Secure storage | `aiko_guest_claim:<uid>` | How an interrupted guest sign-in should finish (`newAccount` or `existingAccount`) |
 | Secure storage | `aiko_defaults_seeded:<uid>` | Stamp recording that this device knows the user's profile and default categories exist ([Cost](cost.md)) |

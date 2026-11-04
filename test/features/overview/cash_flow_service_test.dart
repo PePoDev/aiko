@@ -68,6 +68,36 @@ void main() {
     expect(custom.amount, Money.parse('200', 'USD'));
   });
 
+  test('sankey buckets each part of a split expense in its own group', () {
+    final split = FinanceTransaction(
+      id: 'split',
+      userId: 'u',
+      accountId: 'a',
+      type: TransactionType.expense,
+      amount: Money.parse('100', 'USD'),
+      date: DateTime(2026, 6, 2),
+      splits: [
+        TransactionSplit(categoryId: 'rent', amount: Money.parse('70', 'USD')),
+        TransactionSplit(categoryId: 'fun', amount: Money.parse('30', 'USD')),
+      ],
+    );
+    final sankey = const CashFlowService().sankey(
+      transactions: [split],
+      categories: [
+        cat('rent', CategoryBudgetGroup.needs),
+        cat('fun', CategoryBudgetGroup.wants),
+      ],
+      asOf: asOf,
+    );
+    expect(
+      {
+        for (final slice in sankey.outflowByGroup)
+          slice.group: slice.amount.amount.toString(),
+      },
+      {CategoryBudgetGroup.needs: '70', CategoryBudgetGroup.wants: '30'},
+    );
+  });
+
   test('empty input is inactive', () {
     expect(
       const CashFlowService()

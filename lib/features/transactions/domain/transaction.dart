@@ -138,7 +138,20 @@ class FinanceTransaction {
   final String? merchant;
   final String? note;
   final List<String> tags;
+
+  /// Parts of [amount] in different categories, adding up to it; empty
+  /// when the whole amount is in [categoryId].
   final List<TransactionSplit> splits;
+
+  /// How [amount] divides between categories: each split, or the whole
+  /// amount in [categoryId].
+  List<({String? categoryId, Money amount})> get categoryShares =>
+      splits.isEmpty
+      ? [(categoryId: categoryId, amount: amount)]
+      : [
+          for (final split in splits)
+            (categoryId: split.categoryId, amount: split.amount),
+        ];
   final TransactionStatus status;
 
   /// True when this transaction is part of a recurring series.

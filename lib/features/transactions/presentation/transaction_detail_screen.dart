@@ -68,6 +68,17 @@ class _TransactionDetailScreenState
     setState(() => _transaction = updated);
   }
 
+  /// Opens the form filled from this transaction to save a new copy.
+  Future<void> _duplicateTransaction() async {
+    final copy = await openAikoPage<FinanceTransaction>(
+      context,
+      TransactionFormScreen(template: _transaction),
+    );
+    if (copy == null || !mounted) return;
+    // Show the new copy, as after saving any new transaction.
+    setState(() => _transaction = copy);
+  }
+
   Future<void> _deleteTransaction() async {
     // A linked transfer leg is deleted together with its partner.
     final isLinkedTransfer = transferPartnersOf(
@@ -197,12 +208,18 @@ class _TransactionDetailScreenState
             onPressed: _deleteTransaction,
             icon: const Icon(Icons.delete_outline),
           ),
-          if (!isAdjustment)
+          if (!isAdjustment) ...[
+            IconButton(
+              tooltip: context.l10n.txDuplicateAction,
+              onPressed: _duplicateTransaction,
+              icon: const Icon(Icons.content_copy_outlined),
+            ),
             IconButton(
               tooltip: context.l10n.txEditTitle,
               onPressed: _editTransaction,
               icon: const Icon(Icons.edit_outlined),
             ),
+          ],
         ],
       ),
       body: ListView(
@@ -424,25 +441,17 @@ class _SplitRow extends StatelessWidget {
   const _SplitRow({required this.split, required this.categoriesAsync});
 
   final TransactionSplit split;
-  final AsyncValue categoriesAsync;
+  // Typed: displayName is an extension, which a dynamic call can't reach.
+  final AsyncValue<List<Category>> categoriesAsync;
 
   @override
   Widget build(BuildContext context) {
     final categoryName =
-        (categoriesAsync.whenOrNull(
-                  data: (categories) {
-                    try {
-                      final category = categories.firstWhere(
-                        (c) => c.id == split.categoryId,
-                      );
-                      return category.displayName(context.l10n);
-                    } catch (_) {
-                      return context.l10n.uncategorized;
-                    }
-                  },
-                ) ??
-                context.l10n.uncategorized)
-            as String;
+        categoriesAsync.value
+            ?.where((c) => c.id == split.categoryId)
+            .firstOrNull
+            ?.displayName(context.l10n) ??
+        context.l10n.uncategorized;
 
     return _DetailRow(label: categoryName, value: split.amount.format());
   }

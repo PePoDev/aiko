@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,8 +18,11 @@ import '../../accounts/presentation/account_form/account_form_screen.dart';
 import '../../accounts/presentation/accounts_screen.dart';
 import '../../categories/presentation/category_visual.dart';
 import '../../dashboard/domain/app_notification.dart';
+import '../../investments/application/allocation_service.dart';
+import '../../investments/application/allocation_targets.dart';
 import '../../investments/application/investments_provider.dart';
 import '../../investments/domain/investment_holding.dart';
+import '../../investments/presentation/allocation_targets_sheet.dart';
 import '../application/goal_forecast_service.dart';
 import '../domain/monthly_report.dart';
 
@@ -766,10 +770,73 @@ class AssetAllocationScreen extends ConsumerWidget {
                         ),
                     ],
                   ),
+                  _AllocationTargetsCard(slices: allocation.slices),
                 ],
               ],
             );
           },
+        ),
+      ],
+    );
+  }
+}
+
+/// Each asset class's target next to its share now, and the button that
+/// edits the targets ([showAllocationTargetsSheet]).
+class _AllocationTargetsCard extends ConsumerWidget {
+  const _AllocationTargetsCard({required this.slices});
+
+  final List<AllocationSlice> slices;
+
+  /// Points off target before a class shows as needing a rebalance, as in
+  /// [AllocationService.rebalanceAlerts].
+  static const _tolerance = 5;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final targets =
+        ref.watch(allocationTargetsProvider).value ??
+        AllocationTargetStore.defaults;
+    double shareOf(String assetClass) => slices
+        .where((slice) => slice.assetClass == assetClass)
+        .fold(0.0, (sum, slice) => sum + slice.percent);
+    String percentText(double percent) => percent == percent.roundToDouble()
+        ? percent.toStringAsFixed(0)
+        : percent.toStringAsFixed(1);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AikoDataListCard(
+          title: l10n.allocationTargetsTitle,
+          icon: Icons.track_changes,
+          accentColor: AikoColors.analyticsTeal,
+          rows: [
+            if (targets.isEmpty)
+              AikoDataRow(label: l10n.allocationTargetsNone, value: ''),
+            for (final target in targets)
+              AikoDataRow(
+                label: investmentAssetClassLabel(target.assetClass, l10n),
+                value: l10n.allocationTargetRow(
+                  percentText(target.targetPercent),
+                  shareOf(target.assetClass).toStringAsFixed(1),
+                ),
+                color:
+                    (shareOf(target.assetClass) - target.targetPercent).abs() >
+                        _tolerance
+                    ? AikoColors.warningOrange
+                    : AikoColors.successGreen,
+              ),
+          ],
+        ),
+        Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: TextButton.icon(
+            onPressed: () =>
+                showAllocationTargetsSheet(context, current: targets),
+            icon: const Icon(Icons.tune),
+            label: Text(l10n.allocationTargetsEdit),
+          ),
         ),
       ],
     );
@@ -913,7 +980,143 @@ class _HoldingBody extends StatelessWidget {
             ),
           ],
         ),
+        // A different holding starts a new estimate.
+        _SellEstimateCard(key: ValueKey(holding.id), holding: holding),
       ],
+    );
+  }
+}
+
+/// What selling some of [holding] would bring in, cost and gain
+/// ([AllocationService.capitalGainsOnSale]); before fees and tax.
+class _SellEstimateCard extends StatefulWidget {
+  const _SellEstimateCard({required this.holding, super.key});
+
+  final InvestmentHolding holding;
+
+  @override
+  State<_SellEstimateCard> createState() => _SellEstimateCardState();
+}
+
+class _SellEstimateCardState extends State<_SellEstimateCard> {
+  late final _quantity = TextEditingController(
+    text: widget.holding.quantity.toString(),
+  );
+  late final _price = TextEditingController(
+    text: widget.holding.currentPrice.amount.toString(),
+  );
+
+  @override
+  void dispose() {
+    _quantity.dispose();
+    _price.dispose();
+    super.dispose();
+  }
+
+  CapitalGainsEstimate? get _estimate {
+    final quantity = Decimal.tryParse(_quantity.text.trim());
+    final price = Decimal.tryParse(_price.text.trim());
+    if (quantity == null || price == null || price <= Decimal.zero) {
+      return null;
+    }
+    try {
+      return const AllocationService().capitalGainsOnSale(
+        holding: widget.holding,
+        quantitySold: quantity,
+        salePrice: Money(
+          amount: price,
+          currency: widget.holding.currentPrice.currency,
+        ),
+      );
+    } on ArgumentError {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final estimate = _estimate;
+    final gain = estimate?.gainLoss;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l10n.holdingSellEstimateTitle,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _quantity,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: l10n.holdingSellQuantity,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _price,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: l10n.holdingSellPrice,
+                      suffixText: widget.holding.currentPrice.currency,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (estimate == null || gain == null)
+              Text(
+                l10n.holdingSellInvalid(widget.holding.quantity.toString()),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AikoColors.dangerRed,
+                ),
+              )
+            else ...[
+              AikoDataRow(
+                label: l10n.holdingSellProceeds,
+                value: estimate.proceeds.format(),
+              ),
+              AikoDataRow(
+                label: l10n.holdingSellCostBasis,
+                value: estimate.costBasis.format(),
+              ),
+              AikoDataRow(
+                label: l10n.holdingSellGain,
+                value: '${gain.isNegative ? '' : '+'}${gain.format()}',
+                color: gain.isNegative
+                    ? AikoColors.dangerRed
+                    : AikoColors.successGreen,
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              l10n.holdingSellNote,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -68,6 +68,35 @@ void main() {
       expect(result.ratio, closeTo(0.25, 0.001));
     });
 
+    test('a split expense counts only its part in the category', () {
+      final category = categoryWithBudget(Money.parse('200', 'USD'));
+      final split = FinanceTransaction(
+        id: 's1',
+        userId: 'u',
+        accountId: 'acc',
+        type: TransactionType.expense,
+        amount: Money.parse('100', 'USD'),
+        date: DateTime.utc(2026, 6, 15),
+        splits: [
+          TransactionSplit(
+            categoryId: 'cat-1',
+            amount: Money.parse('40', 'USD'),
+          ),
+          TransactionSplit(
+            categoryId: 'cat-other',
+            amount: Money.parse('60', 'USD'),
+          ),
+        ],
+      );
+      final result = service.progressFor(
+        category,
+        [split],
+        periodStart: DateTime.utc(2026, 6, 1),
+        periodEnd: DateTime.utc(2026, 6, 30, 23, 59, 59),
+      );
+      expect(result.used.amount.toString(), '40');
+    });
+
     test('ignores income and non-posted transactions', () {
       final category = categoryWithBudget(Money.parse('200', 'USD'));
       final txns = [

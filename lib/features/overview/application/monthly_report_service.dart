@@ -84,8 +84,11 @@ class MonthlyReportService {
     for (final t in transactions) {
       if (t.type != TransactionType.expense) continue;
       if (!range.contains(t.date)) continue;
-      byCategory[t.categoryId] =
-          (byCategory[t.categoryId] ?? Decimal.zero) + t.amount.amount;
+      for (final share in t.categoryShares) {
+        byCategory[share.categoryId] =
+            (byCategory[share.categoryId] ?? Decimal.zero) +
+            share.amount.amount;
+      }
     }
     if (byCategory.isEmpty) return const [];
 

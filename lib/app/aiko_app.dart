@@ -12,6 +12,7 @@ import '../features/auth/data/guest_mode.dart';
 import '../features/settings/domain/profile.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/aiko_theme.dart';
+import 'app_lock_gate.dart';
 import 'app_router.dart';
 import 'locale_controller.dart';
 import 'providers.dart';
@@ -128,6 +129,9 @@ class _AikoAppState extends State<AikoApp> {
             supportedLocales: AppLocalizations.supportedLocales,
             locale: locale,
             routerConfig: _router,
+            // This device's app lock covers every route.
+            builder: (context, child) =>
+                AppLockGate(child: child ?? const SizedBox.shrink()),
           );
         },
       ),

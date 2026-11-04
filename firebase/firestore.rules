@@ -10,7 +10,8 @@ service cloud.firestore {
     }
     function validFinance(collection) {
       return (collection != 'transactions' ||
-        (decimal(request.resource.data.amount) && request.resource.data.currency is string && request.resource.data.account_id is string)) &&
+        (decimal(request.resource.data.amount) && request.resource.data.currency is string && request.resource.data.account_id is string &&
+          request.resource.data.get('splits', []) is list && request.resource.data.get('splits', []).size() <= 50)) &&
         (collection != 'accounts' || decimal(request.resource.data.current_balance)) &&
         (collection != 'investment_holdings' ||
           (decimal(request.resource.data.quantity) && decimal(request.resource.data.average_cost) && decimal(request.resource.data.current_price)));

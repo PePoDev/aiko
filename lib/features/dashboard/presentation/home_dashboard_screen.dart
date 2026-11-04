@@ -1196,10 +1196,11 @@ class _CategoryBudgetCard extends StatelessWidget {
         .toList(growable: false);
     final usageByCategory = <String, double>{};
     for (final transaction in monthExpenses) {
-      final categoryId = transaction.categoryId ?? 'uncategorized';
-      usageByCategory[categoryId] =
-          (usageByCategory[categoryId] ?? 0) +
-          transaction.amount.amount.toDouble();
+      for (final share in transaction.categoryShares) {
+        final categoryId = share.categoryId ?? 'uncategorized';
+        usageByCategory[categoryId] =
+            (usageByCategory[categoryId] ?? 0) + share.amount.amount.toDouble();
+      }
     }
     final categoryById = {
       for (final category in categories) category.id: category,

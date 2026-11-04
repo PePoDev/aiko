@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- App lock: unlock with fingerprint or face (local_auth). -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.CAMERA"/>
     <!-- Auto-capture transactions from bank SMS. NOTE: Google Play restricts
          READ_SMS to default SMS handlers; shipping this needs a Play Console

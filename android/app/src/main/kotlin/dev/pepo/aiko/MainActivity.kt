@@ -1,10 +1,11 @@
 package dev.pepo.aiko
 
 import android.content.Intent
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 
-class MainActivity : FlutterActivity() {
+// A FragmentActivity: local_auth shows its fingerprint/face prompt in a fragment.
+class MainActivity : FlutterFragmentActivity() {
     private var capture: CaptureBridge? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

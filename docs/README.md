@@ -17,7 +17,7 @@ Start with the project [README](../README.md) for the product, brand, rules and 
 | [Design system implementation](design-system.md) | Find the theme token or shared widget for a design rule; how one UI adapts to web and mobile |
 | [Localization](localization.md) | Add strings or languages |
 | [Contributing](contributing.md) | Follow the workflow, conventions and step-by-step recipes |
-| [Firebase development and migration](firebase.md) | Emulator details and importing a legacy data export |
+| [Firebase development](firebase.md) | Emulator details, server providers and verification |
 
 `docs/superpowers/` holds dated design specs and implementation plans for past features. They are a historical record, not current instructions.
 

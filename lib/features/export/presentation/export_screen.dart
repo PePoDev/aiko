@@ -162,6 +162,12 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Hold what the export reads: opened directly, nothing else has loaded it,
+    // and a provider nobody holds is disposed part-way through loading.
+    ref.watch(transactionsProvider);
+    ref.watch(allCategoriesProvider);
+    ref.watch(accountsProvider);
+
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.exportTitle)),
       body: ListView(

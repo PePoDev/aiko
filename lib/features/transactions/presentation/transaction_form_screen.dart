@@ -1687,13 +1687,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       if (pendingTagText.isNotEmpty) pendingTagText,
     }.toList(growable: false);
     final itemName = _titleController.text.trim();
-    final categoryName = _categoryNameFor(
-      ref
-              .read(categoriesProvider)
-              .whenOrNull(data: (categories) => categories) ??
-          const [],
-      _selectedCategoryId,
-    );
 
     // A transfer is recorded as a linked outflow/inflow pair: one leg leaves
     // the source account, the other arrives in the destination. Editing a
@@ -1786,6 +1779,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         : splits
               .reduce((a, b) => b.amount.amount > a.amount.amount ? b : a)
               .categoryId;
+    final categoryName = _categoryNameFor(
+      ref
+              .read(categoriesProvider)
+              .whenOrNull(data: (categories) => categories) ??
+          const [],
+      categoryId,
+    );
 
     final savedTx = FinanceTransaction(
       id: txId,

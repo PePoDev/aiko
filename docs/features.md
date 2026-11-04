@@ -16,7 +16,7 @@ What each feature module does, where to find it, and how it behaves today. Modul
 | [investments](#investments) | Settings → Investments | Holdings, allocation, rebalance alerts, live prices |
 | [calculators](#calculators) | Settings → Calculators | Calculator library |
 | [learning_hub](#learning-hub) | Settings → Learning Hub | Lessons, quizzes, saved progress, inline glossary |
-| [export](#export) | Settings → Export | CSV and HTML statement export |
+| [export](#export) | Settings → Export | CSV, PDF and HTML statement export |
 | [travel_mode](#travel-mode) | Transactions app bar | Trip budget, exchange rate, foreign fees |
 | [settings](#settings-and-profile) | Overview → Settings; Profile from Settings, the Aiko tab or the sidebar | Preferences, profile, LINE, account deletion |
 | [onboarding](#onboarding) | Startup, sign-up | Seeds default Cash and Bank accounts |
